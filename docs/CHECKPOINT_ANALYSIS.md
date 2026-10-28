@@ -82,14 +82,49 @@ uv run python -m scripts.active_learning_sampler \
   --n_samples 20 --output reports/review_queue.json
 ```
 
+For a broader spatial spread with a smaller inference budget:
+
+```bash
+uv run python -m scripts.active_learning_sampler \
+  --checkpoint best_model.pt --volume /path/to/ct.zarr \
+  --n-samples 20 --min-distance 128 --max-eval-patches 1000
+```
+
+Omitting `--output` chooses a new UTC-timestamped JSON file under `reports/`.
+An explicit output must be new and separate from the checkpoint, local volume,
+labels and explicit patch catalog. Existing files, symlinks (including broken
+ones), and paths inside inputs are rejected before model loading. Queue writes
+are staged and published only after serialization succeeds; a previous queue is
+never replaced. Writers must be serialized and source inputs kept stable.
+Invalid requests exit nonzero with a concise error.
+
 The queue ranks patches by mean prediction entropy. Before 2026-10-13 it added
 `0.3 * (1 - sigmoid(qc))`, but the QC head is trained on the patch's mean fiber
 target, not on confidence. At most the requested positive count is returned. Dataset order and
 `jitter=False` are required so returned y/x positions identify the scored patches.
-Custom reordered batches and invalid ink logits are rejected. The CLI validates
+Scores are in nats, finite and nonnegative, including exact probabilities 0 and
+1 in half precision. Ties retain evaluated catalog order. Custom samplers,
+batch samplers, collators and unordered worker delivery are rejected; use the
+standard sequential `DataLoader`, default collation and ordered workers.
+Duck-typed loaders must themselves guarantee that order. Changes to the catalog
+during scoring and invalid ink logits are rejected. The CLI validates
 catalog coordinates, passes checkpoint ridge sigma, and records applied model
 settings. Optional `--patches_json` must exist and contain valid coordinates.
-Catalogs larger than 5000 entries use reproducible seeded subsampling.
+`--max-eval-patches` accepts 1–5000 (default 5000). Larger catalogs use seed-42
+subsampling without replacement, restored to source-catalog order before scoring.
+The budget caps model evaluations, not catalog discovery, input loading, or peak
+VRAM. `--patches-json` and `--n-samples` are aliases for the underscore spellings.
+
+`--min-distance` is a finite nonnegative Euclidean distance in the source volume's
+y/x pixel grid (default 0). Candidates are visited by descending entropy; one is
+accepted only if its center is at least that distance from every already accepted
+patch. Equal patch sizes make center distances equal to top-left distances. This
+greedy filter can return fewer than requested. It does not guarantee nonoverlap,
+an optimal spread, coverage of the full volume, or physical distances in microns.
+The queue's `selection` records the policy, spacing, source/evaluated patch counts,
+requested/returned counts, evaluation budget and subsampling seed. Path references
+identify requested inputs; they are not content fingerprints or evidence that
+mutable source files remain unchanged after the run.
 
 Review queues are suggestions for manual inspection; uncertainty scores are not
 an accuracy measurement. Queue sampling reads the buffered context for ridge
