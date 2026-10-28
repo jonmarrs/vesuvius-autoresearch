@@ -85,7 +85,9 @@ def running_pid(repo):
 # session of its own: the loop's train.py and the ablation's cell. Run here,
 # both write run_result.json, and train.py the loop's files as well.
 RUN_SCRIPTS = ("scripts/training/train.py", "scripts/train_with_new_augs.py")
-RUN_MODULES = frozenset(name.removesuffix(".py").replace("/", ".") for name in RUN_SCRIPTS)
+RUN_MODULES = frozenset(
+    name.removesuffix(".py").replace("/", ".") for name in RUN_SCRIPTS
+)
 
 
 def _python_module(args):

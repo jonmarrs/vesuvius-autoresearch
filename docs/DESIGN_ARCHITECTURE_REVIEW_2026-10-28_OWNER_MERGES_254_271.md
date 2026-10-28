@@ -6,7 +6,8 @@ Reviewer: Claude (Anthropic), at the owner's request.
 This round covers the firings from 17:13 UTC on 10-27 to 13:25 UTC on 10-28. Main moved from `3a04216d` (#254) to
 `fe9e58e3` (#267) before it started and to `f87ba484` (#268–#271) during it; this branch merges #268–#271. Four
 read-only reviews ran beside mine, one each on the loop code, the registered analyses, the filing and ScrollGT, and
-#268–#271. I checked every finding of theirs that this record uses before acting on it.
+#268–#271. I checked each of their findings before acting on it. Under "Verified", the items marked (mine) are
+checks I ran; the rest are theirs.
 - **#254** reads the batchgeneratorsv2 confirmation: the registered command gives no reading (its join left 7 cycles
   unmatched); with each run pinned by its log header, all four predictions hold.
 - **#256** adds a manual promotion of a kept candidate; **#262** uses it to promote batchgeneratorsv2's 6th window
@@ -36,7 +37,8 @@ read-only reviews ran beside mine, one each on the loop code, the registered ana
   - The fix reaches the loop only with a pull, and a pull into the loop's checkout ends the unchanged-control
     window. Until then the running loop can still promote a control cycle by the rule, which would end that window
     as "a promotion".
-- **A manual promotion no longer leaves the new checkpoint beside the old config** (`scripts/promote_loop_candidate.py`).
+- **A manual promotion no longer leaves the new checkpoint beside the old config**
+  (`scripts/promote_loop_candidate.py`).
   - `apply` wrote `config.json` and the history after the checkpoint and the logs, outside `promote_files`'
     rollback. A failure there left the promotion half applied, and a restart would train the new checkpoint with
     the old config.
@@ -48,19 +50,25 @@ read-only reviews ran beside mine, one each on the loop code, the registered ana
   as #252's report says. Corrected in place and marked; a test in `tests/test_loop_confirmation_audit.py` binds it.
 - **The readout's faults section notes #260.** #260 made the three registered functions cut at exactly 8 standing
   cycles too. `registered_verdict` still counts the join's unmatched cycles before the cut, so with an `--until`
-  past the 8th standing cycle's end a later cycle without its run still gives UNMATCHED_RUNS. A synthetic window
-  with 8 standing cycles and 60 others gives CONFIRMED at the 8th's end, and UNMATCHED_RUNS at
-  `--until 2026-10-29T16:00:00` when one of 3 later cycles has no run.
+  past the 8th standing cycle's end a later cycle without its run still gives UNMATCHED_RUNS. The
+  registered-analysis review's synthetic window with 8 standing cycles and 60 others gives CONFIRMED at the 8th's
+  end, and UNMATCHED_RUNS at `--until 2026-10-29T16:00:00` when one of 3 later cycles has no run.
 - **The filing's corpus-check and 0.9.1 figures are bound** (`tests/test_filing_2026_10_numbers.py`). The draft says
   every figure in it is bound by a test. #266's (21 rows, 315 field values, a 7 GiB limit) and #267's (scoring
   version 3, Python 3.10–3.14 CI) were not. The new test fails on each of four altered figures.
 - **The corpus record's expected rows are tied to published ones** (`tests/test_scrollgt_corpus_reproduction.py`).
   The record checked each scorecard only against its own `expected`. All 21 equal the connected-components rows
   finding 91 committed (`reports/neural_tracer_entrant.json`).
+- **Four files pass the pre-commit `ruff-format` hook again.**
+  - #270 and #271 left `scripts/loop_control.py`, `scripts/run_post_sprint_villa_handoff.py` and
+    `tests/test_post_sprint_villa_handoff.py` unformatted. All three were clean before #270.
+  - `tests/test_prize_readiness.py` was already unformatted before #268.
+  - The next commit touching any of them would have failed the hook. `ruff format` changes no syntax tree, and
+    their 103 tests pass.
 
 ## Verified, no change needed
 
-- **#254's records regenerate.**
+- **#254's records regenerate** (mine, with the registered-analysis review's float comparison).
   - The registered replicate-rule record is byte-identical, and so is the host-load window.
   - The corrected one differs only in 969 floats of the centred null, at most 9.6e-13 relative. Its counts,
     readings and first promotion (the 6th standing cycle, 10-26 18:33:16, score 7.1689) are the same.
@@ -73,17 +81,18 @@ read-only reviews ran beside mine, one each on the loop code, the registered ana
   - The manual promotion requires `.loop_paused`, no lock holder, no run and no held incumbent. It takes the lock
     and re-checks the config, incumbent and input bytes. It backs up all five files and commits only the three
     promotion files.
-  - The committed `best_model.pt` is sha256 `c80885969cc5b3d4…`: val_f1 0.2710039, ROC AUC 0.5884, AP lift 1.2379,
+  - The committed `best_model.pt` is sha256 c80885969cc5b3d4…: val_f1 0.2710039, ROC AUC 0.5884, AP lift 1.2379,
     complete 400/400 validation, as the readout says. Its saved config equals `config.json`.
   - The commit's +0.005242 is over the previous incumbent's 0.265762.
-- **#258's live rule is the frozen one.** It imports `scripts/loop_replicate_rule.scores` at its registered values.
-  A score depends only on earlier rows, so taking each cycle's last score equals the frozen first-firing replay.
+- **#258's live rule is the frozen one.** It imports `scores` from `scripts/loop_replicate_rule.py` at its
+  registered values. A score depends only on earlier rows, so taking each cycle's last score equals the frozen
+  first-firing replay.
   - It reads only scored cycles that faced the same checkpoint bytes, budget, protocol, inputs, patch counts and
     baseline, with full identities. Crashed, blocked, NaN-AUC and pre-#263 records are left out.
   - Any promotion changes the incumbent's sha256, so the rule starts over.
   - `promote` re-checks that `last_model.pt` is this cycle's candidate and that the incumbent is unchanged. It
     restores the old files on a failed append and never raises into the loop.
-- **#260's header join and cut.**
+- **#260's header join and cut** (mine for the cut; the rest theirs).
   - `--registered` forces the val_f1 join and refuses `--join header`.
   - The header join requires one run matching shift, number, tweak, val_f1 and incumbent.
   - The `>=` cut is right in all three functions.
@@ -102,20 +111,46 @@ read-only reviews ran beside mine, one each on the loop code, the registered ana
   - The archive's hash matches, and it holds 84 files.
   - The harness sets `RLIMIT_AS` in a fresh child per target and refuses an output inside the source checkout.
   - The release record has five CI jobs on 3.10–3.14, all successful.
-- **The standard suite lists every new test file.** At `fe9e58e3`, `tests/test_loop_unchanged_control.py` imported
-  the live rule's module but was not in `VALIDATION_TESTS`, so the suite guard failed. #270 added it.
-- **The checks pass.**
-  - Ruff 0.9.10 `check` and `format` are clean on the seven changed Python files.
+- **The standard suite lists every new test file** (mine). At `fe9e58e3`, `tests/test_loop_unchanged_control.py`
+  imported the live rule's module but was not in `VALIDATION_TESTS`, so the suite guard failed. #270 added it.
+  `tests/test_villa_object_store_export_check.py` tests only a `repro/` script and is rightly left out.
+- **#271's supervisor startup.**
+  - A stop that arrives while a worker starts is queued, and replayed once the worker is recorded as active.
+    Handlers are installed only on the main thread and only over callable handlers, so nohup's ignored SIGHUP
+    stays ignored.
+  - The tests use a real `Popen` and a real `os.kill` between spawn and return. Against the old supervisor, 5 of
+    the new file's 10 fail.
+  - The handoff deadlines are relative durations enforced by `Popen.wait(timeout)`, so no timezone enters.
+    `--step-timeout` refuses 0, negatives, NaN and infinity before any lock or report write. A timeout exits 124,
+    after the step's process group is cleaned up and before the lock is released.
+- **#270 changes no training or promotion behaviour.**
+  - The validation label and input path functions moved to `scripts/training/input_paths.py` unchanged (their
+    syntax trees are identical). `promotion` and `train` re-export them, so existing monkeypatches still apply.
+    Only messages and docstrings changed.
+  - `loop_control` now also sees trainers started with `python -m`. The handoff holds the loop's lock, so the
+    watchdog and `start.sh` do not start the loop beside it, and `./stop.sh` stops it.
+  - The README and strategy figures match their records: students 0.731–0.746 against the teacher's 0.753, and
+    the legacy detector's ROC AUC 0.5176 with every pixel predicted positive.
+- **#268's verifier checks what its doc says** against Villa's exporter and reader at 39a8cf3a, fetched and
+  hash-checked by that review.
+  - Both passes check fresh exports, and the CT check mirrors the exporter's `run_ct`.
+  - A missing native dependency fails before the output directory is made.
+  - Extra fibers are caught by the object count. An empty check is refused.
+  - A FAILED report is written in `finally`.
+- **#269's figures match ScrollGT's audit** at 24b2da4c: 21 NML files, all exact, and 189 arrays (21 × 9).
+- **The checks pass** (mine).
+  - Ruff 0.9.10 `check` and `format` are clean on the eleven changed Python files.
   - Mypy, with the pre-commit hook's flags, is clean over the whole repository (814 files).
 
 ## Observations for the owner (not changed)
 
-- **The unchanged-control `read` can run before the window's last cycle is recorded** (`scripts/loop_unchanged_control.py`,
-  registered, so not changed here).
+- **The unchanged-control `read` can run before the window's last cycle is recorded**
+  (`scripts/loop_unchanged_control.py`, registered, so not changed here).
   - Once the wall clock passes the deadline, `status` calls the window complete. A cycle that started before the
     deadline is in the window, but it is recorded only when it ends, 15–20 minutes later.
-  - A synthetic journal read at the deadline plus 1 s gave INCOMPLETE (6 control, 5 reverse cycles). With the last
-    cycle's record it gave BEATS_UNCHANGED. The output does not record the time it was read.
+  - The registered-analysis review's synthetic journal, read at the deadline plus 1 s, gave INCOMPLETE (6 control,
+    5 reverse cycles). With the last cycle's record it gave BEATS_UNCHANGED. The output does not record the time it
+    was read.
   - Until the script changes, run `read` only once `cycles.jsonl` holds a cycle that started at or after
     23:00 UTC on Nov 3, or once the window has ended another way.
 - **#260 changed registered functions without an amendment.**
@@ -135,7 +170,7 @@ read-only reviews ran beside mine, one each on the loop code, the registered ana
     identifies the released benchmark.
   - Either the URL field or the checklist sentence needs to change; which is the owner's call.
 - **The plan's "All 12 URLs return HTTP 200" predates #261's steep-heading link.** The recorded check covers the
-  older link. At 08:21 UTC the new one (`blob/2fb41b27…`) returned 200 here. The Villa and ScrollGT links return
+  older link. At 08:21 UTC the new one (blob/2fb41b27…) returned 200 here. The Villa and ScrollGT links return
   403 from this environment, so I could not recheck them.
 - **The live loop:**
   - **A torn last line in `cycles.jsonl` turns the rule off.** The rule refuses a corrupt journal, as designed and
@@ -162,14 +197,28 @@ read-only reviews ran beside mine, one each on the loop code, the registered ana
     harness. The 21 skeleton hashes and the two 10-25 targets' files do match the earlier records.
   - The release record carries flags (`scoring_modules_identical_to_corpus_check`, `data_unchanged_from_v0_9_0`)
     without the hashes behind them.
+- **The workspace status tool can briefly block a launch.** `workspace_status.py` calls
+  `loop_control.running_pid`, which takes `autoresearch.lock` for an instant when it is free. A loop, ablation or
+  handoff starting in that instant refuses to start. `loop_control.py status` already does the same, but #270's
+  docs say the tool writes no research state.
+- **#268's verifier does not record the native library it tests.** The report's runtime has Python, NumPy and the
+  reader's path, and its source hash covers only the Python files. The `vc_object_store` bindings' version and path
+  are not in it.
+- **#268's decoder-against-Villa test skips here.** The Villa checkout is a partial clone without that blob. The
+  #268–#271 review ran Villa's `run_fibers` at 39a8cf3a against the verifier's expected fibers separately: rows and
+  coordinates were identical.
+- **A killed handoff's GPU steps are not seen as orphans.** If the handoff is SIGKILLed, the kernel releases its
+  lock, but its steps run on in their own sessions. `unsupervised_runs` recognises only the trainers, so the
+  watchdog can start the loop beside them. This is not new: before #270 the handoff held no lock.
 - **Doc audit entries are external.**
-  - `139c6873` is the loop checkout's commit (the readout).
-  - `38496eb8…` is ScrollGT's (the corpus report).
-  - `21b068d5…` is a Villa blob (#271's review).
+  - 139c6873 is the loop checkout's commit (the readout).
+  - 38496eb8… is ScrollGT's (the corpus report).
+  - 21b068d5… is a Villa blob (#271's review).
 
 ## Verification
 
 - **The changed test files**, with the guard set and the new tests of #256–#271, give 927 passed and 14 skipped.
-  The one failure is the standing `test_live_documents_stay_clean`.
-- **Doc audit:** against `fe9e58e3`, the merged branch adds one entry, the Villa blob above. Two `39a8cf3a` entries
+  The one failure is the standing `test_live_documents_stay_clean`, with the same 20 paths as on main.
+- **The four reformatted files' tests**, with #271's, give 103 passed.
+- **Doc audit:** against `fe9e58e3`, the merged branch adds one entry, the Villa blob above. Two 39a8cf3a entries
   are gone. This record adds no entries.
