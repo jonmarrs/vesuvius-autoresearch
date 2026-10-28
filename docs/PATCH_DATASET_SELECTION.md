@@ -90,6 +90,50 @@ uv run python scripts/check_patch_spatial_balance.py \
 The spatial checker reports diagnostics; follow the study's registered criteria
 instead of inventing new acceptance thresholds from observed outcomes.
 
+### Read machine-readable input checks
+
+Append `--json` to either checker to print one JSON report. For example:
+
+```sh
+uv run python scripts/check_patch_selection.py \
+  --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
+  --random /path/to/new_random --threshold 0.90 --json
+uv run python scripts/check_patch_spatial_balance.py \
+  --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
+  --random /path/to/new_stripmatch --full /path/to/full_dataset --json
+```
+
+Selection status is `PASS` or `FAIL`, scoped to nonempty positive-area patch
+directories, reference membership, the bootstrap threshold and the existing
+0.5 percentage-point area tolerance. Broken links, file entries, duplicate or
+nonfinite reference records, and changed membership cannot pass. Empty sets
+produce failure reports; undefined statistics are JSON `null` (text `n/a`).
+Singleton quartiles are undefined; larger sets retain the existing exclusive
+quartile method. A passing input check does not establish statistical power.
+
+The spatial diagnostic returns `MEASURED` or `FAIL`. Successful measurement
+leaves `balance_verdict: not_assessed` and winding calibration unverified; exit
+0 means the input diagnostic completed. Missing or conflicting geometry fails
+instead of silently reducing the population. With `--full`, every scored
+reference patch must have matching geometry in that source. Unscored full-source
+patches do not enter the reference-population comparison.
+
+The centre and cuts still derive from BOOTSTRAP | RANDOM, including when ALL is
+shown. Global area gaps use the scored reference's total area; per-band shares
+use each arm's own total area. The reported gap is computed from these inputs.
+The outermost radial proxy band is not equated with particular scroll windings.
+Repeated cuts in small or heavily weighted populations are preserved and
+flagged, with zero-width bands, rather than inventing finer spatial resolution.
+Point extents exactly on a cut retain the lower-band convention.
+
+Both reports record the captured reference hash/size and hashes of arm IDs and
+resolved link targets. Spatial reports add a geometry-source fingerprint. These
+inputs are rechecked before returning a successful report. Patch payloads are
+not read or hashed, and no immutable training/study lineage is established.
+Keep inputs stable, and treat every nonzero exit as a failed command. Input
+errors return `FAIL` and exit 1; CLI usage errors use exit 2. Text output remains
+the default. Historical study measurements have not been rerun or restated.
+
 ## Inspect seeded draws without publishing
 
 ```sh
