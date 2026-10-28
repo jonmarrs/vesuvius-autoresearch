@@ -19,8 +19,9 @@ import sys
 import time
 import traceback
 
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path[:0] = [REPO, os.path.join(REPO, "src")]
 
 import torch  # noqa: E402
 

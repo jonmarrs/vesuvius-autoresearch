@@ -134,6 +134,36 @@ uv run python scripts/inference/run_ranked_inference.py \
 This is dry-run by default. Add `--execute` only when you are ready to run the
 jobs serially on the active machine/GPU.
 
+For a new queue, use scroll/division-specific output names:
+
+```bash
+uv run python scripts/build_scroll23_search_queue.py --namespaced-artifacts
+uv run python scripts/rank_scroll23_candidates.py
+```
+
+The `artifact_stem` column survives ranking and selects the same basename for
+the predictor's arrays, metadata, previews and Zarr exports. Both individual
+and ensemble prediction support `--artifact_stem NAME`. For example,
+`Scroll2_div_100_pred_9000_2048_2048_64x64` keeps that region separate from the
+same coordinates in Scroll 3. Existing tables without a stem retain their
+coordinate-based names. Names must be single filenames without directory or
+control characters; a forced `--output_img` still selects the main image path.
+
+Before writing its command manifest or starting a job, ranked inference checks
+all selected output families for collisions. It also rejects manifest/output
+paths that overlap the ranked table, checkpoint, local source volumes or
+research lock, including existing symlink and hard-link aliases. If it reports
+a collision, regenerate a namespaced queue or assign unique, nonoverlapping
+stems in the selected rows. Names such as `a` and `a_ink` also overlap, because
+`a_ink.png` is the first job's ink preview and the second job's main image.
+
+Planning uses only the standard library and never opens arrays or model
+weights. The command manifest is replaced atomically with its existing
+permissions retained. `--limit` must be positive, and an empty eligible
+selection exits 2 with an explanation. An existing output family may still be
+replaced by an intentional rerun of that candidate. Path checks are a planning
+snapshot; use the guarded handoff and scheduling controls for execution.
+
 When a long training sprint is already using the GPU, keep this queue staged but
 do not run `--execute`. To refresh manifests, rankings, worklists, and evidence
 preflight reports without starting GPU inference during an active sprint, run:

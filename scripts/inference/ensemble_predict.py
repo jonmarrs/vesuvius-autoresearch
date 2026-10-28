@@ -40,6 +40,7 @@ from vesuvius_autoresearch.core.inference import (
     validate_region,
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
+from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -55,6 +56,7 @@ class EnsembleArgs(Tap):
     patch_size: int = 64
     output_img: str | None = None
     metadata_out: str | None = None
+    artifact_stem: str | None = None  # Shared basename for arrays, previews and exports
     voxel_size_um: float = 7.91
     disable_tta: bool = False
     num_parts: int = 1
@@ -74,6 +76,7 @@ class EnsembleArgs(Tap):
 
 def ensemble_predict():
     args = EnsembleArgs().parse_args()
+    prediction_stem("unused", getattr(args, "artifact_stem", None))
     args.inference_recipe = multitask_inference_recipe(
         args.disable_tta, args.gaussian_blend
     )
@@ -192,7 +195,10 @@ def ensemble_predict():
     ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
     fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
-    base = f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}"
+    base = prediction_stem(
+        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
+        getattr(args, "artifact_stem", None),
+    )
     if args.num_parts > 1:
         base += f"_part{args.part_id}of{args.num_parts}"
     output_img = args.output_img or f"predictions/{base}.png"

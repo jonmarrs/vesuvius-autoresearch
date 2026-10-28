@@ -34,6 +34,7 @@ from vesuvius_autoresearch.core.inference import (
     validate_region,
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
+from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -283,6 +284,7 @@ class PredictionArgs(Tap):
     use_ridges: bool = False  # Use 3D Ridge/Frangi feature channel
     output_img: str | None = None  # Force output image path
     metadata_out: str | None = None  # Force prediction metadata JSON path
+    artifact_stem: str | None = None  # Shared basename for arrays, previews and exports
     voxel_size_um: float = 7.91
     checkpoint: str = "best_model.pt"  # Model checkpoint to use for prediction
     num_parts: int = 1
@@ -307,6 +309,7 @@ class PredictionArgs(Tap):
 
 def predict():
     args = PredictionArgs().parse_args()
+    prediction_stem("unused", getattr(args, "artifact_stem", None))
     args.inference_recipe = multitask_inference_recipe(
         args.disable_tta, args.gaussian_blend
     )
@@ -440,7 +443,10 @@ def predict():
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
 
-    base_name = f"pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}"
+    base_name = prediction_stem(
+        f"pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}",
+        getattr(args, "artifact_stem", None),
+    )
     if args.num_parts > 1:
         base_name += f"_part{args.part_id}of{args.num_parts}"
     out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"

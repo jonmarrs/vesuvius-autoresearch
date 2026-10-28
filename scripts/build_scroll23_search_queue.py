@@ -142,7 +142,12 @@ def _occupied_windows(local_uri, windows_per_division, patch_size):
 
 
 def build_queue(
-    divisions, windows_per_division, patch_size, voxel_um, prediction_dir=None
+    divisions,
+    windows_per_division,
+    patch_size,
+    voxel_um,
+    prediction_dir=None,
+    namespaced_artifacts=False,
 ):
     rows = []
     window_mm = patch_size * voxel_um / 1000.0
@@ -192,6 +197,10 @@ def build_queue(
                         "notes": scroll["notes"],
                     }
                 )
+                if namespaced_artifacts:
+                    rows[-1]["artifact_stem"] = (
+                        f"{scroll_key}_{div_name}_pred_{z}_{y}_{x}_{patch_size}x{patch_size}"
+                    )
 
     rows.sort(key=lambda row: float(row["priority"]), reverse=True)
     return rows
@@ -205,6 +214,11 @@ def main():
     parser.add_argument("--patch-size", type=int, default=64)
     parser.add_argument("--voxel-um", type=float, default=7.91)
     parser.add_argument("--prediction-dir", default=None)
+    parser.add_argument(
+        "--namespaced-artifacts",
+        action="store_true",
+        help="Give each new candidate a scroll/division-specific artifact stem",
+    )
     parser.add_argument("--divisions", default="0,10,20,30,40,50,60,70,80,90,100")
     args = parser.parse_args()
 
@@ -219,6 +233,7 @@ def main():
         args.patch_size,
         args.voxel_um,
         args.prediction_dir,
+        namespaced_artifacts=args.namespaced_artifacts,
     )
 
     out_path = Path(args.out)
@@ -238,6 +253,7 @@ def main():
         "submittable_window": args.patch_size <= 64
         or args.patch_size * args.voxel_um / 1000.0 <= 0.5 + 1e-9,
         "scrolls": SCROLLS,
+        "namespaced_artifacts": args.namespaced_artifacts,
     }
     manifest_path = Path(args.manifest)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)

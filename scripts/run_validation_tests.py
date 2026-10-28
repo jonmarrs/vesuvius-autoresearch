@@ -94,6 +94,8 @@ VALIDATION_TESTS = [
     "tests/test_volume_cartographer.py",
     "tests/test_prize_readiness.py",
     "tests/test_candidate_ranking_contracts.py",
+    "tests/test_ranked_inference_planning.py",
+    "tests/test_smoke_checkout.py",
     "tests/test_villa_metrics_integration.py",
     # Tests of code the loop runs that had never been listed (2026-10-16);
     # tests/test_validation_suite_covers_the_loop.py now fails when one is
