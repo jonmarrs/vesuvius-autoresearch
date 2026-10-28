@@ -127,3 +127,19 @@ def test_the_report_preserves_every_published_field_and_input_identity():
             assert hashlib.sha256(card).hexdigest() == case["scorecard_sha256"]
             assert hashlib.sha256(log).hexdigest() == case["log_sha256"]
             assert json.loads(card)["metrics"] == case["metrics"]
+
+
+def test_the_expected_rows_are_the_published_ones():
+    """The record checks each scorecard against its own `expected`; tie those to the connected-components rows
+    finding 91 committed for the 21 cubes, so a wrong `expected` cannot pass as an exact match."""
+    record = json.loads(
+        (
+            ROOT / "reports/evidence/scrollgt_corpus_reproduction_2026-10-27.json"
+        ).read_text()
+    )
+    published = json.loads((ROOT / "reports/neural_tracer_entrant.json").read_text())
+    rows = {cube: c["cc"] for cube, c in published["comparators"].items()}
+    expected = {
+        r["target"].removeprefix("fibers_"): r["expected"] for r in record["cases"]
+    }
+    assert len(rows) == 21 and expected == rows

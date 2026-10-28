@@ -432,9 +432,7 @@ def test_rank_scroll23_candidates_reads_the_fiber_map_its_prediction_wrote(
     np.save(prediction_dir / f"{stem}_ink.npy", np.zeros((64, 64), np.float32))
     np.save(prediction_dir / f"{stem}_fiber.npy", np.full((64, 64), 0.5, np.float32))
     meta = _ranking_metadata(row)
-    meta["fiber_stats"] = (
-        {"mean": 0.5, "std": 0.0, "max": 0.5} if fiber_written else {}
-    )
+    meta["fiber_stats"] = {"mean": 0.5, "std": 0.0, "max": 0.5} if fiber_written else {}
     (prediction_dir / f"{stem}_meta.json").write_text(json.dumps(meta))
 
     scored = score_row(row, prediction_dir=prediction_dir)
