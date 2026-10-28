@@ -334,6 +334,11 @@ four predictions held):
   with its two committed JSONs. Finding 100 is in `reports/neural_tracer_steep_heading.md`, with its committed JSON
   and pre-registration.
 * Every figure here is bound by a test to the file that produced it.
+* The [October 27 whole-corpus CPU check](../reports/scrollgt_corpus_reproduction_2026-10-27.md)
+  reproduces all 21 released connected-components rows with the merged ScrollGT memory fix:
+  all 315 published field values match, with every CLI process under a 7 GiB address-space limit.
+  The report includes the frozen harness, hashes and all raw scorecards and logs. This is numerical
+  reproduction and usability evidence, not a new quality result or additional merged Villa credit.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
   run-to-run variation; bit-identical output was checked for the averaging step, not the whole run.

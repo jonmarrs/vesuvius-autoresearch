@@ -1,6 +1,6 @@
 # October Progress Prize: readiness and final-week plan
 
-Plan updated **2026-10-27 UTC**. The rules, form, links and merge states were
+Plan updated **2026-10-27 Pacific (2026-10-28 UTC)**. The rules, form, links and merge states were
 rechecked; the [latest follow-up](../reports/evidence/october_prize_readiness_2026-10-27_followup.json)
 supplements the [earlier October 27 snapshot](../reports/evidence/october_prize_readiness_2026-10-27.json)
 and the October 23 and 25 records. We have a credible submission now, based on three
@@ -109,6 +109,17 @@ has now run. It found and reproduced a 512³ scorer allocation failure; the
 merged ScrollGT fix completes that same control at 2.57 GiB peak RSS under
 the unchanged budget, with the published row reproduced exactly. Its public
 walkthrough records the limit, source hashes and comparison scope.
+
+The [whole-corpus follow-up](../reports/scrollgt_corpus_reproduction_2026-10-27.md)
+now reproduces the connected-components row on all 21 released targets: all
+315 published field values match exactly, with every CLI process under the
+same 7 GiB address-space limit. Peak RSS is about 0.57 GiB for the ten 256³
+cubes and 2.55–2.57 GiB for the eleven 512³ cubes. The frozen harness, per-case
+measurements and all 21 raw scorecards and logs are published with the report.
+This verifies the patched scorer's usability and rounded numerical results;
+it does not recompute the other floors or measure a new model-quality gain.
+The prepared form answers and submission candidate remain unchanged. The
+October form and three claimed Villa merges still pass their live checks.
 
 The official rules favor early releases, actual use, real-data improvements,
 useful fixes, actionable analysis and documentation. They explicitly ask for
