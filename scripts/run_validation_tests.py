@@ -41,6 +41,7 @@ VALIDATION_TESTS = [
     "tests/test_volumetric_label_contracts.py",
     "tests/test_label_curation_contracts.py",
     "tests/test_candidate_preprocessing_contracts.py",
+    "tests/test_candidate_content_provenance.py",
     "tests/test_crop_candidate_zarr.py",
     "tests/test_lasagna_fiber_worklist.py",
     "tests/test_execute_lasagna_pipeline_resume.py",

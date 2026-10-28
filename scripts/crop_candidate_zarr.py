@@ -21,6 +21,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.candidate_artifacts import (
     array_3d,
+    array_content_sha256,
     integer,
     separate_paths,
     spatial_blocks,
@@ -72,6 +73,7 @@ def crop_candidate_zarr(
     if len(chunks) != 3:
         raise ValueError("crop chunks must have three dimensions")
     chunks = tuple(integer(value, "chunk size", 1) for value in chunks)
+    content_hash = array_content_sha256(src, start, shape)
     with staged_directory(output_path) as staging:
         dst = zarr.open(
             str(staging),
@@ -91,6 +93,15 @@ def crop_candidate_zarr(
                 for part, origin in zip(selection, start, strict=True)
             )
             dst[selection] = src[source_selection]
+        current = array_3d(input_path)
+        if (
+            current.shape != src.shape
+            or current.dtype != src.dtype
+            or array_content_sha256(current, start, shape) != content_hash
+        ):
+            raise RuntimeError("source region changed during crop creation")
+        if array_content_sha256(dst) != content_hash:
+            raise RuntimeError("written crop does not match the captured source region")
         dst.attrs.update(
             {
                 "source_path": str(input_path),
@@ -99,7 +110,8 @@ def crop_candidate_zarr(
                 "crop_shape_zyx": list(shape),
                 "source_shape_zyx": list(src.shape),
                 "source_dtype": str(src.dtype),
-                "candidate_crop_contract": 1,
+                "candidate_crop_contract": 2,
+                "content_sha256": content_hash,
                 "crop_generation": uuid.uuid4().hex,
             }
         )
