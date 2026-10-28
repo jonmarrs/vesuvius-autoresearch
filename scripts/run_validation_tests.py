@@ -60,6 +60,7 @@ VALIDATION_TESTS = [
     "tests/test_fiber_eval_trace.py",
     "tests/test_checkpoint_tool_contracts.py",
     "tests/test_active_learning.py",
+    "tests/test_active_learning_queue_contracts.py",
     "tests/test_generate_pseudo_labels.py",
     "tests/test_volume_inference_contracts.py",
     "tests/test_detector_contracts.py",
