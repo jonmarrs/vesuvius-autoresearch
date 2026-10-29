@@ -36,6 +36,65 @@ fragment must share dimensions. Inference retains the existing full-window mask
 rule and stride: uncovered pixels are zero, and no usable windows is an error.
 This guide makes no claim that every masked pixel receives a prediction.
 
+## Prediction coverage and export
+
+Inference warns when valid fragment pixels have no usable window and prints a
+coverage count after a successful CLI export. A 64×100 fragment at stride 32,
+for example, leaves its rightmost four columns uncovered even with a full mask.
+An internal mask hole can exclude entire windows as well. These pixels retain
+the existing recipe's zero fill; a zero alone does not show whether the model
+predicted background or never visited that pixel.
+
+Use an NPZ bundle to save the distinction in one file:
+
+```sh
+uv run python -m vesuvius_autoresearch.detector.cli infer \
+  --config detector_config.json --checkpoint /path/to/detector.ckpt \
+  --fragment PHercParis2Fr143 --output predictions/fragment.npz \
+  --output-format npz
+```
+
+Load it with `np.load(path, allow_pickle=False)`. Schema version 1 contains:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `schema_version` | scalar uint8 | 1 |
+| `probability` | float32, H×W | Existing blended probability map, including zero fill |
+| `coverage` | bool, H×W | At least one usable inference window predicted this pixel |
+| `fragment_mask` | bool, H×W | Nonzero original fragment mask, without loader padding |
+
+All maps have the original layer dimensions. Coverage concerns the fragment
+mask, not ink labels or confidence. The bundle does not hash inputs or attest
+checkpoint provenance. `--output-format npy` remains the default probability-only
+format. Both formats use the exact `--output` path without appending a suffix.
+
+Add `--require-full-coverage` to refuse any unpredicted fragment pixels before
+replacing the output. This checks the completed inference; it does not add edge
+windows or change mask rules. Padding and pixels outside the fragment do not
+count as missing. A fragment with no usable windows remains an error.
+
+Python callers retain the probability-array return from `infer(...)`. Pass
+`return_details=True` to receive an `InferenceResult` with `probability`,
+`coverage`, `fragment_mask`, and a `summary` dictionary (`valid_pixels`,
+`predicted_pixels`, `uncovered_pixels`, `coverage_fraction`). The Python API also
+accepts `require_full_coverage=True`.
+
+The CLI refuses outputs that overlap its checkpoint, configuration, or fragment
+input tree, including symlink and hard-link aliases to the input files. The
+output itself must not be a symlink or a nonregular file. It checks paths before
+inference and again before publication, then replaces the output by renaming a
+fully serialized sibling temporary file. Save failures retain the previous
+complete output; replacements retain its permission bits and new files honor
+the umask. Use stable input paths and serialize writers; these checks do not
+lock inputs or coordinate concurrent inference commands.
+
+Evaluation and measurement still score the original fragment mask, including
+uncovered zero-filled pixels. They now receive the inference warning but their
+metric formulas, scorecard schema and denominator remain unchanged. This
+feature does not revise published results or establish an accuracy improvement.
+
+## Checkpoint compatibility
+
 New checkpoints save the full configuration in `detector_config` with version 1.
 Loading checks architecture, lateral size, depth count, and start/end layer indices;
 ResEnc checkpoints also check stages and feature count. A same-shaped weight file

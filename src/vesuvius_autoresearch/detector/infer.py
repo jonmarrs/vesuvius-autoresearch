@@ -4,16 +4,40 @@ matches the proven train_ours.py validation accumulation and scores higher here
 (held-out AUC 0.709 vs 0.700 Gaussian on the reference checkpoint). Patches are batched
 through the model so a full segment scores in minutes rather than ~40 min."""
 
+import warnings
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 from .data import read_volume_mask
 from .model import DetectorModel
+from .prediction import InferenceResult
 
 
-def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
+def infer(
+    cfg,
+    checkpoint_path,
+    fragment_id,
+    model=None,
+    batch_size=64,
+    *,
+    return_details=False,
+    require_full_coverage=False,
+):
+    """Predict with the existing grid; optionally return maps with coverage.
+
+    Missing fragment pixels retain the recipe's zero fill and emit a warning.
+    ``require_full_coverage`` refuses such a result instead. Neither option adds
+    windows, changes mask rules, or changes a scientific scoring denominator.
+    """
     cfg.validate()
+    for name, value in (
+        ("return_details", return_details),
+        ("require_full_coverage", require_full_coverage),
+    ):
+        if not isinstance(value, bool):
+            raise ValueError(f"{name} must be a boolean")
     if (
         not isinstance(batch_size, int)
         or isinstance(batch_size, bool)
@@ -102,4 +126,19 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
     out = np.divide(pred, count, out=np.zeros_like(pred), where=count != 0)
     # Crop the padding back off to the original layer shape, even without labels.
     out = out[:orig_h, :orig_w]
-    return np.clip(out, 0.0, 1.0)
+    result = InferenceResult(
+        np.clip(out, 0.0, 1.0),
+        count[:orig_h, :orig_w] > 0,
+        frag_mask[:orig_h, :orig_w] != 0,
+    )
+    summary = result.summary
+    if summary["uncovered_pixels"]:
+        message = (
+            f"{fragment_id}: {summary['uncovered_pixels']} of "
+            f"{summary['valid_pixels']} fragment pixels are uncovered; "
+            "uncovered probabilities remain zero under the existing tiling recipe"
+        )
+        if require_full_coverage:
+            raise ValueError(message)
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+    return result if return_details else result.probability

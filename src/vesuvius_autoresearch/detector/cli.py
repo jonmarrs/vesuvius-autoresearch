@@ -8,8 +8,6 @@ import os
 import sys
 from pathlib import Path
 
-import numpy as np
-
 from .config import DetectorConfig
 from .data import read_image_mask
 
@@ -110,9 +108,20 @@ def main(argv=None):
     p_infer.add_argument("--checkpoint", required=True)
     p_infer.add_argument("--fragment", required=True)
     p_infer.add_argument(
-        "--output", required=True, help="path for the float32 NumPy probability map"
+        "--output", required=True, help="exact path for the prediction artifact"
     )
     p_infer.add_argument("--batch-size", type=int, default=64)
+    p_infer.add_argument(
+        "--output-format",
+        choices=("npy", "npz"),
+        default="npy",
+        help="npy probability map (default) or npz probability/coverage/fragment-mask bundle",
+    )
+    p_infer.add_argument(
+        "--require-full-coverage",
+        action="store_true",
+        help="fail without replacing output if any fragment pixel has no prediction",
+    )
     p_measure = sub.add_parser("measure", parents=[common])
     p_measure.add_argument(
         "--checkpoint", default="models/detector/detector_epoch=7.ckpt"
@@ -141,13 +150,27 @@ def main(argv=None):
         print(_eval_fragment(cfg, args.checkpoint, args.fragment))
     elif args.cmd == "infer":
         from .infer import infer
+        from .prediction import prediction_inputs, validate_output, write_prediction
 
-        prob = infer(cfg, args.checkpoint, args.fragment, batch_size=args.batch_size)
         output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with output.open("wb") as f:
-            np.save(f, prob, allow_pickle=False)
+        inputs = prediction_inputs(cfg, args.checkpoint, args.fragment, args.config)
+        validate_output(output, inputs)
+        result = infer(
+            cfg,
+            args.checkpoint,
+            args.fragment,
+            batch_size=args.batch_size,
+            return_details=True,
+            require_full_coverage=args.require_full_coverage,
+        )
+        write_prediction(output, result, args.output_format, inputs)
         print(output)
+        summary = result.summary
+        print(
+            f"coverage: {summary['predicted_pixels']}/{summary['valid_pixels']} "
+            f"fragment pixels ({summary['coverage_fraction']:.2%}); "
+            f"{summary['uncovered_pixels']} uncovered"
+        )
     elif args.cmd == "measure":
         from .measure import measure
 
