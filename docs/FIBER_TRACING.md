@@ -15,7 +15,7 @@ This directory provides **the measurement layer for that problem**, plus a basel
 > arclength components on the actual graph, and includes terminal nodes in the
 > precision reference. The numerical results and tracer rankings below are
 > historical results from the old scorer; they need recomputation before use as
-> version-4 evidence. (Version 3 fixed a version-2 defect: zero-length edges
+> current-scoring evidence. (Version 3 fixed a version-2 defect: zero-length edges
 > disconnected the graph. Version 4, the same day, adopted ScrollGT's definition
 > wholesale; see below.) This review did not rerun the published real-cube benchmark
 > or update the separate ScrollGT repository. See the
@@ -79,10 +79,10 @@ near the oracle. **Both ERL and the merge penalty are required.**
 
 Defined in `src/vesuvius_autoresearch/fibers/eval_trace.py`.
 
-- **ERL**: split each ground-truth fiber graph into connected arclength components
-  assigned to one predicted instance, then take the length-weighted mean `sum(L^2)/sum(L)`
-  (Januszewski et al.). It answers "pick a random point on a fiber: how far can I follow it
-  before an error".
+- **ERL**: divide the sum of squared covered-run lengths by total in-bounds
+  ground-truth length. Uncovered arclength contributes zero; deleting short
+  fragments cannot improve the denominator. It answers "pick a random point on
+  a ground-truth fiber: how far can I follow it before an error?"
 - **ERL merge-penalized**: every run belonging to an instance that spans two ground-truth fibers
   counts zero. The gap between the two ERLs *is* the merge cost.
 - **Splits count runs, not distinct labels.** A fiber traced as two disconnected halves under one
@@ -95,9 +95,16 @@ Defined in `src/vesuvius_autoresearch/fibers/eval_trace.py`.
   number from this harness is meaningless without its tolerance**, so `tolerance` is part of
   every scorecard.
 
-**Version 4 (current) is ScrollGT's definition** (scrollgt v0.4.0, where it is
-scoring version 2), vendored verbatim in `eval_trace.py` and held there by
-`tests/test_fiber_scoring_matches_scrollgt.py`. Each fiber's edges are walked in
+**Version 5 (current) uses ScrollGT's version-3 definition** (scrollgt v0.7.0).
+It divides ERL and merge-penalized ERL by total ground-truth arclength, correcting
+the covered-length denominator from version 4. The old values remain available
+as `erl_covered` and `erl_merge_penalized_covered`; they are not the primary
+scores. The metric implementation is vendored in `eval_trace.py` and checked by
+`tests/test_fiber_scoring_matches_scrollgt.py` when a sibling ScrollGT checkout
+is available. No metric formula was changed by the October 29 NML reader review.
+
+Version 4 adopted ScrollGT v0.4.0's version-2 graph-walk definition. These walks
+remain the basis of version 5: each fiber's edges are walked in
 path order, and a run ends at a stretch boundary: a branch point, a disconnected
 piece, or a stretch outside the cube. Splits are counted within stretches, so a
 break the tracer could not have seen is not charged to it. It reproduces
@@ -119,14 +126,45 @@ positive, and tolerance finite and nonnegative.
 
 ## Ground truth
 
-The public `fiber-skeletons` dataset, `dl.ash2txt.org/datasets/fiber-skeletons/`. Cubes of 256³
-or 512³ in which *every* papyrus fiber was hand-traced in WEBKNOSSOS, at 7.91 um.
+The public `fiber-skeletons` dataset, `dl.ash2txt.org/datasets/fiber-skeletons/`:
+256³ or 512³ cubes with individual papyrus fibers hand-traced in WEBKNOSSOS,
+at 7.91 um. Import validation does not establish annotation completeness.
 
 Only the **`nml/` files** carry fiber identity and connectivity. The shipped `labelsTr/*.tif` are
 semantic (`background`/`fiber`) and cannot support connectivity metrics. `skeleton_io.py` reads
 NML into per-fiber graphs; the coordinate convention (NML writes `x,y,z`, volumes index `z,y,x`,
 origin encoded in the filename as `z_y_x`) is pinned by a test asserting that in-bounds nodes
 land on the shipped label at a rate of exactly 1.000.
+
+### NML import validation
+
+The reader uses an XML parser. Attribute order, single/double quotes, explicit
+closing tags and XML namespace prefixes do not change the graph. Fractional
+and scientific-notation coordinates are preserved; tree names decode XML
+entities, and commented-out markup is ignored. Nodes and edges retain document
+order, including branch traversal order used by the scorer.
+
+Malformed XML, missing or nonfinite coordinates, invalid IDs, duplicate tree IDs,
+duplicate node IDs within a tree, nested trees and nonpositive scale metadata
+fail with the file and field in the error. IDs must fit nonnegative int64. Empty
+trees are omitted; zero-length edges, isolated nodes and out-of-bounds nodes
+retain their existing representation. This validates the imported graph, not
+the correctness or completeness of the human annotation.
+
+By default, edges referencing missing nodes are dropped as before and now emit
+a warning with the count. Add `--strict-nml` to `score`, `floors` or `trace` to
+refuse such partial graphs before inference or report publication. Python
+callers can use `parse_nml(..., strict_edges=True)` or
+`load_cube_skeleton(..., strict_edges=True)`.
+
+The parser captures the NML bytes once; `Skeleton.source_sha256` and benchmark
+`skeleton_sha256` refer to those bytes, rather than a later file reread. Reports
+also include `skeleton_parser` with parser version 2 and the dangling-edge
+policy (`warn_drop` or `error`). This version is separate from scoring version 5.
+An all-cube floor refresh preserves an old tracer row only when the parser
+version/policy and the rest of its provenance match. Legacy rows without that
+record must be recomputed. Other inputs still need stable paths; this is not an
+immutable snapshot of the entire benchmark or a new research measurement.
 
 Fibers are absent from both the open S3 bucket and the curated Hugging Face datasets; this legacy
 server is the only source.
