@@ -497,8 +497,7 @@ def execute_handoff(
                 )
                 print(json.dumps(plan, indent=2))
                 return 2
-            # Do not call running_pid with our lock held: opening then closing
-            # another descriptor would release this process's POSIX lock.
+            # Not running_pid: with our lock held, the holder it names is us.
             local_runs = loop_control.unsupervised_runs(REPO)
             active = [
                 f"unsupervised training run: {loop_control.describe_run(*run)}"

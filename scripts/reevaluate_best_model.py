@@ -86,8 +86,8 @@ def _file_sha256(path: str) -> str:
 def take_checkout_lock():
     """The lock of the checkout in the working directory, where best_model.pt is
     read and written; a running cycle reads, holds and may replace that file.
-    running_pid only names a holder, and only before the lock is taken: it opens
-    and closes the lock file, which would drop this process's lock."""
+    running_pid only names a holder, and only before the lock is taken: after,
+    the holder it names is this process."""
     try:
         pid = running_pid(Path.cwd())
         holder = f"PID {pid}" if pid else None
