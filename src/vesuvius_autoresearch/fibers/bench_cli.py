@@ -79,17 +79,18 @@ CUBES = [
 ]
 
 
-def _load_cube(data_dir: pathlib.Path, cube: str):
+def _load_cube(data_dir: pathlib.Path, cube: str, strict_nml=False):
     import tifffile
 
     from vesuvius_autoresearch.fibers.skeleton_io import Skeleton, load_cube_skeleton
 
     img = tifffile.imread(data_dir / f"{cube}_image.tif")
-    full = load_cube_skeleton(data_dir, cube)
+    full = load_cube_skeleton(data_dir, cube, strict_edges=strict_nml)
     gt = Skeleton(
         fibers=[f for f in full.fibers if f.in_bounds_mask(img.shape).sum() > 1],
         scale_um=full.scale_um,
         origin_zyx=full.origin_zyx,
+        source_sha256=full.source_sha256,
     )
     return img, gt
 
@@ -153,17 +154,29 @@ def _fiber_prob(
     return fp.astype(float)
 
 
-def _measurement_provenance(data_dir, cube, args):
+def _measurement_provenance(data_dir, cube, args, gt):
     record = json.loads((data_dir / f"{cube}_fiberprob.json").read_text())
     return {
         "scoring_version": SCORING_VERSION,
         "inference": record["inference"],
         "probability_sha256": record["probability_sha256"],
-        "skeleton_sha256": file_sha256(data_dir / f"{cube}.nml"),
+        "skeleton_sha256": gt.source_sha256,
+        "skeleton_parser": _skeleton_parser_provenance(args),
         "tolerance": args.tolerance,
         "step": 0.5,
         "restrict_to_bounds": True,
         "mask_threshold": args.mask_threshold,
+    }
+
+
+def _skeleton_parser_provenance(args):
+    from vesuvius_autoresearch.fibers.skeleton_io import NML_PARSER_VERSION
+
+    return {
+        "version": NML_PARSER_VERSION,
+        "dangling_edges": "error"
+        if getattr(args, "strict_nml", False)
+        else "warn_drop",
     }
 
 
@@ -276,13 +289,13 @@ def _floors_all_cubes(args) -> int:
     }
     for cube in CUBES:
         t0 = time.time()
-        img, gt = _load_cube(data_dir, cube)
+        img, gt = _load_cube(data_dir, cube, getattr(args, "strict_nml", False))
         fp = _fiber_prob(data_dir, cube, img, args.model, args.patch, args.device)
         infer_s = round(time.time() - t0, 1)
         mask = fp >= args.mask_threshold
 
         rows = _floor_rows(ev, gt, img, mask, args.tolerance)
-        provenance = _measurement_provenance(data_dir, cube, args)
+        provenance = _measurement_provenance(data_dir, cube, args, gt)
         prior = prior_cubes.get(cube, {})
         prior_rows = prior.get("rows", {})
         if (
@@ -322,7 +335,7 @@ def cmd_floors(args) -> int:
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
     data_dir = pathlib.Path(args.data_dir)
-    img, gt = _load_cube(data_dir, args.cube)
+    img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
     fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
     mask = fp >= args.mask_threshold
 
@@ -338,7 +351,7 @@ def cmd_floors(args) -> int:
             args.json_out,
             {
                 "cube": args.cube,
-                "provenance": _measurement_provenance(data_dir, args.cube, args),
+                "provenance": _measurement_provenance(data_dir, args.cube, args, gt),
                 "rows": rows,
             },
         )
@@ -349,7 +362,7 @@ def cmd_score(args) -> int:
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
     data_dir = pathlib.Path(args.data_dir)
-    img, gt = _load_cube(data_dir, args.cube)
+    img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
     inst = np.load(args.instances, allow_pickle=False)
     if inst.shape != img.shape:
         print(f"ERROR: instances {inst.shape} != cube {img.shape}", file=sys.stderr)
@@ -370,7 +383,7 @@ def cmd_score(args) -> int:
         }
         _print_rows(floor_rows)
         rows.update(floor_rows)
-        floor_provenance = _measurement_provenance(data_dir, args.cube, args)
+        floor_provenance = _measurement_provenance(data_dir, args.cube, args, gt)
     if args.json_out:
         write_json(
             args.json_out,
@@ -378,7 +391,8 @@ def cmd_score(args) -> int:
                 "cube": args.cube,
                 "provenance": {
                     "scoring_version": SCORING_VERSION,
-                    "skeleton_sha256": file_sha256(data_dir / f"{args.cube}.nml"),
+                    "skeleton_sha256": gt.source_sha256,
+                    "skeleton_parser": _skeleton_parser_provenance(args),
                     "instances_sha256": file_sha256(args.instances),
                     "tolerance": args.tolerance,
                     "step": 0.5,
@@ -410,7 +424,7 @@ def cmd_trace(args) -> int:
     )
 
     data_dir = pathlib.Path(args.data_dir)
-    img, gt = _load_cube(data_dir, args.cube)
+    img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
     fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
 
     # Orientation from the probability field, not raw CT: measured 5x coverage.
@@ -486,7 +500,7 @@ def cmd_trace(args) -> int:
             args.json_out,
             {
                 "cube": args.cube,
-                "provenance": _measurement_provenance(data_dir, args.cube, args),
+                "provenance": _measurement_provenance(data_dir, args.cube, args, gt),
                 "trace_parameters": asdict(trace_params),
                 "relink_parameters": asdict(relink_params)
                 if relink_params is not None
@@ -537,6 +551,11 @@ def main(argv=None) -> int:
         p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
         p.add_argument("--mask-threshold", type=float, default=0.5)
         p.add_argument("--json-out")
+        p.add_argument(
+            "--strict-nml",
+            action="store_true",
+            help="refuse ground truth with edges referencing missing nodes (default: warn and drop those edges)",
+        )
         p.set_defaults(func=fn)
         if name == "floors":
             p.add_argument(
