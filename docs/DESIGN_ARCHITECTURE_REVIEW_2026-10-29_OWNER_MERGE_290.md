@@ -60,5 +60,6 @@ I reviewed it myself; it is one launcher, one helper and their tests. Nothing ne
 ## Verification
 
 - **#290's test files**, with the draft, file-mode and suite-guard tests, give 64 passed.
-- **The standard suite**: pending.
-- **The doc audit**: pending.
+- **The standard suite**, now with #290's module, gives the same 43 failures as before, from `s3fs`, `numba`,
+  `jsonschema` and Villa files absent here. The same 2 modules cannot be collected (`tensorstore`, `s3fs`).
+- **The doc audit** finds no new unresolved reference.
