@@ -2,7 +2,12 @@
 
 from pathlib import Path
 
-from scripts.patch_dataset_artifacts import entries, fingerprint, patch_id
+from scripts.patch_dataset_artifacts import (
+    distinct_patch_targets,
+    entries,
+    fingerprint,
+    patch_id,
+)
 
 INPUT_ERRORS = (OSError, ValueError, TypeError, OverflowError, KeyError, RuntimeError)
 
@@ -16,11 +21,19 @@ def read_arm(dataset):
         if not path.is_dir():
             raise ValueError(f"patch is missing or is not a directory: {path}")
         targets[pid] = str(path.resolve(strict=True))
+    distinct_patch_targets(targets)
     return {
         "path": str(root),
         "container": str(directory.resolve(strict=True)),
         "targets": targets,
     }
+
+
+def distinct_arms(captures):
+    boot = Path(captures["BOOTSTRAP"]["container"])
+    control = Path(captures["RANDOM"]["container"])
+    if boot.samefile(control):
+        raise ValueError("BOOTSTRAP and control must use distinct patch containers")
 
 
 def verify_arm(captured):

@@ -37,9 +37,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.check_patch_spatial_balance import radial_extent
+from scripts.patch_check_inputs import read_arm, verify_arm
 from scripts.patch_dataset_artifacts import (
     MANIFEST,
-    bootstrap_ids,
     dataset_links,
     fingerprint,
     geometry,
@@ -47,6 +47,7 @@ from scripts.patch_dataset_artifacts import (
     reference_patches,
     verify_geometry,
 )
+from scripts.patch_selection_manifest import manifest_identity, selection_manifest
 
 
 def strip_weight(extent, lo=STRIP_LO, hi=STRIP_HI):
@@ -137,6 +138,11 @@ def main(argv=None) -> int:
     ap.add_argument("--out", required=True, help="dataset directory to create")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument(
+        "--require-manifests",
+        action="store_true",
+        help="Require the bootstrap selection manifest",
+    )
+    ap.add_argument(
         "--stability",
         type=int,
         default=0,
@@ -149,7 +155,7 @@ def main(argv=None) -> int:
         if args.stability != 0 and not 2 <= args.stability <= 1000:
             raise ValueError("--stability must be 0 (build) or 2..1000 draws")
         return build(args)
-    except (OSError, ValueError, TypeError, OverflowError) as exc:
+    except (OSError, ValueError, TypeError, OverflowError, RuntimeError) as exc:
         print(f"STRIPMATCH preparation failed: {exc}", file=sys.stderr)
         return 1
 
@@ -159,7 +165,18 @@ def build(args):
     area = {pid: value[1] for pid, value in records.items()}
     frac = {pid: value[0] for pid, value in records.items()}
     links = dataset_links(args.full, records)
-    bootstrap, boot = bootstrap_ids(args.bootstrap, records)
+    captured_boot = read_arm(args.bootstrap)
+    bootstrap, boot = Path(captured_boot["path"]), set(captured_boot["targets"])
+    if not boot or boot - records.keys():
+        raise ValueError("bootstrap must be nonempty and contain only scored patch IDs")
+    binding = selection_manifest(
+        captured_boot,
+        reference.provenance(),
+        records,
+        modes={"bootstrap"},
+        required=args.require_manifests,
+        full=links[0],
+    )
     boxes, geometry_sources = geometry(links[0], area)
     weight = {i: strip_weight(radial_extent(boxes[i], CX, CY)) for i in boxes}
 
@@ -170,10 +187,24 @@ def build(args):
     def verify():
         reference.verify()
         verify_geometry(geometry_sources)
-        if bootstrap_ids(bootstrap, records)[1] != boot:
-            raise ValueError("bootstrap selection changed before publication")
+        verify_arm(captured_boot)
+        if (
+            selection_manifest(
+                captured_boot,
+                reference.provenance(),
+                records,
+                modes={"bootstrap"},
+                required=args.require_manifests,
+                full=links[0],
+            )
+            != binding
+        ):
+            raise ValueError("bootstrap selection manifest changed before publication")
 
     print(f"BOOTSTRAP  area {ta:,.0f}  in-strip share {ts:.4f}")
+    print(
+        f"Bootstrap manifest: {binding['status']} (absent means unverified legacy provenance)"
+    )
 
     if args.stability:
         rows = draw_stability(
@@ -221,6 +252,7 @@ def build(args):
             "scored_patches": len(records),
             "bootstrap": str(bootstrap),
             "bootstrap_ids": sorted(boot),
+            "bootstrap_manifest": manifest_identity(binding),
             "bootstrap_target_area": ta,
             "bootstrap_target_strip_share": ts,
             "selected_area": ka,

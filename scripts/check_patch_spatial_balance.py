@@ -34,6 +34,7 @@ from scripts.patch_dataset_artifacts import (
     reference_patches,
     verify_geometry,
 )
+from scripts.patch_selection_manifest import selection_manifests
 
 N_BANDS = 10
 
@@ -126,7 +127,7 @@ def area_share_by_band(ids, extent, edges, area, n_bands=N_BANDS):
     return [value / total for value in per], total
 
 
-def build_report(reference, boot_dir, rand_dir, full=None):
+def build_report(reference, boot_dir, rand_dir, full=None, *, require_manifests=False):
     report = {
         "schema": "patch-spatial-diagnostic-v1",
         "status": "FAIL",
@@ -135,6 +136,8 @@ def build_report(reference, boot_dir, rand_dir, full=None):
         "winding_calibration_verified": False,
         "scientific_validity_verified": False,
         "payload_contents_hashed": False,
+        "generation_replayed": False,
+        "manifests_required": require_manifests,
         "failures": [],
         "warnings": [],
     }
@@ -142,6 +145,10 @@ def build_report(reference, boot_dir, rand_dir, full=None):
         source, rows = reference_patches(reference)
         area = {pid: value[1] for pid, value in rows.items()}
         captures = {"BOOTSTRAP": read_arm(boot_dir), "RANDOM": read_arm(rand_dir)}
+        bindings = selection_manifests(
+            captures, source.provenance(), rows, required=require_manifests, full=full
+        )
+        report["selection_manifests"] = bindings
         ids = {name: set(value["targets"]) for name, value in captures.items()}
         for name, values in ids.items():
             if not values or values - rows.keys():
@@ -214,6 +221,17 @@ def build_report(reference, boot_dir, rand_dir, full=None):
         verify_geometry(geometry_sources)
         for captured in captures.values():
             verify_arm(captured)
+        if (
+            selection_manifests(
+                captures,
+                source.provenance(),
+                rows,
+                required=require_manifests,
+                full=full,
+            )
+            != bindings
+        ):
+            raise ValueError("selection manifests changed during checking")
         report.update(
             {
                 "status": "MEASURED",
@@ -285,6 +303,11 @@ def render(report):
     print(
         "REPORTED, NOT GATED: no spatial balance criterion is applied. Winding calibration is unverified."
     )
+    for name, binding in report.get("selection_manifests", {}).items():
+        detail = (
+            "; legacy provenance unverified" if binding["status"] == "absent" else ""
+        )
+        print(f"{name} manifest: {binding['status']}{detail}")
     for warning in report["warnings"]:
         print(f"WARNING: {warning}")
 
@@ -295,6 +318,11 @@ def main(argv=None) -> int:
     parser.add_argument("--bootstrap", required=True)
     parser.add_argument("--random", required=True, dest="random_dir")
     parser.add_argument(
+        "--require-manifests",
+        action="store_true",
+        help="Reject legacy arms without selection manifests",
+    )
+    parser.add_argument(
         "--full",
         help="Include the scored reference population on the union-derived axes",
     )
@@ -304,7 +332,13 @@ def main(argv=None) -> int:
         help="Emit one finite JSON report instead of text",
     )
     args = parser.parse_args(argv)
-    report = build_report(args.reference, args.bootstrap, args.random_dir, args.full)
+    report = build_report(
+        args.reference,
+        args.bootstrap,
+        args.random_dir,
+        args.full,
+        require_manifests=args.require_manifests,
+    )
     if args.json:
         print(json.dumps(report, indent=2, allow_nan=False))
     else:
