@@ -44,6 +44,7 @@ from scripts.patch_check_inputs import (
     verify_arm,
 )
 from scripts.patch_dataset_artifacts import number, reference_patches
+from scripts.patch_selection_manifest import selection_manifests
 
 AREA_TOL_PCT = 0.5
 
@@ -76,13 +77,17 @@ def summarise(ids, frac, area):
     }
 
 
-def build_report(reference, boot_dir, rand_dir, threshold=0.9):
+def build_report(
+    reference, boot_dir, rand_dir, threshold=0.9, *, require_manifests=False
+):
     report = {
         "schema": "patch-selection-check-v1",
         "status": "FAIL",
         "scope": "patch_selection_input_checks",
         "scientific_validity_verified": False,
         "payload_contents_hashed": False,
+        "generation_replayed": False,
+        "manifests_required": require_manifests,
         "failures": [],
         "statistics": {},
     }
@@ -94,6 +99,14 @@ def build_report(reference, boot_dir, rand_dir, threshold=0.9):
         frac = {pid: value[0] for pid, value in rows.items()}
         area = {pid: value[1] for pid, value in rows.items()}
         captures = {"BOOTSTRAP": read_arm(boot_dir), "RANDOM": read_arm(rand_dir)}
+        bindings = selection_manifests(
+            captures,
+            source.provenance(),
+            rows,
+            required=require_manifests,
+            threshold=threshold,
+        )
+        report["selection_manifests"] = bindings
         report["arms"] = {
             name: arm_provenance(value) for name, value in captures.items()
         }
@@ -141,6 +154,17 @@ def build_report(reference, boot_dir, rand_dir, threshold=0.9):
         source.verify()
         for captured in captures.values():
             verify_arm(captured)
+        if (
+            selection_manifests(
+                captures,
+                source.provenance(),
+                rows,
+                required=require_manifests,
+                threshold=threshold,
+            )
+            != bindings
+        ):
+            raise ValueError("selection manifests changed during checking")
     except INPUT_ERRORS as exc:
         failures.append(f"input validation failed: {exc}")
     report["status"] = "FAIL" if failures else "PASS"
@@ -185,6 +209,11 @@ def render(report):
     print(
         "Scope: mechanical input checks; payload integrity and scientific validity are unverified."
     )
+    for name, binding in report.get("selection_manifests", {}).items():
+        detail = (
+            "; legacy provenance unverified" if binding["status"] == "absent" else ""
+        )
+        print(f"{name} manifest: {binding['status']}{detail}")
 
 
 def main(argv=None) -> int:
@@ -194,13 +223,22 @@ def main(argv=None) -> int:
     parser.add_argument("--random", required=True, dest="random_dir")
     parser.add_argument("--threshold", type=float, default=0.90)
     parser.add_argument(
+        "--require-manifests",
+        action="store_true",
+        help="Reject legacy arms without selection manifests",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Emit one finite JSON report instead of text",
     )
     args = parser.parse_args(argv)
     report = build_report(
-        args.reference, args.bootstrap, args.random_dir, args.threshold
+        args.reference,
+        args.bootstrap,
+        args.random_dir,
+        args.threshold,
+        require_manifests=args.require_manifests,
     )
     if args.json:
         print(json.dumps(report, indent=2, allow_nan=False))

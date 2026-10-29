@@ -18,7 +18,8 @@ uv run python scripts/build_filtered_patch_dataset.py \
 
 uv run python scripts/build_stripmatch_dataset.py \
   --full /path/to/full_dataset --reference /path/to/reference.json \
-  --bootstrap /path/to/new_bootstrap --out /path/to/new_stripmatch --seed 0
+  --bootstrap /path/to/new_bootstrap --out /path/to/new_stripmatch --seed 0 \
+  --require-manifests
 ```
 
 Use the original full dataset as the source. Relative CLI inputs resolve from
@@ -81,10 +82,10 @@ Continue to run the registered checks before any fit, using explicit paths:
 ```sh
 uv run python scripts/check_patch_selection.py \
   --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
-  --random /path/to/new_random --threshold 0.90
+  --random /path/to/new_random --threshold 0.90 --require-manifests
 uv run python scripts/check_patch_spatial_balance.py \
   --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
-  --random /path/to/new_stripmatch --full /path/to/full_dataset
+  --random /path/to/new_stripmatch --full /path/to/full_dataset --require-manifests
 ```
 
 The spatial checker reports diagnostics; follow the study's registered criteria
@@ -92,15 +93,44 @@ instead of inventing new acceptance thresholds from observed outcomes.
 
 ### Read machine-readable input checks
 
+Selection manifests are now consumed by the builder and both checkers. A
+present record must agree with the captured reference bytes (SHA-256 and size),
+actual selected IDs/hash/count/area, source patch targets and expected role.
+BOOTSTRAP must be the full threshold selection; a generated RANDOM arm cannot
+stand in for it. Checked BOOTSTRAP and control records must use the same full
+source and, for RANDOM, the same threshold. STRIPMATCH records also bind the
+bootstrap IDs and path; new builds preserve its manifest snapshot as a dependency.
+Those inputs are rechecked before a successful report or publication.
+
+Use `--require-manifests` for newly prepared datasets, as above. It rejects an
+arm whose record is missing; on the STRIPMATCH builder it requires the bootstrap
+record. Without the flag, legacy inputs remain usable and are explicitly
+reported as `absent` with unverified provenance. A present invalid record always
+fails, including with the flag omitted. To use strict checks with an old
+selection, rebuild a new dataset from preserved inputs. Identical reference
+bytes copied to another file are accepted; changed bytes require a new build.
+
+Both checkers reject the same physical patch container passed as both arms,
+including aliases. Different IDs cannot count the same physical patch directory
+twice, in either a builder's scored population or a checked arm. Legitimate
+patch overlap between distinct arm containers remains allowed.
+
+JSON reports include `selection_manifests`, `manifests_required` and
+`generation_replayed: false`. `checked` describes these manifest/input bindings;
+it does not establish immutable payload identity, rerun the random draw, verify
+all metadata claims or prove scientific validity. Payload contents can still
+change behind the links. Legacy STRIPMATCH records without a bootstrap-manifest
+snapshot retain only their recorded bootstrap path/IDs binding.
+
 Append `--json` to either checker to print one JSON report. For example:
 
 ```sh
 uv run python scripts/check_patch_selection.py \
   --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
-  --random /path/to/new_random --threshold 0.90 --json
+  --random /path/to/new_random --threshold 0.90 --require-manifests --json
 uv run python scripts/check_patch_spatial_balance.py \
   --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
-  --random /path/to/new_stripmatch --full /path/to/full_dataset --json
+  --random /path/to/new_stripmatch --full /path/to/full_dataset --require-manifests --json
 ```
 
 Selection status is `PASS` or `FAIL`, scoped to nonempty positive-area patch
@@ -140,7 +170,7 @@ the default. Historical study measurements have not been rerun or restated.
 uv run python scripts/build_stripmatch_dataset.py \
   --full /path/to/full_dataset --reference /path/to/reference.json \
   --bootstrap /path/to/new_bootstrap --out /path/to/unused_output \
-  --stability 10
+  --stability 10 --require-manifests
 ```
 
 Stability mode accepts 2–1,000 draws and writes no dataset. It reports observed

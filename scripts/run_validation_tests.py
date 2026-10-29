@@ -56,6 +56,7 @@ VALIDATION_TESTS = [
     "tests/test_worklist_planning_contracts.py",
     "tests/test_patch_dataset_artifacts.py",
     "tests/test_patch_input_checks.py",
+    "tests/test_patch_selection_lineage.py",
     "tests/test_build_stripmatch_dataset.py",
     "tests/test_check_patch_selection.py",
     "tests/test_check_patch_spatial_balance.py",
