@@ -49,6 +49,13 @@ does not impose a new disjointness or statistical-independence requirement.
 Looping source links fail with the builders' normal refusal messages rather
 than an uncaught traceback.
 
+### Tiny cohorts could report impossible fractions
+
+The exclusive quartile estimator reports -0.25 for two fractions [0, 1].
+Cohorts smaller than three patches now report undefined `p25` (JSON null/text
+`n/a`). The estimator for larger populations, acceptance gates and historical
+study results are unchanged.
+
 ## Architecture and limits
 
 The existing bounded JSON capture and reference validation remain the source of
@@ -77,7 +84,7 @@ MPLCONFIGDIR=/tmp/vesuvius-lineage-mpl XDG_CACHE_HOME=/tmp/vesuvius-lineage-cach
   tests/test_validation_suite_covers_the_loop.py
 ```
 
-Result: **151 passed in 6.77s**, no skips. Tests exercise the real builders and
+Result: **152 passed in 11.52s**, no skips. Tests exercise the real builders and
 JSON CLIs, read-only behavior, strict/legacy modes, changed/forged records,
 reference copies, source/target mismatches, aliasing, duplicate physical patches,
 bootstrap dependencies, mutation during checking and looping links. The new

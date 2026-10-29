@@ -138,8 +138,9 @@ directories, reference membership, the bootstrap threshold and the existing
 0.5 percentage-point area tolerance. Broken links, file entries, duplicate or
 nonfinite reference records, and changed membership cannot pass. Empty sets
 produce failure reports; undefined statistics are JSON `null` (text `n/a`).
-Singleton quartiles are undefined; larger sets retain the existing exclusive
-quartile method. A passing input check does not establish statistical power.
+Quartiles for fewer than three patches are undefined; larger sets retain the
+existing exclusive quartile method. A passing input check does not establish
+statistical power.
 
 The spatial diagnostic returns `MEASURED` or `FAIL`. Successful measurement
 leaves `balance_verdict: not_assessed` and winding calibration unverified; exit

@@ -19,6 +19,13 @@ from scripts.patch_dataset_artifacts import MANIFEST
 MODULES = (selection, spatial)
 
 
+def test_two_patch_quartile_does_not_extrapolate_outside_fraction_range():
+    stats = selection.summarise(
+        ["zero", "one"], {"zero": 0.0, "one": 1.0}, {"zero": 1, "one": 1}
+    )
+    assert stats["p25"] is None
+
+
 @pytest.fixture
 def prepared(tmp_path):
     full = tmp_path / "full"

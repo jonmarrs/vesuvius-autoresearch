@@ -69,7 +69,7 @@ def summarise(ids, frac, area):
         "n": len(values),
         "mean": st.mean(values) if values else None,
         "median": st.median(values) if values else None,
-        "p25": st.quantiles(values, n=4)[0] if len(values) > 1 else None,
+        "p25": st.quantiles(values, n=4)[0] if len(values) > 2 else None,
         "area_weighted_mean": sum(frac[pid] * area[pid] for pid in ids) / total
         if total
         else None,
