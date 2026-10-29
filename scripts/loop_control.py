@@ -55,6 +55,8 @@ def _kernel_id(path, identity):
     closing it drops none: only closing one opened for I/O releases the
     process's POSIX locks.
     """
+    if not hasattr(os, "O_PATH"):  # not Linux, so no /proc/locks either
+        raise RuntimeError("observing the research lock needs Linux /proc")
     fd = os.open(path, os.O_PATH)
     try:
         opened = os.fstat(fd)

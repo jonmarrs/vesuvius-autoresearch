@@ -247,6 +247,15 @@ def test_missing_kernel_observation_is_unknown_not_idle(tmp_path, monkeypatch, c
     assert "records unavailable" in capsys.readouterr().err
 
 
+def test_without_o_path_status_is_unknown_not_idle(tmp_path, monkeypatch, capsys):
+    """Off Linux, an AttributeError would end status in a traceback, whose exit
+    1 start.sh reads as nothing running."""
+    (tmp_path / "autoresearch.lock").touch()
+    monkeypatch.delattr(os, "O_PATH")
+    assert loop_control.main(["status", "--repo", str(tmp_path)]) == 2
+    assert "needs Linux /proc" in capsys.readouterr().err
+
+
 def test_lock_path_replaced_during_observation_fails_closed(
     tmp_path, holder, monkeypatch
 ):
