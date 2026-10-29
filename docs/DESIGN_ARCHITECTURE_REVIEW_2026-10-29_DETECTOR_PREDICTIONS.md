@@ -55,6 +55,17 @@ overlapping run of the new cases, CLI, detector contracts and registry guard
 passed 93 tests before the final additional publication cases were added.
 
 ```sh
+/tmp/vesuvius-chain-env/bin/python -m pytest -q -rs tests/test_detector_*.py tests/test_validation_suite_covers_the_loop.py
+```
+
+**240 passed, 2 skipped, 21 warnings in 369.24s.** This wider run includes both
+real architectures, short synthetic training, checkpoint reload, inference,
+TTA, data, scoring and reports. The skips are an unavailable validation volume
+and a historical finding whose checkpoint no longer matches the fixture. It
+collected before the last seven new cases were added; the final 44-test run
+above verifies those additions. Runs overlap and counts are not additive.
+
+```sh
 /tmp/vesuvius-chain-env/bin/python scripts/smoke_test.py
 ```
 
