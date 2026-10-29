@@ -11,7 +11,8 @@
 # the comparison reads (as it does for the .afv runs, whose tiles give the same fibers). #2316's volume.py imports the
 # native vc_object_store, which runs from VC_SITE (built from villa's vc_object_store/, Python 3.14). DRY_RUN=1
 # prepares and checks the sources and imports, prints the trace commands and stops: no loop or GPU check, no trace.
-# Refuses to start while the autoresearch loop or another GPU job runs. Nothing is fetched. Afterwards, CPU only:
+# Refuses to start while the autoresearch loop or another GPU job runs. A lease prevents concurrent use of W.
+# Nothing is fetched. Failed/incomplete traces exit 1; setup refusals exit 3. Afterwards, CPU only:
 #   (cd $REPO && nice -n 19 .venv/bin/python scripts/villa_seed_heading_rerun.py --work $W)
 # Launch detached: setsid nohup bash <this> > $W.launch.log 2>&1 < /dev/null & disown
 set -uo pipefail
@@ -30,9 +31,21 @@ W="${W:-$T/villa_rerun_${VILLA_SHA:0:9}}"
 PATCH="$REPO/repro/fibers/villa_volume_seed_heading.patch"
 CKPT="scrollprize/fiber_single_small@451182558cb3270cfc2ddf967acbd4f36b9b816b"
 CUBES="s5_13497_01497_02497_256 s5_16997_03997_04497_256"
-mkdir -p "$W"
+mkdir -p "$W" || { echo "SC_ABORTED cannot create $W" >&2; exit 3; }
+W=$(cd "$W" && pwd -P) || { echo "SC_ABORTED cannot resolve $W" >&2; exit 3; }
 LOG=$W/chain.log
-say() { echo "$*  $(date -Is)" | tee -a "$LOG"; }
+say() {
+  echo "$*  $(date -Is)" | tee -a "$LOG" \
+    || { echo "SC_ABORTED cannot append to $LOG" >&2; exit 3; }
+}
+command -v flock > /dev/null || { say "SC_ABORTED flock is required"; exit 3; }
+if [ -L "$W/chain.lock" ] || { [ -e "$W/chain.lock" ] && [ ! -f "$W/chain.lock" ]; }; then
+  echo "SC_ABORTED chain.lock must be a regular file, not a symlink" >&2; exit 3
+fi
+exec 9>>"$W/chain.lock" || { say "SC_ABORTED cannot open the chain lease"; exit 3; }
+flock -n 9 || { echo "SC_ABORTED another launcher or worker holds $W/chain.lock" >&2; exit 3; }
+STATUS="$REPO/scripts/seed_heading_chain_status.py"
+[ -f "$STATUS" ] || { say "SC_ABORTED missing status helper $STATUS"; exit 3; }
 if [ "$DRY_RUN" != 1 ]; then
 # Only 1 means nothing is running: 0 is a running loop, and 2 means loop_control cannot tell.
 "$PY" "$LOOPDIR/scripts/loop_control.py" status --repo "$LOOPDIR" > /dev/null
@@ -73,14 +86,14 @@ fi
 for side in before after; do
   if [ ! -d "$W/src_$side" ]; then
     [ -e "$W/src_$side.tmp" ] && { say "SC_ABORTED $W/src_$side.tmp is left from an interrupted launch"; exit 3; }
-    mkdir -p "$W/src_$side.tmp"
+    mkdir -p "$W/src_$side.tmp" || { say "SC_ABORTED prepare $side"; exit 3; }
     git -C "$VILLA_GIT" archive "$VILLA_SHA" vesuvius/src | tar -x -C "$W/src_$side.tmp" \
       || { say "SC_ABORTED extract $side"; exit 3; }
     if [ "$side" = after ]; then
       patch -d "$W/src_after.tmp" -p1 --batch --forward < "$W/patch" >> "$LOG" 2>&1 \
         || { say "SC_ABORTED the patch does not apply to $VILLA_SHA"; exit 3; }
     fi
-    mv "$W/src_$side.tmp" "$W/src_$side"
+    mv "$W/src_$side.tmp" "$W/src_$side" || { say "SC_ABORTED publish $side sources"; exit 3; }
   fi
 done
 # The skip is in before's volume.py and not in after's, whose new test exists.
@@ -98,12 +111,14 @@ else
 fi
 for side in before after; do
   got=$(cd "$W" && PYTHONPATH="$W/src_$side/vesuvius/src$SITE" HF_HUB_OFFLINE=1 "$TPY" -c \
-    'import vesuvius.neural_tracing.tracers.fibers.tracing.volume as v; print(v.__file__)' 2>>"$LOG")
+    'import vesuvius.neural_tracing.tracers.fibers.tracing.volume as v; print(v.__file__)' 2>>"$LOG") \
+    || { say "SC_ABORTED $side import check failed"; exit 3; }
   [ "$got" = "$W/src_$side/$VOL" ] \
     || { say "SC_ABORTED $side imports volume.py from ${got:-nowhere}"; exit 3; }
 done
 if [ "$STORE" = 1 ]; then
-  got=$(cd "$W" && PYTHONPATH="$W/src_before/vesuvius/src$SITE" "$TPY" -c 'import vc_object_store as v; print(v.__file__)' 2>>"$LOG")
+  got=$(cd "$W" && PYTHONPATH="$W/src_before/vesuvius/src$SITE" "$TPY" -c 'import vc_object_store as v; print(v.__file__)' 2>>"$LOG") \
+    || { say "SC_ABORTED vc_object_store import check failed"; exit 3; }
   [ "$got" = "$VC_SITE/vc_object_store/__init__.py" ] \
     || { say "SC_ABORTED vc_object_store imports from ${got:-nowhere}"; exit 3; }
 fi
@@ -126,22 +141,36 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 say "CHAIN_START repo $(git -C "$REPO" rev-parse --short HEAD) villa ${VILLA_SHA:0:9}"
 
+FORMAT_ARGS=()
+[ "$STORE" = 0 ] && FORMAT_ARGS+=(--require-afv)
+failed=0
 for side in before after; do
   for C in $CUBES; do
     out="$W/$side/$C"
-    { [ -f "$out/fibers.afv" ] || grep -q "^DONE $side $C " "$LOG"; } && { say "SKIP_DONE $side $C"; continue; }
-    mkdir -p "$W/$side"
+    if "$PY" "$STATUS" status --work "$W" --side "$side" --cube "$C" "${FORMAT_ARGS[@]}" > /dev/null; then
+      say "SKIP_DONE $side $C"
+      continue
+    else
+      status_rc=$?
+      [ "$status_rc" -eq 1 ] || { say "SC_ABORTED cannot inspect $side $C (status rc=$status_rc)"; exit 3; }
+    fi
+    mkdir -p "$W/$side" || { say "SC_ABORTED prepare $side output"; exit 3; }
     say "TRACE $side $C"
     trace_args "$side" "$C"
     ( cd "$W" && PYTHONPATH="$W/src_$side/vesuvius/src$SITE" HF_HUB_OFFLINE=1 "$TPY" "${ARGS[@]}" ) > "$out.log" 2>&1
     rc=$?
-    # finished: the .afv, or (with --no-fibers) finished tiles and none interrupted
-    if [ "$STORE" = 1 ]; then
-      ls "$out"/tiles/*.npz > /dev/null 2>&1 && ! ls "$out"/tiles/*.partial.npz > /dev/null 2>&1 && fin=1 || fin=0
+    if [ "$rc" -eq 0 ] && "$PY" "$STATUS" outputs --run "$out" "${FORMAT_ARGS[@]}" >> "$out.log" 2>&1; then
+      say "DONE $side $C"
     else
-      [ -f "$out/fibers.afv" ] && fin=1 || fin=0
+      say "FAILED $side $C rc=$rc (see $out.log and the chain status command)"
+      failed=$((failed + 1))
     fi
-    if [ "$rc" -eq 0 ] && [ "$fin" = 1 ]; then say "DONE $side $C"; else say "FAILED $side $C rc=$rc"; fi
   done
 done
+if [ "$failed" -ne 0 ]; then
+  say "CHAIN_FAILED $failed trace(s) failed or left incomplete outputs"
+  exit 1
+fi
+"$PY" "$STATUS" status --work "$W" "${FORMAT_ARGS[@]}" > /dev/null \
+  || { say "CHAIN_FAILED final completion check failed"; exit 1; }
 say "CHAIN_COMPLETE"

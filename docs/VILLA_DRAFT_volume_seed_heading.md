@@ -66,6 +66,22 @@ CLI comparison is still required before posting.
 
    `DRY_RUN=1` of the launcher at `39a8cf3a` prepares and checks both sources and their imports. **The re-run itself is
    not done.** It needs the GPU, about four minutes with the loop paused, and the owner's approval.
+
+   Inspect an existing work directory without running traces or loading arrays:
+
+   ```sh
+   python3 scripts/seed_heading_chain_status.py status --work /path/to/W
+   ```
+
+   Exit 0 means all four latest attempts logged `DONE` and their closed output
+   files remain; exit 1 means incomplete, and exit 2 means inspection failed.
+   This checks presence, not numerical contents or input identity. The launcher
+   exits 1 for failed/incomplete traces and writes `CHAIN_FAILED`; only a fully
+   checked chain writes `CHAIN_COMPLETE`. A resume retries a failed or interrupted
+   attempt and a run whose outputs disappeared. Its `chain.lock` lease refuses
+   another launcher or surviving worker using the same `W`; it is not a global
+   GPU reservation. Import/setup refusals exit 3. Historical logs are preserved,
+   and comparison uses each run's latest attempt rather than any earlier `DONE`.
 4. **The owner's own commentary.** villa's CONTRIBUTING requires human-written commentary for LLM-assisted PRs, and a
    motivation from real use. The bracketed paragraph below is for the owner to write. Never check the
    personal-verification box on the owner's behalf.
