@@ -198,8 +198,9 @@ def test_nonfinite_late_block_never_replaces_previous_output(source, tmp_path):
 
 
 @pytest.mark.parametrize("tiled", [False, True])
+@pytest.mark.parametrize("readonly", [False, True])
 def test_preview_matches_the_published_response_and_permissions(
-    source, tmp_path, tiled
+    source, tmp_path, tiled, readonly
 ):
     from matplotlib import pyplot as plt
     from PIL import Image
@@ -216,11 +217,13 @@ def test_preview_matches_the_published_response_and_permissions(
     with Image.open(preview) as actual, Image.open(reference) as expected:
         assert actual.format == "PNG"
         np.testing.assert_array_equal(np.asarray(actual), np.asarray(expected))
-    output.chmod(0o640)
-    preview.chmod(0o604)
+    output_mode = 0o444 if readonly else 0o640
+    preview_mode = 0o400 if readonly else 0o604
+    output.chmod(output_mode)
+    preview.chmod(preview_mode)
     assert cli.main(args) == 0
-    assert stat.S_IMODE(output.stat().st_mode) == 0o640
-    assert stat.S_IMODE(preview.stat().st_mode) == 0o604
+    assert stat.S_IMODE(output.stat().st_mode) == output_mode
+    assert stat.S_IMODE(preview.stat().st_mode) == preview_mode
     assert sorted(path.name for path in tmp_path.iterdir()) == [
         "array.exact",
         "ct.npy",

@@ -68,7 +68,6 @@ def staged_file(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
-        os.fchmod(fd, replacement_mode(path))
         os.close(fd)
         fd = None
         yield Path(name)
@@ -118,7 +117,11 @@ def publish(source, signature, output, temporary, preview=None, preview_temporar
     validate_paths(source, output, preview)
     if input_signature(source) != signature:
         raise ValueError("input CT changed during filtering")
+    # Staging stays private/writable until every serializer has finished. A
+    # read-only destination can still be replaced in a writable directory.
+    os.chmod(temporary, replacement_mode(output))
     if preview is not None:
+        os.chmod(preview_temporary, replacement_mode(preview))
         Path(preview).unlink(missing_ok=True)
     os.replace(temporary, output)
     if preview is not None:
