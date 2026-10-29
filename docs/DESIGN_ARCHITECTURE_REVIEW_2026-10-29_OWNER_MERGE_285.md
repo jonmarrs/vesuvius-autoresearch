@@ -19,9 +19,10 @@ re-score and the ablation all use it. I reviewed it myself; it is one function a
     (a subvolume, `stat()` 0:31 against `/proc/locks` 00:2f, and the top level) and on a mixed overlay
     (0:2d against 00:2c). On each:
     - `running_pid` returned None, and `loop_control.py status` exited 1, "nothing running";
-    - `stop.sh` printed "No autoresearch work running. Watchdog paused." and exited 0, with the loop still running;
-    - `start.sh` would clear the pause and launch a second loop, which then fails to take the lock;
-    - the workspace report and the handoff's gate read the loop as absent (the handoff's `pgrep` pattern still
+    - `loop_control.py stop`, which `stop.sh` runs, printed "No autoresearch work running. Watchdog paused." and
+      exited 0 with the holder still running (run on the subvolume and the mixed overlay);
+    - so `start.sh` would clear the pause and launch a second loop, which then fails to take the lock, and the
+      workspace report and the handoff's gate would read the loop as absent (the handoff's `pgrep` pattern still
       names it).
 
     Promotion, the re-score and the ablation still refused, because their own `acquire_lock` fails. Before #285,
@@ -71,7 +72,8 @@ re-score and the ablation all use it. I reviewed it myself; it is one function a
 - **The lock-observation tests** give 17 passed. Run on #285's `loop_control.py`, the two new tests fail.
 - **Every test file that uses a touched script** (22 files) gives 661 passed and 2 skipped. That ran before the
   non-Linux guard, which only the lock-observation tests reach.
-- **The standard suite**: pending.
+- **The standard suite** gives the same 43 failures as on main, from `s3fs`, `numba`, `jsonschema` and Villa
+  files absent here. The same 2 modules cannot be collected (`tensorstore`, `s3fs`).
 - **Ruff 0.9.10** `check` and `format` are clean on the five changed Python files. Mypy is clean over the whole
   repository (831 files).
 - **The file system probes** need root (mounts of tmpfs, overlay and a loop-mounted btrfs image) and
