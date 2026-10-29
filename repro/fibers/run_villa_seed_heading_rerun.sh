@@ -60,6 +60,16 @@ fi
 [ -n "$VILLA_GIT" ] && [ "$(git -C "$VILLA_GIT" rev-parse "$VILLA_SHA^{commit}" 2>/dev/null)" = "$VILLA_SHA" ] \
   || { say "SC_ABORTED VILLA_GIT (${VILLA_GIT:-unset}) does not hold $VILLA_SHA"; exit 3; }
 VOL=vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+# The sources are extracted once, so $W records their villa commit: a later launch with another VILLA_SHA and the same
+# W would otherwise trace the first commit's code while CHAIN_START names the second.
+if [ -e "$W/villa_sha" ]; then
+  [ "$(cat "$W/villa_sha")" = "$VILLA_SHA" ] \
+    || { say "SC_ABORTED $W holds villa $(cat "$W/villa_sha"), not $VILLA_SHA"; exit 3; }
+elif [ -e "$W/src_before" ] || [ -e "$W/src_after" ]; then
+  say "SC_ABORTED $W has sources but no record of their villa commit; remove $W/src_before and $W/src_after"; exit 3
+else
+  echo "$VILLA_SHA" > "$W/villa_sha" || { say "SC_ABORTED record the villa commit"; exit 3; }
+fi
 for side in before after; do
   if [ ! -d "$W/src_$side" ]; then
     [ -e "$W/src_$side.tmp" ] && { say "SC_ABORTED $W/src_$side.tmp is left from an interrupted launch"; exit 3; }

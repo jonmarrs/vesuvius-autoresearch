@@ -257,7 +257,7 @@ def test_unsafe_destinations_preserve_inputs(world, monkeypatch, module, kind):
     assert (source / "config.json").read_text() == '{"synthetic": true}'
 
 
-def test_external_bootstrap_container_is_an_input(world, monkeypatch):
+def test_external_bootstrap_container_is_an_input(world, monkeypatch, capsys):
     root, _, _, bootstrap = world
     container = root / "bootstrap_container"
     (bootstrap / "verified_patches").rename(container)
@@ -265,12 +265,14 @@ def test_external_bootstrap_container_is_an_input(world, monkeypatch):
     output = container / "new_selection"
     assert build(world, strip, monkeypatch, output=output) != 0
     assert not output.exists()
+    # the overlap guard, not the bootstrap recheck tripping over the staging directory
+    assert "must not overlap dataset inputs" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
     "change", ["duplicate", "unsafe_id", "nan", "negative_area", "empty"]
 )
-def test_invalid_reference_never_publishes(world, monkeypatch, change):
+def test_invalid_reference_never_publishes(world, monkeypatch, capsys, change):
     root, _, reference, _ = world
     data = json.loads(reference.read_text())
     if change == "duplicate":
@@ -286,13 +288,17 @@ def test_invalid_reference_never_publishes(world, monkeypatch, change):
     reference.write_text(json.dumps(data))
     assert build(world, filtered, monkeypatch) != 0
     assert not (root / "output").exists()
+    if change == "unsafe_id":  # refused as an ID, not because source/escape is missing
+        assert "safe directory name" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
     "change",
     ["missing_geometry", "reversed_bbox", "unknown_bootstrap", "empty_bootstrap"],
 )
-def test_stripmatch_requires_complete_input_population(world, monkeypatch, change):
+def test_stripmatch_requires_complete_input_population(
+    world, monkeypatch, capsys, change
+):
     root, source, _, bootstrap = world
     path = source / "verified_patches/d/meta.json"
     if change == "missing_geometry":
@@ -306,6 +312,10 @@ def test_stripmatch_requires_complete_input_population(world, monkeypatch, chang
             item.unlink()
     assert build(world, strip, monkeypatch) != 0
     assert not (root / "output").exists()
+    if (
+        change == "reversed_bbox"
+    ):  # refused as geometry, not by the fit that its zero weight breaks
+        assert "bbox is reversed" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("changed", ["reference", "geometry", "bootstrap"])

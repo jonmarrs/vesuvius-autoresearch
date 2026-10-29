@@ -50,8 +50,10 @@ CLI comparison is still required before posting.
    2026-10-28. Villa's `vesuvius/` was the same at that day's main, `7154682e1`. Findings:
    - The patch still applies (one hunk moved by one line).
    - `_seed_heading` is unchanged.
-   - Villa's tests give the same counts as at `322cb0899`, run under the tracer's Python 3.14 because #2316's
-     `volume.py` imports the native store (`reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt`).
+   - Villa's tests give the same result as at `322cb0899`: the same five seed-heading cases fail without the patch,
+     and all 20 tests pass with it. This time the performance tests ran beside them unpatched too (5 failed, 15
+     passed; at `322cb0899`, 5 failed, 4 passed). They ran under the tracer's Python 3.14 because #2316's `volume.py`
+     imports the native store (`reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt`).
    - Of the modules the tracer loads, #2316 changes only the export, a fiber-JSON parser and comments.
    - No villa PR or issue but #2165 matches "seed heading".
 
