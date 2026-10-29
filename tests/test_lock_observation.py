@@ -85,6 +85,40 @@ def test_idle_inspection_never_opens_or_reserves_the_lock(tmp_path, monkeypatch)
     assert loop_control.running_pid(tmp_path) is None
 
 
+def test_owner_is_found_where_stat_reports_another_device(
+    tmp_path, holder, monkeypatch
+):
+    """/proc/locks names the file system's own device; stat() reports a btrfs
+    subvolume's, or an overlayfs layer's (layers on several file systems). A
+    status that matched stat()'s device read such a loop as idle, and stop left
+    it running. Simulated by shifting the device stat() gives for the lock."""
+    process = holder()
+    lock = tmp_path / "autoresearch.lock"
+    real = lock.stat()
+    real_stat, real_fstat, real_open = Path.stat, os.fstat, os.open
+
+    def as_a_subvolume(result):
+        if (result.st_dev, result.st_ino) != (real.st_dev, real.st_ino):
+            return result
+        fields = list(result[:10])
+        fields[2] = os.makedev(os.major(real.st_dev), os.minor(real.st_dev) + 1)
+        return os.stat_result(fields)
+
+    def no_io_open(file, flags, *args, **kwargs):
+        if Path(file) == lock:
+            assert flags & os.O_PATH, "status must not open the lock for I/O"
+        return real_open(file, flags, *args, **kwargs)
+
+    monkeypatch.setattr(
+        Path, "stat", lambda self, **kw: as_a_subvolume(real_stat(self, **kw))
+    )
+    monkeypatch.setattr(os, "fstat", lambda fd: as_a_subvolume(real_fstat(fd)))
+    monkeypatch.setattr(os, "open", no_io_open)
+    assert lock.stat().st_dev != real.st_dev
+    assert loop_control.running_pid(tmp_path) == process.pid
+    assert loop_control.main(["status", "--repo", str(tmp_path)]) == 0
+
+
 def test_inspection_in_owner_process_does_not_release_its_lock(tmp_path):
     script = tmp_path / "run_autoresearch_loop.py"
     script.write_text(
@@ -211,6 +245,15 @@ def test_missing_kernel_observation_is_unknown_not_idle(tmp_path, monkeypatch, c
     monkeypatch.setattr(Path, "read_text", unavailable)
     assert loop_control.main(["status", "--repo", str(tmp_path)]) == 2
     assert "records unavailable" in capsys.readouterr().err
+
+
+def test_without_o_path_status_is_unknown_not_idle(tmp_path, monkeypatch, capsys):
+    """Off Linux, an AttributeError would end status in a traceback, whose exit
+    1 start.sh reads as nothing running."""
+    (tmp_path / "autoresearch.lock").touch()
+    monkeypatch.delattr(os, "O_PATH")
+    assert loop_control.main(["status", "--repo", str(tmp_path)]) == 2
+    assert "needs Linux /proc" in capsys.readouterr().err
 
 
 def test_lock_path_replaced_during_observation_fails_closed(

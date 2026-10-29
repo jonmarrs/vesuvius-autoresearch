@@ -365,8 +365,8 @@ def main(argv=None):
             "the checkout lock was acquired by another process; retry after stopping it"
         ) from None
     with lock:
-        # Opening/closing the lock file via running_pid here would release this
-        # process's POSIX lock, so only repeat the other stopped-state checks.
+        # running_pid would name this process now, so only repeat the other
+        # stopped-state checks.
         stopped(loop, check_lock=False)
         for name, expected in (("config.json", config_raw), (INCUMBENT, incumbent_raw)):
             if (loop / name).read_bytes() != expected:

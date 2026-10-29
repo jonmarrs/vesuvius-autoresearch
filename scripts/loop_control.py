@@ -45,8 +45,46 @@ LOCK_HOLDER_ARGS = frozenset(
 )
 
 
+def _kernel_id(path, identity):
+    """(major, minor, inode) as /proc/locks names the file at path.
+
+    /proc/locks gives the file system's own device, which stat() does not always
+    report: btrfs reports a subvolume's, overlayfs (layers on several file
+    systems) a layer's. An O_PATH descriptor gives the file's mount, whose device
+    mountinfo lists, and its inode. Such a descriptor can take no lock, and
+    closing it drops none: only closing one opened for I/O releases the
+    process's POSIX locks.
+    """
+    if not hasattr(os, "O_PATH"):  # not Linux, so no /proc/locks either
+        raise RuntimeError("observing the research lock needs Linux /proc")
+    fd = os.open(path, os.O_PATH)
+    try:
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) != identity:
+            raise RuntimeError("research lock path changed during inspection; retry")
+        info = dict(
+            line.split(":", 1)
+            for line in Path(f"/proc/self/fdinfo/{fd}").read_text().splitlines()
+            if ":" in line
+        )
+    finally:
+        os.close(fd)
+    try:
+        mount = info["mnt_id"].strip()
+        inode = int(info["ino"]) if "ino" in info else opened.st_ino
+        for line in Path("/proc/self/mountinfo").read_text().splitlines():
+            fields = line.split()
+            if fields[:1] == [mount]:
+                major, minor = fields[2].split(":")
+                return int(major), int(minor), inode
+    except (KeyError, IndexError, ValueError):
+        pass
+    raise RuntimeError("cannot find the research lock's file system in mountinfo")
+
+
 def _lock_owner(path):
-    """Observe the Linux record lock without opening or acquiring the lock file.
+    """Observe the Linux record lock without opening the lock file for I/O or
+    acquiring it.
 
     Even closing a read-only descriptor for an inode releases this process's
     POSIX locks on it. /proc/locks avoids that side effect as well as the short
@@ -60,7 +98,7 @@ def _lock_owner(path):
     if not stat.S_ISREG(before.st_mode):
         raise RuntimeError("research lock path is not a regular file")
     identity = (before.st_dev, before.st_ino)
-    device = (os.major(before.st_dev), os.minor(before.st_dev), before.st_ino)
+    device = _kernel_id(path, identity)
     owners = set()
     for line in Path("/proc/locks").read_text().splitlines():
         fields = line.split()

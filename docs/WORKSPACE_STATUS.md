@@ -42,14 +42,17 @@ stopping rule. The status command itself leaves it alone.
 
 Process status uses Linux `/proc/locks` to identify the owner of this checkout's
 whole-file POSIX lock by device and inode, then verifies the owner's command and
-working directory. It never opens or acquires `autoresearch.lock`: inspecting an
-idle checkout cannot reserve it, and inspecting from an owner cannot release its
-lock. Stale, empty or damaged PID text does not hide a live kernel owner or
-redirect a stop to a different PID. A missing kernel observation, unexpected
-lock type, foreign owner or changing lock path is reported as unknown, rather
-than idle. This requires the host's normal Linux `/proc` view; it is not a
-cross-host or GPU-wide reservation. The lock file's PID text is retained for
-legacy diagnostics, but status and stop use kernel ownership.
+working directory. The device is the lock's file system's, from mountinfo:
+`stat()` reports another on btrfs and on overlayfs with layers on several file
+systems. It never opens `autoresearch.lock` for reading or writing, nor acquires
+it (an `O_PATH` descriptor names its mount): inspecting an idle checkout cannot
+reserve it, and inspecting from an owner cannot release its lock. Stale, empty
+or damaged PID text does not hide a live kernel owner or redirect a stop to a
+different PID. A missing kernel observation, unexpected lock type, foreign owner
+or changing lock path is reported as unknown, rather than idle. This requires
+the host's normal Linux `/proc` view; it is not a cross-host or GPU-wide
+reservation. The lock file's PID text is retained for legacy diagnostics, but
+status and stop use kernel ownership.
 
 The legacy `submittable` training field and artifact-validator `PASS` are local
 contracts. The artifact report now labels its scope and explicitly leaves prize
