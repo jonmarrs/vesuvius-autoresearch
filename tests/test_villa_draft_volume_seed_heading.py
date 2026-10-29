@@ -412,3 +412,27 @@ def test_the_launcher_passes_no_fibers_only_without_the_afv_export():
         in sh
     )
     assert 'VILLA_SHA="${VILLA_SHA:-39a8cf3a124bdd5540ee826e1cb30047c8dc8c85}"' in sh
+
+
+def test_villas_tests_at_39a8cf3a_fail_the_cases_they_failed_at_322cb0899():
+    """The draft said the counts were the same; the unpatched runs ran different files (4 against 15 passing), and
+    what matches is the failing set and the patched total."""
+    failed = re.compile(
+        r"^FAILED \S+signed_along_the_presence_direction\[(\d+)\]$", re.M
+    )
+    runs = {}
+    for name in (
+        "villa_volume_seed_heading_tests.txt",
+        "villa_volume_seed_heading_tests_39a8cf3a.txt",
+    ):
+        ev = (ROOT / "reports/evidence" / name).read_text()
+        runs[name] = sorted(int(x) for x in failed.findall(ev))
+        assert re.search(r"^20 passed", ev, re.M)
+    assert len(set(map(tuple, runs.values()))) == 1 and len(runs[name]) == 5
+    text = _text()
+    assert (
+        "the same five seed-heading cases fail without the patch, and all 20 tests pass with it"
+        in text
+    )
+    assert "(5 failed, 15 passed; at `322cb0899`, 5 failed, 4 passed)" in text
+    assert "give the same counts" not in text

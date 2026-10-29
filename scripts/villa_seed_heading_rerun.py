@@ -12,6 +12,9 @@ villa #2316 and its object store since, which the chain skips (a local CT crop h
 a run has a fibers.afv, its tiles must give the same fibers. A run counts once the chain logged it DONE.
 
     nice -n 19 .venv/bin/python scripts/villa_seed_heading_rerun.py --work W [--out JSON]
+
+The record is named by the villa commit its chain ran (reports/evidence/villa_volume_seed_heading_rerun_<commit>_
+from_tiles.json) and is never replaced: the draft cites each commit's record, 322cb0899's among them.
 """
 
 from __future__ import annotations
@@ -106,11 +109,16 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--work", type=Path, required=True)
     ap.add_argument(
-        "--out",
-        type=Path,
-        default=Path("reports/evidence/villa_volume_seed_heading_rerun.json"),
+        "--out", type=Path, help="default: named by the chain's villa commit"
     )
     a = ap.parse_args(argv)
+    villa = villa_commit(a.work)
+    if a.out is None:
+        a.out = Path(f"reports/evidence/villa_volume_seed_heading_rerun_{villa}_from_tiles.json")  # fmt: skip
+    if a.out.exists():
+        raise SystemExit(
+            f"{a.out} exists: each villa commit's record is kept; pass a new --out"
+        )
     sys.path.insert(0, str(f91.SG / "src"))
     from scrollgt.fibers.eval_trace import SCORING_VERSION, score_tracing
     from scrollgt.fibers.target import load_fiber_target
@@ -143,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     out = {
         "status": "IDENTICAL" if same and not any(control.values()) else "DIFFERS",
         "before_identical_to_after": control,
-        "villa": villa_commit(a.work),
+        "villa": villa,
         "source_villa": "ccb431818",
         "sources": {k: str(v) for k, v in SOURCE.items()},
         "fibers_from": "tiles",

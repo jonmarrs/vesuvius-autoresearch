@@ -102,3 +102,78 @@ def test_a_run_counts_only_once_its_chain_logged_it_done(tmp_path):
     assert rr.logged_done(tmp_path, "before", "s5_a")
     assert not rr.logged_done(tmp_path, "after", "s5_a")
     assert not rr.logged_done(tmp_path, "before", "s5")
+
+
+def test_a_record_is_named_by_its_villa_commit_and_never_replaced(
+    tmp_path, monkeypatch
+):
+    """The launcher's documented command has no --out. The default was the 322cb0899 record the draft cites, so a
+    re-run at a later villa commit replaced it."""
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "chain.log").write_text("CHAIN_START repo 1234567 villa 39a8cf3a1  t\n")
+    monkeypatch.chdir(tmp_path)
+    record = Path(
+        "reports/evidence/villa_volume_seed_heading_rerun_39a8cf3a1_from_tiles.json"
+    )
+    record.parent.mkdir(parents=True)
+    record.write_text("kept")
+    with pytest.raises(SystemExit, match="exists"):
+        rr.main(["--work", str(work)])
+    assert record.read_text() == "kept"
+    explicit = tmp_path / "chosen.json"
+    explicit.write_text("kept too")
+    with pytest.raises(SystemExit, match="exists"):
+        rr.main(["--work", str(work), "--out", str(explicit)])
+    assert explicit.read_text() == "kept too"
+
+
+@pytest.mark.parametrize("state", ["another commit", "unrecorded sources"])
+def test_the_launcher_refuses_sources_from_another_villa_commit(tmp_path, state):
+    """The sources are extracted once per W. A later launch with another VILLA_SHA and the same W traced the first
+    commit's code while CHAIN_START named the second."""
+    import os
+    import subprocess
+
+    villa = tmp_path / "villa"
+    (villa / "vesuvius/src").mkdir(parents=True)
+    (villa / "vesuvius/src/marker.py").write_text("")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    git = [
+        "git",
+        "-C",
+        str(villa),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+    ]
+    for args in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "villa"]):
+        subprocess.run([*git, *args], check=True, env=env)
+    sha = subprocess.run([*git, "rev-parse", "HEAD"], check=True, capture_output=True, text=True, env=env).stdout.strip()  # fmt: skip
+    work = tmp_path / "work"
+    work.mkdir()
+    if state == "another commit":
+        (work / "villa_sha").write_text("0" * 40 + "\n")
+    else:
+        (work / "src_before").mkdir()
+    run = subprocess.run(
+        ["bash", str(ROOT / "repro/fibers/run_villa_seed_heading_rerun.sh")],
+        env={
+            **env,
+            "REPO": str(ROOT),
+            "VILLA_GIT": str(villa),
+            "VILLA_SHA": sha,
+            "W": str(work),
+            "DRY_RUN": "1",
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert run.returncode == 3, run.stdout + run.stderr
+    log = (work / "chain.log").read_text()
+    assert (
+        "not " + sha if state == "another commit" else "no record of their villa commit"
+    ) in log
+    assert not (work / "src_after").exists()
