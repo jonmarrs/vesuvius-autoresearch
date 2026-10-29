@@ -138,6 +138,10 @@ NOT_CHECKED = {
     "scripts/candidate_artifacts.py::staged_directory",
     "scripts/export_fiber_targets.py::main",
     "scripts/patch_dataset_artifacts.py::publish_dataset",  # tests/test_patch_dataset_artifacts.py checks its modes
+    # Staging must stay writable even when replacing a read-only file. publish()
+    # sets replacement_mode after serialization; test_fiber_streaming_cli.py
+    # checks the published response/preview modes in dense and tiled runs.
+    "src/vesuvius_autoresearch/fibers/filter_artifacts.py::staged_file",
     # Scratch, never renamed into place.
     "scripts/f1_noise_probe.py::execute",
     "scripts/tracer_rescore_analysis.py::v1_scorer",

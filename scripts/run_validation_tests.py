@@ -70,6 +70,7 @@ VALIDATION_TESTS = [
     "tests/test_sota_registration_gates.py",
     "tests/test_sota_warp_alignment.py",
     "tests/test_fiber_workflow_contracts.py",
+    "tests/test_fiber_streaming_cli.py",
     "tests/test_fiber_skeleton_io.py",
     "tests/test_nml_import_contracts.py",
     "tests/test_seed_heading_chain_status.py",
