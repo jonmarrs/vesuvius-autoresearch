@@ -640,9 +640,15 @@ def main(argv=None):
         error = exc
     try:
         if args.out:
-            reads = artifact_inputs(
-                source.path if source is not None else metadata_input, metadata
-            )
+            metadata_file = source.path if source is not None else metadata_input
+            reads = artifact_inputs(metadata_file, metadata, ())
+            for key in ARTIFACT_INPUT_KEYS:
+                try:
+                    reads += artifact_inputs(metadata_file, metadata, (key,))[1:]
+                except ValueError:
+                    # It names no local file (a remote file: URI), so it cannot be the report. The validation
+                    # below fails on it, and that FAIL must replace an earlier report, as it did before #279.
+                    continue
             reads.append((args.metadata, "requested metadata path"))
             reads.append((ROOT / "autoresearch.lock", "research lock"))
             reads.extend(

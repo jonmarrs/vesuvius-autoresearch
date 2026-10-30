@@ -42,7 +42,7 @@ from pathlib import Path
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Villa path injection (mirrors preprocess_labels.py & generate_fiber_labels.py)
+# Villa path injection (mirrors preprocess_labels.py)
 # ---------------------------------------------------------------------------
 _VESUVIUS_SRC = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir, "villa", "vesuvius", "src")

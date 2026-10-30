@@ -47,6 +47,10 @@ def _run(chain: Path, tmp_path: Path, rc: int) -> tuple[int, str]:
         '#!/bin/sh\ncase "$1" in *loop_control.py) exit "$STATUS_RC" ;; esac\nexit 1\n'
     )
     py.chmod(0o755)
+    # The seed-heading re-run refuses a missing status helper before its loop guard.
+    helper = repo / "scripts" / "seed_heading_chain_status.py"
+    helper.parent.mkdir()
+    helper.touch()
     w = tmp_path / "w"
     env = {
         "PATH": os.environ["PATH"],

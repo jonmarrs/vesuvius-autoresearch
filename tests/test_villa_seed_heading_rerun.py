@@ -1,6 +1,7 @@
 """scripts/villa_seed_heading_rerun.py reads a run's fibers from its finished tiles, as villa's exporters do, so a run
 at a villa without the .afv export (#2316) compares and scores as the .afv runs did."""
 
+import importlib.abc
 import importlib.util
 import json
 import sys
@@ -25,6 +26,18 @@ GRID = {3: [[70, 80, 90], [71, 80, 90], [72, 81, 90]], 9: [[100, 100, 100], [100
 def _run(path: Path, fibers=GRID, scale=2.0, tile="z0_y0_x0") -> Path:
     (path / "tiles").mkdir(parents=True)
     (path / "run.json").write_text(json.dumps({"grid_scale": scale}))
+    (path / "tiles.jsonl").write_text(
+        json.dumps(
+            {
+                "tile": tile,
+                "dots": 5,
+                "no_heading": 0,
+                "traced": 5,
+                "fibers": len(fibers),
+            }
+        )
+        + "\n"
+    )
     ids = sorted(fibers)
     pts = [np.asarray(fibers[i], np.float32) for i in ids]
     offsets = np.cumsum([0] + [len(p) for p in pts])
@@ -95,10 +108,188 @@ def test_same_fibers_ignores_ids_but_not_points(tmp_path):
 
 
 def test_a_run_counts_only_once_its_chain_logged_it_done(tmp_path):
+    cube = rr.CUBES[0]
+    run = _run(tmp_path / "before" / cube)
+    (run / "tiles.jsonl").write_text("{}\n")
     (tmp_path / "chain.log").write_text(
-        "CHAIN_START repo 1234567 villa 39a8cf3a1  t\nTRACE before s5_a  t\nDONE before s5_a  t\n"
-        "TRACE after s5_a  t\nFAILED after s5_a rc=1  t\n"
+        f"CHAIN_START repo 1234567 villa 39a8cf3a1  t\nTRACE before {cube}  t\nDONE before {cube}  t\n"
+        f"TRACE after {cube}  t\nFAILED after {cube} rc=1  t\n"
     )
-    assert rr.logged_done(tmp_path, "before", "s5_a")
-    assert not rr.logged_done(tmp_path, "after", "s5_a")
-    assert not rr.logged_done(tmp_path, "before", "s5")
+    assert rr.logged_done(tmp_path, "before", cube)
+    assert not rr.logged_done(tmp_path, "after", cube)
+    with pytest.raises(ValueError, match="unknown seed-heading"):
+        rr.logged_done(tmp_path, "before", "s5")
+    with (tmp_path / "chain.log").open("a") as stream:
+        stream.write(f"TRACE before {cube}  t\nFAILED before {cube} rc=1  t\n")
+    assert not rr.logged_done(tmp_path, "before", cube)
+
+
+def test_a_record_is_named_by_its_villa_commit_and_never_replaced(
+    tmp_path, monkeypatch
+):
+    """The launcher's documented command has no --out. The default was the 322cb0899 record the draft cites, so a
+    re-run at a later villa commit replaced it."""
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "chain.log").write_text("CHAIN_START repo 1234567 villa 39a8cf3a1  t\n")
+    monkeypatch.chdir(tmp_path)
+    record = Path(
+        "reports/evidence/villa_volume_seed_heading_rerun_39a8cf3a1_from_tiles.json"
+    )
+    record.parent.mkdir(parents=True)
+    record.write_text("kept")
+    with pytest.raises(SystemExit, match="exists"):
+        rr.main(["--work", str(work)])
+    assert record.read_text() == "kept"
+    explicit = tmp_path / "chosen.json"
+    explicit.write_text("kept too")
+    with pytest.raises(SystemExit, match="exists"):
+        rr.main(["--work", str(work), "--out", str(explicit)])
+    assert explicit.read_text() == "kept too"
+
+
+def test_main_refuses_failed_latest_attempt_before_loading_scorer(
+    tmp_path, monkeypatch
+):
+    class NoScorer(importlib.abc.MetaPathFinder):
+        def find_spec(self, fullname, path=None, target=None):
+            if fullname.startswith("scrollgt"):
+                raise AssertionError(
+                    "incomplete work must fail before importing the scorer"
+                )
+
+    monkeypatch.setattr(sys, "meta_path", [NoScorer(), *sys.meta_path])
+    (tmp_path / "chain.log").write_text(
+        f"CHAIN_START repo 1234567 villa 39a8cf3a1  t\n"
+        f"DONE before {rr.CUBES[0]}  t\nFAILED before {rr.CUBES[0]} rc=7  t\n"
+    )
+    _run(tmp_path / "before" / rr.CUBES[0])
+    output = tmp_path / "comparison.json"
+    with pytest.raises(SystemExit, match="incomplete run:.*last event=FAILED"):
+        rr.main(["--work", str(tmp_path), "--out", str(output)])
+    assert not output.exists()
+
+
+def test_main_compares_closed_tile_runs_and_publishes_record(tmp_path, monkeypatch):
+    from types import ModuleType, SimpleNamespace
+
+    refs = {side: tmp_path / "reference" / side for side in rr.SOURCE}
+    monkeypatch.setattr(rr, "SOURCE", refs)
+    records = []
+    for side in refs:
+        for cube in rr.CUBES:
+            fibers = GRID if side == "before" else {7: [[80, 80, 80], [81, 80, 80]]}
+            _run(tmp_path / side / cube, fibers=fibers)
+            _run(refs[side] / cube, fibers=fibers)
+            records.append(f"DONE {side} {cube}  t\n")
+    (tmp_path / "chain.log").write_text(
+        "CHAIN_START repo 1234567 villa 39a8cf3a1  t\n" + "".join(records)
+    )
+    # The scorer is the external boundary; read real tiny NPZs and JSON locally.
+    scorer, targets = (
+        ModuleType("scrollgt.fibers.eval_trace"),
+        ModuleType("scrollgt.fibers.target"),
+    )
+    scorer.SCORING_VERSION = 3
+    calls = []
+
+    def score(*args, **kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(as_row=lambda: dict.fromkeys(rr.ROW, 0.25))
+
+    scorer.score_tracing = score
+    targets.load_fiber_target = lambda path: (None, None, None)
+    monkeypatch.setitem(sys.modules, "scrollgt.fibers.eval_trace", scorer)
+    monkeypatch.setitem(sys.modules, "scrollgt.fibers.target", targets)
+    monkeypatch.setattr(cc, "labels_of_fibers", lambda *args: None)
+    output = tmp_path / "comparison.json"
+    assert rr.main(["--work", str(tmp_path), "--out", str(output)]) == 0
+    report = json.loads(output.read_text())
+    assert report["status"] == "IDENTICAL" and report["fibers_from"] == "tiles"
+    assert len(calls) == 4 and all(call == {"tolerance": 2.0} for call in calls)
+    assert all(
+        row["counts"]["traced"] == 5
+        for side in report["runs"].values()
+        for row in side.values()
+    )
+
+
+def test_record_publication_does_not_overwrite_a_concurrent_record(
+    tmp_path, monkeypatch
+):
+    output = tmp_path / "record.json"
+    original = rr.os.link
+
+    def competing_writer(source, target):
+        assert json.loads(Path(source).read_text()) == {"new": True}
+        Path(target).write_text('{"existing": true}\n')
+        return original(source, target)
+
+    monkeypatch.setattr(rr.os, "link", competing_writer)
+    with pytest.raises(SystemExit, match="existing record kept"):
+        rr.publish_record(output, '{"new": true}\n')
+    assert json.loads(output.read_text()) == {"existing": True}
+    assert list(tmp_path.iterdir()) == [output]
+
+
+def test_record_publication_is_complete_and_respects_umask(tmp_path):
+    previous = rr.os.umask(0o027)
+    try:
+        output = tmp_path / "record.json"
+        rr.publish_record(output, '{"new": true}\n')
+        assert json.loads(output.read_text()) == {"new": True}
+        assert output.stat().st_mode & 0o777 == 0o640
+        assert list(tmp_path.iterdir()) == [output]
+    finally:
+        rr.os.umask(previous)
+
+
+@pytest.mark.parametrize("state", ["another commit", "unrecorded sources"])
+def test_the_launcher_refuses_sources_from_another_villa_commit(tmp_path, state):
+    """The sources are extracted once per W. A later launch with another VILLA_SHA and the same W traced the first
+    commit's code while CHAIN_START named the second."""
+    import os
+    import subprocess
+
+    villa = tmp_path / "villa"
+    (villa / "vesuvius/src").mkdir(parents=True)
+    (villa / "vesuvius/src/marker.py").write_text("")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    git = [
+        "git",
+        "-C",
+        str(villa),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+    ]
+    for args in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "villa"]):
+        subprocess.run([*git, *args], check=True, env=env)
+    sha = subprocess.run([*git, "rev-parse", "HEAD"], check=True, capture_output=True, text=True, env=env).stdout.strip()  # fmt: skip
+    work = tmp_path / "work"
+    work.mkdir()
+    if state == "another commit":
+        (work / "villa_sha").write_text("0" * 40 + "\n")
+    else:
+        (work / "src_before").mkdir()
+    run = subprocess.run(
+        ["bash", str(ROOT / "repro/fibers/run_villa_seed_heading_rerun.sh")],
+        env={
+            **env,
+            "REPO": str(ROOT),
+            "VILLA_GIT": str(villa),
+            "VILLA_SHA": sha,
+            "W": str(work),
+            "DRY_RUN": "1",
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert run.returncode == 3, run.stdout + run.stderr
+    log = (work / "chain.log").read_text()
+    assert (
+        "not " + sha if state == "another commit" else "no record of their villa commit"
+    ) in log
+    assert not (work / "src_after").exists()

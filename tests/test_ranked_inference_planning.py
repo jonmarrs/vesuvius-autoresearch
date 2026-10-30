@@ -243,3 +243,44 @@ def test_namespaced_queue_survives_ranking_and_batch_planning(tmp_path, monkeypa
     assert {cmd[cmd.index("--artifact_stem") + 1] for cmd in commands} == {
         row["artifact_stem"] for row in rows
     }
+
+
+@pytest.mark.parametrize("script", ["predict.py", "ensemble_predict.py"])
+def test_predictors_launched_by_path_import_this_checkouts_package(tmp_path, script):
+    """The planner runs predict.py by path. It put only the checkout's root on sys.path, so the package came from
+    the shared .venv's editable install, which may point at another checkout."""
+    repo = Path(__file__).resolve().parents[1]
+    foreign = tmp_path / "foreign/src"
+    core = foreign / "vesuvius_autoresearch/core"
+    core.mkdir(parents=True)
+    (core / "__init__.py").write_text(
+        "raise AssertionError('foreign checkout imported')\n"
+    )
+    code = """
+import runpy, sys
+from pathlib import Path
+script = Path(sys.argv[1])
+sys.path.insert(0, sys.argv[2])
+sys.argv = [str(script), '--help']
+try:
+    runpy.run_path(str(script), run_name='__main__')
+except SystemExit as exc:
+    assert exc.code == 0, exc.code
+import vesuvius_autoresearch.core as core
+assert Path(core.__file__).resolve().is_relative_to(script.parents[2] / 'src'), core.__file__
+"""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            code,
+            str(repo / "scripts/inference" / script),
+            str(foreign),
+        ],
+        cwd=tmp_path,
+        env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]

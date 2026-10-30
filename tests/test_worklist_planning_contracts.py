@@ -361,3 +361,22 @@ def test_interrupt_during_rollback_keeps_old_backups(workspace, monkeypatch):
         "old json",
         "old tsv",
     }
+
+
+@pytest.mark.parametrize("table", ["missing", "wrong columns"])
+def test_an_unreadable_ranked_table_replaces_the_previous_report_with_a_failure(
+    tmp_path, monkeypatch, table
+):
+    """A new attempt invalidates the old execution report (docs/CANDIDATE_PREPROCESSING.md). The table reader raises
+    ValueError, not FileNotFoundError, so a missing or malformed table exited as an unsafe report path, leaving a
+    previous PASS in place."""
+    monkeypatch.chdir(tmp_path)
+    ranked_path = tmp_path / "ranked.tsv"
+    if table == "wrong columns":
+        ranked_path.write_text("a\tb\nonly-one\n")
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps({"status": "PASS"}))
+    with pytest.raises(SystemExit) as exit_info:
+        pipeline.main(["--ranked", str(ranked_path), "--report", str(report)])
+    assert exit_info.value.code == 1
+    assert json.loads(report.read_text())["status"] == "FAIL"

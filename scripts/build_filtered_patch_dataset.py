@@ -46,7 +46,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     try:
         return build(args)
-    except (OSError, ValueError, TypeError, OverflowError) as exc:
+    except (OSError, ValueError, TypeError, OverflowError, RuntimeError) as exc:
         print(f"Patch dataset preparation failed: {exc}", file=sys.stderr)
         return 1
 

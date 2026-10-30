@@ -1,6 +1,67 @@
 # October Progress Prize: readiness and final-week plan
 
-## October 28 readiness decision
+## Engineering entry filed — receipt verified October 30 UTC
+
+The owner submitted the engineering bundle covering **Villa #2022, #2044 and
+#2155**. The Google Forms response receipt and requested emailed copy were
+received at **October 30, 2026, 04:40:33 UTC**, or **October 29 at 9:40:33 p.m.
+Pacific**, before the deadline. This is the receipt timestamp, not a separately
+reported form-submission timestamp.
+
+The [filed entry](PRIZE_FILING_2026-10_SUBMITTED.md) preserves the exact four
+URLs and 371-word contribution answer. The
+[redacted verification record](../reports/evidence/october_prize_submission_2026-10-30.json)
+binds those fields to the retained private receipt through hashes. All received
+answers match the preparation after newline normalization; the terms response
+was agreed. Personal fields, account details and the raw receipt stay private.
+
+The engineering filing is complete. The optional
+[separate research entry](PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md) remains
+unsubmitted in this workflow. The older readiness snapshots and frozen
+preparation files below retain their historical status and wording; they do
+not call for resubmitting the completed engineering entry.
+
+## Earlier October 30 UTC / October 29 Pacific readiness snapshot
+
+The [fresh readiness check](../reports/evidence/october_prize_readiness_2026-10-30.json)
+confirms the same three October Villa merges: **#2022, #2044 and #2155**.
+At 03:19 UTC on October 30, the October form returned HTTP 200, its expected
+title and an accepting response form. The pinned rules still give the deadline
+as **October 31, 2026, 11:59 p.m. Pacific** (November 1, 06:59 UTC).
+No submission or receipt is recorded here. File the completed engineering
+bundle now; further research and upstream merges are not prerequisites.
+
+The existing October 28 copy-ready archive retains its recorded SHA-256.
+Every ZIP member was checked, and both prepared source documents remain
+unchanged: 371 engineering words and 554 optional research words. All 91
+filing/claim/form helper checks pass. Complete the owner fields and terms,
+then preserve the actual receipt and exact submitted text. Decide separately
+whether to file the prepared research answer.
+
+The pending Villa PRs **#2141, #2258 and #2259** are still open, with unchanged
+heads and no new substantive review feedback. #2141's latest requested changes
+are addressed. The three-open-PR cap remains full; they do not add merge credit.
+The personal-verification boxes in #2258 and #2259 are still unchecked; the
+owner can complete them only after personally verifying the stated evidence.
+Autoresearch PRs #292–#296 are also not additional Villa merges.
+
+One bounded engineering follow-up is now complete:
+[public-CT streaming verification](../reports/fiber_cli_public_ct_cpu_2026-10-30.md).
+Both filters reproduce the historical CLI's serialized NPY bytes on a real
+256³ Scroll-1 CT cube. Observed CPU peak RSS is about 18–20% lower; wall-time
+observations are longer and are not a controlled speed comparison. All four
+commands complete under a 4 GiB address-space ceiling. Native CUDA, larger
+scans and model quality remain unmeasured by this check.
+
+For the remaining time, prioritize actual filing and any new feedback on the
+existing upstream PRs. A 12-crop hard-region review packet across two scans is
+a realistic optional deliverable if an expert can review it; hints cannot be
+promoted to labels without that review. Native object-store/tracer integration
+requires the configured runtime, correctly identified public CT and a free GPU.
+The registered unchanged-control window stays undisturbed. New controlled ink
+or tracing experiments belong after it closes, even if that is November.
+
+## Earlier October 28 readiness decision
 
 The engineering entry is ready for final owner fields and filing. The
 [October 28 audit](../reports/evidence/october_prize_readiness_2026-10-28.json)
@@ -32,7 +93,7 @@ The registered unchanged-training comparison remains undisturbed: no live
 measurements were read, no GPU jobs were started and no runtime was deployed.
 Do not launch a competing sweep or wait for that window to file. The earlier
 dated notes below preserve the progression of this plan; this October 28
-decision is the current filing status.
+decision records the previous filing status; the fresh check above supersedes it.
 
 ## Earlier October 27 checks
 

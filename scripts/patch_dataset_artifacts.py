@@ -98,6 +98,19 @@ def entries(directory):
     return sorted(result)
 
 
+def distinct_patch_targets(targets):
+    """Different IDs must not count the same physical patch directory twice."""
+    seen = {}
+    for pid, target in targets.items():
+        info = Path(target).stat()
+        identity = (info.st_dev, info.st_ino)
+        if identity in seen:
+            raise ValueError(
+                f"patch IDs {seen[identity]} and {pid} resolve to the same directory"
+            )
+        seen[identity] = pid
+
+
 def dataset_links(source, ids):
     root = Path(source).resolve(strict=True)
     if not root.is_dir() or not (root / "verified_patches").is_dir():
@@ -117,18 +130,8 @@ def dataset_links(source, ids):
         if not path.is_dir():
             raise ValueError(f"scored patch must be a directory: {pid}")
         patches[pid] = path
+    distinct_patch_targets(patches)
     return root, auxiliary, patches
-
-
-def bootstrap_ids(path, known):
-    root = Path(path).resolve(strict=True)
-    ids = {patch_id(p.name) for p in entries(root / "verified_patches")}
-    if not ids or ids - known.keys():
-        raise ValueError("bootstrap must be nonempty and contain only scored patch IDs")
-    for pid in ids:
-        if not (root / "verified_patches" / pid).is_dir():
-            raise ValueError(f"bootstrap patch must be a readable directory: {pid}")
-    return root, ids
 
 
 def geometry(root, ids):

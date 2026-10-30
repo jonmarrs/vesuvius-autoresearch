@@ -9,6 +9,10 @@ for completed contributions. The priorities are useful upstream engineering,
 fiber-tracing improvements and controlled evaluation. New research claims need
 measurements; internal tooling and merged PR counts alone do not establish impact.
 
+**October Progress Prize: engineering entry filed.** The
+[submitted entry and receipt verification](docs/PRIZE_FILING_2026-10_SUBMITTED.md)
+record the three Villa fixes. The optional research entry remains unsubmitted.
+
 **Check a checkout without starting training:** `python3 scripts/workspace_status.py`.
 This reads setup and process metadata; it does not load model weights, read study
 measurements or access CUDA. Use `--json` for a structured report. A passing setup
@@ -300,6 +304,11 @@ For CT-gated 3D ink pseudo-labels and upstream segmentation curation, see
 workflows declare alignment and evaluated coverage, preserve source IDs during
 curation, and publish new completed artifacts. Their outputs need independent
 validation before use as training ground truth.
+
+For bounded CT vesselness and WebKnossos orientation labels, see
+[Fiber label generation](docs/FIBER_LABEL_GENERATION.md). The CLI plans without
+CUDA probes or output writes, validates exact regions, and publishes a new
+completed run with source and TIFF hashes. These outputs remain heuristic.
 
 For preparing curated sheet-instance labels for Mutex, see
 [Mutex data handoff](docs/MUTEX_DATA.md). It requires explicit CT pairing,

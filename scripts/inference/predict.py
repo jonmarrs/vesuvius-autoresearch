@@ -11,9 +11,11 @@ import os
 import sys
 from pathlib import Path
 
-# Direct launchers are also used from evidence directories outside the checkout.
+# Direct launchers are also used from evidence directories outside the checkout. "src" too: the shared .venv's
+# editable install may point at another checkout (run_ranked_inference launches this file by path).
 if not __package__:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    root = Path(__file__).resolve().parents[2]
+    sys.path[:0] = [str(root), str(root / "src")]
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -329,7 +331,9 @@ def predict():
 
     checkpoint_bytes = Path(checkpoint_path).read_bytes()
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
-    checkpoint = torch.load(io.BytesIO(checkpoint_bytes), map_location=device, weights_only=False)
+    checkpoint = torch.load(
+        io.BytesIO(checkpoint_bytes), map_location=device, weights_only=False
+    )
     del checkpoint_bytes
     if not isinstance(checkpoint, dict) or not isinstance(
         checkpoint.get("config", {}), dict

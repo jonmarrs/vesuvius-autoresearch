@@ -1,0 +1,67 @@
+{
+  "schema": "fiber-label-public-ct-smoke-v1",
+  "checked_at_utc": "2026-10-30T05:29:01.699391+00:00",
+  "status": "PASS",
+  "source_commit_before_changes": "62905f3a005deeda2f6909a49ca6cc567f4214e7",
+  "measured_source_sha256": {
+    "scripts/labeling/generate_fiber_labels.py": "68110cd38dd9e30dcb1b719965ca0e250326ccfed586f567f61a7abd90ad738c",
+    "scripts/labeling/fiber_candidates.py": "42b7a4c13ada38e63f9734bef61d9dd353b1e0e1f17aaa382e8aacfdfde64d1c",
+    "scripts/labeling/label_artifacts.py": "c635a2a4c07d375d9c569f6b0c0ab649fc14cf1ec3e2f903069db19aa84b5f30",
+    "scripts/candidate_artifacts.py": "a1c5e8d4399c93d7fb9adf4253090b746c7ac19df0e185b1bc287d8e37cdf224",
+    "src/vesuvius_autoresearch/fibers/detection.py": "97a6e87af05a5090542a55ac9bd864ca0ad1a35deab53f6ffaaef5048ce1d5e5",
+    "src/vesuvius_autoresearch/fibers/cli.py": "1ffcb90c4136eaea95c595740c10515471ffa04a109529a1c9c15d4c53cc2e16"
+  },
+  "source_tiff": {
+    "url": "https://dl.ash2txt.org/datasets/fiber-skeletons/Dataset001_sk-fibers-20250124/imagesTr/s1_00497_01497_03997_256_0000.tif",
+    "sha256": "0d38453cc37157f46b180e3711172e99f56eb216948eb6755eca0019ad0dbf60",
+    "shape": [
+      256,
+      256,
+      256
+    ],
+    "dtype": "uint8"
+  },
+  "command": [
+    "/tmp/vesuvius-chain-env/bin/python",
+    "/workspace/vesuvius-label-review/scripts/labeling/generate_fiber_labels.py",
+    "--candidates",
+    "/workspace/shared/fiber-label-public-ct-2026-10-30/candidates.tsv",
+    "--evidence-root",
+    "/workspace/shared/fiber-label-public-ct-2026-10-30/labels-run-final",
+    "--depth",
+    "16",
+    "--top-n",
+    "1"
+  ],
+  "cwd": "/workspace/shared/fiber-label-public-ct-2026-10-30",
+  "environment_controls": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "CUDA_VISIBLE_DEVICES": "",
+    "PYTHONPATH": "unset"
+  },
+  "returncode": 0,
+  "stdout": "{\"status\": \"COMPLETE\", \"output\": \"/workspace/shared/fiber-label-public-ct-2026-10-30/labels-run-final\", \"candidates\": 1, \"backend\": \"numpy\"}\n",
+  "bbox_zyx": [
+    16,
+    32,
+    32,
+    64,
+    48,
+    88
+  ],
+  "shape_zyx": [
+    16,
+    32,
+    40
+  ],
+  "probability_tiff_sha256": "8ee5fbc319d4713f185d8d056a0e9501a762b960feb5a0bf3dd0604bf5c25e62",
+  "label_tiff_sha256": "52ec2031d96928cd7ba5c9a6fb4d8108e92bb020db0be7fb8f3057c8f118b144",
+  "serialized_response_matches_existing_filter_exactly": true,
+  "binary_labels_match_threshold_exactly": true,
+  "source_digest_verified": true,
+  "source_attributes_preserved": true,
+  "labeled_voxels": 0,
+  "scope": "One bounded public-CT crop; CPU only, functional parity/provenance check. No model-quality, tracing, full-cube, CUDA or performance claim."
+}

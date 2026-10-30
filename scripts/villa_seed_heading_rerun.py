@@ -12,24 +12,31 @@ villa #2316 and its object store since, which the chain skips (a local CT crop h
 a run has a fibers.afv, its tiles must give the same fibers. A run counts once the chain logged it DONE.
 
     nice -n 19 .venv/bin/python scripts/villa_seed_heading_rerun.py --work W [--out JSON]
+
+The record is named by the villa commit its chain ran (reports/evidence/villa_volume_seed_heading_rerun_<commit>_
+from_tiles.json) and is never replaced: the draft cites each commit's record, 322cb0899's among them.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
+
+from vesuvius_autoresearch.core.file_modes import replacement_mode
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import afv_to_labels  # noqa: E402
 import neural_tracer_analysis as f91  # noqa: E402
 import neural_tracer_ct_context as cc  # noqa: E402
+from seed_heading_chain_status import CUBES, inspect_run  # noqa: E402
 
-CUBES = ("s5_13497_01497_02497_256", "s5_16997_03997_04497_256")
 SOURCE = {
     "before": cc.T
     / "ct_context_run/neural",  # finding 97: villa ccb431818, the skip in place
@@ -88,11 +95,8 @@ def run_fibers(run: Path) -> dict:
 
 
 def logged_done(work: Path, side: str, cube: str) -> bool:
-    """The chain logged the run DONE (it traced and exited 0)."""
-    return (
-        re.search(rf"^DONE {side} {cube}\s", (work / "chain.log").read_text(), re.M)
-        is not None
-    )
+    """The latest attempt exited successfully and its closed outputs remain."""
+    return inspect_run(work, side, cube)["status"] == "COMPLETE"
 
 
 def villa_commit(work: Path) -> str:
@@ -102,15 +106,49 @@ def villa_commit(work: Path) -> str:
     return m[0]
 
 
+def publish_record(path: Path, contents: str) -> None:
+    """Expose a complete record once; never overwrite a concurrent publisher."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}-")
+    staging = Path(name)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(contents)
+            stream.flush()
+            os.fsync(stream.fileno())
+        staging.chmod(replacement_mode(path))
+        try:
+            os.link(staging, path)
+        except FileExistsError:
+            raise SystemExit(
+                f"{path} appeared during comparison; existing record kept"
+            ) from None
+    finally:
+        staging.unlink(missing_ok=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--work", type=Path, required=True)
     ap.add_argument(
-        "--out",
-        type=Path,
-        default=Path("reports/evidence/villa_volume_seed_heading_rerun.json"),
+        "--out", type=Path, help="default: named by the chain's villa commit"
     )
     a = ap.parse_args(argv)
+    villa = villa_commit(a.work)
+    if a.out is None:
+        a.out = Path(f"reports/evidence/villa_volume_seed_heading_rerun_{villa}_from_tiles.json")  # fmt: skip
+    if a.out.exists() or a.out.is_symlink():
+        raise SystemExit(
+            f"{a.out} exists: each villa commit's record is kept; pass a new --out"
+        )
+    for side in SOURCE:
+        for cube in CUBES:
+            state = inspect_run(a.work, side, cube)
+            if state["status"] != "COMPLETE":
+                raise SystemExit(
+                    f"incomplete run: {a.work / side / cube}; "
+                    f"last event={state['last_event']}; {state['output_problems']}"
+                )
     sys.path.insert(0, str(f91.SG / "src"))
     from scrollgt.fibers.eval_trace import SCORING_VERSION, score_tracing
     from scrollgt.fibers.target import load_fiber_target
@@ -143,7 +181,7 @@ def main(argv: list[str] | None = None) -> int:
     out = {
         "status": "IDENTICAL" if same and not any(control.values()) else "DIFFERS",
         "before_identical_to_after": control,
-        "villa": villa_commit(a.work),
+        "villa": villa,
         "source_villa": "ccb431818",
         "sources": {k: str(v) for k, v in SOURCE.items()},
         "fibers_from": "tiles",
@@ -151,8 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         "tolerance": 2.0,
         "runs": runs,
     }
-    a.out.parent.mkdir(parents=True, exist_ok=True)
-    a.out.write_text(json.dumps(out, indent=1) + "\n")
+    publish_record(a.out, json.dumps(out, indent=1) + "\n")
     print(json.dumps(out, indent=1))
     return 0
 

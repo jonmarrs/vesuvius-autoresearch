@@ -616,16 +616,15 @@ def test_start_sh_says_the_loop_will_not_start_beside_an_orphaned_run(
     assert "otherwise run ./start.sh again" in said
 
 
-# What an unidentified holder left in the lock, as hex: "x"; "²", which isdigit()
-# takes and int() refuses; bytes that are not UTF-8. The last two ended status in
-# a traceback, whose exit 1 start.sh read as nothing running, and launched.
+# Broken legacy PID metadata must not hide the actual kernel lock holder.
+# The command and checkout, rather than this text, decide whether it is ours.
 _UNREADABLE_LOCKS = {"unidentified": "78", "superscript two": "c2b2", "not UTF-8": "ff"}
 
 
 @pytest.mark.parametrize("holder", ["the loop", *_UNREADABLE_LOCKS])
-def test_start_sh_keeps_its_exit_codes(tmp_path, holder):
-    """Work running: exit 1, as before; a lock status cannot read: its exit 2.
-    Neither launches anything."""
+def test_start_sh_refuses_kernel_owner_even_with_bad_pid_text(tmp_path, holder):
+    """Actual work running: launcher exit 1, even with damaged PID metadata.
+    The owner is identified from the kernel and nothing launches beside it."""
     start = _checkout_with_start_sh(tmp_path)
     script = tmp_path / "run_autoresearch_loop.py"
     script.write_text(
@@ -648,12 +647,8 @@ def test_start_sh_keeps_its_exit_codes(tmp_path, holder):
     finally:
         work.kill()
         work.wait()
-    if holder == "the loop":
-        assert result.returncode == 1
-        assert f"Autoresearch work is running (PID {work.pid})" in result.stdout
-    else:
-        assert result.returncode == 2
-        assert "contains no valid PID" in result.stderr
+    assert result.returncode == 1
+    assert f"Autoresearch work is running (PID {work.pid})" in result.stdout
     assert not (tmp_path / "autoresearch.out").exists()  # nothing launched
 
 

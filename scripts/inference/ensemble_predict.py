@@ -10,8 +10,10 @@ import os
 import sys
 from pathlib import Path
 
+# "src" too: the shared .venv's editable install may point at another checkout.
 if not __package__:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    root = Path(__file__).resolve().parents[2]
+    sys.path[:0] = [str(root), str(root / "src")]
 
 import matplotlib.pyplot as plt
 import numpy as np

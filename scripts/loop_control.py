@@ -4,6 +4,7 @@ import argparse
 import fcntl
 import os
 import signal
+import stat
 import sys
 import time
 from pathlib import Path
@@ -44,41 +45,113 @@ LOCK_HOLDER_ARGS = frozenset(
 )
 
 
-def running_pid(repo):
-    path = repo / "autoresearch.lock"
-    if not path.exists():
+def _kernel_id(path, identity):
+    """(major, minor, inode) as /proc/locks names the file at path.
+
+    /proc/locks gives the file system's own device, which stat() does not always
+    report: btrfs reports a subvolume's, overlayfs (layers on several file
+    systems) a layer's. An O_PATH descriptor gives the file's mount, whose device
+    mountinfo lists, and its inode. Such a descriptor can take no lock, and
+    closing it drops none: only closing one opened for I/O releases the
+    process's POSIX locks.
+    """
+    if not hasattr(os, "O_PATH"):  # not Linux, so no /proc/locks either
+        raise RuntimeError("observing the research lock needs Linux /proc")
+    fd = os.open(path, os.O_PATH)
+    try:
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) != identity:
+            raise RuntimeError("research lock path changed during inspection; retry")
+        info = dict(
+            line.split(":", 1)
+            for line in Path(f"/proc/self/fdinfo/{fd}").read_text().splitlines()
+            if ":" in line
+        )
+    finally:
+        os.close(fd)
+    try:
+        mount = info["mnt_id"].strip()
+        inode = int(info["ino"]) if "ino" in info else opened.st_ino
+        for line in Path("/proc/self/mountinfo").read_text().splitlines():
+            fields = line.split()
+            if fields[:1] == [mount]:
+                major, minor = fields[2].split(":")
+                return int(major), int(minor), inode
+    except (KeyError, IndexError, ValueError):
+        pass
+    raise RuntimeError("cannot find the research lock's file system in mountinfo")
+
+
+def _lock_owner(path):
+    """Observe the Linux record lock without opening the lock file for I/O or
+    acquiring it.
+
+    Even closing a read-only descriptor for an inode releases this process's
+    POSIX locks on it. /proc/locks avoids that side effect as well as the short
+    exclusive reservation that a lockf probe would make on an idle checkout.
+    Its PID is authoritative; text left in the lock file is only launch metadata.
+    """
+    try:
+        before = path.stat()
+    except FileNotFoundError:
         return None
-    # Replaced and ASCII: bytes that are not UTF-8, or a digit like "²" that
-    # int() refuses, would end status in a traceback, whose exit 1 reads as
-    # "nothing running".
-    with path.open("r+", errors="replace") as stream:
+    if not stat.S_ISREG(before.st_mode):
+        raise RuntimeError("research lock path is not a regular file")
+    identity = (before.st_dev, before.st_ino)
+    device = _kernel_id(path, identity)
+    owners = set()
+    for line in Path("/proc/locks").read_text().splitlines():
+        fields = line.split()
+        if not fields:
+            continue
+        if len(fields) > 1 and fields[1] == "->":
+            continue  # a queued request, not the owner
         try:
-            fcntl.lockf(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            value = stream.read().strip()
-            if not (value.isascii() and value.isdigit()) or int(value) <= 1:
-                raise RuntimeError(
-                    "loop lock is held but contains no valid PID"
-                ) from None
-            pid = int(value)
-            # Also verify checkout and script so foreign metadata cannot target
-            # another job. /proc is available on the supported Linux GPU hosts.
-            try:
-                proc = Path(f"/proc/{pid}")
-                args = proc.joinpath("cmdline").read_bytes().split(b"\0")
-                if not any(args):
-                    return None  # exiting/zombie process; there is nothing to signal
-                cwd = proc.joinpath("cwd").resolve(strict=True)
-            except FileNotFoundError:
-                return None
-            if cwd != repo.resolve() or not any(
-                Path(os.fsdecode(arg)).name in LOCK_HOLDER_ARGS for arg in args if arg
-            ):
-                raise RuntimeError(
-                    "lock PID does not identify this checkout's loop"
-                ) from None
-            return pid
-    return None
+            major, minor, inode = fields[5].split(":")
+            key = (int(major, 16), int(minor, 16), int(inode))
+            if key != device:
+                continue
+            pid = int(fields[4])
+        except (IndexError, ValueError):
+            raise RuntimeError("cannot parse Linux lock-owner records") from None
+        if (
+            fields[1:4] != ["POSIX", "ADVISORY", "WRITE"]
+            or fields[6:] != ["0", "EOF"]
+            or pid <= 1
+        ):
+            raise RuntimeError("research lock has an unsupported owner or lock type")
+        owners.add(pid)
+    after = path.stat()
+    if (after.st_dev, after.st_ino) != identity:
+        raise RuntimeError("research lock path changed during inspection; retry")
+    if len(owners) > 1:
+        raise RuntimeError("research lock has ambiguous owners")
+    return next(iter(owners), None)
+
+
+def running_pid(repo):
+    """Identify the actual lock holder; inspection never reserves the lock."""
+    path = repo / "autoresearch.lock"
+    pid = _lock_owner(path)
+    if pid is None:
+        return None
+    # The kernel identifies the owner; still verify checkout and script before
+    # status/stop trusts it. Never redirect a signal through stale PID text.
+    try:
+        proc = Path(f"/proc/{pid}")
+        args = proc.joinpath("cmdline").read_bytes().split(b"\0")
+        if not any(args):
+            return None  # exiting/zombie process; there is nothing to signal
+        cwd = proc.joinpath("cwd").resolve(strict=True)
+    except FileNotFoundError:
+        return None
+    if cwd != repo.resolve() or not any(
+        Path(os.fsdecode(arg)).name in LOCK_HOLDER_ARGS for arg in args if arg
+    ):
+        raise RuntimeError("lock PID does not identify this checkout's loop")
+    if _lock_owner(path) != pid:
+        raise RuntimeError("research lock owner changed during inspection; retry")
+    return pid
 
 
 # The training scripts run in this checkout under a supervisor, each in a

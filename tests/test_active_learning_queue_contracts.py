@@ -195,6 +195,15 @@ def test_invalid_spacing_is_rejected(distance):
         )
 
 
+def test_a_repeated_catalog_coordinate_is_rejected():
+    """With the default spacing of 0, a repeated patch was returned twice and counted twice."""
+    loader = torch.utils.data.DataLoader(
+        Patches([(0, 0), (0, 8), (0, 16), (0, 16), (0, 40)]), batch_size=3
+    )
+    with pytest.raises(ValueError, match="repeats"):
+        active.ActiveLearningSampler(Model(), "cpu").sample_uncertain_regions(loader, 5)
+
+
 def test_catalog_changes_during_scoring_are_rejected():
     dataset = Patches()
 

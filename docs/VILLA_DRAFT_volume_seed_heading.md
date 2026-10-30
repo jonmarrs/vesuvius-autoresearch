@@ -50,8 +50,10 @@ CLI comparison is still required before posting.
    2026-10-28. Villa's `vesuvius/` was the same at that day's main, `7154682e1`. Findings:
    - The patch still applies (one hunk moved by one line).
    - `_seed_heading` is unchanged.
-   - Villa's tests give the same counts as at `322cb0899`, run under the tracer's Python 3.14 because #2316's
-     `volume.py` imports the native store (`reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt`).
+   - Villa's tests give the same result as at `322cb0899`: the same five seed-heading cases fail without the patch,
+     and all 20 tests pass with it. This time the performance tests ran beside them unpatched too (5 failed, 15
+     passed; at `322cb0899`, 5 failed, 4 passed). They ran under the tracer's Python 3.14 because #2316's `volume.py`
+     imports the native store (`reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt`).
    - Of the modules the tracer loads, #2316 changes only the export, a fiber-JSON parser and comments.
    - No villa PR or issue but #2165 matches "seed heading".
 
@@ -69,6 +71,22 @@ CLI comparison is still required before posting.
    - The two differ from each other (`reports/evidence/villa_volume_seed_heading_rerun_39a8cf3a.json`).
    - The follow-up patch's resume tests at `39a8cf3a` give the October 26 counts
      (`reports/evidence/villa_volume_seed_resume_tests_39a8cf3a.txt`).
+
+   Inspect an existing work directory without running traces or loading arrays:
+
+   ```sh
+   python3 scripts/seed_heading_chain_status.py status --work /path/to/W
+   ```
+
+   Exit 0 means all four latest attempts logged `DONE` and their closed output
+   files remain; exit 1 means incomplete, and exit 2 means inspection failed.
+   This checks presence, not numerical contents or input identity. The launcher
+   exits 1 for failed/incomplete traces and writes `CHAIN_FAILED`; only a fully
+   checked chain writes `CHAIN_COMPLETE`. A resume retries a failed or interrupted
+   attempt and a run whose outputs disappeared. Its `chain.lock` lease refuses
+   another launcher or surviving worker using the same `W`; it is not a global
+   GPU reservation. Import/setup refusals exit 3. Historical logs are preserved,
+   and comparison uses each run's latest attempt rather than any earlier `DONE`.
 4. **The owner's own commentary.** villa's CONTRIBUTING requires human-written commentary for LLM-assisted PRs, and a
    motivation from real use. The bracketed paragraph below is for the owner to write. Never check the
    personal-verification box on the owner's behalf.
