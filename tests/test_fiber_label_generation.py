@@ -263,6 +263,44 @@ def test_changed_inputs_block_publication(generator, inputs, monkeypatch, change
     assert not inputs[2].exists()
 
 
+def test_the_completion_summary_follows_every_recheck(generator, inputs, monkeypatch):
+    """A run killed during its rechecks must not leave a staged summary saying
+    "complete": nothing reads hidden staging directories, but nothing removes
+    them either."""
+    candidates = importlib.import_module("scripts.labeling.fiber_candidates")
+    staged = []
+
+    def summary_staged():
+        staged.append(any(inputs[2].parent.rglob("fiber_labels_summary.json")))
+
+    for name in ("_inspect", "file_sha256"):
+        check = getattr(candidates, name)
+
+        def recorded(*a, check=check, **kw):
+            summary_staged()
+            return check(*a, **kw)
+
+        monkeypatch.setattr(candidates, name, recorded)
+    generator._run_candidates_mode(args(inputs))
+    assert staged and not any(staged)
+    assert json.loads((inputs[2] / "fiber_labels_summary.json").read_text())["complete"]
+
+
+def test_the_candidate_tsv_must_be_a_regular_file(generator, inputs):
+    """Its bytes are hashed again before publication, which a pipe cannot give."""
+    read, write = os.pipe()
+    try:
+        os.write(write, inputs[1].read_bytes())
+        os.close(write)
+        with pytest.raises(ValueError, match="regular file"):
+            generator._run_candidates_mode(
+                args(inputs, candidates=Path(f"/dev/fd/{read}"))
+            )
+    finally:
+        os.close(read)
+    assert not inputs[2].exists()
+
+
 def test_all_selected_geometry_is_checked_before_backend(
     generator, inputs, monkeypatch
 ):

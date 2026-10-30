@@ -34,11 +34,15 @@ The TSV has unique, nonempty headers and these required columns:
 | `height`, `width` | Requested Y/X extent, at least 3 each |
 
 The first `--top-n` rows are selected in file order; the tool does not re-rank
-them. `top-n` is between 1 and 256, and the input TSV is at most 16 MiB. Duplicate
-physical windows are rejected. `review_score`, when supplied, must be finite;
-missing scores stay unknown. Cohort identifiers `scroll_id`, `short_id`, and
-`division`, when supplied, must be nonempty. Other columns are preserved in
-`candidate.json`. The [candidate ink/fiber report](CANDIDATE_INK_FIBER_REPORTS.md)
+them. `top-n` is between 1 and 256. The input TSV is a regular file of at most
+16 MiB; its bytes are hashed again before publication, so a pipe or process
+substitution is refused. A row repeating an earlier row's resolved `local_uri`,
+origin and shape is rejected. The check compares paths, so a group and its
+level-0 array (`ct.zarr` and `ct.zarr/0`) are not recognized as one source.
+`review_score`, when supplied, must be finite; missing scores stay unknown.
+Cohort identifiers `scroll_id`, `short_id`, and `division`, when supplied, must
+be nonempty. Other columns are preserved in `candidate.json`. The
+[candidate ink/fiber report](CANDIDATE_INK_FIBER_REPORTS.md)
 requires those cohort identifiers and separately prepared ink predictions.
 
 CT must be a real numeric 3D `(z, y, x)` Zarr array, or a group containing array
@@ -84,15 +88,18 @@ binary labels. Both are read back and compared before publication. Metadata
 records source path, source shape/dtype and attributes, source-local
 `evaluated_bbox_zyx` in **z0/z1/y0/y1/x0/x1** inclusive-exclusive order, decoded CT
 content digest, filter source hash, threshold, backend, labeled fraction, and
-the two serialized TIFF hashes. The summary binds the captured TSV hash and
-lists final artifact paths. Attribute preservation does not validate the
-source's physical coordinate claims. These TIFFs are not OME-Zarr exports.
+the two serialized TIFF hashes. The summary binds the captured TSV hash, lists
+final artifact paths, and is written last, after the rechecks below. Attribute
+preservation does not validate the source's physical coordinate claims. These
+TIFFs are not OME-Zarr exports.
 
 All selected headers are checked before backend selection. The run is built in
 a sibling staging directory, then published as one new directory after every
 candidate succeeds. Before publication, the TSV, filter source, source metadata,
 and every selected decoded CT region are checked again. A failure publishes no
-final run; an existing output is preserved and rejected. Exit status is 0 for
+final run; an existing output is preserved and rejected. A killed process
+(SIGKILL, or the default SIGTERM) leaves its hidden staging directory,
+`.<run name>-*` beside the output; remove it by hand. Exit status is 0 for
 success or a plan, 1 for execution/input failures, and 2 for argparse errors.
 
 Keep sources stable and serialize writers. Hash rechecks detect changes at the
