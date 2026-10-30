@@ -96,11 +96,12 @@ instead of inventing new acceptance thresholds from observed outcomes.
 Selection manifests are now consumed by the builder and both checkers. A
 present record must agree with the captured reference bytes (SHA-256 and size),
 actual selected IDs/hash/count/area, source patch targets and expected role.
-BOOTSTRAP must be the full threshold selection; a generated RANDOM arm cannot
-stand in for it. Checked BOOTSTRAP and control records must use the same full
-source and, for RANDOM, the same threshold. STRIPMATCH records also bind the
-bootstrap IDs and path; new builds preserve its manifest snapshot as a dependency.
-Those inputs are rechecked before a successful report or publication.
+BOOTSTRAP must be the full threshold selection; a generated RANDOM arm whose
+record is present cannot stand in for it. Checked BOOTSTRAP and control records
+must use the same full source and, for RANDOM, the same threshold. STRIPMATCH
+records also bind the bootstrap IDs and path; new builds preserve its manifest
+snapshot as a dependency. Those inputs are rechecked before a successful report
+or publication.
 
 Use `--require-manifests` for newly prepared datasets, as above. It rejects an
 arm whose record is missing; on the STRIPMATCH builder it requires the bootstrap
@@ -111,9 +112,10 @@ selection, rebuild a new dataset from preserved inputs. Identical reference
 bytes copied to another file are accepted; changed bytes require a new build.
 
 Both checkers reject the same physical patch container passed as both arms,
-including aliases. Different IDs cannot count the same physical patch directory
-twice, in either a builder's scored population or a checked arm. Legitimate
-patch overlap between distinct arm containers remains allowed.
+including aliases, and two arms that select exactly the same patches, such as a
+copy of an arm's links. Different IDs cannot count the same physical patch
+directory twice, in either a builder's scored population or a checked arm.
+Legitimate patch overlap between distinct arm containers remains allowed.
 
 JSON reports include `selection_manifests`, `manifests_required` and
 `generation_replayed: false`. `checked` describes these manifest/input bindings;
@@ -147,7 +149,8 @@ leaves `balance_verdict: not_assessed` and winding calibration unverified; exit
 0 means the input diagnostic completed. Missing or conflicting geometry fails
 instead of silently reducing the population. With `--full`, every scored
 reference patch must have matching geometry in that source. Unscored full-source
-patches do not enter the reference-population comparison.
+patches do not enter the reference-population comparison, nor its check that
+different IDs name different directories.
 
 The centre and cuts still derive from BOOTSTRAP | RANDOM, including when ALL is
 shown. Global area gaps use the scored reference's total area; per-band shares

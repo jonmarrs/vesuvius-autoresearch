@@ -181,7 +181,7 @@ def build_report(reference, boot_dir, rand_dir, full=None, *, require_manifests=
         for name, values in ids.items():
             shares[name], totals[name] = area_share_by_band(values, extent, edges, area)
         if full is not None:
-            captured = read_arm(full)
+            captured = read_arm(full, scored=rows)
             if rows.keys() - captured["targets"].keys():
                 raise ValueError("FULL dataset is missing scored patches")
             full_boxes, records = geometry(Path(captured["path"]), rows)
@@ -219,8 +219,8 @@ def build_report(reference, boot_dir, rand_dir, full=None, *, require_manifests=
             )
         source.verify()
         verify_geometry(geometry_sources)
-        for captured in captures.values():
-            verify_arm(captured)
+        for name, captured in captures.items():
+            verify_arm(captured, rows if name == "ALL" else None)
         if (
             selection_manifests(
                 captures,

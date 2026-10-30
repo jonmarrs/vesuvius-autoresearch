@@ -287,9 +287,15 @@ def _floors_all_cubes(args) -> int:
         "scoring_version": SCORING_VERSION,
         "cubes": {},
     }
+    strict = getattr(args, "strict_nml", False)
+    if strict:  # refuse a later cube's partial graph before any cube's inference
+        from vesuvius_autoresearch.fibers.skeleton_io import load_cube_skeleton
+
+        for cube in CUBES:
+            load_cube_skeleton(data_dir, cube, strict_edges=True)
     for cube in CUBES:
         t0 = time.time()
-        img, gt = _load_cube(data_dir, cube, getattr(args, "strict_nml", False))
+        img, gt = _load_cube(data_dir, cube, strict)
         fp = _fiber_prob(data_dir, cube, img, args.model, args.patch, args.device)
         infer_s = round(time.time() - t0, 1)
         mask = fp >= args.mask_threshold
