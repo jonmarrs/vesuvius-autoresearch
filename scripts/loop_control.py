@@ -149,7 +149,10 @@ def running_pid(repo):
         Path(os.fsdecode(arg)).name in LOCK_HOLDER_ARGS for arg in args if arg
     ):
         raise RuntimeError("lock PID does not identify this checkout's loop")
-    if _lock_owner(path) != pid:
+    owner = _lock_owner(path)
+    if owner is None:
+        return None  # released since the first look: stop polls this as the loop exits
+    if owner != pid:
         raise RuntimeError("research lock owner changed during inspection; retry")
     return pid
 
