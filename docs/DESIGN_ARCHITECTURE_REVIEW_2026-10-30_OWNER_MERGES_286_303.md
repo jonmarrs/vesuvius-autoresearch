@@ -85,6 +85,9 @@ stopped it before it reported, so I reviewed #303 myself.
 - **#303's integration command** gives 213 passed, as recorded. **#286's three test files** give 73 passed.
 - **The checks.** Ruff 0.9.10 `check` and `format` are clean on the changed Python files. Mypy is clean over the
   whole repository (847 files).
-- **The standard suite** gives RESULT_SUITE.
-- **The test modules outside the standard suite** give RESULT_OUTSIDE.
+- **The standard suite** gives the same 43 failures as before, from `s3fs`, `numba`, `jsonschema` and Villa
+  files absent here. The same 2 modules cannot be collected (`tensorstore`, `s3fs`). On main before the fix, one run
+  had a 44th failure, the lock observation race above.
+- **The 230 test modules outside the standard suite** give 2,100 passed, 80 skipped, 13 failed and 21 collection
+  errors: the same failures as round #136. `test_live_documents_stay_clean` lists the same 20 Villa and model paths.
 - **The doc audit** finds no new unresolved reference.
