@@ -97,10 +97,11 @@ Selection manifests are now consumed by the builder and both checkers. A
 present record must agree with the captured reference bytes (SHA-256 and size),
 actual selected IDs/hash/count/area, source patch targets and expected role.
 BOOTSTRAP must be the full threshold selection; a generated RANDOM arm whose
-record is present cannot stand in for it. Checked BOOTSTRAP and control records must use the same full
-source and, for RANDOM, the same threshold. STRIPMATCH records also bind the
-bootstrap IDs and path; new builds preserve its manifest snapshot as a dependency.
-Those inputs are rechecked before a successful report or publication.
+record is present cannot stand in for it. Checked BOOTSTRAP and control records
+must use the same full source and, for RANDOM, the same threshold. STRIPMATCH
+records also bind the bootstrap IDs and path; new builds preserve its manifest
+snapshot as a dependency. Those inputs are rechecked before a successful report
+or publication.
 
 Use `--require-manifests` for newly prepared datasets, as above. It rejects an
 arm whose record is missing; on the STRIPMATCH builder it requires the bootstrap
