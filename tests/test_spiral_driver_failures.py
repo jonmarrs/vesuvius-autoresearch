@@ -355,8 +355,15 @@ def test_preflight_checks_pinned_tree_not_moving_main(tmp_path):
 
 def test_preflight_rejects_failed_import_probe(tmp_path):
     # A killed/crashed interpreter can emit no module names; silence is not PASS.
+    # A stub docker, as above: the real one starts a container (4-10 s here), past run()'s 10 s under load.
+    fakebin = tmp_path / "bin"
+    fakebin.mkdir()
+    executable(fakebin / "docker", "exit 0\n")
     result = run(
-        SCRIPTS / "preflight.sh", SCORE_VENV="/bin/false", RENDER_VENV="/bin/true"
+        SCRIPTS / "preflight.sh",
+        SCORE_VENV="/bin/false",
+        RENDER_VENV="/bin/true",
+        PATH=f"{fakebin}:{os.environ['PATH']}",
     )
     assert result.returncode != 0
     assert "SCORE_VENV import probe failed" in result.stdout

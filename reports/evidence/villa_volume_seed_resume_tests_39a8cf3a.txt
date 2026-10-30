@@ -1,0 +1,17 @@
+# villa's own tests for repro/fibers/villa_volume_seed_resume.patch (the October 26 follow-up) at villa 39a8cf3a, 2026-10-28 PDT
+# Sources: the DRY_RUN=1 extraction of repro/fibers/run_villa_seed_heading_rerun.sh. 'heading only' is src_after
+# (villa_volume_seed_heading.patch applied) with the follow-up's new test file copied in; 'both' is src_after with
+# villa_volume_seed_resume.patch applied too. Run as reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt:
+#   cd <src>/vesuvius && PYTHONPATH=<src>/vesuvius/src:<VC_SITE>:<site-pytest> CUDA_VISIBLE_DEVICES= <T>/venv/bin/python \
+#     -m pytest -q -p no:cacheprovider -rfE src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_resume.py src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py \
+#     src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_performance.py
+
+villa 39a8cf3a1 (2026-10-26T21:02:19+00:00), Python 3.14.3, numpy 2.4.6, torch 2.12.1+cu130, pytest 9.2.0
+== heading only (the follow-up's tests added, its volume.py change not applied)
+volume.py sha1 (git blob): c8ca22dbb74546048bfb7fd23336135203b9a32f
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_resume.py::test_resume_requires_the_same_seed_selection[None-False]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_resume.py::test_resume_requires_the_same_seed_selection[ct_axis_35deg_v1-False]
+2 failed, 21 passed, 1 warning in 15.21s
+== both patches
+volume.py sha1 (git blob): 64f7ff2a3b984116c9395dc12e263a71a12fe9ab
+23 passed, 1 warning in 12.71s

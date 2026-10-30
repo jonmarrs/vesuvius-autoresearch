@@ -17,10 +17,10 @@ Both patches are pushed as `jonmarrs/villa:fix/volume-seed-heading` at
 [compare the prepared branch](https://github.com/ScrollPrize/villa/compare/main...jonmarrs:fix/volume-seed-heading?expand=1).
 
 **October 27 source check:** both patches apply to Villa main `39a8cf3a`
-after #2316 moves fiber I/O to `vc_object_store`. This is an application check,
-not a new CLI or GPU run. The real-data re-run below remains at `322cb0899`;
-verify the object-store CLI path before posting. The older AFV command is not
-evidence that the new integration has run successfully.
+after #2316 moves fiber I/O to `vc_object_store`. **October 28:** the real-data
+re-run (step 3) is now at `39a8cf3a`, with the measured patch. It traced with
+`--no-fibers`, so #2316's object-store export itself did not run: a local CT
+crop has no open-data volume to bind.
 
 The [finished-tile export check](VILLA_OBJECT_STORE_EXPORT_CHECK.md) now prepares
 the CPU-only export/readback part of that verification on a configured host.
@@ -57,15 +57,20 @@ CLI comparison is still required before posting.
    - Of the modules the tracer loads, #2316 changes only the export, a fiber-JSON parser and comments.
    - No villa PR or issue but #2165 matches "seed heading".
 
-   The run still has to be repeated, because #2316 changed what the run writes. #2316's tracer writes its fibers at
+   The run had to be repeated, because #2316 changed what the run writes. #2316's tracer writes its fibers at
    the end as an object store bound to an open-data volume. A local CT crop has no open-data volume, so
    `repro/fibers/run_villa_seed_heading_rerun.sh` passes `--no-fibers` and the run's tiles are its fibers. The
    comparison now reads every run's fibers from its tiles. On the recorded `322cb0899` runs that reproduces their
    comparison exactly, and every run's tiles give its `.afv`'s fibers point for point
    (`reports/evidence/villa_volume_seed_heading_rerun_322cb0899_from_tiles.json`).
 
-   `DRY_RUN=1` of the launcher at `39a8cf3a` prepares and checks both sources and their imports. **The re-run itself is
-   not done.** It needs the GPU, about four minutes with the loop paused, and the owner's approval.
+   **Done 2026-10-28 at `39a8cf3a`**, with the owner's approval. The loop paused 14:34–14:39, after a cycle that was
+   not one of #264's arms had started (`repro/fibers/run_villa_seed_heading_rerun_paused.sh`). The results:
+   - Without the patch, the traces are identical point for point to finding 97's runs.
+   - With it, they are identical to finding 100's `keep` arm.
+   - The two differ from each other (`reports/evidence/villa_volume_seed_heading_rerun_39a8cf3a.json`).
+   - The follow-up patch's resume tests at `39a8cf3a` give the October 26 counts
+     (`reports/evidence/villa_volume_seed_resume_tests_39a8cf3a.txt`).
 
    Inspect an existing work directory without running traces or loading arrays:
 
@@ -147,10 +152,11 @@ gets more of its fibers. Elsewhere almost nothing changes.
 
 ## Details
 
-* **Measured at `ccb431818`, re-checked at `322cb0899`.** #2165 has since rewritten the tracer's hot path and
-  checked each part for exact outputs. On the two Scroll-5 cubes, villa's CLI at `322cb0899` gives the same traces
-  point for point as at `ccb431818`, both without this PR and with it, so their rows above hold on main. The
-  Scroll-3 and in-sample cubes were not re-run.
+* **Measured at `ccb431818`, re-checked at `322cb0899` and `39a8cf3a`.** #2165 has since rewritten the tracer's hot
+  path and checked each part for exact outputs, and #2316 moved fiber export to `vc_object_store`. On the two
+  Scroll-5 cubes, villa's CLI at `39a8cf3a` gives the same traces point for point as at `ccb431818`, both without this
+  PR and with it, so their rows above hold on main. It ran with `--no-fibers`, because the inputs are local crops.
+  The Scroll-3 and in-sample cubes were not re-run.
 * **How:** villa's own `tracing.volume` `main()`, with only `seed_headings` swapped for a copy that changes what
   happens to a dot that fails the 35° test. With the dots still skipped, that copy first reproduced villa's run of
   `s5_13497_01497_02497_256` point for point. Launcher, registration, data and scoring:
@@ -166,12 +172,14 @@ gets more of its fibers. Elsewhere almost nothing changes.
 * **Limits:** the gain is on two cubes of one scroll, both cubes on which ScrollGT's reference mask also does poorly.
   One checkpoint at its defaults. The presence is a substitute: ScrollGT's `fiber_hz_vt` probability, not lasagna's.
   The CT is 7.91 µm, read on a 2-voxel trace grid; the checkpoint trained at 9.6 µm.
-* **Tests:** the new `fibers/tests/test_volume_seed_heading.py`, run at `322cb0899`. Without the change 5 of its 9
+* **Tests:** the new `fibers/tests/test_volume_seed_heading.py`, run at `39a8cf3a` on Python 3.14.3 (and at
+  `322cb0899` on 3.10.19). Without the change 5 of its 9
   cases fail (the dots at 36°, 60°, 89°, 91° and 120°); with it all 9 pass, and so do the 11 in
-  `test_volume_performance.py`. Run on Python 3.10.19; the package asks for 3.14 (our tracer environment, which has
-  it, has no pytest).
+  `test_volume_performance.py`.
 
 The October 26 follow-up adds three resume regressions. With only the measured heading patch, the missing-policy
 and old-policy cases fail and the matching-policy case passes. With both patches, all three pass. These tests exercise
 the real `main()` settings validation with model/volume construction replaced, stopping before tile loading or GPU
-work. The existing heading and performance checks were rerun alongside them; see the dated review record.
+work. The existing heading and performance checks were rerun alongside them; see the dated review record. At
+`39a8cf3a` (2026-10-28) the result is the same: two of the three fail with the measured patch alone, and all pass
+with both, beside the 9 heading and 11 performance checks.
