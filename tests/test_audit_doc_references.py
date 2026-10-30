@@ -36,6 +36,8 @@ KNOWN_HISTORICAL_PATHS = {
     ("METHOD.md", "villa/ink-detection/models/"),
     # The detector's default data_root, which the reproduce step's conversion creates.
     ("REPRODUCE.md", "villa/ink-detection/train_scrolls"),
+    # The fiber label generator's default run directory, which must not exist before a run.
+    ("docs/FIBER_LABEL_GENERATION.md", "reports/fiber_labels_run"),
 }
 
 

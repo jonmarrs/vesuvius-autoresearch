@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
 import json
 import math
@@ -22,6 +21,7 @@ from scripts.labeling.label_artifacts import (
     publish_new,
     volume,
 )
+from scripts.text_snapshot import Snapshot
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 from vesuvius_autoresearch.fibers import detection
 from vesuvius_autoresearch.fibers.provenance import file_sha256
@@ -45,15 +45,9 @@ def load_candidates(path, top_n, depth, max_voxels):
     top_n = integer(top_n, "top_n", 1)
     if top_n > 256:
         raise ValueError("top_n must not exceed 256")
-    if path.stat().st_size > 16 * 1024**2:
-        raise ValueError("candidate TSV exceeds 16 MiB")
-    with path.open("rb") as stream:
-        captured = stream.read(16 * 1024**2 + 1)
-    if len(captured) > 16 * 1024**2:
-        raise ValueError("candidate TSV exceeds 16 MiB")
-    reader = csv.DictReader(
-        io.StringIO(captured.decode("utf-8-sig"), newline=""), delimiter="\t"
-    )
+    # A regular file only: its bytes are hashed again before publication.
+    source = Snapshot.read(path, 16 * 1024**2)
+    reader = csv.DictReader(io.StringIO(source.text(), newline=""), delimiter="\t")
     headers = reader.fieldnames or []
     required = {"artifact_stem", "local_uri", "z", "y", "x", "width", "height"}
     if (
@@ -114,7 +108,7 @@ def load_candidates(path, top_n, depth, max_voxels):
         raise ValueError(f"invalid candidate TSV: {exc}") from exc
     if not candidates:
         raise ValueError("candidate TSV has no selected rows")
-    return candidates, hashlib.sha256(captured).hexdigest()
+    return candidates, source.provenance()["sha256"]
 
 
 def _inspect(path, z, y, x, depth, height, width, max_voxels):
@@ -272,21 +266,6 @@ def run_candidates(args, *, select_backend, filter_fn):
             )
             checks.append((candidate, snapshot, ct_sha))
             del raw, ct, response, label
-        write_json(
-            staging / "fiber_labels_summary.json",
-            {
-                "contract": 1,
-                "complete": True,
-                "label_kind": "ct_vesselness_pseudo_label",
-                "backend": backend,
-                "threshold": threshold,
-                "depth": depth,
-                "max_voxels": budget,
-                "input_tsv": str(table),
-                "input_tsv_sha256": table_sha,
-                "candidates": records,
-            },
-        )
         # Bind the captured TSV bytes to the parse and recheck all decoded CT
         # windows at the end, including candidates processed earlier in the run.
         if (
@@ -305,6 +284,23 @@ def run_candidates(args, *, select_backend, filter_fn):
                 != expected
             ):
                 raise ValueError("CT source changed during processing")
+        # After every recheck, so a staging directory left by a killed run
+        # claims completion only once its contents have all been checked.
+        write_json(
+            staging / "fiber_labels_summary.json",
+            {
+                "contract": 1,
+                "complete": True,
+                "label_kind": "ct_vesselness_pseudo_label",
+                "backend": backend,
+                "threshold": threshold,
+                "depth": depth,
+                "max_voxels": budget,
+                "input_tsv": str(table),
+                "input_tsv_sha256": table_sha,
+                "candidates": records,
+            },
+        )
     print(
         json.dumps(
             {
