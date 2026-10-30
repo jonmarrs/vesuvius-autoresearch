@@ -1,0 +1,320 @@
+{
+  "schema": "october-progress-prize-readiness-v1",
+  "checked_at_utc": "2026-10-30 03:25:32 UTC",
+  "source_repository": "jonmarrs/vesuvius-autoresearch",
+  "source_commit": "ebf29aab3eed340bf24fa70ec9f0edf7bea315dd",
+  "status": "READY_FOR_FINAL_OWNER_FIELDS",
+  "submitted": false,
+  "submission_status_scope": "No form submission, terms acceptance, receipt verification or submission tag was performed in this session. Prepared records remain unsubmitted; filing outside this workspace is not established.",
+  "rules": {
+    "repository": "ScrollPrize/villa",
+    "commit": "8ff06f7620dcb663ed327028dbb8a0cf7e9a8198",
+    "path": "scrollprize.org/docs/34_prizes.md",
+    "git_blob": "9ba933ca826c8855d7544ed1068a5e6e3e9589aa",
+    "pinned_blob_matches_default_branch_read": true,
+    "form_month": "October 2026",
+    "deadline_pacific": "2026-10-31T23:59:00-07:00",
+    "deadline_utc": "2026-11-01T06:59:00+00:00",
+    "small_fixes_bundled": true,
+    "separate_substantial_contributions_permitted": true
+  },
+  "merged_contributions": [
+    {
+      "number": 2022,
+      "title": "spiral-fitting: autoresearch.md launches runners/run_single.py with the flags it takes",
+      "url": "https://github.com/ScrollPrize/villa/pull/2022",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-10-11T23:25:33Z",
+      "merge_commit_sha": "7a7b3f677991954ec5ecff17b9b08ab30ff6a926",
+      "head_sha": "1b6cc53322bcad845a16d384a7f3ad4e165db792",
+      "mergeable": false,
+      "updated_at": "2026-10-11T23:25:33Z"
+    },
+    {
+      "number": 2044,
+      "title": "get_ink_metrics: add --sequential-folds; average folds in place",
+      "url": "https://github.com/ScrollPrize/villa/pull/2044",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-10-12T01:49:09Z",
+      "merge_commit_sha": "9afddaf0fdc12efe088bab7b82534c4f9a79e536",
+      "head_sha": "66fafd6fe5c9dedba68b273425c2f26b04078b13",
+      "mergeable": false,
+      "updated_at": "2026-10-12T01:49:09Z"
+    },
+    {
+      "number": 2155,
+      "title": "spiral-fitting README: install the cuda group in the pip route",
+      "url": "https://github.com/ScrollPrize/villa/pull/2155",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-10-21T19:50:31Z",
+      "merge_commit_sha": "e016bc71d9b873b3e52871f42aa3e7a34520cfb1",
+      "head_sha": "d95c1e080decbb7fe10d18ba30fdd00f973da489",
+      "mergeable": false,
+      "updated_at": "2026-10-21T19:50:31Z"
+    }
+  ],
+  "pending_contributions": [
+    {
+      "number": 2141,
+      "title": "spiral-fitting: read SQLite track stores without losing WAL commits",
+      "url": "https://github.com/ScrollPrize/villa/pull/2141",
+      "state": "open",
+      "merged": false,
+      "merged_at": null,
+      "merge_commit_sha": "b682853efa3d53259a30ef39c0f8ae746053362a",
+      "head_sha": "26d2fed44513fa89fef5c80f7391d0595229fb17",
+      "mergeable": true,
+      "updated_at": "2026-10-28T06:38:21Z"
+    },
+    {
+      "number": 2258,
+      "title": "fiber volume: keep fractional seed planes on the global grid",
+      "url": "https://github.com/ScrollPrize/villa/pull/2258",
+      "state": "open",
+      "merged": false,
+      "merged_at": null,
+      "merge_commit_sha": "0a9b16bec19030ef95ca1c577b9743d2faeb5f26",
+      "head_sha": "242f0798cbf3d512f372db050be08203018e71d1",
+      "mergeable": true,
+      "updated_at": "2026-10-23T03:46:44Z"
+    },
+    {
+      "number": 2259,
+      "title": "docs: run AppImage CLI tools on headless Linux through AppRun",
+      "url": "https://github.com/ScrollPrize/villa/pull/2259",
+      "state": "open",
+      "merged": false,
+      "merged_at": null,
+      "merge_commit_sha": "9f0b9a4eade3cffb47b9160e8dac1162dcd194e3",
+      "head_sha": "d119561f3fb89fceae579bcf2e8671fb6d7e2c9a",
+      "mergeable": true,
+      "updated_at": "2026-10-23T04:14:20Z"
+    }
+  ],
+  "rollover": {
+    "number": 2301,
+    "title": "Progress Prize rollover 2026-11",
+    "url": "https://github.com/ScrollPrize/villa/pull/2301",
+    "state": "open",
+    "merged": false,
+    "merged_at": null,
+    "merge_commit_sha": "df0e0da6cacb30a3ab59a1a3d07c8b23d1cbc975",
+    "head_sha": "f3e740272b60af7ad22cba89e10adea851dec2ff",
+    "mergeable": true,
+    "updated_at": "2026-10-29T13:25:11Z"
+  },
+  "merge_search": {
+    "query": "repo:ScrollPrize/villa author:jonmarrs is:merged merged:2026-10-01..2026-11-01",
+    "returned_prs": [
+      2022,
+      2044,
+      2155
+    ],
+    "calendar_filter": "America/Los_Angeles October 2026"
+  },
+  "pending_feedback": [
+    {
+      "number": 2141,
+      "human_comments": [
+        {
+          "id": 6290970541,
+          "url": "https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541",
+          "user": "vincentl065",
+          "created_at": "2026-10-20T12:35:33Z",
+          "updated_at": "2026-10-20T12:35:33Z",
+          "review": null,
+          "body": "Thanks for catching this! My fallback in #2055 does leave -wal/-shm files next to the store; I hadn't tried a WAL store in a read-only directory.\r\n\r\nYou mentioned you couldn't test Windows, so I ran the tests on Windows 11 with Python 3.12.10. That version has no dbm.sqlite3, so it goes through the fallback:\r\n\r\non main: test_sqlite_store_is_read_without_writing_beside_it fails, and extra files show up next to tracks.dbm\r\nwith this PR: 2 passed, 2 skipped (the Python \u2265 3.13 test and the POSIX-only read-only directory test)\r\nSo ?mode=ro&immutable=1 works fine with a local drive path (file:///C:/...) here. I haven't tried a UNC path (\\\\server\\share\\...).\r\n\r\nLGTM"
+        },
+        {
+          "id": 6324404963,
+          "url": "https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6324404963",
+          "user": "pmh47",
+          "created_at": "2026-10-21T19:15:08Z",
+          "updated_at": "2026-10-21T19:15:08Z",
+          "review": null,
+          "body": "_Review by Claude, on behalf of Paul Henderson (maintainer)._\n\nThanks, this is a nice small fix. A few things to tighten (no need for extra code or tests):\n\n1. **Native `dbm` path still unfixed.** `open_tracks_dbm` only reaches `_SQLiteTrackDBM` when `dbm.whichdb` doesn't recognise the file. On CPython 3.13.0\u20133.13.7 and 3.14.0, `whichdb` returns `'dbm.sqlite3'`, so `dbm.open(path, 'r')` still tries to create `-wal`/`-shm` and fails in a read-only directory. Checking `_is_sqlite_dbm` first, and always using `_SQLiteTrackDBM` for SQLite stores, fixes it on every interpreter and is simpler than relying on version-specific `dbm` behaviour.\n\n2. **`immutable=1` ignores the WAL.** With `immutable=1`, SQLite skips the `-wal` file and locking entirely. Commits still sitting in an uncheckpointed `-wal` (after a crashed writer, for example) are silently missing, and a store that is still being written can be read half-updated. That's fine if stores are always complete and checkpointed before they're read, but the comment should say so. Alternatively, use `immutable=1` only when there's no `-wal` beside the file and `mode=ro` otherwise.\n\n3. **Minor: the CPython claim in the comment.** The comment says `dbm.open(path, 'r')` adds `immutable=1` from 3.13.8/3.14.1 (cpython#135386). If (1) is adopted the reader no longer depends on that, so the sentence can just be dropped.\n"
+        },
+        {
+          "id": 6462476281,
+          "url": "https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6462476281",
+          "user": "jonmarrs",
+          "created_at": "2026-10-28T06:38:21Z",
+          "updated_at": "2026-10-28T06:38:21Z",
+          "review": null,
+          "body": "Thanks for the review. All three points are addressed at the current head (26d2fed):\n\n1. `open_tracks_dbm` checks `_is_sqlite_dbm` first, so every SQLite-backed store goes through `_SQLiteTrackDBM`, whatever `dbm.whichdb` returns. The 3.13.0\u20133.13.7 / 3.14.0 `dbm.sqlite3` path no longer opens them.\n2. `immutable=1` is added only when no `-wal` file sits beside the store. With one present, the reader opens `mode=ro` with normal locking, so commits still in the WAL are read. The check resolves the path first, since SQLite opens a symlink's target.\n3. The CPython version sentence is removed.\n\nNew tests: a store that `whichdb` reports as `dbm.sqlite3` still opens without writing beside it; rows committed only in an uncheckpointed WAL are returned; and the same through a symlink whose target holds the WAL.\n"
+        }
+      ],
+      "scope": "No new substantive feedback since the prior readiness snapshot; no outbound nudge or upstream merge attempted."
+    },
+    {
+      "number": 2258,
+      "human_comments": [],
+      "scope": "No new substantive feedback since the prior readiness snapshot; no outbound nudge or upstream merge attempted."
+    },
+    {
+      "number": 2259,
+      "human_comments": [],
+      "scope": "No new substantive feedback since the prior readiness snapshot; no outbound nudge or upstream merge attempted."
+    }
+  ],
+  "citation_reads": [
+    {
+      "repository": "jonmarrs/vesuvius-autoresearch",
+      "ref": "2fb41b271a60b86bae5e6e57a279cece06e8a4ab",
+      "path": "reports/neural_tracer_steep_heading.md",
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/2fb41b271a60b86bae5e6e57a279cece06e8a4ab/reports/neural_tracer_steep_heading.md",
+      "git_blob": "12197d232941c968d3821e937f208309787d3de4",
+      "retrievable": true,
+      "method": "GitHub connector file read"
+    },
+    {
+      "repository": "jonmarrs/vesuvius-autoresearch",
+      "ref": "b808f3d3fe208440137022bfc63039829c92d613",
+      "path": "reports/neural_tracer_ct_context.md",
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context.md",
+      "git_blob": "e069b84ef620822ff6ef794733dbc63673d3a3db",
+      "retrievable": true,
+      "method": "GitHub connector file read"
+    },
+    {
+      "repository": "jonmarrs/vesuvius-autoresearch",
+      "ref": "b808f3d3fe208440137022bfc63039829c92d613",
+      "path": "reports/neural_tracer_ct_context_512.md",
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context_512.md",
+      "git_blob": "6ff56ac69d3653f9deddab2f23c2a26e0dc83324",
+      "retrievable": true,
+      "method": "GitHub connector file read"
+    },
+    {
+      "repository": "jonmarrs/vesuvius-autoresearch",
+      "ref": "b808f3d3fe208440137022bfc63039829c92d613",
+      "path": "reports/neural_tracer_heading_residual.md",
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md",
+      "git_blob": "f1cb3f1532fe83835581fa2e1865c02296a13252",
+      "retrievable": true,
+      "method": "GitHub connector file read"
+    }
+  ],
+  "release_reads": [
+    {
+      "tag": "v0.9.0",
+      "path": "pyproject.toml",
+      "git_blob": "e1339dd9f7538386e6f3f8013b6e53109d46ba0f",
+      "retrievable": true
+    },
+    {
+      "tag": "v0.9.1",
+      "path": "pyproject.toml",
+      "git_blob": "9ba2ae2607040ba584ffe7f43dc70a0ceed1ee0c",
+      "retrievable": true
+    }
+  ],
+  "scrollgt_memory_fix": {
+    "number": 14,
+    "title": "Score 512\u00b3 fiber targets within workstation memory",
+    "url": "https://github.com/jonmarrs/scrollgt/pull/14",
+    "state": "closed",
+    "merged": true,
+    "merged_at": "2026-10-25T20:02:58Z",
+    "merge_commit_sha": "507c74fcda02c80940d53d759a22713de90bc9af",
+    "head_sha": "38496eb8ce5dc094c94ec852a332ee2293ea73a1",
+    "mergeable": true,
+    "updated_at": "2026-10-28T01:13:26Z"
+  },
+  "research_host": {
+    "live_window_measurements_read": false,
+    "gpu_jobs_started": false,
+    "deployed": false,
+    "registered_control_not_a_filing_dependency": true
+  },
+  "remaining": [
+    "Complete/review owner email, full name, team description, optional Discord field and terms.",
+    "Recheck the October form immediately before filing.",
+    "File the engineering bundle and decide whether to file the optional separate research entry.",
+    "Preserve the actual receipt and exact submitted fields before marking filed."
+  ],
+  "priority_actions": [
+    {
+      "priority": 1,
+      "action": "File the completed engineering bundle immediately; do not wait for additional research or upstream merges."
+    },
+    {
+      "priority": 2,
+      "action": "Keep the three open Villa PRs ready; #2141's latest requested changes are addressed. Respect the full three-open-PR cap."
+    },
+    {
+      "priority": 3,
+      "action": "Finish and publish the public-CT CPU streaming parity/resource check, with its slower wall time and native GPU limitation."
+    },
+    {
+      "priority": 4,
+      "action": "If an expert is available, prepare 12 hard-region review crops across two scans. Unreviewed hints remain unlabelled; no new model claim."
+    },
+    {
+      "priority": 5,
+      "action": "After the registered control closes, finish native object-store/tracer integration on correctly identified public CT before a new seed-heading PR."
+    }
+  ],
+  "form_check": {
+    "checked_at_utc": "2026-10-30T03:19:15+00:00",
+    "form": {
+      "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "http_status": 200,
+      "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "title": "October 2026 Progress Prizes",
+      "has_response_form": true,
+      "accepting_responses": true
+    }
+  },
+  "validation": {
+    "command": "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES='' /tmp/vesuvius-chain-env/bin/python -m pytest -q -rs tests/test_october_prize_form_answers.py tests/test_october_research_form_answers.py tests/test_filing_2026_10_numbers.py tests/test_check_prize_form_rollover.py tests/test_check_filing_upstream_claims.py",
+    "result": "91 passed in 1.58s",
+    "scope": "Filing/claim/form helper regression suites. Fresh live PR/form reads are recorded separately.",
+    "smoke": {
+      "command": "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES='' /tmp/vesuvius-chain-env/bin/python scripts/smoke_test.py",
+      "result": "8/11 passed, 3 skipped, 0 failed in 16.5s",
+      "skips": [
+        "training URI / inklabels absent in two loader checks",
+        "batchgeneratorsv2 create_training_transforms unavailable"
+      ]
+    },
+    "engineering": {
+      "command": "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES='' /tmp/vesuvius-chain-env/bin/python -m pytest -q -rs tests/test_fiber_streaming_cli.py tests/test_file_modes.py tests/test_validation_suite_covers_the_loop.py",
+      "result": "58 passed in 16.78s"
+    },
+    "harness_quality": {
+      "ruff_check": "All checks passed",
+      "ruff_format": "1 file formatted before execution; source hash retained",
+      "mypy": "Success: no issues found in 1 source file",
+      "scope": "repro/fibers/verify_filter_cli_public_ct.py"
+    }
+  },
+  "source_document_sha256": {
+    "docs/PRIZE_FILING_2026-10_FORM_ANSWERS.md": "2126c8a8d189feec6fe5d4140aabfcc5a1cbca80d82614a79fc7440d1a14942e",
+    "docs/PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md": "fe7ca3f2eea20aff3b42339e0e2c440b805c413237c508d0d800c30d84fc8910"
+  },
+  "submission_candidate": {
+    "filename": "october-progress-prize-candidate-2026-10-28_134941-PDT.zip",
+    "sha256": "5daf425243f0c7949bbc386b1071a9cd607ef1efc39225dc8a151f7dec2a3a2e",
+    "archive_sha256_and_all_members_verified": true,
+    "archive_files_including_manifest": 13,
+    "payload_files_excluding_manifest": 12,
+    "prepared_source_documents_unchanged": true,
+    "submitted": false,
+    "scope": "Original frozen candidate retained; this fresh audit and new engineering check do not alter its answers."
+  },
+  "new_engineering_evidence": {
+    "path": "reports/evidence/fiber_cli_public_ct_cpu_2026-10-30.json",
+    "success": true,
+    "identical_npy_files": {
+      "ridges": true,
+      "vesselness": true
+    },
+    "new_model_quality_claim": false,
+    "new_villa_merge_credit": false
+  },
+  "next_upstream_owner_step": "The personal-verification boxes in #2258 and #2259 remain unchecked in the fetched PR bodies; only the owner can make those attestations after personal verification."
+}
