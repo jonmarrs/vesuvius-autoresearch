@@ -1,0 +1,20 @@
+2026-10-28 14:28:06 WAIT for a cycle start after 1080 that is not control_unchanged or aug_mode_albumentations
+2026-10-28 14:34:36 next cycle started: Running 15-minute training for ema_decay_0.999...
+Autoresearch work stopped. Watchdog paused.
+2026-10-28 14:34:37 stop.sh rc=0
+status rc=1
+0 MiB, 3 %
+CHAIN_START repo 648fda93 villa 39a8cf3a1  2026-10-28T14:34:45-07:00
+TRACE before s5_13497_01497_02497_256  2026-10-28T14:34:45-07:00
+DONE before s5_13497_01497_02497_256  2026-10-28T14:35:55-07:00
+TRACE before s5_16997_03997_04497_256  2026-10-28T14:35:55-07:00
+DONE before s5_16997_03997_04497_256  2026-10-28T14:36:55-07:00
+TRACE after s5_13497_01497_02497_256  2026-10-28T14:36:55-07:00
+DONE after s5_13497_01497_02497_256  2026-10-28T14:37:58-07:00
+TRACE after s5_16997_03997_04497_256  2026-10-28T14:37:58-07:00
+DONE after s5_16997_03997_04497_256  2026-10-28T14:38:55-07:00
+CHAIN_COMPLETE  2026-10-28T14:38:55-07:00
+2026-10-28 14:38:55 chain rc=0
+Autoresearch launcher started (PID 663090). See /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/autoresearch.out.
+2026-10-28 14:38:55 start.sh rc=0
+2026-10-28 14:38:55 WRAPPER_DONE

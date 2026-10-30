@@ -18,10 +18,13 @@ from pathlib import Path
 import pytest
 
 _REPO = Path(__file__).resolve().parents[1]
+# Pauses the loop itself, for an owner-approved GPU job: stop.sh, a guarded chain, start.sh. It reads status only to
+# log that the loop stopped (test_the_pausing_wrapper_runs_a_guarded_chain_and_always_restarts).
+PAUSES_THE_LOOP = {"run_villa_seed_heading_rerun_paused.sh"}
 CHAINS = sorted(
     p
     for p in (_REPO / "repro").rglob("*.sh")
-    if 'loop_control.py" status' in p.read_text()
+    if 'loop_control.py" status' in p.read_text() and p.name not in PAUSES_THE_LOOP
 )
 RUNNING = "SC_ABORTED the autoresearch loop is running"
 UNKNOWN = "SC_ABORTED loop_control.py status cannot tell"
@@ -82,3 +85,18 @@ def test_a_chain_starts_only_when_nothing_runs(tmp_path, chain, rc, refusal):
         assert code == 3 and (
             "SC_ABORTED freeze" in log or "another GPU job is running" in log
         ), log
+
+
+def test_the_pausing_wrapper_runs_a_guarded_chain_and_always_restarts():
+    (wrapper,) = [
+        p for p in (_REPO / "repro").rglob("*.sh") if p.name in PAUSES_THE_LOOP
+    ]
+    lines = wrapper.read_text().splitlines()
+    stop = next(i for i, s in enumerate(lines) if 'bash "$L/stop.sh"' in s)
+    chain = next(i for i, s in enumerate(lines) if "repro/fibers/run_villa_seed_heading_rerun.sh" in s and "bash" in s)  # fmt: skip
+    start = next(i for i, s in enumerate(lines) if 'bash "$L/start.sh"' in s)
+    assert stop < chain < start
+    # nothing between stopping the loop and starting it again can leave the loop stopped
+    assert not any("exit" in s for s in lines[stop:start])
+    # the chain it runs checks the loop itself
+    assert "run_villa_seed_heading_rerun.sh" in {p.name for p in CHAINS}
