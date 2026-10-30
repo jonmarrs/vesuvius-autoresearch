@@ -37,6 +37,12 @@ rewritten, and the reproduction's numbers are not a scientific result.
 
 ## Design and architecture
 
+Published PR review also reproduced a named-axis defect: Zarr group `0` with
+shape `(3,4,5)` and `c/y/x` channel metadata was accepted as spatial ZYX. The
+reader now validates explicit root/array and multiscale axis declarations before
+reading values. Tests reject channel/reordered axes and retain valid named ZYX
+and unnamed 3D inputs. This checks dimensional meaning, not physical transforms.
+
 The command now performs **bounded binary evaluation**. Alignment and encoding
 are explicit, full source shapes must agree, crops are exact, and all hard
 metrics receive the same `>=` thresholded mask. Probability AP is the default;
@@ -82,7 +88,8 @@ VESUVIUS_EVAL_METRICS_ROOT=/workspace/shared/villa-evaluation-pin-ccb431818 \
   tests/test_candidate_fiber_report_contracts.py
 ```
 
-Captured result: **211 passed, 3 skipped in 87.06s**. The evaluator has 58 cases,
+Captured result after the PR review fix: **220 passed, 3 skipped in 83.51s**.
+The evaluator has 67 cases,
 including three real pinned-source subprocess checks: Dice/centerline/components/AP
 at thresholds 0.5 and 0.8, and skeleton distance with a verified PNG under the
 one-worker adapter. The three skips are unrelated leaf-module tests: two require

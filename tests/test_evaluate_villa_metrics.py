@@ -215,6 +215,96 @@ def test_zarr_crop_is_bounded_and_accepts_only_explicit_level_zero(
     assert summary(inputs)["reference"]["bbox_zyx"] == [2, 6, 3, 7, 4, 8]
 
 
+@pytest.mark.parametrize(
+    "attrs,level",
+    [
+        ({"axes": ["c", "y", "x"]}, "root"),
+        ({"_ARRAY_DIMENSIONS": ["c", "y", "x"]}, "array"),
+        ({"axes": ["x", "y", "z"]}, "array"),
+        (
+            {
+                "multiscales": [
+                    {
+                        "axes": [
+                            {"name": "c", "type": "channel"},
+                            {"name": "y", "type": "space"},
+                            {"name": "x", "type": "space"},
+                        ]
+                    }
+                ]
+            },
+            "root",
+        ),
+        (
+            {"axes": [{"name": "z", "type": "channel"}, {"name": "y"}, {"name": "x"}]},
+            "array",
+        ),
+    ],
+)
+def test_named_channel_or_reordered_zarr_axes_fail_before_value_reads(
+    inputs, monkeypatch, attrs, level
+):
+    path = inputs[0] / "pred.zarr"
+    group = zarr.open_group(str(path), mode="w")
+    array = group.create_dataset("0", data=tifffile.imread(inputs[0] / "pred.tif"))
+    (group if level == "root" else array).attrs.update(attrs)
+    monkeypatch.setattr(
+        VolumeSource,
+        "read",
+        lambda *a: pytest.fail("read channel data as spatial voxels"),
+    )
+    command = argv(inputs)
+    command[command.index("--pred") + 1] = str(path)
+    assert evaluation.main(command) == 1
+    assert not (inputs[0] / "report").exists()
+
+
+@pytest.mark.parametrize(
+    "attrs,level",
+    [
+        ({"axes": "ZYX"}, "root"),
+        ({"_ARRAY_DIMENSIONS": ["z", "y", "x"]}, "array"),
+        (
+            {
+                "multiscales": [
+                    {
+                        "axes": [
+                            {"name": "z", "type": "space"},
+                            {"name": "y", "type": "space"},
+                            {"name": "x", "type": "space"},
+                        ]
+                    }
+                ]
+            },
+            "root",
+        ),
+    ],
+)
+def test_valid_named_spatial_zarr_axes_are_preserved_and_evaluated(
+    inputs, attrs, level
+):
+    path = inputs[0] / "pred.zarr"
+    group = zarr.open_group(str(path), mode="w")
+    array = group.create_dataset("0", data=tifffile.imread(inputs[0] / "pred.tif"))
+    (group if level == "root" else array).attrs.update(attrs)
+    command = argv(inputs)
+    command[command.index("--pred") + 1] = str(path)
+    assert evaluation.main(command) == 0
+    assert summary(inputs)["prediction"][f"{level}_attrs"] == attrs
+
+
+def test_in_place_metric_mutation_cannot_change_other_metrics_or_counts(inputs):
+    metric_file(inputs, "centerline_dice").write_text(
+        "def compute(label, prediction, **kwargs):\n"
+        "    label[:]=0\n    prediction[:]=0\n    return {'centerline_dice': 0.0}\n"
+    )
+    assert evaluation.main(argv(inputs)) == 0
+    result = summary(inputs)
+    assert result["reference_positive_voxels"] == 16
+    assert result["prediction_positive_voxels"] == 16
+    assert result["metrics"]["mean_ap"]["status"] == "OK"
+
+
 def test_tiff_header_budget_is_checked_before_decompression(inputs, monkeypatch):
     monkeypatch.setattr(
         tifffile.TiffPageSeries, "asarray", lambda *a, **kw: pytest.fail("decompressed")

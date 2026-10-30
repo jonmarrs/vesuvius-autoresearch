@@ -49,7 +49,11 @@ For larger sources, use a bounded Zarr crop or explicitly raise the budget.
 Accepted inputs are a local 3D Zarr array, a group with explicit array `0`, or
 one scalar TIFF stack with ZYX/QYX/IYX axes. Other group levels are not guessed.
 2D, RGB/channel, complex/object and multiple-series TIFFs fail. Zarr reads only
-the selected region. A TIFF's **entire decoded stack** must fit the voxel budget;
+the selected region. When root/array `axes`, `_ARRAY_DIMENSIONS` or a single
+multiscale frame declares named axes, they must be spatial Z/Y/X in that order;
+channel/time axes and contradictory ordering fail. Unnamed 3D arrays retain the
+caller-declared ZYX interpretation. Physical transforms remain unverified.
+A TIFF's **entire decoded stack** must fit the voxel budget;
 large TIFFs should be converted to a bounded TIFF or chunked Zarr first. Encoded
 TIFF bytes are limited to `16 * max_voxels + 1 MiB`, captured once, then hashed
 and decoded from that capture. The budgets do not cap codec temporaries or total

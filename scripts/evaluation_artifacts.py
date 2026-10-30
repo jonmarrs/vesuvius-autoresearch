@@ -18,6 +18,40 @@ from scripts.labeling.label_artifacts import bbox_zyx, volume
 MAX_METADATA_BYTES = 1024**2
 
 
+def _named_axes(value):
+    if isinstance(value, str):
+        value = list(value)
+    if not isinstance(value, list) or len(value) != 3:
+        raise ValueError("named Zarr axes must be spatial z/y/x")
+    names = []
+    for axis in value:
+        if isinstance(axis, dict):
+            if axis.get("type", "space") != "space":
+                raise ValueError("Zarr channel/time axes are not scalar ZYX depth")
+            axis = axis.get("name")
+        if not isinstance(axis, str):
+            raise ValueError("named Zarr axes must be spatial z/y/x")
+        names.append(axis.lower())
+    if names != ["z", "y", "x"]:
+        raise ValueError("named Zarr axes must be ordered z/y/x")
+
+
+def _check_named_axes(attrs):
+    for name in ("axes", "_ARRAY_DIMENSIONS"):
+        if name in attrs:
+            _named_axes(attrs[name])
+    if "multiscales" in attrs:
+        frames = attrs["multiscales"]
+        if (
+            not isinstance(frames, list)
+            or len(frames) != 1
+            or not isinstance(frames[0], dict)
+        ):
+            raise ValueError("expected one Zarr multiscale frame")
+        if "axes" in frames[0]:
+            _named_axes(frames[0]["axes"])
+
+
 def _shape_dtype(shape, dtype):
     if len(shape) != 3 or min(shape) < 1:
         raise ValueError("evaluation requires nonempty scalar 3D ZYX volumes")
@@ -74,6 +108,8 @@ class VolumeSource:
             }
             if len(json.dumps(header, allow_nan=False).encode()) > MAX_METADATA_BYTES:
                 raise ValueError("Zarr metadata exceeds one MiB")
+            _check_named_axes(header["root_attrs"])
+            _check_named_axes(header["array_attrs"])
             return cls(path, "zarr", header, limit)
         if path.suffix.lower() not in {".tif", ".tiff"}:
             raise ValueError(
