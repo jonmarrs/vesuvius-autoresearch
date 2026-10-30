@@ -315,3 +315,39 @@ def test_other_lock_protocol_is_unknown(tmp_path):
         process.wait(timeout=2)
         if process.stdout is not None:
             process.stdout.close()
+
+
+def test_a_holder_exiting_between_the_looks_has_released_the_lock(
+    tmp_path, holder, monkeypatch
+):
+    """running_pid looks at the lock twice. A holder that exits between the looks
+    leaves nothing holding it. stop polls running_pid while the loop exits, so
+    "owner changed during inspection" failed a stop that had worked."""
+    process = holder()
+    observe, looks = loop_control._lock_owner, []
+
+    def exits_before_the_second_look(path):
+        looks.append(path)
+        if len(looks) == 2:
+            process.kill()
+            process.wait(timeout=2)
+        return observe(path)
+
+    monkeypatch.setattr(loop_control, "_lock_owner", exits_before_the_second_look)
+    assert loop_control.running_pid(tmp_path) is None
+    assert len(looks) == 2
+
+
+def test_another_owner_at_the_second_look_is_still_unknown(
+    tmp_path, holder, monkeypatch
+):
+    process = holder()
+    observe, looks = loop_control._lock_owner, []
+
+    def another_owner(path):
+        looks.append(path)
+        return observe(path) if len(looks) == 1 else process.pid + 1
+
+    monkeypatch.setattr(loop_control, "_lock_owner", another_owner)
+    with pytest.raises(RuntimeError, match="owner changed during inspection"):
+        loop_control.running_pid(tmp_path)
