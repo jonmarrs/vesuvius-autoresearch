@@ -1,0 +1,113 @@
+{
+ "control_cycles": 7,
+ "reverse_cycles": 8,
+ "window_cycles": 161,
+ "ended_by": "a promotion",
+ "complete": true,
+ "verdict": {
+  "status": "OK",
+  "predictions": {
+   "Q1": true,
+   "Q2": true,
+   "Q3": true
+  },
+  "reading": "BEATS_UNCHANGED"
+ },
+ "effects": {
+  "val_f1": {
+   "reverse_mean": 0.2672827533941044,
+   "control_mean": 0.26999540202249644,
+   "diff": -0.002712648628392045,
+   "se": 0.0006009612060877601,
+   "t": -4.513849814119223,
+   "p": 0.0005853250441823467
+  },
+  "roc_auc": {
+   "reverse_mean": 0.5760676824101627,
+   "control_mean": 0.5862866448843098,
+   "diff": -0.010218962474147109,
+   "se": 0.003364494056872452,
+   "t": -3.0372954451423206,
+   "p": 0.013029247814077058
+  },
+  "ap_lift": {
+   "reverse_mean": 1.1759781534695422,
+   "control_mean": 1.2116081625620723,
+   "diff": -0.03563000909253011,
+   "se": 0.014715830256904625,
+   "t": -2.421202777587939,
+   "p": 0.0355041557476635
+  }
+ },
+ "steps": {
+  "reverse_minus_control": 325.2321428571429,
+  "val_f1": {
+   "from_the_step_gap": -0.00015652279949622276
+  },
+  "roc_auc": {
+   "from_the_step_gap": -0.0027783416361033013
+  },
+  "ap_lift": {
+   "from_the_step_gap": -0.014509755975204944
+  }
+ },
+ "against_other_tweaks": {
+  "val_f1": {
+   "control": -0.00042086689849996084,
+   "reverse": -0.0031335155268920056
+  },
+  "roc_auc": {
+   "control": -0.001025366657047111,
+   "reverse": -0.01124432913119422
+  },
+  "ap_lift": {
+   "control": -0.002145705327242231,
+   "reverse": -0.037775714419772344
+  }
+ },
+ "cycles": {
+  "control": [
+   "2026-10-27T19:42:59",
+   "2026-10-28T01:30:04",
+   "2026-10-28T07:20:03",
+   "2026-10-28T13:10:20",
+   "2026-10-28T18:47:25",
+   "2026-10-29T01:05:31",
+   "2026-10-29T07:10:03"
+  ],
+  "reverse": [
+   "2026-10-27T16:38:20",
+   "2026-10-27T19:26:29",
+   "2026-10-28T02:19:27",
+   "2026-10-28T08:25:48",
+   "2026-10-28T15:12:30",
+   "2026-10-28T16:52:25",
+   "2026-10-28T23:10:54",
+   "2026-10-29T04:54:52"
+  ]
+ },
+ "registered": {
+  "since": "2026-10-27T16:00:00",
+  "deadline": "2026-11-03T16:00:00",
+  "incumbent_sha256": "c80885969cc5b3d4c1dfeebc46d1c0c4c62f55fbe758ce48b263050dc293f18d",
+  "budget_s": 900,
+  "control": "control_unchanged",
+  "reverse": "aug_mode_albumentations",
+  "cut_at": 10,
+  "min_each": 6,
+  "Q1_val_f1": -0.002,
+  "Q2_roc_auc": -0.005,
+  "Q3_ap_lift": -0.015
+ },
+ "sources": {
+  "cycles": {
+   "path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/unchanged_control/cycles_2026-10-30.jsonl",
+   "sha256": "ae55294374721c7caf3d5aa650fc2f82b4aeaeb3b586d5557620175a00567dd9",
+   "records": 242
+  },
+  "steps": {
+   "path": "reports/loop_steps_vs_ranking_2026-10-26.json",
+   "sha256": "6d29018d4ef83b1d1a6b54fbbf4c1191eca3bc5dffc8f4c8ad90405dec51a69f"
+  }
+ }
+}
