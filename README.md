@@ -296,6 +296,11 @@ producer sidecars when present, and preserve failed candidate records. Use
 `--require-fiber-metadata` to require the recorded CT window and label-file hash;
 these checks do not establish physical registration or ink accuracy.
 
+For bounded binary reference/prediction comparisons with pinned Villa metrics,
+see [Villa binary evaluation](docs/VILLA_BINARY_EVALUATION.md). It uses one
+threshold rule, explicit coordinate/encoding declarations, CPU by default, and
+a new report bundle with source captures and per-metric failure statuses.
+
 For the registered fiber-mask shift and threshold checks, see
 [Fiber mask miss diagnostic](docs/FIBER_MISS_DIAGNOSTIC.md). A full verdict
 requires the 21-target sample; named subsets are descriptive. Results use
