@@ -1,6 +1,27 @@
 # October Progress Prize: readiness and final-week plan
 
-## October 30 UTC / October 29 Pacific: ready to file now
+## Engineering entry filed — receipt verified October 30 UTC
+
+The owner submitted the engineering bundle covering **Villa #2022, #2044 and
+#2155**. The Google Forms response receipt and requested emailed copy were
+received at **October 30, 2026, 04:40:33 UTC**, or **October 29 at 9:40:33 p.m.
+Pacific**, before the deadline. This is the receipt timestamp, not a separately
+reported form-submission timestamp.
+
+The [filed entry](PRIZE_FILING_2026-10_SUBMITTED.md) preserves the exact four
+URLs and 371-word contribution answer. The
+[redacted verification record](../reports/evidence/october_prize_submission_2026-10-30.json)
+binds those fields to the retained private receipt through hashes. All received
+answers match the preparation after newline normalization; the terms response
+was agreed. Personal fields, account details and the raw receipt stay private.
+
+The engineering filing is complete. The optional
+[separate research entry](PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md) remains
+unsubmitted in this workflow. The older readiness snapshots and frozen
+preparation files below retain their historical status and wording; they do
+not call for resubmitting the completed engineering entry.
+
+## Earlier October 30 UTC / October 29 Pacific readiness snapshot
 
 The [fresh readiness check](../reports/evidence/october_prize_readiness_2026-10-30.json)
 confirms the same three October Villa merges: **#2022, #2044 and #2155**.
