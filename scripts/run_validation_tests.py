@@ -38,6 +38,7 @@ VALIDATION_TESTS = [
     "tests/test_report_time_and_selection.py",
     "tests/test_daily_report.py",
     "tests/test_candidate_fiber_report_contracts.py",
+    "tests/test_candidate_fiber_metadata.py",
     "tests/test_spatial_inspection_contracts.py",
     "tests/test_spatial_split_mask.py",
     "tests/test_pseudo_handoff_contracts.py",
