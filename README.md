@@ -291,8 +291,10 @@ and the legacy Thaumato solver sweep remain unsupported.
 
 For descriptive comparisons of existing candidate ink maps and binary fiber
 labels, see [Candidate ink/fiber reports](docs/CANDIDATE_INK_FIBER_REPORTS.md).
-These reports check array and recorded prediction geometry, preserve failed
-candidate records, and state the limits of shape-only alignment.
+These reports check array and recorded prediction geometry, validate fiber
+producer sidecars when present, and preserve failed candidate records. Use
+`--require-fiber-metadata` to require the recorded CT window and label-file hash;
+these checks do not establish physical registration or ink accuracy.
 
 For the registered fiber-mask shift and threshold checks, see
 [Fiber mask miss diagnostic](docs/FIBER_MISS_DIAGNOSTIC.md). A full verdict

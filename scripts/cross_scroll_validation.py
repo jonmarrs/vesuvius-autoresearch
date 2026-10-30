@@ -2,7 +2,8 @@
 """Describe candidate ink/fiber array co-occurrence; this is not accuracy validation.
 
 Read existing candidate artifacts and publish summary.json and summary.md together
-in a new --out directory. Shape agreement alone does not establish registration,
+in a new --out directory. Check fiber producer metadata when present, or require
+it with --require-fiber-metadata. Recorded geometry does not establish registration,
 independent evidence, ink correctness, held-out lineage, or prize eligibility.
 Legacy output-file flags and auto-generation are retired.
 """
@@ -11,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import math
 import re
@@ -24,11 +26,13 @@ import numpy as np
 import tifffile
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+for import_root in (REPO_ROOT, REPO_ROOT / "src"):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from scripts.artifact_hashes import sha256_file
 from scripts.candidate_artifacts import ARTIFACT_ERRORS, integer, write_json
+from scripts.fiber_label_metadata import validate_fiber_metadata
 from scripts.labeling.label_artifacts import (
     MAX_FRAGMENT_VOXELS,
     bounded_number,
@@ -37,6 +41,7 @@ from scripts.labeling.label_artifacts import (
     publish_new,
 )
 from scripts.pseudo_label_artifacts import MAX_LABEL_PIXELS, aligned_array
+from scripts.text_snapshot import Snapshot
 
 MAX_CANDIDATES = 256
 MAX_DISCOVERED_CANDIDATES = 4096
@@ -69,9 +74,14 @@ class CandidateRecord:
     fiber_shape: list[int] = field(default_factory=list)
     source_files_sha256: dict[str, str] = field(default_factory=dict)
     absent_prediction_metadata: list[str] = field(default_factory=list)
+    absent_fiber_metadata: list[str] = field(default_factory=list)
     ink_array_sha256: str | None = None
     prediction_geometry_checked: bool = False
     prediction_completeness_recorded: bool = False
+    fiber_metadata_checked: bool = False
+    fiber_bbox_zyx: list[int] = field(default_factory=list)
+    fiber_ct_content_sha256_recorded: str | None = None
+    recorded_geometry_agrees: bool = False
     alignment_verified: bool = False
     alignment_scope: str = "array_shape_only; fiber origin is not recorded"
 
@@ -104,19 +114,37 @@ def _nonfinite_json(value):
     raise ValueError(f"nonfinite JSON number: {value}")
 
 
+def _json_float(value):
+    number = float(value)
+    if not math.isfinite(number):
+        _nonfinite_json(value)
+    return number
+
+
 def _metadata_size(path):
     if path.stat().st_size > MAX_METADATA_BYTES:
         raise ValueError("metadata exceeds one MiB")
 
 
-def _json_object(path):
+def _json_snapshot(path):
     _metadata_size(path)
-    value = json.loads(
-        path.read_text(), object_pairs_hook=_object, parse_constant=_nonfinite_json
-    )
+    source = Snapshot.read(path, MAX_METADATA_BYTES)
+    try:
+        value = json.loads(
+            source.text(),
+            object_pairs_hook=_object,
+            parse_constant=_nonfinite_json,
+            parse_float=_json_float,
+        )
+    except RecursionError as exc:
+        raise ValueError("metadata nesting exceeds JSON parser limits") from exc
     if not isinstance(value, dict):
         raise ValueError("metadata must be a JSON object")
-    return value
+    return value, source.provenance()["sha256"]
+
+
+def _json_object(path):
+    return _json_snapshot(path)[0]
 
 
 def _text(value, name):
@@ -137,11 +165,13 @@ def _stem(value):
     return value
 
 
-def _read_candidate_meta(candidate_dir):
+def _read_candidate_meta(candidate_dir, record=None):
     path = Path(candidate_dir) / "candidate.json"
     if not path.exists():
         return None
-    meta = _json_object(path)
+    meta, digest = _json_snapshot(path)
+    if record is not None:
+        record.source_files_sha256[str(path)] = digest
     meta["artifact_stem"] = _stem(meta.get("artifact_stem"))
     for name in ("scroll_id", "short_id", "division", "local_uri"):
         meta[name] = _text(meta.get(name), name)
@@ -197,12 +227,36 @@ def _load_ink_prediction(candidate_dir, artifact_stem, *, max_pixels=MAX_LABEL_P
     return _probability(values, "ink surface")
 
 
-def _load_fiber_label(candidate_dir, *, max_voxels=MAX_FRAGMENT_VOXELS):
+def _tiff_bytes(path, max_voxels):
+    limit = _positive_integer(max_voxels, "max_voxels")
+    byte_limit = limit * 16 + MAX_METADATA_BYTES
+    if not path.is_file():
+        raise ValueError("fiber TIFF must be a regular file")
+    if path.stat().st_size > byte_limit:
+        raise ValueError("fiber TIFF file exceeds the bounded input byte budget")
+    with path.open("rb") as stream:
+        captured = stream.read(byte_limit + 1)
+    if len(captured) > byte_limit:
+        raise ValueError("fiber TIFF file exceeds the bounded input byte budget")
+    return captured
+
+
+def _load_fiber_label(
+    candidate_dir,
+    *,
+    max_voxels=MAX_FRAGMENT_VOXELS,
+    producer_metadata=False,
+    source_hashes=None,
+):
     path = Path(candidate_dir) / "fiber_label.tif"
     if not path.exists():
         return None
     limit = _positive_integer(max_voxels, "max_voxels")
-    with tifffile.TiffFile(path) as tif:
+    captured = _tiff_bytes(path, limit)
+    if source_hashes is not None:
+        source_hashes[str(path)] = hashlib.sha256(captured).hexdigest()
+    # Decode the very bytes whose digest is recorded, not a second path read.
+    with tifffile.TiffFile(io.BytesIO(captured)) as tif:
         if len(tif.series) != 1:
             raise ValueError("fiber TIFF must contain exactly one series")
         series = tif.series[0]
@@ -216,9 +270,13 @@ def _load_fiber_label(candidate_dir, *, max_voxels=MAX_FRAGMENT_VOXELS):
             raise ValueError("fiber TIFF exceeds max_voxels")
         if series.dtype.kind not in "biuf" or series.dtype.itemsize > 8:
             raise ValueError("fiber TIFF must contain real binary labels")
+        if producer_metadata and (series.axes != "ZYX" or series.dtype != np.uint8):
+            raise ValueError("fiber producer contract requires scalar uint8 ZYX TIFF")
         values = series.asarray()
         if values.shape != series.shape:
             raise ValueError("fiber TIFF read does not match its declared shape")
+        if producer_metadata and not np.isin(values, [0, 1]).all():
+            raise ValueError("fiber producer contract requires uint8 0/1 labels")
     return _binary_fiber(values)
 
 
@@ -287,12 +345,10 @@ def _prediction_metadata(directory, meta, record):
         directory / "predictions" / f"{record.artifact_stem}_ink.zarr" / "meta.json",
     ]
     for path in paths:
-        if not path.exists():
-            record.absent_prediction_metadata.append(str(path.resolve()))
+        if not path.exists() and not path.is_symlink():
+            record.absent_prediction_metadata.append(str(path))
             continue
-        _metadata_size(path)
-        digest = sha256_file(path)
-        details = _json_object(path)
+        details, digest = _json_snapshot(path)
         exporter = path.name == "meta.json"
         width, height = ("width", "height") if exporter else ("width_px", "height_px")
         if (
@@ -346,14 +402,41 @@ def _prediction_metadata(directory, meta, record):
         ):
             raise ValueError("prediction metadata does not describe a single surface")
         record.prediction_geometry_checked = True
-        record.source_files_sha256[str(path.resolve())] = digest
+        record.source_files_sha256[str(path)] = digest
 
 
-def _check_unchanged(directory, record, max_pixels):
-    if any(Path(path).exists() for path in record.absent_prediction_metadata):
-        raise ValueError("prediction metadata appeared during reporting")
+def _fiber_metadata(directory, meta, record, fiber_shape, details):
+    bounds, ct_digest = validate_fiber_metadata(
+        details,
+        meta,
+        fiber_shape,
+        record.source_files_sha256[str(directory / "fiber_label.tif")],
+        _source_uri(meta["local_uri"]),
+    )
+    record.fiber_metadata_checked = True
+    record.fiber_bbox_zyx = bounds
+    record.fiber_ct_content_sha256_recorded = ct_digest
+    record.recorded_geometry_agrees = record.prediction_geometry_checked
+    record.alignment_scope = (
+        "recorded_prediction_and_fiber_ct_window_agree"
+        if record.recorded_geometry_agrees
+        else "fiber_ct_window_recorded; prediction_origin_unknown"
+    ) + "; physical registration and CT content not independently verified"
+
+
+def _check_unchanged(directory, record, max_pixels, max_voxels=MAX_FRAGMENT_VOXELS):
+    if any(
+        Path(path).exists() or Path(path).is_symlink()
+        for path in record.absent_prediction_metadata + record.absent_fiber_metadata
+    ):
+        raise ValueError("candidate metadata appeared during reporting")
     for path, digest in record.source_files_sha256.items():
-        if sha256_file(path) != digest:
+        current = (
+            Snapshot.read(path, MAX_METADATA_BYTES).provenance()["sha256"]
+            if Path(path).suffix == ".json"
+            else hashlib.sha256(_tiff_bytes(Path(path), max_voxels)).hexdigest()
+        )
+        if current != digest:
             raise ValueError("candidate input changed during reporting")
     ink = _load_ink_prediction(directory, record.artifact_stem, max_pixels=max_pixels)
     if ink is None or _array_digest(ink) != record.ink_array_sha256:
@@ -366,6 +449,7 @@ def _process_candidate(
     *,
     max_pixels=MAX_LABEL_PIXELS,
     max_voxels=MAX_FRAGMENT_VOXELS,
+    require_fiber_metadata=False,
 ):
     directory = Path(candidate_dir).resolve()
     record = CandidateRecord()
@@ -379,9 +463,7 @@ def _process_candidate(
         if not path.exists():
             record.status, record.note = "MISSING_METADATA", "candidate.json is missing"
             return record
-        _metadata_size(path)
-        record.source_files_sha256[str(path)] = sha256_file(path)
-        meta = _read_candidate_meta(directory)
+        meta = _read_candidate_meta(directory, record)
         for name in (
             "artifact_stem",
             "scroll_id",
@@ -415,19 +497,36 @@ def _process_candidate(
                 "fiber_label.tif is missing",
             )
             return record
-        if (
-            path.stat().st_size
-            > _positive_integer(max_voxels, "max_voxels") * 16 + MAX_METADATA_BYTES
-        ):
-            raise ValueError("fiber TIFF file exceeds the bounded input byte budget")
-        record.source_files_sha256[str(path)] = sha256_file(path)
-        fiber = _load_fiber_label(directory, max_voxels=max_voxels)
+        stage = "FIBER_METADATA"
+        sidecar = directory / "fiber_labels_meta.json"
+        details = None
+        if sidecar.exists() or sidecar.is_symlink():
+            details, digest = _json_snapshot(sidecar)
+            record.source_files_sha256[str(sidecar)] = digest
+        else:
+            record.absent_fiber_metadata.append(str(sidecar))
+            if require_fiber_metadata:
+                record.status, record.note = (
+                    "MISSING_FIBER_METADATA",
+                    "fiber_labels_meta.json is required",
+                )
+                return record
+        stage = "FIBER_LABEL"
+        fiber = _load_fiber_label(
+            directory,
+            max_voxels=max_voxels,
+            producer_metadata=details is not None,
+            source_hashes=record.source_files_sha256,
+        )
         record.fiber_shape = list(fiber.shape)
+        if details is not None:
+            stage = "FIBER_METADATA"
+            _fiber_metadata(directory, meta, record, fiber.shape, details)
         density = _project_fiber_to_surface(fiber)
         stage = "SHAPE"
         metrics = _compute_metrics(ink, density, fiber_threshold)
         stage = "INPUT_STABILITY"
-        _check_unchanged(directory, record, max_pixels)
+        _check_unchanged(directory, record, max_pixels, max_voxels)
         for name, value in metrics.items():
             setattr(record, name, value)
         record.status = "INSPECTED"
@@ -458,6 +557,12 @@ def _aggregate(records):
                 "short_id": short_id,
                 "division": division,
                 "n_candidates": len(members),
+                "n_fiber_metadata_checked": sum(
+                    r.fiber_metadata_checked for r in members
+                ),
+                "n_recorded_geometry_agreement": sum(
+                    r.recorded_geometry_agrees for r in members
+                ),
                 "n_defined_ratios": len(ratios),
                 "ratio_status_counts": statuses,
                 "mean_ink_pred": statistics.mean(r.ink_pred_mean for r in members),
@@ -491,8 +596,18 @@ def _render_markdown(summary, output_path):
         f"Report status: **{summary['status']}**.",
         "",
         "Descriptive array statistics only. Shape equality does not establish spatial registration; "
-        "fiber origin is unrecorded. Both artifacts can depend on the same CT. A ratio above or "
+        "physical registration is not independently verified. Both artifacts can depend on the same CT. A ratio above or "
         "below one does not establish ink correctness, independent validation, or prize eligibility.",
+        "",
+        f"Fiber producer metadata checked: **{summary['fiber_metadata_checked_candidates']}**; "
+        f"recorded prediction/fiber geometry agrees: **{summary['recorded_geometry_agreement_candidates']}**. "
+        + (
+            "Without checked fiber metadata, fiber origin is unrecorded for this report. "
+            if summary["fiber_metadata_checked_candidates"]
+            < summary["inspected_candidates"]
+            else ""
+        )
+        + "These counts check declarations and the serialized label hash, not CT bytes or label quality.",
         "",
         "Fiber density is the mean of binary labels across depth. Fiber-region pixels have density "
         f"strictly greater than {summary['fiber_threshold']:g}. Ratios use non-fiber/fiber mean ink "
@@ -516,12 +631,22 @@ def _render_markdown(summary, output_path):
         "",
         "## Candidates",
         "",
-        "| Index | Stem | Status | Ink mean | Fiber mean | Ratio | Ratio status | Note |",
-        "|---:|---|---|---:|---:|---:|---|---|",
+        "| Index | Stem | Status | Recorded geometry | Ink mean | Fiber mean | Ratio | Ratio status | Note |",
+        "|---:|---|---|---|---:|---:|---:|---|---|",
     ]
     for record in summary["candidates"]:
+        geometry = (
+            "not counted"
+            if record["status"] != "INSPECTED"
+            else "agrees"
+            if record["recorded_geometry_agrees"]
+            else "fiber only"
+            if record["fiber_metadata_checked"]
+            else "unknown"
+        )
         lines.append(
             f"| {record['candidate_index']} | {_cell(record['artifact_stem'])} | {record['status']} "
+            f"| {geometry} "
             f"| {_fmt(record['ink_pred_mean'])} | {_fmt(record['fiber_mean'])} "
             f"| {_fmt(record['ink_anti_fiber_ratio'])} | {record['ratio_status']} | {_cell(record['note'])} |"
         )
@@ -536,7 +661,10 @@ def inspect_candidates(
     top_n=12,
     max_pixels=MAX_LABEL_PIXELS,
     max_voxels=MAX_FRAGMENT_VOXELS,
+    require_fiber_metadata=False,
 ):
+    if not isinstance(require_fiber_metadata, bool):
+        raise ValueError("require_fiber_metadata must be boolean")
     threshold = _finite(fiber_threshold, "fiber_threshold")
     count = _positive_integer(top_n, "top_n", MAX_CANDIDATES)
     pixels = _positive_integer(max_pixels, "max_pixels")
@@ -562,7 +690,13 @@ def inspect_candidates(
         raise ValueError("candidate indices must be unique")
     selected = sorted(directories, key=lambda d: int(d.name.split("_")[1]))[:count]
     records = [
-        _process_candidate(d, threshold, max_pixels=pixels, max_voxels=voxels)
+        _process_candidate(
+            d,
+            threshold,
+            max_pixels=pixels,
+            max_voxels=voxels,
+            require_fiber_metadata=require_fiber_metadata,
+        )
         for d in selected
     ]
     sources = [Path(path) for record in records for path in record.source_files_sha256]
@@ -584,6 +718,13 @@ def inspect_candidates(
         "discovered_candidates": len(directories),
         "selected_candidates": len(records),
         "inspected_candidates": inspected,
+        "fiber_metadata_required": require_fiber_metadata,
+        "fiber_metadata_checked_candidates": sum(
+            r.status == "INSPECTED" and r.fiber_metadata_checked for r in records
+        ),
+        "recorded_geometry_agreement_candidates": sum(
+            r.status == "INSPECTED" and r.recorded_geometry_agrees for r in records
+        ),
         "failed_candidates": len(records) - inspected,
         "selection": "first N numeric candidate indices; not a population estimate",
         "alignment_verified": False,
@@ -601,7 +742,7 @@ def inspect_candidates(
             raise ValueError("written summary differs from measured report")
         for directory, record in zip(selected, records, strict=True):
             if record.status == "INSPECTED":
-                _check_unchanged(directory, record, pixels)
+                _check_unchanged(directory, record, pixels, voxels)
     return summary
 
 
@@ -625,6 +766,11 @@ def main(argv=None):
     )
     parser.add_argument("--max-pixels", type=int, default=MAX_LABEL_PIXELS)
     parser.add_argument("--max-voxels", type=int, default=MAX_FRAGMENT_VOXELS)
+    parser.add_argument(
+        "--require-fiber-metadata",
+        action="store_true",
+        help="Require producer contract 1, exact source window and label TIFF hash",
+    )
     args = parser.parse_args(argv)
     try:
         summary = inspect_candidates(
@@ -634,6 +780,7 @@ def main(argv=None):
             top_n=args.top_n,
             max_pixels=args.max_pixels,
             max_voxels=args.max_voxels,
+            require_fiber_metadata=args.require_fiber_metadata,
         )
     except REPORT_ERRORS as exc:
         print(f"candidate ink/fiber report: {exc}", file=sys.stderr)

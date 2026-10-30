@@ -107,10 +107,13 @@ checked points; they do not provide a filesystem snapshot or guard against a
 source changing and reverting between reads. Publication uses rename and does
 not promise concurrent-writer safety or durability across power loss.
 
-The current co-occurrence consumer still checks fiber alignment by shape. It
-does not consume the new fiber sidecar to prove ink/fiber registration. Verify
-the actual CT window and prediction frame before associating them; matching
-dimensions and a high descriptive ratio do not establish ink accuracy.
+The [co-occurrence report](CANDIDATE_INK_FIBER_REPORTS.md) checks this sidecar
+when present; use its `--require-fiber-metadata` option to reject missing fiber
+provenance. It compares recorded source geometry and the serialized label hash.
+This does not prove physical ink/fiber registration or independently verify CT
+bytes. Verify the actual CT window and prediction frame before associating
+them; matching dimensions and a high descriptive ratio do not establish ink
+accuracy.
 
 ## WebKnossos skeleton annotations
 
