@@ -305,6 +305,11 @@ workflows declare alignment and evaluated coverage, preserve source IDs during
 curation, and publish new completed artifacts. Their outputs need independent
 validation before use as training ground truth.
 
+For bounded CT vesselness and WebKnossos orientation labels, see
+[Fiber label generation](docs/FIBER_LABEL_GENERATION.md). The CLI plans without
+CUDA probes or output writes, validates exact regions, and publishes a new
+completed run with source and TIFF hashes. These outputs remain heuristic.
+
 For preparing curated sheet-instance labels for Mutex, see
 [Mutex data handoff](docs/MUTEX_DATA.md). It requires explicit CT pairing,
 preserves IDs and masked coverage, and checks the pinned dataset on CPU before

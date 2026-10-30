@@ -1,32 +1,19 @@
 #!/usr/bin/env python3
-"""Generate fiber labels.
+"""Generate bounded fiber labels into a new completed run directory.
 
-Two modes:
-
-* ``--mode skeleton`` (the original behaviour): voxelize a WebKnossos ``.nml``
-  skeleton annotation into per-orientation fiber labels. PCA-classified into
-  horizontal (1), vertical (2), or mixed (3). This is the upstream
-  ``villa/foundation/datasets/fibers-dataset`` workflow, locally wrapped.
-
-* ``--mode candidates`` (default): closes the unwired foundation hook flagged
-  by ``reports/villa_component_coverage.md``. For each top-ranked candidate
-  in ``reports/scroll23_ranked_candidates.tsv`` it loads the CT chunk(s)
-  covering the candidate window, runs villa's ``tools.detect_vesselness``
-  (the same Frangi-style filter the autoresearch fiber predictor uses),
-  thresholds the output, and writes ``fiber_prob.tif`` + ``fiber_label.tif``
-  into ``reports/scroll23_evidence/candidate_NNN/`` so the evidence chain
-  has CT-derived fiber pseudo-labels alongside the manually-annotated set.
+Candidate mode uses the repository's vesselness filter on exact local CT
+windows. Skeleton mode voxelizes WebKnossos annotations with the legacy PCA
+orientation heuristic (horizontal=1, vertical=2, mixed=3). Neither output is
+independently verified ground truth. --help and dry-run need no Villa checkout,
+CUDA device or WebKnossos import. Keep inputs stable and serialize writers.
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
 import json
-import os
+import re
 import sys
-import time
-from dataclasses import dataclass
 from math import sqrt
 from pathlib import Path
 
@@ -35,19 +22,20 @@ import tifffile
 from scipy.ndimage import distance_transform_edt
 from tqdm import tqdm
 
-# ---------------------------------------------------------------------------
-# Villa-tools import (shared by both modes)
-# ---------------------------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[2]
+for import_root in (REPO_ROOT, REPO_ROOT / "src"):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-FIBER_TOOLS_PATH = os.path.join(
-    PROJECT_ROOT, "villa", "foundation", "datasets", "fibers-dataset"
+from scripts.candidate_artifacts import ARTIFACT_ERRORS, integer, write_json
+from scripts.labeling.fiber_candidates import load_ct_window as _load_ct_window
+from scripts.labeling.label_artifacts import (
+    MAX_FRAGMENT_VOXELS,
+    new_output,
+    publish_new,
 )
-if FIBER_TOOLS_PATH not in sys.path:
-    sys.path.insert(0, FIBER_TOOLS_PATH)
-
-import tools  # noqa: E402  (sys.path injection happens above)
-from tools import detect_vesselness  # noqa: E402  re-exported for skeleton mode
+from vesuvius_autoresearch.fibers import detect_vesselness
+from vesuvius_autoresearch.fibers.provenance import file_sha256
 
 # ---------------------------------------------------------------------------
 # Skeleton mode (original WebKnossos .nml → voxel labels pipeline)
@@ -95,17 +83,23 @@ def _interpolate_adaptive(
 def _fill_volume_for_tree(tree, output_shape, origins=(0, 0, 0)):
     temp_fiber = np.zeros(output_shape, dtype=np.uint8)
     origins = np.array(origins)
+    bounds_xyz = np.asarray(output_shape[::-1])
     for node1, node2 in tree.edges:
         node1_pos = np.array([node1.position.x, node1.position.y, node1.position.z])
         node2_pos = np.array([node2.position.x, node2.position.y, node2.position.z])
+        if not np.isfinite([node1_pos, node2_pos]).all():
+            raise ValueError("skeleton coordinates must be finite")
         for point in _interpolate_adaptive(node1_pos, node2_pos):
-            voxel_coords = (point - origins).astype(int)
-            if np.all((voxel_coords >= 0) & (voxel_coords < np.asarray(output_shape))):
+            local = point - origins
+            if np.all((local >= 0) & (local < bounds_xyz)):
+                voxel_coords = local.astype(int)
                 temp_fiber[voxel_coords[2], voxel_coords[1], voxel_coords[0]] = 1
     return temp_fiber
 
 
 def _expand_and_vesselness(binary_volume: np.ndarray, radius: int = 3) -> np.ndarray:
+    if not np.any(binary_volume):
+        return np.zeros_like(binary_volume)
     binary_inverted = 1 - binary_volume
     edt = distance_transform_edt(binary_inverted)
     expanded = (edt <= radius).astype(np.uint8)
@@ -128,8 +122,9 @@ def _process_tree_worker(tree, output_shape, origins, radius):
     return accum_h, accum_v
 
 
-def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=None):
+def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=1):
     from concurrent.futures import ProcessPoolExecutor, as_completed
+    from itertools import islice
 
     all_trees = list(annotation.skeleton.trees)
     for group in annotation.skeleton.groups:
@@ -137,19 +132,29 @@ def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=No
 
     accum_h = np.zeros(output_shape, dtype=np.uint8)
     accum_v = np.zeros(output_shape, dtype=np.uint8)
-    with ProcessPoolExecutor(max_workers=n_workers) as executor:
-        futures = {
-            executor.submit(
-                _process_tree_worker, tree, output_shape, origins, radius
-            ): tree
-            for tree in all_trees
-        }
-        for future in tqdm(
-            as_completed(futures), total=len(futures), desc="Processing trees"
-        ):
-            h, v = future.result()
-            accum_h = np.maximum(accum_h, h)
-            accum_v = np.maximum(accum_v, v)
+    n_workers = integer(n_workers, "n_workers", 1)
+    trees = iter(all_trees)
+    with (
+        ProcessPoolExecutor(max_workers=n_workers) as executor,
+        tqdm(total=len(all_trees), desc="Processing trees") as progress,
+    ):
+        while batch := tuple(islice(trees, n_workers)):
+            # A future retains its whole-cube result. Bound both queued tasks
+            # and completed results instead of retaining every tree's arrays.
+            futures = {
+                executor.submit(
+                    _process_tree_worker, tree, output_shape, origins, radius
+                )
+                for tree in batch
+            }
+            for future in as_completed(futures):
+                h, v = future.result()
+                np.maximum(accum_h, h, out=accum_h)
+                np.maximum(accum_v, v, out=accum_v)
+                futures.remove(future)
+                del h, v
+                progress.update(1)
+            del future
     final = np.zeros(output_shape, dtype=np.uint8)
     mixed = (accum_h > 0) & (accum_v > 0)
     final[mixed] = 3
@@ -159,6 +164,34 @@ def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=No
 
 
 def _run_skeleton_mode(args: argparse.Namespace) -> int:
+    nml_path = Path(args.nml_path).resolve()
+    output_dir = new_output(args.output_dir, nml_path)
+    radius = integer(args.radius, "radius")
+    workers = integer(args.n_workers, "n_workers", 1)
+    match = re.fullmatch(
+        r".+_s\d+a?_(\d+)z_(\d+)y_(\d+)x_(\d+)_v\d+\.nml", nml_path.name
+    )
+    if match is None:
+        raise ValueError("NML filename must encode _sN_Zz_Yy_Xx_SIZE_vREV.nml")
+    z_start, y_start, x_start, size = map(int, match.groups())
+    if size < 3 or size**3 > integer(args.max_voxels, "max_voxels", 1):
+        raise ValueError("NML cube must have size >=3 and fit max_voxels")
+    if args.dry_run:
+        print(
+            json.dumps(
+                {
+                    "status": "PLANNED",
+                    "nml_path": str(nml_path),
+                    "output": str(output_dir),
+                    "origin_zyx": [z_start, y_start, x_start],
+                    "shape_zyx": [size] * 3,
+                    "radius": radius,
+                    "workers": workers,
+                    "scope": "Filename/settings/output checks only; annotation not loaded",
+                }
+            )
+        )
+        return 0
     try:
         from webknossos import Annotation
     except ImportError:
@@ -167,268 +200,64 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-
-    nml_path = args.nml_path
-    output_dir = args.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"Loading annotation from {nml_path}...")
+    nml_sha = file_sha256(nml_path)
     annotation = Annotation.load(str(nml_path))
-
-    # Coordinates embedded in the filename: <prefix>_<s5>_<06500z>_<02000y>_<04000x>_<500>_<rev>.nml
-    parts = nml_path.name.split("_")
-    z_start = int(parts[2][:-1])
-    y_start = int(parts[3][:-1])
-    x_start = int(parts[4][:-1])
-    size = int(parts[5])
-
-    print(f"Generating labels for ({z_start}, {y_start}, {x_start}) size {size}...")
     labels = _voxelize_skeleton(
         annotation,
-        output_shape=(size, size, size),
+        output_shape=(size,) * 3,
         origins=(x_start, y_start, z_start),
-        radius=args.radius,
-        n_workers=args.n_workers,
+        radius=radius,
+        n_workers=workers,
     )
-    label_path = output_dir / "labels.tif"
-    tifffile.imwrite(label_path, labels)
-    print(f"Labels saved to {label_path}")
+    if (
+        labels.shape != (size,) * 3
+        or labels.dtype != np.uint8
+        or not np.isin(labels, [0, 1, 2, 3]).all()
+    ):
+        raise ValueError(
+            "skeleton labels must be uint8 orientation IDs 0/1/2/3 matching the cube"
+        )
+    with publish_new(output_dir) as staging:
+        label_path = staging / "labels.tif"
+        tifffile.imwrite(
+            label_path, labels, photometric="minisblack", metadata={"axes": "ZYX"}
+        )
+        if not np.array_equal(tifffile.imread(label_path), labels):
+            raise ValueError("serialized skeleton TIFF failed readback")
+        write_json(
+            staging / "labels_meta.json",
+            {
+                "contract": 1,
+                "label_kind": "annotation_derived_orientation_heuristic",
+                "source_nml": str(nml_path),
+                "source_nml_sha256": nml_sha,
+                "axes": ["z", "y", "x"],
+                "origin_zyx": [z_start, y_start, x_start],
+                "shape_zyx": [size] * 3,
+                "radius": radius,
+                "workers": workers,
+                "label_file_sha256": file_sha256(label_path),
+            },
+        )
+        if file_sha256(nml_path) != nml_sha:
+            raise ValueError("NML input changed during processing")
+    print(f"Labels saved to {output_dir / 'labels.tif'}")
     return 0
 
 
-# ---------------------------------------------------------------------------
-# Candidates mode (CT-derived fiber pseudo-labels for ranked candidates)
-# ---------------------------------------------------------------------------
+def _select_backend(use_gpu):
+    from vesuvius_autoresearch.fibers.cli import _array_backend
+
+    _, name = _array_backend("gpu" if use_gpu else "cpu")
+    return "cupy" if name == "gpu" else "numpy"
 
 
-@dataclass
-class _Candidate:
-    index: int
-    artifact_stem: str
-    local_uri: str
-    z: int
-    y: int
-    x: int
-    width: int
-    height: int
-    review_score: float
+def _run_candidates_mode(args):
+    from scripts.labeling.fiber_candidates import run_candidates
 
-
-@dataclass
-class _LabelResult:
-    candidate_index: int
-    artifact_stem: str
-    status: str
-    prob_path: str | None
-    label_path: str | None
-    elapsed_s: float
-    fiber_voxel_fraction: float | None
-    note: str
-
-
-def _select_backend(use_gpu: bool) -> str:
-    """Return the requested backend name."""
-    if use_gpu:
-        try:
-            import cupy as cp
-
-            return "cupy"
-        except ImportError:
-            print(
-                "warning: --use-gpu requested but cupy not importable; using numpy.",
-                file=sys.stderr,
-            )
-    return "numpy"
-
-
-def _load_candidates(tsv_path: Path, top_n: int) -> list[_Candidate]:
-    candidates: list[_Candidate] = []
-    with tsv_path.open() as fh:
-        reader = csv.DictReader(fh, delimiter="\t")
-        for index, row in enumerate(reader):
-            if index >= top_n:
-                break
-            candidates.append(
-                _Candidate(
-                    index=index,
-                    artifact_stem=row["artifact_stem"],
-                    local_uri=row["local_uri"],
-                    z=int(row["z"]),
-                    y=int(row["y"]),
-                    x=int(row["x"]),
-                    width=int(row["width"]),
-                    height=int(row["height"]),
-                    review_score=float(row["review_score"]),
-                )
-            )
-    return candidates
-
-
-def _load_ct_window(
-    local_uri: str, z: int, y: int, x: int, depth: int, height: int, width: int
-) -> np.ndarray:
-    """Return a float32 [0, 1] CT window of shape (depth, height, width)."""
-    import zarr
-
-    store = zarr.open(local_uri, mode="r")
-    arr = store if isinstance(store, zarr.core.Array) else store["0"]
-
-    z_end = min(z + depth, arr.shape[0])
-    y_end = min(y + height, arr.shape[1])
-    x_end = min(x + width, arr.shape[2])
-    raw = arr[z:z_end, y:y_end, x:x_end]
-    if raw.dtype == np.uint8:
-        return raw.astype(np.float32) / 255.0
-    return raw.astype(np.float32)
-
-
-def _generate_label_for(
-    candidate: _Candidate,
-    evidence_root: Path,
-    depth: int,
-    threshold: float,
-    backend: str,
-) -> _LabelResult:
-    candidate_dir = evidence_root / f"candidate_{candidate.index:03d}"
-    candidate_dir.mkdir(parents=True, exist_ok=True)
-    prob_path = candidate_dir / "fiber_prob.tif"
-    label_path = candidate_dir / "fiber_label.tif"
-
-    start = time.perf_counter()
-    try:
-        ct_patch = _load_ct_window(
-            candidate.local_uri,
-            candidate.z,
-            candidate.y,
-            candidate.x,
-            depth,
-            candidate.height,
-            candidate.width,
-        )
-    except (FileNotFoundError, KeyError, OSError) as exc:
-        return _LabelResult(
-            candidate_index=candidate.index,
-            artifact_stem=candidate.artifact_stem,
-            status="MISSING_CT",
-            prob_path=None,
-            label_path=None,
-            elapsed_s=time.perf_counter() - start,
-            fiber_voxel_fraction=None,
-            note=f"{type(exc).__name__}: {exc}",
-        )
-
-    if backend == "cupy":
-        import cupy as cp
-
-        ct_input = cp.asarray(ct_patch)
-    else:
-        ct_input = ct_patch
-
-    vesselness = detect_vesselness(ct_input)
-
-    if backend == "cupy":
-        import cupy as cp
-
-        vesselness_np = cp.asnumpy(vesselness)
-    else:
-        vesselness_np = vesselness
-
-    vesselness_np = np.asarray(vesselness_np, dtype=np.float32)
-    fiber_label = (vesselness_np >= threshold).astype(np.uint8)
-
-    tifffile.imwrite(prob_path, vesselness_np)
-    tifffile.imwrite(label_path, fiber_label)
-
-    return _LabelResult(
-        candidate_index=candidate.index,
-        artifact_stem=candidate.artifact_stem,
-        status="OK",
-        prob_path=str(prob_path),
-        label_path=str(label_path),
-        elapsed_s=time.perf_counter() - start,
-        fiber_voxel_fraction=float(fiber_label.mean()),
-        note="",
+    return run_candidates(
+        args, select_backend=_select_backend, filter_fn=detect_vesselness
     )
-
-
-def _write_summary(
-    evidence_root: Path,
-    results: list[_LabelResult],
-    backend: str,
-    threshold: float,
-    depth: int,
-) -> Path:
-    summary_path = evidence_root / "fiber_labels_summary.json"
-    summary = {
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "backend": backend,
-        "threshold": threshold,
-        "depth": depth,
-        "candidates": [
-            {
-                "candidate_index": r.candidate_index,
-                "artifact_stem": r.artifact_stem,
-                "status": r.status,
-                "prob_path": r.prob_path,
-                "label_path": r.label_path,
-                "elapsed_s": round(r.elapsed_s, 3),
-                "fiber_voxel_fraction": r.fiber_voxel_fraction,
-                "note": r.note,
-            }
-            for r in results
-        ],
-    }
-    summary_path.write_text(json.dumps(summary, indent=2))
-    return summary_path
-
-
-def _run_candidates_mode(args: argparse.Namespace) -> int:
-    if not args.candidates.exists():
-        print(f"error: candidates TSV not found at {args.candidates}", file=sys.stderr)
-        return 1
-
-    candidates = _load_candidates(args.candidates, args.top_n)
-    if not candidates:
-        print(f"error: no rows loaded from {args.candidates}", file=sys.stderr)
-        return 1
-
-    args.evidence_root.mkdir(parents=True, exist_ok=True)
-    backend = _select_backend(args.use_gpu)
-
-    print(
-        f"# generate_fiber_labels (candidates): "
-        f"{len(candidates)} candidate(s) backend={backend} depth={args.depth} threshold={args.threshold}"
-    )
-
-    if args.dry_run:
-        for c in candidates:
-            print(
-                f"  [{c.index:03d}] {c.artifact_stem} "
-                f"z={c.z} y={c.y} x={c.x} {c.width}x{c.height} "
-                f"score={c.review_score:.3f} local_uri={c.local_uri}"
-            )
-        return 0
-
-    results: list[_LabelResult] = []
-    for c in candidates:
-        print(f"  [{c.index:03d}] {c.artifact_stem} ... ", end="", flush=True)
-        result = _generate_label_for(
-            c, args.evidence_root, args.depth, args.threshold, backend
-        )
-        results.append(result)
-        if result.status == "OK":
-            print(
-                f"OK ({result.elapsed_s:.1f}s fiber_fraction={result.fiber_voxel_fraction:.4f})"
-            )
-        else:
-            print(f"{result.status}: {result.note}")
-
-    summary_path = _write_summary(
-        args.evidence_root, results, backend, args.threshold, args.depth
-    )
-    ok_count = sum(1 for r in results if r.status == "OK")
-    print(f"# wrote {ok_count}/{len(results)} labels; summary={summary_path}")
-    return 0 if ok_count == len(results) else 2
 
 
 # ---------------------------------------------------------------------------
@@ -453,7 +282,10 @@ def _build_parser() -> argparse.ArgumentParser:
         default=Path("reports/scroll23_ranked_candidates.tsv"),
     )
     parser.add_argument(
-        "--evidence-root", type=Path, default=Path("reports/scroll23_evidence")
+        "--evidence-root",
+        type=Path,
+        default=Path("reports/fiber_labels_run"),
+        help="New completed run directory; must not exist",
     )
     parser.add_argument("--top-n", type=int, default=5)
     parser.add_argument(
@@ -463,7 +295,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--use-gpu", action="store_true", help="Use the CuPy backend (default: CPU)"
     )
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Plan without output writes or CUDA probes",
+    )
+    parser.add_argument(
+        "--max-voxels",
+        type=int,
+        default=MAX_FRAGMENT_VOXELS,
+        help="Maximum requested CT/label voxels per fragment",
+    )
 
     # skeleton-mode args (defaults reproduce the original entry point)
     parser.add_argument(
@@ -477,15 +319,24 @@ def _build_parser() -> argparse.ArgumentParser:
         "--output-dir", type=Path, default=Path("local_data/fibers_dataset")
     )
     parser.add_argument("--radius", type=int, default=2)
-    parser.add_argument("--n-workers", type=int, default=4)
+    parser.add_argument(
+        "--n-workers",
+        type=int,
+        default=1,
+        help="Skeleton CPU workers; each holds whole-cube temporaries",
+    )
     return parser
 
 
-def main() -> int:
-    args = _build_parser().parse_args()
-    if args.mode == "skeleton":
-        return _run_skeleton_mode(args)
-    return _run_candidates_mode(args)
+def main(argv=None) -> int:
+    args = _build_parser().parse_args(argv)
+    try:
+        if args.mode == "skeleton":
+            return _run_skeleton_mode(args)
+        return _run_candidates_mode(args)
+    except (*ARTIFACT_ERRORS, ImportError, MemoryError) as exc:
+        print(f"Fiber label generation failed: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

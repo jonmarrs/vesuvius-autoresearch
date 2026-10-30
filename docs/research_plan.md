@@ -1,17 +1,17 @@
 # Research roadmap
 
-**Updated October 28, 2026 UTC.** The current decision record is
+**Updated October 30, 2026 UTC.** The current decision record is
 [Research strategy: useful progress on one RTX 4090](RESEARCH_STRATEGY.md).
 It replaces the July roadmap and reconciles the current official prize rules,
 our actual measurements, upstream work already in progress and our compute
 budget. Historical reports and preregistrations retain their original scope.
 
-1. **File the completed October work.** Follow the
-   [final-week plan](PRIZE_PLAN_2026-10_FINAL_WEEK.md), aiming for October 29
-   ahead of the October 31, 11:59 p.m. Pacific deadline. The three confirmed
-   Villa merges support the engineering bundle; released ScrollGT work
-   supports the separate research answer. New experiments are not a
-   prerequisite. Preserve an actual submission receipt before marking filed.
+1. **Engineering entry filed; decide on the separate research entry.** The
+   [filed engineering record](PRIZE_FILING_2026-10_SUBMITTED.md) preserves the
+   three Villa merges and verified receipt. The optional ScrollGT research
+   answer remains unsubmitted in this workflow. Follow the
+   [final-week plan](PRIZE_PLAN_2026-10_FINAL_WEEK.md) before the October 31,
+   11:59 p.m. Pacific deadline; new experiments are not a filing prerequisite.
 2. **Finish integrations people can use.** Address feedback on the three
    pending Villa PRs and verify the prepared seed-heading fix through the
    [current object-store workflow](VILLA_OBJECT_STORE_EXPORT_CHECK.md) on a

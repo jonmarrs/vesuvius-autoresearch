@@ -49,6 +49,7 @@ VALIDATION_TESTS = [
     "tests/test_mutex_data_contracts.py",
     "tests/test_volumetric_label_contracts.py",
     "tests/test_label_curation_contracts.py",
+    "tests/test_fiber_label_generation.py",
     "tests/test_candidate_preprocessing_contracts.py",
     "tests/test_candidate_content_provenance.py",
     "tests/test_crop_candidate_zarr.py",
