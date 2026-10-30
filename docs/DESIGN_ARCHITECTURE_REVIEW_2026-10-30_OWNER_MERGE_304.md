@@ -67,6 +67,9 @@ No change was needed. This record is the round's only change.
 - **#304's integration command:** 222 passed and 1 skipped with the capture; 219 passed and 4 skipped without it.
 - **The checks.** Ruff 0.9.10 `check` and `format` are clean on #304's Python files. Mypy is clean over the whole
   repository (848 files).
-- **The standard suite** gives RESULT_SUITE.
-- **The test modules outside the standard suite** give RESULT_OUTSIDE.
+- **The standard suite** gives the same 43 failures as before, from `s3fs`, `numba`, `jsonschema` and Villa
+  files absent here. The same 2 modules cannot be collected (`tensorstore`, `s3fs`).
+- **The 229 test modules outside the standard suite** give 2,096 passed, 80 skipped, 13 failed and 21 collection
+  errors: the same failures as the previous round. #304 moved `tests/test_evaluate_villa_metrics.py` into the
+  suite.
 - **The doc audit** finds no new unresolved reference.
