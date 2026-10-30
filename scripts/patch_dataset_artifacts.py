@@ -134,17 +134,6 @@ def dataset_links(source, ids):
     return root, auxiliary, patches
 
 
-def bootstrap_ids(path, known):
-    root = Path(path).resolve(strict=True)
-    ids = {patch_id(p.name) for p in entries(root / "verified_patches")}
-    if not ids or ids - known.keys():
-        raise ValueError("bootstrap must be nonempty and contain only scored patch IDs")
-    for pid in ids:
-        if not (root / "verified_patches" / pid).is_dir():
-            raise ValueError(f"bootstrap patch must be a readable directory: {pid}")
-    return root, ids
-
-
 def geometry(root, ids):
     boxes, records = {}, []
     for pid in sorted(ids):

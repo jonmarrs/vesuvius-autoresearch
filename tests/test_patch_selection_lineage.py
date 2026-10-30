@@ -175,6 +175,29 @@ def test_same_physical_arm_is_not_an_independent_control(prepared, module, alias
 
 
 @pytest.mark.parametrize("module", MODULES)
+def test_a_copy_of_the_bootstrap_links_is_not_an_independent_control(prepared, module):
+    root, _, reference, boot, _ = prepared
+    copy = root / "copy"
+    shutil.copytree(boot, copy, symlinks=True)
+    (copy / MANIFEST).unlink()  # a legacy arm: no record to name its role
+    report = module.build_report(reference, boot, copy)
+    assert report["status"] == "FAIL"
+    assert "select the same patches" in report["failures"][0]
+
+
+def test_full_dataset_may_alias_patches_the_reference_did_not_score(prepared):
+    """Unscored FULL patches are outside the comparison, as the builders treat them."""
+    _, full, reference, boot, control = prepared
+    unscored = full / "verified_patches" / "u1"
+    unscored.mkdir()
+    (full / "verified_patches" / "u2").symlink_to(unscored, target_is_directory=True)
+    report = spatial.build_report(
+        reference, boot, control, full, require_manifests=True
+    )
+    assert passed(spatial, report), report["failures"]
+
+
+@pytest.mark.parametrize("module", MODULES)
 def test_different_ids_cannot_count_one_directory_twice(prepared, module):
     _, _, reference, boot, control = prepared
     (control / MANIFEST).unlink()
