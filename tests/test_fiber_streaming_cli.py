@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from vesuvius_autoresearch.core.file_modes import current_umask
-from vesuvius_autoresearch.fibers import cli, detection
+from vesuvius_autoresearch.fibers import cli, detection, streaming
 
 
 def arguments(source, output, *extra):
@@ -186,9 +186,25 @@ def test_invalid_halo_fails_before_backend_allocation(source, tmp_path, monkeypa
         cli.main(arguments(source, tmp_path / "out.npy", "--tiled", "--halo", "1"))
 
 
-def test_nonfinite_late_block_never_replaces_previous_output(source, tmp_path):
-    volume = np.ones((31, 33, 35), np.float32)
-    volume[-1, -1, -1] = np.nan
+@pytest.mark.parametrize("where", ["input", "filter response"])
+def test_nonfinite_late_block_never_replaces_previous_output(
+    source, tmp_path, monkeypatch, where
+):
+    volume = np.random.default_rng(5).random((31, 33, 35)).astype(np.float32)
+    if where == "input":  # refused by the input check, before any block
+        volume[-1, -1, -1] = np.nan
+    else:  # every earlier block filters cleanly; the last one does not
+        count = sum(1 for _ in streaming.blocks(volume.shape, 8, 16))
+        calls, real = [], streaming.detect_vesselness
+
+        def late_nan(block, **kwargs):
+            calls.append(None)
+            result = real(block, **kwargs)
+            if len(calls) == count:
+                result[...] = np.nan
+            return result
+
+        monkeypatch.setattr(streaming, "detect_vesselness", late_nan)
     np.save(source, volume)
     output = tmp_path / "out.npy"
     output.write_bytes(b"previous complete array")

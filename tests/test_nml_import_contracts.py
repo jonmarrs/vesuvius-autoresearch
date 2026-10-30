@@ -328,3 +328,42 @@ def test_score_report_does_not_rehash_changed_ground_truth_after_scoring(
     assert report["provenance"]["skeleton_sha256"] == captured_hash
     assert report["rows"]["instances"]["erl"] == 5.0
     assert captured_hash != hashlib.sha256(nml.read_bytes()).hexdigest()
+
+
+def test_strict_all_cubes_refuses_a_later_bad_graph_before_any_inference(
+    cube, monkeypatch
+):
+    import tifffile
+
+    root, stem, _ = cube
+    bad = "s1_00010_00000_00000_8"
+    (root / f"{bad}.nml").write_text(NML.replace('target="20"', 'target="999"'))
+    tifffile.imwrite(root / f"{bad}_image.tif", np.zeros((8, 8, 8), np.uint8))
+    record = {"inference": {"fixture": "toy"}, "probability_sha256": "toy"}
+    for name in (stem, bad):
+        (root / f"{name}_fiberprob.json").write_text(json.dumps(record))
+    inferred = []
+
+    def infer(data_dir, cube_name, *args):
+        inferred.append(cube_name)
+        return np.ones((8, 8, 8))
+
+    monkeypatch.setattr(bench_cli, "CUBES", [stem, bad])
+    monkeypatch.setattr(bench_cli, "_fiber_prob", infer)
+    output = root / "all.json"
+    previous = json.dumps({"cubes": {}}).encode()
+    output.write_bytes(previous)
+    with pytest.raises(ValueError, match="dangling"):
+        bench_cli.main(
+            [
+                "--data-dir",
+                str(root),
+                "floors",
+                "--all-cubes",
+                "--json-out",
+                str(output),
+                "--strict-nml",
+            ]
+        )
+    assert inferred == []
+    assert output.read_bytes() == previous
