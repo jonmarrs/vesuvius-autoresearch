@@ -28,7 +28,9 @@ without review).
 
 These June measurements describe the in-memory API at that revision on an
 NVIDIA RTX 4090 (CuPy 14.0.1 / CUDA 12.9). They do not benchmark the disk-streaming
-CLI added October 29; no new throughput or VRAM measurement is claimed here.
+CLI added October 29. An [October 30 public-CT CPU check](../reports/fiber_cli_public_ct_cpu_2026-10-30.md)
+records exact output parity and peak RSS on one 256³ cube; it does not measure
+CUDA, VRAM or general throughput.
 
 - Eigensolver parity vs `numpy.linalg.eigvalsh`: max abs diff **3.1e-10**
   (float64), **6.7e-6** (float32).
