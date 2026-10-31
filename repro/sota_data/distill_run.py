@@ -7,16 +7,18 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 import cv2
 import numpy as np
 import s3fs
-import tifffile
 import zarr
 from PIL import Image
 
 sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data.distill_prep import prep_distill_fragment, teacher_region_for
+from repro.sota_data.fragment import validate_fragment_id
+from repro.sota_data.teacher_artifacts import DEFAULT_MAX_BYTES, read_teacher
 
 BUCKET = "vesuvius-challenge-open-data"
 SCROLLS = {
@@ -30,6 +32,7 @@ SCROLLS = {
 def _scroll_prefix(scroll_key, seg, sub):
     if scroll_key not in SCROLLS:
         raise ValueError(f"unknown scroll key '{scroll_key}'; known: {sorted(SCROLLS)}")
+    validate_fragment_id(seg)
     return f"{BUCKET}/{SCROLLS[scroll_key]}/segments/{seg}/{sub}"
 
 
@@ -64,44 +67,42 @@ def frag_id(seg, y0, x0):
     return f"{seg}_y{y0}_x{x0}"
 
 
-def _source_record(tpath):
-    return tpath + ".source.json"
+def fetch_teacher(
+    seg,
+    scroll_key="scroll1",
+    *,
+    source=None,
+    max_bytes=DEFAULT_MAX_BYTES,
+    dry_run=False,
+):
+    from repro.sota_data.teacher_artifacts import fetch_teacher as fetch
 
-
-def fetch_teacher(seg, scroll_key="scroll1"):
-    os.makedirs(TEACHER_DIR, exist_ok=True)
-    dst = os.path.join(TEACHER_DIR, f"{scroll_key}_{seg}.tif")
-    legacy = os.path.join(TEACHER_DIR, f"{seg}.tif")  # Phase-2 cache name (scroll1 only)
-    if os.path.exists(dst):
-        return dst
-    if scroll_key == "scroll1" and os.path.exists(legacy):
-        return legacy
-    fs = _fs()
     pref = _scroll_prefix(scroll_key, seg, "ink-detection")
-    tifs = sorted(p for p in fs.ls(pref, detail=False) if p.endswith(".tif"))
-    if not tifs:
-        raise ValueError(f"{seg}: no teacher tif under {pref}")
-    fs.get(tifs[0], dst)
-    # Which released prediction is the teacher: the first of the candidates, by name.
-    with open(_source_record(dst), "w") as f:
-        json.dump({"source": tifs[0], "candidates": tifs}, f, indent=2)
-    return dst
+    root = Path(TEACHER_DIR)
+    bundle = root / f"{scroll_key}_{seg}.teacher"
+    legacy = [root / f"{scroll_key}_{seg}.tif"]
+    if scroll_key == "scroll1":
+        legacy.append(root / f"{seg}.tif")
+    if not os.path.lexists(bundle) and any(os.path.lexists(path) for path in legacy):
+        raise ValueError(
+            "unverified legacy teacher cache; use teacher_cache with a fresh bundle path (see docs/SOTA_TEACHER_CACHE.md)"
+        )
+    return fetch(
+        pref,
+        bundle,
+        source=source,
+        max_bytes=max_bytes,
+        filesystem=None if os.path.lexists(bundle) else _fs(),
+        dry_run=dry_run,
+    )
 
 
 def teacher_provenance(tpath, teacher):
     """What a report says about one teacher: its pixels and the bucket file it is."""
-    record = {
-        "shape": list(teacher.shape),
-        "dtype": str(teacher.dtype),
-        "min": int(teacher.min()),
-        "max": int(teacher.max()),
-        "source": None,
-        "candidates": None,
-    }
-    if os.path.exists(_source_record(tpath)):
-        with open(_source_record(tpath)) as f:
-            record.update(json.load(f))
-    return record  # source None: a teacher cached before its source was recorded
+    pixels, record = read_teacher(tpath)
+    if teacher.dtype != pixels.dtype or not np.array_equal(teacher, pixels):
+        raise ValueError("supplied teacher pixels disagree with captured source bytes")
+    return record
 
 
 def extract_region(seg, y0, x0, size=SIZE, scroll_key="scroll1"):
@@ -128,25 +129,42 @@ def cmd_prep():
     provenance = {}
     for seg, regions in targets:
         tpath = fetch_teacher(seg)
-        teacher_full = tifffile.imread(tpath)
-        print(f"{seg}: teacher shape={teacher_full.shape} dtype={teacher_full.dtype} "
-              f"range=[{teacher_full.min()},{teacher_full.max()}]", flush=True)
-        provenance[seg] = teacher_provenance(tpath, teacher_full)
-        for (y0, x0) in regions:
+        teacher_full, teacher_record = read_teacher(tpath)
+        print(
+            f"{seg}: teacher shape={teacher_full.shape} dtype={teacher_full.dtype} "
+            f"range=[{teacher_full.min()},{teacher_full.max()}]",
+            flush=True,
+        )
+        provenance[seg] = teacher_record
+        for y0, x0 in regions:
             region, level_shape, box = extract_region(seg, y0, x0)
             t_region = teacher_region_for(teacher_full, level_shape, box)
             fid = frag_id(seg, y0, x0)
-            out = prep_distill_fragment(region, t_region, DATA_ROOT, fid)
+            out = prep_distill_fragment(
+                region,
+                t_region,
+                DATA_ROOT,
+                fid,
+                teacher_encoding=teacher_record["float_encoding_applied"] or "auto",
+                teacher_source=teacher_record,
+            )
             lab = cv2.imread(os.path.join(out, f"{fid}_inklabels.png"), 0)
-            print(f"prepped {out} teacher-positive={float((lab > 0).mean()):.3f}", flush=True)
+            print(
+                f"prepped {out} teacher-positive={float((lab > 0).mean()):.3f}",
+                flush=True,
+            )
     os.makedirs(DATA_ROOT, exist_ok=True)
     with open(os.path.join(DATA_ROOT, "teacher_provenance.json"), "w") as f:
-        json.dump({
-            "binarize_threshold": 128,
-            "note": "teacher = released canon model prediction, binarized at >=128 "
-                    "after uint8 scaling; NOT ground truth",
-            "teachers": provenance,
-        }, f, indent=2)
+        json.dump(
+            {
+                "binarize_threshold": 128,
+                "note": "teacher = released canon model prediction, binarized at >=128 "
+                "after uint8 scaling; NOT ground truth",
+                "teachers": provenance,
+            },
+            f,
+            indent=2,
+        )
 
 
 def provenance_line(prov):

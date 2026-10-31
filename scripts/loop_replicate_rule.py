@@ -62,14 +62,28 @@ PERMUTATIONS = 1000
 SEED = 20261026
 
 
-def scores(rows, labels, measures, min_cycles, min_others=MIN_OTHERS):
-    """Each cycle's rule score: the smallest t over the measures for its tweak at its end (-inf below min_cycles)."""
+def scores(rows, labels, measures, min_cycles, min_others=MIN_OTHERS, floor=False):
+    """Each cycle's rule score: the smallest t over the measures for its tweak at its end (-inf below min_cycles).
+
+    With `floor` (docs/preregistration/2026-10-31_loop_replicate_rule_sd_floor.md), each t's SD is at least the
+    field's: the SD of the same difference over every other tweak's cycles so far, each against the other tweaks of
+    its own epoch. A tweak that barely changes the model has almost no spread of its own, and without the floor any
+    steady offset scores high (lr 1e-5, promoted 2026-10-29 on +0.0002 F1). The floor only lowers positive scores."""
     S = {m: defaultdict(float) for m in measures}
     ST = {m: defaultdict(float) for m in measures}
     C = defaultdict(int)
     CT = defaultdict(int)
     seen = defaultdict(list)
     out = np.full(len(rows), -math.inf)
+    if floor:
+        e_ix = {e: i for i, e in enumerate(dict.fromkeys(r["epoch"] for r in rows))}
+        t_ix = {t: i for i, t in enumerate(dict.fromkeys(labels))}
+        E = np.array([e_ix[r["epoch"]] for r in rows])
+        K = np.array([t_ix[t] for t in labels])
+        X = {m: np.array([r[m] for r in rows], dtype=float) for m in measures}
+        Cn, CTn = np.zeros(len(e_ix)), np.zeros((len(e_ix), len(t_ix)))
+        Sn = {m: np.zeros(len(e_ix)) for m in measures}
+        STn = {m: np.zeros((len(e_ix), len(t_ix))) for m in measures}
     for j, row in enumerate(rows):
         T, e = labels[j], row["epoch"]
         C[e] += 1
@@ -77,6 +91,12 @@ def scores(rows, labels, measures, min_cycles, min_others=MIN_OTHERS):
         for m in measures:
             S[m][e] += row[m]
             ST[m][e, T] += row[m]
+        if floor:
+            Cn[E[j]] += 1
+            CTn[E[j], K[j]] += 1
+            for m in measures:
+                Sn[m][E[j]] += row[m]
+                STn[m][E[j], K[j]] += row[m]
         seen[T].append(j)
         if len(seen[T]) < min_cycles:
             continue
@@ -91,6 +111,13 @@ def scores(rows, labels, measures, min_cycles, min_others=MIN_OTHERS):
             if len(d) < min_cycles:
                 break
             sd = float(np.std(d, ddof=1))
+            if floor:
+                e, k = E[: j + 1], K[: j + 1]
+                n_o = Cn[e] - CTn[e, k]
+                field = (k != K[j]) & (n_o >= min_others)
+                if field.sum() >= 2:
+                    others_mean = (Sn[m][e] - STn[m][e, k])[field] / n_o[field]
+                    sd = max(sd, float(np.std(X[m][: j + 1][field] - others_mean, ddof=1)))  # fmt: skip
             ts.append(
                 math.inf if sd == 0 else float(np.mean(d)) / (sd / math.sqrt(len(d)))
             )
@@ -247,6 +274,9 @@ REGISTERED = {
     "min_others": MIN_OTHERS,
     "c": 4.5,
 }
+# The live loop's rule (scripts/training/replicate_rule.py): REGISTERED with each t's SD floored at the field's, as
+# docs/preregistration/2026-10-31_loop_replicate_rule_sd_floor.md registers it.
+LIVE = {**REGISTERED, "sd_floor": True}
 # The confirmation's own window (loop_tweak_replication.REGISTERED): its cut, and when it gives no reading.
 CONFIRMATION = {"cut_at": 8, "min_standing": 6, "min_others": 60}
 # The standing tweak's exploratory effect, half of it, none.
@@ -330,7 +360,7 @@ def power(record, scales=POWER_SCALES, simulations=POWER_SIMULATIONS, seed=SEED,
             ):
                 trace.append("incomplete")
                 continue
-            s = scores(sim, tweaks, measures, reg["min_cycles"], reg["min_others"])
+            s = scores(sim, tweaks, measures, reg["min_cycles"], reg["min_others"], floor=reg.get("sd_floor", False))  # fmt: skip
             fired = [j for j, x in enumerate(s) if x > reg["c"]]
             if not fired:
                 trace.append("none")

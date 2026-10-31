@@ -1,46 +1,161 @@
-# repro/sota_data/fetch.py
-"""Download one segment's layers + ink label + mask from the open bucket to local disk.
-Operational. Anonymous S3."""
-import os
+"""Plan or download one public SOTA segment into a new, verified raw directory."""
+
+from __future__ import annotations
+
+import argparse
+import json
 import sys
+from pathlib import Path
 
-import s3fs
+if __package__ in (None, ""):
+    sys.path[:0] = [
+        str(Path(__file__).resolve().parents[2]),
+        str(Path(__file__).resolve().parents[2] / "src"),
+    ]
 
-BUCKET = "vesuvius-challenge-open-data"
+from repro.sota_data.download_artifacts import (
+    BUCKET,
+    DEFAULT_MAX_BYTES,
+    DEFAULT_MAX_FILE_BYTES,
+    MAX_ENTRIES,
+    build_plan,
+    destination_path,
+    execute_plan,
+    limits,
+    source_prefix,
+)
 
 
-def fetch_segment(s3_seg_prefix, out_dir):
-    """s3_seg_prefix: bucket-relative path to the segment dir (contains layers/ + label).
+def _filesystem():
+    import s3fs
 
-    Fetches layers/ and the files named *inklabels* or *mask* into out_dir, the
-    directory convert.convert_surface_volume reads. Nothing else: a SOTA segment's
-    prefix also holds surface-volume zarrs of hundreds of GB.
+    return s3fs.S3FileSystem(anon=True)
+
+
+def _prepare(
+    s3_seg_prefix,
+    out_dir,
+    filesystem,
+    max_bytes,
+    max_file_bytes,
+    max_files,
+    max_entries,
+    center_layers,
+):
+    options = limits(max_bytes, max_file_bytes, max_files, max_entries, center_layers)
+    prefix = source_prefix(s3_seg_prefix)
+    output = destination_path(out_dir)
+    fs = _filesystem() if filesystem is None else filesystem
+    plan = build_plan(fs, prefix, options)
+    return fs, prefix, output, plan
+
+
+def plan_segment(
+    s3_seg_prefix,
+    out_dir,
+    *,
+    filesystem=None,
+    max_bytes=DEFAULT_MAX_BYTES,
+    max_file_bytes=DEFAULT_MAX_FILE_BYTES,
+    max_files=512,
+    max_entries=MAX_ENTRIES,
+    center_layers=None,
+):
+    """Read remote metadata only; do not create directories or read object bodies."""
+    _, _, output, plan = _prepare(
+        s3_seg_prefix,
+        out_dir,
+        filesystem,
+        max_bytes,
+        max_file_bytes,
+        max_files,
+        max_entries,
+        center_layers,
+    )
+    return {**plan, "status": "PLANNED", "output": str(output)}
+
+
+def fetch_segment(
+    s3_seg_prefix,
+    out_dir,
+    *,
+    filesystem=None,
+    max_bytes=DEFAULT_MAX_BYTES,
+    max_file_bytes=DEFAULT_MAX_FILE_BYTES,
+    max_files=512,
+    max_entries=MAX_ENTRIES,
+    center_layers=None,
+):
+    """Download explicit direct files, publish after all transfers and checks pass.
+
+    Existing destinations are refused. Return out_dir for the existing converter
+    handoff. The completion record is out_dir/download.json, not a readiness gate.
     """
-    fs = s3fs.S3FileSystem(anon=True)
-    src = f"{BUCKET}/{s3_seg_prefix}".rstrip("/")
-    entries = {
-        e["name"].rstrip("/").rsplit("/", 1)[-1]: e for e in fs.ls(src, detail=True)
-    }
-    if entries.get("layers", {}).get("type") != "directory":
-        raise ValueError(f"{src}: no layers/ to fetch")
-    # Named as convert's globs (*inklabels*, *mask*, case-sensitive) will find them.
-    wanted = [n for n in entries if "inklabels" in n or "mask" in n]
-    for name in wanted:
-        if entries[name].get("type") != "file":
-            raise ValueError(f"{src}/{name} is not a file; convert reads one file")
-    os.makedirs(out_dir, exist_ok=True)
-    # The trailing "/" copies layers/'s contents into out_dir/layers. Until 2026-10-16
-    # the whole segment was copied into the existing out_dir, which fsspec nests as
-    # out_dir/<segment>/, so the layers were not where the returned path said.
-    fs.get(entries["layers"]["name"].rstrip("/") + "/", os.path.join(out_dir, "layers"),
-           recursive=True)
-    for name in wanted:
-        fs.get(entries[name]["name"], os.path.join(out_dir, name))
+    fs, prefix, output, plan = _prepare(
+        s3_seg_prefix,
+        out_dir,
+        filesystem,
+        max_bytes,
+        max_file_bytes,
+        max_files,
+        max_entries,
+        center_layers,
+    )
+    execute_plan(fs, prefix, output, plan)
     return out_dir
 
 
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "s3_seg_prefix",
+        help="bucket-relative prefix or URI in the public Vesuvius bucket",
+    )
+    parser.add_argument("out_dir", type=Path, help="new local raw-segment directory")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the metadata plan without object-body reads or output writes",
+    )
+    parser.add_argument(
+        "--center-layers",
+        type=int,
+        help="download this centered count of sorted numeric layers; same selection rule as convert",
+    )
+    parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
+    parser.add_argument("--max-file-bytes", type=int, default=DEFAULT_MAX_FILE_BYTES)
+    parser.add_argument("--max-files", type=int, default=512)
+    parser.add_argument("--max-entries", type=int, default=MAX_ENTRIES)
+    args = parser.parse_args(argv)
+    kwargs = {
+        name: getattr(args, name)
+        for name in (
+            "center_layers",
+            "max_bytes",
+            "max_file_bytes",
+            "max_files",
+            "max_entries",
+        )
+    }
+    try:
+        if args.dry_run:
+            print(
+                json.dumps(
+                    plan_segment(args.s3_seg_prefix, args.out_dir, **kwargs),
+                    indent=2,
+                    allow_nan=False,
+                )
+            )
+        else:
+            fetch_segment(args.s3_seg_prefix, args.out_dir, **kwargs)
+            print(
+                f"Downloaded raw segment: {args.out_dir.resolve()}; see download.json. Image geometry and label quality are unverified."
+            )
+    except (OSError, ValueError, ImportError) as exc:
+        print(f"Download failed: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        sys.exit("usage: python -m repro.sota_data.fetch <s3_seg_prefix> <out_dir>")
-    fetch_segment(sys.argv[1], sys.argv[2])
-    print("fetched to", sys.argv[2])
+    raise SystemExit(main())

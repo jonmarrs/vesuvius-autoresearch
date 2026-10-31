@@ -111,7 +111,10 @@ def _leave_closed_terminal():
 # every cycle a fine-tune of the production model. To resume free architecture
 # search, restore the original `vals` lists (see git history) for these families.
 tweak_templates: list[dict[str, Any]] = [
-    {"family": "lr", "attr": "lr", "vals": [1e-3, 5e-4, 1e-4, 5e-5, 1e-5]},
+    # 1e-5 dropped (2026-10-31): a 15-min cycle at it leaves the incumbent almost
+    # unchanged, and the replicate rule promotes such a near-no-op on any steady
+    # offset (tests/test_loop_lr_floor.py).
+    {"family": "lr", "attr": "lr", "vals": [1e-3, 5e-4, 1e-4, 5e-5]},
     {"family": "wd", "attr": "weight_decay", "vals": [0.1, 0.01, 0.001, 0.0]},
     {
         "family": "capacity",

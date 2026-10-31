@@ -14,6 +14,8 @@ import torch.nn.functional as F
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Dataset
 
+from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+
 _ROTATE = A.Compose([A.Rotate(5, p=1)])
 
 
@@ -62,6 +64,7 @@ def read_volume_mask(cfg, fragment_id):
     input contract. Keep clipping and padding identical to the training recipe.
     """
     cfg.validate()
+    prediction_stem(fragment_id)
     root = cfg.data_root
     images = []
     pad0 = pad1 = 0

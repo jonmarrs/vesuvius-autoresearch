@@ -10,6 +10,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+
 from .data import read_volume_mask
 from .model import DetectorModel
 from .prediction import InferenceResult
@@ -32,6 +34,7 @@ def infer(
     windows, changes mask rules, or changes a scientific scoring denominator.
     """
     cfg.validate()
+    prediction_stem(fragment_id)
     for name, value in (
         ("return_details", return_details),
         ("require_full_coverage", require_full_coverage),

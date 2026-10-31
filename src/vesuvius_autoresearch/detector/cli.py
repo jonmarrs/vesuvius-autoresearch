@@ -17,9 +17,19 @@ def assert_auc(scorecard, target=0.70):
 
 
 def _eval_fragment(cfg, ckpt, fragment_id):
+    from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+    from vesuvius_autoresearch.core.report_artifacts import report_output
+
     from .eval import evaluate
     from .infer import infer
 
+    prediction_stem(fragment_id)
+    report_output(
+        cfg.reports_dir,
+        f"{fragment_id}_scorecard.json",
+        "detector_evaluation",
+        inputs=(ckpt,),
+    )
     prob = infer(cfg, ckpt, fragment_id)
     _, label, mask = read_image_mask(cfg, fragment_id)
     # read_image_mask pads `mask` (frag_mask) to a tile multiple but leaves `label`
@@ -139,6 +149,24 @@ def main(argv=None):
         cfg.validate()
     except (OSError, TypeError, ValueError) as exc:
         ap.error(f"invalid detector configuration: {exc}")
+    from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+
+    selected = (
+        [args.fragment]
+        if args.cmd in {"eval", "infer"}
+        else [args.same, args.cross]
+        if args.cmd == "measure"
+        else []
+    )
+    try:
+        for fid in selected:
+            prediction_stem(fid)
+        if len(selected) != len(set(selected)):
+            raise ValueError(
+                "duplicate measurement fragment; --same and --cross must be distinct"
+            )
+    except ValueError as exc:
+        ap.error(f"invalid target selection: {exc}")
     if args.cmd == "reproduce":
         _reproduce(cfg)
     elif args.cmd == "train":

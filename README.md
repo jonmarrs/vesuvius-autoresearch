@@ -204,23 +204,41 @@ start.
 Each detector command accepts `--config detector_config.json` after the subcommand
 (a detector configuration, not the loop's root `config.json`).
 
-The JSON object overrides `DetectorConfig` defaults; use the same architecture,
-depth and window settings used to train the checkpoint. For example:
-
-```json
-{"data_root": "/path/to/converted_fragments", "architecture": "timesformer"}
-```
-
 Before training, use the CPU-only [detector data preparation check](docs/DETECTOR_DATA_PREPARATION.md):
 `python repro/gp_winner/convert_fragment.py --frag FragX --dst-root /path/to/converted_fragments --check`.
 It checks decoded images and available conversion hashes without Torch or CUDA.
 Conversion now stages complete fragments and refuses already converted uint8
 source layers, preventing mixed generations and accidental signal loss.
 
+For public segments with raw TIFF layers, [plan the SOTA download](docs/SOTA_SEGMENT_DOWNLOADS.md)
+before transfer. The downloader supports byte limits, an optional centered layer
+selection, and complete downloads with source identities and local checksums.
+Then [preflight and convert the raw segment](docs/SOTA_SEGMENT_CONVERSION.md) with
+an explicit float encoding and decoded-volume budget. Completed fragments include
+output hashes and readback checks; label quality and alignment still need review.
+
+For distillation, [inspect and prepare a teacher cache](docs/SOTA_TEACHER_CACHE.md)
+before generating labels. Interrupted or edited caches are refused, and multiple
+released predictions require an explicit choice. Teacher agreement measures
+agreement with a model prediction.
+
+A detector configuration JSON overrides `DetectorConfig` defaults; use the same architecture,
+depth and window settings used to train the checkpoint. For example:
+
+```json
+{"data_root": "/path/to/converted_fragments", "architecture": "timesformer"}
+```
+
 New checkpoints record their detector configuration and reject mismatched model
 or depth-window settings before reading fragment data. Legacy checkpoints remain
 loadable with a warning to verify the supplied configuration. Set `use_tta` to
 `true` to average four spatial mirror views; its default is `false`.
+
+Evaluation reports now include checksums and completion status. Use the
+[report integrity check](docs/DETECTOR_REPORTS.md) before comparing saved CSV,
+thumbnail and scorecard files:
+`python scripts/check_detector_report.py reports/detector/<fragment>_scorecard.json`.
+Cross-scroll measurements also record target counts and partial failures.
 
 Training now honors `weight_decay`, `max_grad_norm`, and `warmup_factor`. Their
 defaults are 0.01, 1.0, and 1.0 respectively, matching the previously executed
