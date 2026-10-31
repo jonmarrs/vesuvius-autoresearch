@@ -10,7 +10,6 @@ import sys
 
 import cv2
 import numpy as np
-import tifffile
 from PIL import Image
 
 sys.path.insert(0, os.path.abspath("."))
@@ -59,21 +58,34 @@ def _prep_targets(targets):
     per-teacher provenance dict for the teachers touched."""
     provenance = {}
     teachers = {}
-    for (scroll_key, seg, y0, x0) in targets:
+    for scroll_key, seg, y0, x0 in targets:
         key = (scroll_key, seg)
         if key not in teachers:
             tpath = dr.fetch_teacher(seg, scroll_key=scroll_key)
-            teachers[key] = tifffile.imread(tpath)
+            teachers[key], teacher_record = dr.read_teacher(tpath)
             t = teachers[key]
-            print(f"{scroll_key}/{seg}: teacher shape={t.shape} dtype={t.dtype} "
-                  f"range=[{t.min()},{t.max()}]", flush=True)
-            provenance[f"{scroll_key}/{seg}"] = dr.teacher_provenance(tpath, t)
+            print(
+                f"{scroll_key}/{seg}: teacher shape={t.shape} dtype={t.dtype} "
+                f"range=[{t.min()},{t.max()}]",
+                flush=True,
+            )
+            provenance[f"{scroll_key}/{seg}"] = teacher_record
         region, level_shape, box = dr.extract_region(seg, y0, x0, scroll_key=scroll_key)
         t_region = teacher_region_for(teachers[key], level_shape, box)
         fid = _fid((scroll_key, seg, y0, x0))
-        out = prep_distill_fragment(region, t_region, DATA_ROOT, fid)
+        teacher_record = provenance[f"{scroll_key}/{seg}"]
+        out = prep_distill_fragment(
+            region,
+            t_region,
+            DATA_ROOT,
+            fid,
+            teacher_encoding=teacher_record["float_encoding_applied"] or "auto",
+            teacher_source=teacher_record,
+        )
         lab = cv2.imread(os.path.join(out, f"{fid}_inklabels.png"), 0)
-        print(f"prepped {out} teacher-positive={float((lab > 0).mean()):.3f}", flush=True)
+        print(
+            f"prepped {out} teacher-positive={float((lab > 0).mean()):.3f}", flush=True
+        )
     return provenance
 
 

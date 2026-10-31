@@ -72,6 +72,7 @@ VALIDATION_TESTS = [
     "tests/test_sota_download.py",
     "tests/test_sota_qualitative.py",
     "tests/test_sota_distill_prep.py",
+    "tests/test_sota_teacher_contracts.py",
     "tests/test_sota_gt_register.py",
     "tests/test_sota_registration_gates.py",
     "tests/test_sota_warp_alignment.py",

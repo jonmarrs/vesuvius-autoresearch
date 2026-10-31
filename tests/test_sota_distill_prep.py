@@ -173,16 +173,23 @@ def test_a_fetched_teacher_records_its_bucket_file(tmp_path, monkeypatch, runner
     """Provenance recorded the teacher's pixels but not which released file it was."""
     distill_run, _ = runners
 
-    class Bucket:
-        def ls(self, prefix, detail=False):
-            return [f"{prefix}/b_pred.tif", f"{prefix}/a_pred.tif", f"{prefix}/x.txt"]
+    import io
 
-        def get(self, src, dst):
-            tifffile.imwrite(dst, np.full((8, 8), 200, np.uint8))
+    import fsspec
+
+    bucket = fsspec.filesystem("memory")
+    prefix = distill_run._scroll_prefix("scroll1", "seg1", "ink-detection")
+    buffer = io.BytesIO()
+    tifffile.imwrite(buffer, np.full((8, 8), 200, np.uint8))
+    for name in ("a_pred.tif", "b_pred.tif"):
+        bucket.pipe(f"{prefix}/{name}", buffer.getvalue())
 
     monkeypatch.setattr(distill_run, "TEACHER_DIR", str(tmp_path))
-    monkeypatch.setattr(distill_run, "_fs", Bucket)
-    path = distill_run.fetch_teacher("seg1")
+    monkeypatch.setattr(distill_run, "_fs", lambda: bucket)
+    try:
+        path = distill_run.fetch_teacher("seg1", source="a_pred.tif")
+    finally:
+        bucket.rm(prefix, recursive=True)
     record = distill_run.teacher_provenance(path, tifffile.imread(path))
     assert record["source"].endswith("/a_pred.tif")
     assert len(record["candidates"]) == 2
@@ -191,8 +198,9 @@ def test_a_fetched_teacher_records_its_bucket_file(tmp_path, monkeypatch, runner
     )
     assert "a_pred.tif" in line
     # A teacher cached before sources were recorded claims none.
-    os.remove(path + ".source.json")
-    old = distill_run.teacher_provenance(path, tifffile.imread(path))
+    legacy = str(tmp_path / "legacy.tif")
+    tifffile.imwrite(legacy, np.full((8, 8), 200, np.uint8))
+    old = distill_run.teacher_provenance(legacy, tifffile.imread(legacy))
     assert old["source"] is None
     assert "source not recorded" in distill_run.provenance_line(
         {"binarize_threshold": 128, "teachers": {"seg1": old}}

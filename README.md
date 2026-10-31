@@ -217,6 +217,11 @@ Then [preflight and convert the raw segment](docs/SOTA_SEGMENT_CONVERSION.md) wi
 an explicit float encoding and decoded-volume budget. Completed fragments include
 output hashes and readback checks; label quality and alignment still need review.
 
+For distillation, [inspect and prepare a teacher cache](docs/SOTA_TEACHER_CACHE.md)
+before generating labels. Interrupted or edited caches are refused, and multiple
+released predictions require an explicit choice. Teacher agreement measures
+agreement with a model prediction.
+
 A detector configuration JSON overrides `DetectorConfig` defaults; use the same architecture,
 depth and window settings used to train the checkpoint. For example:
 
