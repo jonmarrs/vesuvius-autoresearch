@@ -209,6 +209,10 @@ Before training, use the CPU-only [detector data preparation check](docs/DETECTO
 It checks decoded images and available conversion hashes without Torch or CUDA.
 Conversion now stages complete fragments and refuses already converted uint8
 source layers, preventing mixed generations and accidental signal loss.
+
+For public segments with raw TIFF layers, [plan the SOTA download](docs/SOTA_SEGMENT_DOWNLOADS.md)
+before transfer. The downloader supports byte limits, an optional centered layer
+selection, and complete downloads with source identities and local checksums.
 The JSON object overrides `DetectorConfig` defaults; use the same architecture,
 depth and window settings used to train the checkpoint. For example:
 
