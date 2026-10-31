@@ -19,7 +19,8 @@ changes; the scoped CPU environment includes pyasn1 0.6.5 and fpdf2 2.8.8.
    path/type/size and checkpoint-alias checks also run before costly inference.
    PR review also reproduced a symlink directory hidden behind a missing parent
    and `..`. Parent paths are now resolved before checking the final directory
-   entry, and a failing regression now passes without creating that parent.
+   entry, and a failing regression now passes without creating that parent. The
+   checker uses that same canonical parent for its completion-marker path.
 3. **Duplicate targets silently disappeared.** Two measurement targets with the
    same fragment ID became one dictionary row carrying only the second scroll
    label. Empty, duplicate and malformed plans now fail before model/data work
@@ -49,7 +50,7 @@ checkpoint selection are unchanged. See [usage and recovery](DETECTOR_REPORTS.md
 ## Verification and limits
 
 Final curated selection after integrating main and fixing PR review findings:
-**243 passed in 23.13s, no skips**, including **63 new report contract cases**.
+**243 passed in 24.39s, no skips**, including **63 new report contract cases**.
 Scope: 7/168 curated modules covering detector contracts,
 prediction/conversion artifacts, metrics and validation runner/coverage checks.
 The final selection covers the tightened completion readback and output preflight.

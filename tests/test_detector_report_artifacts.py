@@ -386,6 +386,10 @@ def test_missing_parent_and_dotdot_cannot_hide_a_symlink_report_directory(tmp_pa
         ra.report_output(output, MARKER, "detector_evaluation")
     assert not (tmp_path / "missing").exists()
     assert not list(real.iterdir())
+    normalized = tmp_path / "missing" / ".." / "real"
+    _evaluate(normalized)
+    assert ra.check_report(normalized / MARKER)["report_status"] == "COMPLETE"
+    assert not (tmp_path / "missing").exists()
 
 
 @pytest.mark.parametrize(

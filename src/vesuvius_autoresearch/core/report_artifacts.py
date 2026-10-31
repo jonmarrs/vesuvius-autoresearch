@@ -229,6 +229,7 @@ def check_report(marker_path):
     """Verify the observed report files; does not recalculate scientific metrics."""
     marker_path = Path(marker_path).absolute()
     directory = _directory(marker_path.parent)
+    marker_path = directory / marker_path.name
     data = _capture(marker_path, MAX_MARKER_BYTES)
     try:
         record = json.loads(data, parse_constant=_reject_constant)
