@@ -28,7 +28,9 @@ def test_convert_fragment_writes_cv2_readable_8bit_layers(tmp_path):
     Image.fromarray(np.full((40, 32), 255, dtype=np.uint8)).save(src / "mask.png")
 
     dst = tmp_path / "dst"
-    stats = convert_fragment("FragX", str(tmp_path / "src"), str(dst), z_start=17, z_end=43)
+    stats = convert_fragment(
+        "FragX", str(tmp_path / "src"), str(dst), z_start=17, z_end=43
+    )
 
     layers = sorted((dst / "FragX" / "layers").glob("*.tif"))
     assert len(layers) == 26  # 17..42
@@ -91,29 +93,26 @@ def test_reproduce_converts_the_configured_layer_range(tmp_path):
     assert images.shape[2] == 26 and shape == (40, 32)
 
 
-def test_a_layer_is_never_left_partial_under_its_own_name(tmp_path, monkeypatch):
-    """Each layer is written to a .part and renamed. Stopped before the fourth
-    rename, the conversion leaves three layers and no file under a final name that
-    it had not finished; reproduce's per-file check then redoes it."""
+def test_interrupted_staging_publishes_no_fragment(tmp_path, monkeypatch):
+    """A failed fourth write no longer exposes a partial generation."""
+    from vesuvius_autoresearch.core import fragment_conversion as conversion
+
     _source_fragment(tmp_path / "src", "FragX")
-    real = os.replace
-    renamed = []
+    real = conversion._write
+    written = []
 
-    def replace(src, dst):
-        renamed.append(dst)
-        if len(renamed) == 4:
+    def write(path, data):
+        written.append(path)
+        if len(written) == 4:
             raise OSError("interrupted")
-        return real(src, dst)
+        return real(path, data)
 
-    monkeypatch.setattr(os, "replace", replace)
+    monkeypatch.setattr(conversion, "_write", write)
     with pytest.raises(OSError, match="interrupted"):
         convert_fragment("FragX", str(tmp_path / "src"), str(tmp_path / "dst"))
     out = tmp_path / "dst" / "FragX"
-    assert sorted(p.name for p in (out / "layers").glob("*.tif")) == [
-        "17.tif",
-        "18.tif",
-        "19.tif",
-    ]
+    assert not out.exists()
+    assert list((tmp_path / "dst").iterdir()) == []
 
 
 def test_a_conversion_for_another_layer_range_is_redone(tmp_path):
@@ -137,32 +136,38 @@ def test_a_conversion_missing_its_mask_is_redone(tmp_path):
     assert _ensure_converted(cfg, str(tmp_path / "src")) == ["FragB"]
 
 
-def test_an_interrupted_label_copy_leaves_the_fragment_readable(tmp_path, monkeypatch):
-    """The label is copied to a .part first. That name must not match the reader's
-    `*inklabels.*` glob, or an interrupted re-conversion leaves two label files and
-    every later run fails with "found 2"."""
+def test_an_interrupted_label_write_preserves_the_entire_prior_fragment(
+    tmp_path, monkeypatch
+):
+    from vesuvius_autoresearch.core import fragment_conversion as conversion
     from vesuvius_autoresearch.detector.cli import _ensure_converted, _is_converted
-    from vesuvius_autoresearch.detector.data import read_image_mask
 
     for fid in ("FragA", "FragB"):
         _source_fragment(tmp_path / "src", fid)
     cfg = _detector_cfg(tmp_path / "dst")
     _ensure_converted(cfg, str(tmp_path / "src"))
     (tmp_path / "dst" / "FragA" / "layers" / "20.tif").unlink()
-    real = os.replace
+    out = tmp_path / "dst" / "FragA"
+    before = {p.relative_to(out): p.read_bytes() for p in out.rglob("*") if p.is_file()}
+    real = conversion._write
 
-    def replace(src, dst):
-        if str(dst).endswith("_inklabels.png"):
+    def write(path, data):
+        if path.name.endswith("_inklabels.png"):
             raise OSError("interrupted")
-        return real(src, dst)
+        return real(path, data)
 
-    monkeypatch.setattr(os, "replace", replace)
+    monkeypatch.setattr(conversion, "_write", write)
     with pytest.raises(OSError, match="interrupted"):
         _ensure_converted(cfg, str(tmp_path / "src"))
     monkeypatch.undo()
+    assert not _is_converted(
+        cfg, "FragA"
+    )  # the pre-existing missing layer stays missing
+    assert before == {
+        p.relative_to(out): p.read_bytes() for p in out.rglob("*") if p.is_file()
+    }
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == ["FragA"]
     assert _is_converted(cfg, "FragA")
-    _, label, _ = read_image_mask(cfg, "FragA")
-    assert label.shape == (40, 32)
 
 
 def test_a_label_under_another_name_counts_as_converted(tmp_path):
@@ -176,4 +181,40 @@ def test_a_label_under_another_name_counts_as_converted(tmp_path):
     _ensure_converted(cfg, str(tmp_path / "src"))
     label = tmp_path / "dst" / "FragA" / "FragA_inklabels.png"
     label.rename(label.with_suffix(".tiff"))
+    # Native/legacy fragments do not carry the new converter's output manifest.
+    (label.parent / "conversion.json").unlink()
     assert _ensure_converted(cfg, str(tmp_path / "src")) == []
+
+
+@pytest.mark.parametrize("valid_id", ["../escape", "FragA"])
+def test_reproduce_rejects_invalid_or_overlapping_ids_before_conversion(
+    tmp_path, valid_id
+):
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    cfg = _detector_cfg(tmp_path / "dst")
+    cfg.valid_fragment_id = valid_id
+    with pytest.raises(ValueError, match="single directory|distinct"):
+        _ensure_converted(cfg, str(tmp_path / "src"))
+    assert not (tmp_path / "dst").exists()
+
+
+def test_reproduce_cannot_import_an_ambient_converter(tmp_path, monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    def wrong_converter(*args, **kwargs):
+        raise AssertionError("ambient converter was called")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "convert_fragment",
+        SimpleNamespace(convert_fragment=wrong_converter),
+    )
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    assert _ensure_converted(
+        _detector_cfg(tmp_path / "dst"), str(tmp_path / "src")
+    ) == ["FragA", "FragB"]

@@ -2,9 +2,7 @@
 infer -> eval and asserts pixel-AUC >= 0.70 (proven recipe = 0.711)."""
 
 import argparse
-import glob
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -33,35 +31,36 @@ def _eval_fragment(cfg, ckpt, fragment_id):
 
 
 def _is_converted(cfg, fragment_id):
-    """Whether every file data.read_image_mask reads for fragment_id is there, found as
-    it finds them: each layer in cfg's range, the mask, and exactly one *inklabels.*
-    (under any name, so a villa-style <id>_inklabels.tiff counts)."""
-    root = os.path.join(cfg.data_root, fragment_id)
-    needed = [
-        os.path.join(root, "layers", f"{i:02d}.tif")
-        for i in range(cfg.start_idx, cfg.end_idx)
-    ]
-    needed.append(os.path.join(root, f"{fragment_id}_mask.png"))
-    labels = glob.glob(os.path.join(root, "*inklabels.*"))
-    return all(os.path.exists(p) for p in needed) and len(labels) == 1
+    """Check decoded geometry, bit depth and available conversion hashes."""
+    from vesuvius_autoresearch.core.fragment_conversion import conversion_status
+
+    return conversion_status(cfg.data_root, fragment_id, cfg.start_idx, cfg.end_idx)[0]
 
 
 def _ensure_converted(cfg, src_root="local_data"):
-    """Convert each reproduce fragment unless every file it reads is already there.
+    """Rebuild unusable fragments as complete generations; return converted IDs."""
+    from vesuvius_autoresearch.core.fragment_conversion import (
+        conversion_status,
+        convert_fragment,
+        fragment_path,
+    )
 
-    The check is per file, over cfg's own layer range: a conversion that was
-    interrupted, or made for another start_idx/end_idx, is redone rather than
-    trusted because its layers/ directory exists. Returns the fragments converted.
-    """
-    repo = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
-    gp_winner = os.path.abspath(os.path.join(repo, "repro", "gp_winner"))
-    if gp_winner not in sys.path:
-        sys.path.append(gp_winner)
-    from convert_fragment import convert_fragment
+    cfg.validate()
+    fragments = cfg.train_fragment_ids + [cfg.valid_fragment_id]
+    if len(fragments) != len(set(fragments)):
+        raise ValueError("training and validation fragment IDs must be distinct")
+    # Validate every fragment ID before converting the first fragment.
+    for fid in fragments:
+        fragment_path(cfg.data_root, fid)
+        fragment_path(src_root, fid)
 
     done = []
-    for fid in cfg.train_fragment_ids + [cfg.valid_fragment_id]:
-        if not _is_converted(cfg, fid):
+    for fid in fragments:
+        ready, reason = conversion_status(
+            cfg.data_root, fid, cfg.start_idx, cfg.end_idx
+        )
+        print(f"{fid}: {'READY' if ready else 'NEEDS_CONVERSION'}: {reason}")
+        if not ready:
             convert_fragment(fid, src_root, cfg.data_root, cfg.start_idx, cfg.end_idx)
             done.append(fid)
     return done
