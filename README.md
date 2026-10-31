@@ -234,6 +234,12 @@ or depth-window settings before reading fragment data. Legacy checkpoints remain
 loadable with a warning to verify the supplied configuration. Set `use_tta` to
 `true` to average four spatial mirror views; its default is `false`.
 
+Evaluation reports now include checksums and completion status. Use the
+[report integrity check](docs/DETECTOR_REPORTS.md) before comparing saved CSV,
+thumbnail and scorecard files:
+`python scripts/check_detector_report.py reports/detector/<fragment>_scorecard.json`.
+Cross-scroll measurements also record target counts and partial failures.
+
 Training now honors `weight_decay`, `max_grad_norm`, and `warmup_factor`. Their
 defaults are 0.01, 1.0, and 1.0 respectively, matching the previously executed
 recipe. Earlier configuration fields advertised different values but were
