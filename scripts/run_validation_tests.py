@@ -153,6 +153,7 @@ VALIDATION_TESTS = [
     "tests/test_loop_host_load.py",
     "tests/test_promote_loop_candidate.py",
     "tests/test_replicate_rule_live.py",
+    "tests/test_loop_replicate_rule_floor.py",
     "tests/test_loop_model_depth_offset.py",
     "tests/test_loop_tweak_replication.py",
     "tests/test_loop_incumbent_reference.py",
