@@ -24,9 +24,11 @@ def _directory(value):
     if "://" in str(value) or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:/", str(value)):
         raise ValueError("reports_dir must be a local filesystem directory")
     path = Path(value).absolute()
+    # Normalize missing-parent/.. paths without following the final entry first.
+    path = path.parent.resolve() / path.name
     if path.is_symlink() or path.exists() and not path.is_dir():
         raise ValueError("reports_dir must be a nonsymlink directory")
-    return path
+    return path.resolve()
 
 
 def _names(marker, kind):

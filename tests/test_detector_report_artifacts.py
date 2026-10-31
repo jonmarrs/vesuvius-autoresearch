@@ -377,6 +377,17 @@ def test_invalid_report_directory_fails_before_inference(tmp_path, monkeypatch):
     assert path.read_bytes() == b"unrelated file"
 
 
+def test_missing_parent_and_dotdot_cannot_hide_a_symlink_report_directory(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "alias").symlink_to(real, target_is_directory=True)
+    output = tmp_path / "missing" / ".." / "alias"
+    with pytest.raises(ValueError, match="nonsymlink"):
+        ra.report_output(output, MARKER, "detector_evaluation")
+    assert not (tmp_path / "missing").exists()
+    assert not list(real.iterdir())
+
+
 @pytest.mark.parametrize(
     "targets",
     [
