@@ -130,6 +130,10 @@ into this branch but left for the next round.
   whole repository (854 files at the baseline).
 - **The standard suite at the baseline** gives the same 43 failures as before, from `s3fs`, `numba`,
   `jsonschema` and Villa files absent here. The same 2 modules cannot be collected (`tensorstore`, `s3fs`).
+- **The merged branch** (with main at `bb2fc913`) gives:
+  - the same 43 failures and 2 collection errors;
+  - 14 more from the owner's new SOTA download and teacher tests (#314, #316), all `No module named 's3fs'`.
+  - On it, the changed areas' tests give 384 passed, mypy is clean over 868 files, and the doc audit is unchanged.
 - **The 230 test modules outside the suite at the baseline** give 2,101 passed, 80 skipped, 13 failed and 21
   collection errors: the same failures as before.
 - **The doc audit** finds no new unresolved reference except that blob id.
