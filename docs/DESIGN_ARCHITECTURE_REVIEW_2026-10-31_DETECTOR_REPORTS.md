@@ -3,6 +3,8 @@
 Reviewed main `cee9f12d` in an isolated checkout on October 31, 2026 (UTC).
 Scope: detector evaluation/measurement report publication, target selection,
 fragment-name validation and saved-report inspection.
+The final branch integrates main `7d494afc`, including upstream loop/dependency
+changes; the scoped CPU environment includes pyasn1 0.6.5 and fpdf2 2.8.8.
 
 ## Findings and fixes
 
@@ -43,8 +45,8 @@ checkpoint selection are unchanged. See [usage and recovery](DETECTOR_REPORTS.md
 
 ## Verification and limits
 
-Final curated selection: **242 passed in 23.14s, no skips**, including **62 new
-report contract cases**. Scope: 7/166 curated modules covering detector contracts,
+Final curated selection after integrating main: **242 passed in 27.54s, no skips**,
+including **62 new report contract cases**. Scope: 7/168 curated modules covering detector contracts,
 prediction/conversion artifacts, metrics and validation runner/coverage checks.
 The final selection covers the tightened completion readback and output preflight.
 
@@ -56,7 +58,7 @@ readback/preflight refinements; the final curated selection checks those changes
 Warnings cover existing augmentation defaults/deprecations and Lightning's
 logging, worker, pin-memory and checkpoint-directory notices.
 
-The required smoke check passed **8/11, 3 skipped, 0 failed in 10.9s**. Skips were
+The required smoke check after integrating main passed **8/11, 3 skipped, 0 failed in 10.0s**. Skips were
 two missing local training datasets and the unavailable BGv2 augmentation entry
 point. Host font-cache warnings did not fail checks. Ruff lint/format passed for
 nine changed Python files; Mypy passed for eight implementation/test files. The
