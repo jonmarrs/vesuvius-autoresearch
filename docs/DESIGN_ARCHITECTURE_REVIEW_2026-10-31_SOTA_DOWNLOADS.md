@@ -37,9 +37,15 @@ budgets and planning support. The existing converter ignores the added manifest
 and tool-source directory. It does not implicitly revalidate the raw manifest
 after later user edits; keep completed raw artifacts immutable.
 
+Author PR review additionally caught a complete-publication failure that separate
+SDK-range and memory-publication tests missed: S3's protocol tuple became a JSON
+list during readback. A combined actual-SDK publication regression failed before
+normalizing protocol names to a JSON-native list. It now covers all transfers,
+local checks and the completion JSON roundtrip through the real SDK interface.
+
 ## Verification and limits
 
-Final integration: **138 passed in 19.50 seconds, no skips**, on Python 3.10.21
+Final integration: **139 passed in 20.24 seconds, no skips**, on Python 3.10.21
 with CUDA hidden. Scope: `test_sota_download`, `test_sota_convert`,
 `test_sota_qualitative`, `test_sota_distill_prep`,
 `test_validation_suite_covers_the_loop` and `test_validation_runner` under `tests/`.

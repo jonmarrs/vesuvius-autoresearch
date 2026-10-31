@@ -40,7 +40,9 @@ Limits are checked before payload transfer:
 | `--max-entries` (combined direct listings) | 4096 | 4096 |
 
 These flags take integer bytes/counts. A larger declared object or selected total
-fails before transfer. Listings are direct and never recurse, but the filesystem
+fails before transfer. Budgets cover selected remote payloads, not HTTP metadata,
+headers or retry traffic; the local manifest and tool copies are extra small files.
+Listings are direct and never recurse, but the filesystem
 SDK can buffer listing responses before the entry cap is checked. This is not a
 hard bound on SDK metadata memory. Disk space and a total wall-clock deadline are
 not reserved. Smaller selections can reduce transfer volume; no general speed or

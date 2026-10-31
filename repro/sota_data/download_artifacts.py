@@ -208,10 +208,13 @@ def build_plan(filesystem, prefix, options):
     }
 
 
-def _is_s3(filesystem):
+def _protocols(filesystem):
     protocol = getattr(filesystem, "protocol", ())
-    protocol = (protocol,) if isinstance(protocol, str) else protocol
-    return any(name in {"s3", "s3a"} for name in protocol)
+    return [protocol] if isinstance(protocol, str) else list(protocol or ())
+
+
+def _is_s3(filesystem):
+    return any(name in {"s3", "s3a"} for name in _protocols(filesystem))
 
 
 def _read_range(filesystem, item, start, end):
@@ -361,7 +364,7 @@ def execute_plan(filesystem, prefix, output, plan):
             },
             "runtime": {
                 "python": platform.python_version(),
-                "filesystem_protocol": getattr(filesystem, "protocol", None),
+                "filesystem_protocol": _protocols(filesystem),
                 "packages": {name: _version(name) for name in ("fsspec", "s3fs")},
             },
             "remote_identity_scope": "observed listing metadata plus conditional ETag requests when available; not a global bucket snapshot or authenticated content checksum",

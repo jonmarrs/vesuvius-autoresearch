@@ -447,6 +447,54 @@ def test_actual_s3_sdk_receives_range_and_ifmatch_and_closes_body(s3, fault):
     assert body.closed
 
 
+def test_actual_sdk_segment_publication_roundtrips_protocol_tuple(
+    s3, bucket, tmp_path, monkeypatch
+):
+    from aiobotocore.stub import AioStubber
+
+    memory, prefix, _ = bucket
+    real_listing = memory.ls
+
+    def listing(path, detail=True):
+        entries = [dict(item) for item in real_listing(path, detail=detail)]
+        for item in entries:
+            if item["type"] == "file":
+                item["ETag"] = (
+                    '"'
+                    + hashlib.sha256(memory.store[item["name"]].getvalue()).hexdigest()
+                    + '"'
+                )
+        return entries
+
+    monkeypatch.setattr(s3, "ls", listing)
+    planned = fetch.plan_segment(
+        prefix, tmp_path / "raw", filesystem=s3, center_layers=2
+    )
+    with AioStubber(s3.s3) as stub:
+        for item in planned["files"]:
+            data = memory.store["/" + item["key"]].getvalue()
+            stub.add_response(
+                "get_object",
+                {
+                    "Body": AsyncBody(data),
+                    "ContentLength": len(data),
+                    "ContentRange": f"bytes 0-{len(data) - 1}/{len(data)}",
+                    "ETag": item["etag"],
+                },
+                {
+                    "Bucket": artifacts.BUCKET,
+                    "Key": item["key"].removeprefix(artifacts.BUCKET + "/"),
+                    "Range": f"bytes=0-{len(data) - 1}",
+                    "IfMatch": item["etag"],
+                },
+            )
+        fetch.fetch_segment(prefix, tmp_path / "raw", filesystem=s3, center_layers=2)
+        stub.assert_no_pending_responses()
+    record = json.loads((tmp_path / "raw/download.json").read_text())
+    assert record["runtime"]["filesystem_protocol"] == ["s3", "s3a"]
+    assert all(item["conditional_etag_requested"] for item in record["files"])
+
+
 def test_actual_sdk_precondition_failure_aborts_download(s3, tmp_path, monkeypatch):
     from aiobotocore.stub import AioStubber
 
