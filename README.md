@@ -213,7 +213,11 @@ source layers, preventing mixed generations and accidental signal loss.
 For public segments with raw TIFF layers, [plan the SOTA download](docs/SOTA_SEGMENT_DOWNLOADS.md)
 before transfer. The downloader supports byte limits, an optional centered layer
 selection, and complete downloads with source identities and local checksums.
-The JSON object overrides `DetectorConfig` defaults; use the same architecture,
+Then [preflight and convert the raw segment](docs/SOTA_SEGMENT_CONVERSION.md) with
+an explicit float encoding and decoded-volume budget. Completed fragments include
+output hashes and readback checks; label quality and alignment still need review.
+
+A detector configuration JSON overrides `DetectorConfig` defaults; use the same architecture,
 depth and window settings used to train the checkpoint. For example:
 
 ```json

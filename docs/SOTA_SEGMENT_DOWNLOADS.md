@@ -63,7 +63,7 @@ The implementation avoids `s3fs.open(size=...)`, which can bypass that SDK's
 automatic ETag condition.
 
 The completed directory contains raw layers, the selected label/mask,
-`download.json`, and `sources/` with two tool-source captures. The JSON records
+`download.json`, and `sources/` with three tool-source captures. The JSON records
 SHA-256 hashes of the actual downloaded bytes, source identities, original indices,
 selection settings and runtime versions. ETags are object identifiers, not assumed
 to be MD5 or authenticated content checksums. A local SHA-256 records observed
@@ -79,6 +79,9 @@ Exit 0 means a plan or transfer completed; input/transport/publication failures
 exit 1 and usage errors exit 2. Image decoding, CT registration, annotation quality
 and training readiness remain unverified. The downloader performs no conversion,
 training or GPU work, and does not adopt a checkpoint or alter a study.
+
+Use the [conversion preflight](SOTA_SEGMENT_CONVERSION.md) next. Conversion checks
+consumed raw files against this download record when present, catching later edits.
 
 Modern bucket segments often have `surface-volumes/`, `mesh/` and `ink-labels/`
 instead of this legacy TIFF layout. For example, the public segment

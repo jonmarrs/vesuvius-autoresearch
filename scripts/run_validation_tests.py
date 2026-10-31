@@ -68,6 +68,7 @@ VALIDATION_TESTS = [
     "tests/test_surface_render_contracts.py",
     "tests/test_render_surface.py",
     "tests/test_sota_convert.py",
+    "tests/test_sota_conversion_contracts.py",
     "tests/test_sota_download.py",
     "tests/test_sota_qualitative.py",
     "tests/test_sota_distill_prep.py",
