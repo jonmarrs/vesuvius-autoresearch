@@ -180,7 +180,11 @@ def test_publication_rollback_or_success_is_one_complete_generation(
     real = Path.rename
 
     def rename(path, target):
-        if path.name == "new" and not replace_succeeds:
+        if (
+            Path(target) == output
+            and not path.name.endswith("-previous")
+            and not replace_succeeds
+        ):
             raise OSError("injected publish error")
         return real(path, target)
 
@@ -205,15 +209,57 @@ def test_rollback_failure_retains_recoverable_previous_generation(
     real = Path.rename
 
     def rename(path, target):
-        if path.name in {"new", "previous"}:
+        if Path(target) == tmp_path / "dst/fragment":
             raise OSError("injected rename error")
         return real(path, target)
 
     monkeypatch.setattr(Path, "rename", rename)
     with pytest.raises(RuntimeError, match="recover previous"):
         run_conversion(tmp_path)
-    retained = list((tmp_path / "dst").glob(".fragment-*/previous"))
+    retained = list((tmp_path / "dst").glob(".fragment-*-previous"))
     assert len(retained) == 1 and tree(retained[0]) == before
+
+
+def test_exception_after_rename_keeps_backup_when_destination_blocks_rollback(
+    tmp_path, monkeypatch
+):
+    src = source(tmp_path)
+    run_conversion(tmp_path)
+    output = tmp_path / "dst/fragment"
+    before = tree(output)
+    Image.fromarray(np.full((5, 7), 65535, np.uint16)).save(
+        src / "surface_volume/00.tif"
+    )
+    real = Path.rename
+
+    def rename(path, target):
+        result = real(path, target)
+        if Path(target) == output:
+            raise OSError("injected exception after completed rename")
+        return result
+
+    monkeypatch.setattr(Path, "rename", rename)
+    with pytest.raises(RuntimeError, match="recover previous"):
+        run_conversion(tmp_path)
+    retained = list((tmp_path / "dst").glob(".fragment-*-previous"))
+    assert len(retained) == 1 and tree(retained[0]) == before
+    assert status(tmp_path)[0]
+
+
+def test_zstd_tiff_sources_decode_from_the_hashed_capture(tmp_path):
+    src = source(tmp_path)
+    for index in range(2):
+        path = src / "surface_volume" / f"{index:02d}.tif"
+        try:
+            Image.fromarray(np.full((5, 7), 50000, np.uint16)).save(
+                path, compression="zstd"
+            )
+        except OSError as exc:
+            pytest.skip(f"Pillow's libtiff lacks ZSTD support: {exc}")
+        with Image.open(path) as image:
+            assert image.tag_v2[259] == 50000
+    stats = run_conversion(tmp_path)
+    assert stats["0"]["u8_max"] == 195 and status(tmp_path)[0]
 
 
 @pytest.mark.parametrize("target", ["source", "staged", "manifest"])
@@ -232,7 +278,7 @@ def test_changed_input_or_staged_output_blocks_publication(
         else:
             workspace = next((tmp_path / "dst").glob(".fragment-*"))
             path = "layers/00.tif" if target == "staged" else conversion.MANIFEST
-            (workspace / "new" / path).write_bytes(b"changed")
+            (workspace / path).write_bytes(b"changed")
         return real(records, limit)
 
     monkeypatch.setattr(conversion, "_verify_sources", verify)
@@ -278,6 +324,29 @@ def test_existing_fragment_permissions_are_preserved(tmp_path):
     assert (output / "layers").stat().st_mode & 0o777 == 0o700
     assert (output / "layers/00.tif").stat().st_mode & 0o777 == 0o600
     assert (output / conversion.MANIFEST).stat().st_mode & 0o777 == 0o640
+
+
+@pytest.mark.parametrize(
+    "root_mode,layers_mode", [(0o555, 0o755), (0o755, 0o555), (0o500, 0o500)]
+)
+def test_readonly_generation_is_replaced_without_cleanup_failure(
+    tmp_path, root_mode, layers_mode
+):
+    source(tmp_path)
+    run_conversion(tmp_path)
+    output = tmp_path / "dst/fragment"
+    output.chmod(root_mode)
+    (output / "layers").chmod(layers_mode)
+    try:
+        run_conversion(tmp_path)
+        assert status(tmp_path)[0]
+        assert output.stat().st_mode & 0o777 == root_mode
+        assert (output / "layers").stat().st_mode & 0o777 == layers_mode
+        assert list((tmp_path / "dst").iterdir()) == [output]
+    finally:
+        # Make pytest's own temporary-directory cleanup possible on failure too.
+        for directory, _, _ in os.walk(tmp_path):
+            Path(directory).chmod(0o700)
 
 
 @pytest.mark.parametrize(

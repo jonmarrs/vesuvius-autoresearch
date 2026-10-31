@@ -56,9 +56,16 @@ disjoint. IDs must be single directory names.
 Readers and writers must be serialized. Publishing over an existing directory
 uses two renames, with rollback on caught failures; it is not a simultaneous
 directory swap or a power-loss durability guarantee. If rollback fails, the
-error names the retained `previous` directory for manual recovery. One invocation
-converts one fragment. The detector's multi-fragment `reproduce` command can
-finish one fragment before a later fragment fails.
+error names the retained hidden directory ending in `-previous` for manual
+recovery. One invocation converts one fragment. The detector's multi-fragment
+`reproduce` command can finish one fragment before a later fragment fails.
+
+Replacements preserve the existing fragment, layer-directory and output-file
+permissions, including read-only directories. Cleanup adjusts permissions only
+inside disposable private workspaces; a backup retained after rollback failure
+keeps its recovery permissions.
+Generations are renamed within the same parent, so replacing a read-only root
+does not need permission to change that directory's parent link.
 
 `detector reproduce` now uses this same packaged implementation without adding
 an ambient `convert_fragment` module to Python's import path. It validates the

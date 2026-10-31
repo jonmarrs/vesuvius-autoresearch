@@ -34,7 +34,19 @@ checkpoint, historical result or Villa pin changed.
 
 ## Verification
 
-Validation results are recorded in the pull request. Regression coverage includes
+Final validation: **221 passed in 107.84 seconds**, with no skips, using Python
+3.10.21 and Torch 2.9.1 CPU, with CUDA hidden and numerical-library threads limited
+to one. The 64 conversion cases also passed independently. Ruff check/format and
+Mypy passed on all six changed Python files; local documentation links and
+`git diff --check` passed. No GitHub CI runs were configured for the PR head.
+
+The integration scope was `test_convert_fragment`,
+`test_detector_conversion_contracts`, `test_detector_cli`, `test_detector_config`,
+`test_detector_data`, `test_detector_contracts`, `test_detector_prediction_artifacts`,
+`test_detector_eval`, `test_detector_measure`, `test_detector_metrics`,
+`test_validation_suite_covers_the_loop` and `test_validation_runner` under `tests/`.
+
+Regression coverage includes
 the reproduced failures; corrupt, shape-mismatched and non-scalar images; integer
 range and path validation; source/output mutation before publication; replacement
 and rollback failures; retained recovery data; destination permissions; unrelated
@@ -45,6 +57,17 @@ Existing conversion/reproduce, detector CLI/configuration/data, prediction and
 evaluation tests are checked alongside the new failure cases. This is an
 engineering integrity change. Synthetic fixtures do not establish scientific
 label accuracy, physical alignment, improved ink quality or prize eligibility.
+
+The published PR's author review reproduced a cleanup error with read-only
+fragment directories: replacement succeeded, but deleting the old backup raised
+`PermissionError`. Cleanup now makes only disposable private workspace directories
+owner-writable. Published modes and backups retained after rollback failure are
+preserved. Staging and backup directories are siblings of the final destination:
+cross-parent moves can themselves require write access to a read-only directory's
+parent link. All three real read-only permission regressions failed before this fix.
+An injected error immediately after a successful publication rename also checks
+that a failed rollback retains the previous generation even when the complete
+new destination exists. Cleanup is explicitly disabled for that recovery backup.
 
 See [the preparation guide](DETECTOR_DATA_PREPARATION.md) for budgets, migration,
 exit codes, source freshness and publication limits. Concurrent readers/writers

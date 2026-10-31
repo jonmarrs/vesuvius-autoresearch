@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .file_modes import replacement_mode
+from .file_modes import current_umask, replacement_mode
 
 MANIFEST = "conversion.json"
 MAX_PIXELS = 64 * 1024 * 1024
@@ -132,6 +132,16 @@ def _replaceable(destination, frag_id):
         )
 
 
+def _cleanup_workspace(workspace):
+    # These are disposable private staging/old-generation directories, never
+    # the published destination or a backup retained after rollback failure.
+    # Directory write permission controls unlinking even when files are readable.
+    for directory, _, _ in os.walk(workspace):
+        path = Path(directory)
+        path.chmod(stat.S_IMODE(path.stat().st_mode) | stat.S_IRWXU)
+    shutil.rmtree(workspace)
+
+
 def convert_fragment(
     frag_id, src_root, dst_root, z_start=17, z_end=43, *, max_pixels=MAX_PIXELS
 ):
@@ -156,12 +166,19 @@ def convert_fragment(
         raise ValueError("source fragment and surface_volume must not be symlinks")
     destination.parent.mkdir(parents=True, exist_ok=True)
     workspace = Path(tempfile.mkdtemp(prefix=f".{frag_id}-", dir=destination.parent))
-    staging, backup = workspace / "new", workspace / "previous"
-    (staging / "layers").mkdir(parents=True)
+    # Keep both generations in the destination's parent. Moving a read-only
+    # directory between parents can require write access to update its '..'.
+    staging = workspace
+    backup = workspace.with_name(workspace.name + "-previous")
+    if backup.exists() or backup.is_symlink():
+        _cleanup_workspace(workspace)
+        raise ValueError(f"recovery path already exists: {backup}")
     limit = 4 * max_pixels + 1024 * 1024
     sources, outputs, stats = [], {}, {}
     shape = None
+    preserve_backup = False
     try:
+        (staging / "layers").mkdir()
         entries = [
             (source / "surface_volume" / f"{i:02d}.tif", f"layers/{i:02d}.tif", i)
             for i in range(z_start, z_end)
@@ -229,21 +246,29 @@ def convert_fragment(
                 )
             os.chmod(staging, stat.S_IMODE(destination.stat().st_mode))
             destination.rename(backup)
+        else:
+            os.chmod(staging, 0o777 & ~current_umask())
         try:
             staging.rename(destination)
         except BaseException:
             if backup.exists():
+                # Retain recovery data even if rename completed just before an
+                # exception: a now-present destination can prevent rollback.
+                preserve_backup = True
                 try:
                     backup.rename(destination)
                 except OSError as exc:
                     raise RuntimeError(
                         f"rollback failed; recover previous fragment at {backup}"
                     ) from exc
+                preserve_backup = False
             raise
     finally:
         # Never delete the last old generation if rollback was interrupted/failed.
-        if not backup.exists() or destination.exists():
-            shutil.rmtree(workspace)
+        if workspace.exists():
+            _cleanup_workspace(workspace)
+        if backup.exists() and destination.exists() and not preserve_backup:
+            _cleanup_workspace(backup)
     return stats
 
 
