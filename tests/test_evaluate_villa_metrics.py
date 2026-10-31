@@ -17,6 +17,21 @@ from scripts import evaluate_villa_metrics as evaluation
 from scripts.evaluation_artifacts import VolumeSource
 
 
+@pytest.fixture(autouse=True)
+def session_environment():
+    """main() hides CUDA (--device cpu, the default) and sets MPLBACKEND for its process, as a command should. Called
+    here, that process is the test session: put both back after each test, or every later test runs CPU-only
+    (tests/test_fibers.py's test_cpu_gpu_vesselness_parity fails on a machine with a GPU)."""
+    names = ("CUDA_VISIBLE_DEVICES", "MPLBACKEND")
+    saved = {name: os.environ.get(name) for name in names}
+    yield
+    for name, value in saved.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+
 @pytest.fixture
 def metric_root(tmp_path):
     """Small adapter fixtures, not implementations of the upstream metrics."""
