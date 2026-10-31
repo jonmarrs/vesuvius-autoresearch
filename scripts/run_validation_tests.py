@@ -90,6 +90,7 @@ VALIDATION_TESTS = [
     "tests/test_generate_pseudo_labels.py",
     "tests/test_volume_inference_contracts.py",
     "tests/test_detector_contracts.py",
+    "tests/test_detector_report_artifacts.py",
     "tests/test_detector_prediction_artifacts.py",
     "tests/test_convert_fragment.py",
     "tests/test_detector_conversion_contracts.py",

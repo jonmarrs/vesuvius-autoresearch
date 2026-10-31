@@ -6,6 +6,9 @@ import os
 
 import numpy as np
 
+from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+from vesuvius_autoresearch.core.report_artifacts import publish_report, report_output
+
 from .data import read_image_mask
 from .infer import infer
 from .scoring import score_prediction
@@ -23,7 +26,26 @@ _COLS = [
 
 
 def measure(cfg, checkpoint_path, targets, model=None):
-    os.makedirs(cfg.reports_dir, exist_ok=True)
+    targets = list(targets)
+    seen = set()
+    if not targets:
+        raise ValueError("measurement requires at least one target")
+    for target in targets:
+        if not isinstance(target, (tuple, list)) or len(target) != 2:
+            raise ValueError("each target must be (fragment_id, scroll_label)")
+        fid, scroll_label = target
+        prediction_stem(fid)
+        if fid in seen:
+            raise ValueError(f"duplicate measurement fragment: {fid}")
+        if not isinstance(scroll_label, str) or not scroll_label.strip():
+            raise ValueError("scroll_label must be a nonempty string")
+        seen.add(fid)
+    report_output(
+        cfg.reports_dir,
+        "cross_scroll_measurement_manifest.json",
+        "cross_scroll_measurement",
+        inputs=() if checkpoint_path is None else (checkpoint_path,),
+    )
     rows = {}
     for fragment_id, scroll_label in targets:
         try:
@@ -76,7 +98,28 @@ def _write_report(cfg, checkpoint_path, rows):
             + " | ".join(_fmt(m.get(c, float("nan"))) for c in _COLS)
             + " |"
         )
-    with open(os.path.join(cfg.reports_dir, "cross_scroll_measurement.md"), "w") as f:
-        f.write("\n".join(lines) + "\n")
-    with open(os.path.join(cfg.reports_dir, "cross_scroll_measurement.json"), "w") as f:
-        json.dump(rows, f, indent=2, allow_nan=False)
+    failed = sum("error" in row for row in rows.values())
+    metadata = {
+        "checkpoint": str(checkpoint_path) if checkpoint_path is not None else None,
+        "target_count": len(rows),
+        "success_count": len(rows) - failed,
+        "failure_count": failed,
+        "report_status": "COMPLETE"
+        if failed == 0
+        else "FAILED"
+        if failed == len(rows)
+        else "PARTIAL",
+    }
+    publish_report(
+        cfg.reports_dir,
+        {
+            "cross_scroll_measurement.md": ("\n".join(lines) + "\n").encode("utf-8"),
+            "cross_scroll_measurement.json": (
+                json.dumps(rows, indent=2, allow_nan=False) + "\n"
+            ).encode("utf-8"),
+        },
+        "cross_scroll_measurement_manifest.json",
+        metadata,
+        "cross_scroll_measurement",
+        inputs=() if checkpoint_path is None else (checkpoint_path,),
+    )
