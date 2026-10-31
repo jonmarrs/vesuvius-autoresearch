@@ -46,9 +46,9 @@ Thin CLI adapters share `scripts/label_edit_proposals.py`, reusing bounded binar
 PNG captures, source rechecks and the existing new-directory publisher. Changes
 are deterministic array proposals under explicit background-connectivity and
 size settings. Small holes are not evidence of missing ink; letter counters can
-be legitimate reasons to reject them. No CT, study files, measurements, training
-targets or checkpoints were read or changed. Existing label preference remains;
-altering it changes the validation protocol and needs separate work.
+be legitimate reasons to reject them. Live CT, study measurements, training
+targets and checkpoints were not read or changed. Existing label preference
+remains; altering it changes the validation protocol and needs separate work.
 
 Final validation: **322 passed in 52.35 seconds, no skips**, using Python 3.10.21,
 Torch 2.9.1 CPU and OpenCV 4.13, with CUDA hidden and numerical-library threads
@@ -58,6 +58,12 @@ limited to one. The seven modules were `test_label_edit_proposals`,
 `test_validation_suite_covers_the_loop` and `test_validation_runner` under `tests/`.
 All 56 new proposal cases passed. Ruff check/format, Mypy over all five changed
 Python files, local documentation links and whitespace checks passed.
+
+The required smoke command reported **8/11 passed, 3 skipped, 0 failed in 10.2s**.
+The skips were two absent local training datasets and the unavailable BGv2
+augmentation entry point. Smoke loaded the tracked checkpoint in the isolated
+checkout; other data/checkpoint exercises used synthetic fixtures. No live
+research checkout was used. Direct executable `--help` was also checked.
 
 The isolated checkout's upstream curator and patch-sampler files were captured
 from the Villa pin and verified against their Git blob IDs; no replacement
