@@ -51,7 +51,7 @@ def main(argv=None):
             args.z_end,
             max_pixels=args.max_pixels,
         )
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
         parser.exit(1, f"conversion failed: {exc}\n")
     lo = min(s["u8_mean"] for s in stats.values())
     hi = max(s["u8_mean"] for s in stats.values())

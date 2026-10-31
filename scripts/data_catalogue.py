@@ -147,7 +147,8 @@ def captured_binary_png(path, *, max_pixels, shape=None):
             )
     except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise ValueError(f"PNG exceeds Pillow image safety limits: {path}") from exc
-    except (OSError, ValueError) as exc:
+    # Pillow reports some damaged chunks as SyntaxError.
+    except (OSError, SyntaxError, ValueError) as exc:
         raise ValueError(f"invalid binary PNG {path}: {exc}") from exc
     return values, {
         "path": str(path),

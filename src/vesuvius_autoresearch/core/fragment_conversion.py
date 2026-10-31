@@ -14,6 +14,7 @@ import re
 import shutil
 import stat
 import tempfile
+import warnings
 from pathlib import Path
 
 import cv2
@@ -23,7 +24,9 @@ from PIL import Image
 from .file_modes import current_umask, replacement_mode
 
 MANIFEST = "conversion.json"
-MAX_PIXELS = 64 * 1024 * 1024
+# PHercParis2Fr143, the default held-out fragment, is 14830 x 9506 = 140,973,980
+# pixels. Stay below Pillow's own refusal, twice Image.MAX_IMAGE_PIXELS.
+MAX_PIXELS = 160 * 1024 * 1024
 MAX_LAYERS = 512
 
 
@@ -66,15 +69,24 @@ def _digest(data):
 
 
 def _image(data, path, max_pixels, dtype):
-    with Image.open(io.BytesIO(data)) as image:
-        if (
-            image.n_frames != 1
-            or len(image.getbands()) != 1
-            or image.width * image.height > max_pixels
-            or min(image.size) <= 0
-        ):
-            raise ValueError(f"expected one scalar image within pixel budget: {path}")
-        array = np.array(image)
+    try:
+        with warnings.catch_warnings():
+            # The explicit pixel budget governs, not Pillow's lower warning level.
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as image:
+                if (
+                    getattr(image, "n_frames", 1) != 1
+                    or len(image.getbands()) != 1
+                    or image.width * image.height > max_pixels
+                    or min(image.size) <= 0
+                ):
+                    raise ValueError(
+                        f"expected one scalar image within pixel budget: {path}"
+                    )
+                array = np.array(image)
+    # Pillow reports some damaged files as SyntaxError or TypeError.
+    except (OSError, SyntaxError, TypeError, Image.DecompressionBombError) as exc:
+        raise ValueError(f"cannot decode image {path}: {exc}") from exc
     if array.ndim != 2 or array.dtype.kind != "u" or array.dtype.itemsize != dtype:
         raise ValueError(f"expected uint{dtype * 8} grayscale image: {path}")
     return array
@@ -108,6 +120,8 @@ def _replaceable(destination, frag_id):
     if not destination.exists():
         return
     allowed = {"layers", MANIFEST, f"{frag_id}_inklabels.png", f"{frag_id}_mask.png"}
+    # An interrupted run of the previous converter leaves hidden ".<name>.part" files.
+    allowed |= {f".{name}.part" for name in allowed - {"layers"}}
     entries = list(destination.iterdir())
     if any(path.name not in allowed or path.is_symlink() for path in entries):
         raise ValueError(
@@ -119,7 +133,7 @@ def _replaceable(destination, frag_id):
         or any(
             not path.is_file()
             or path.is_symlink()
-            or not re.fullmatch(r"\d+\.tif", path.name)
+            or not re.fullmatch(r"\d+\.tif|\.\d+\.tif\.part", path.name)
             for path in layers.iterdir()
         )
     ):
@@ -245,10 +259,12 @@ def convert_fragment(
                     stat.S_IMODE((destination / "layers").stat().st_mode),
                 )
             os.chmod(staging, stat.S_IMODE(destination.stat().st_mode))
-            destination.rename(backup)
         else:
             os.chmod(staging, 0o777 & ~current_umask())
         try:
+            # Both renames, so an interruption between them is rolled back too.
+            if destination.exists():
+                destination.rename(backup)
             staging.rename(destination)
         except BaseException:
             if backup.exists():
@@ -283,7 +299,8 @@ def conversion_status(data_root, frag_id, z_start, z_end, *, max_pixels=MAX_PIXE
         root = fragment_path(data_root, frag_id)
         if root.is_symlink() or (root / "layers").is_symlink():
             raise ValueError("converted fragment and layers must not be symlinks")
-        labels = list(root.glob("*inklabels.*"))
+        # As the loader's glob.glob finds them: hidden files are not labels.
+        labels = [p for p in root.glob("*inklabels.*") if not p.name.startswith(".")]
         if len(labels) != 1:
             raise ValueError(
                 f"expected exactly one inklabels file, found {len(labels)}"

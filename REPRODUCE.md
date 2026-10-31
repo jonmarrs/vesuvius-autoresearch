@@ -86,8 +86,10 @@ uv run python -m vesuvius_autoresearch.detector.cli reproduce
 
 Run it from the repository root: its first step converts `local_data/<fragment>/surface_volume/NN.tif`,
 `inklabels.png` and `mask.png` into the detector's 8-bit layout under `data_root`
-(`villa/ink-detection/train_scrolls` by default). A fragment is converted again whenever any file the
-detector reads for it is missing. (Added 2026-10-17.)
+(`villa/ink-detection/train_scrolls` by default). A fragment is converted again whenever a file the
+detector reads for it is missing or fails its checks: decoding, bit depth and shape, and its conversion
+manifest's hashes when one is present (see [detector data preparation](docs/DETECTOR_DATA_PREPARATION.md)).
+(Added 2026-10-17; checks added 2026-10-31.)
 
 Reproduced 2026-06-29 (best epoch by held-out selection: ROC-AUC 0.709, see
 `reports/detector/REPRODUCTION.md`; under the community contract `val_f1` 0.393 /
