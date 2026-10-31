@@ -4,8 +4,11 @@ As registered (docs/preregistration/2026-10-26_loop_replicate_rule_window.md) an
 window (reports/loop_confirmation_readout_2026-10-27.md): at the end of each scored cycle of tweak T, each of T's
 cycles so far is set against the mean of the other tweaks' cycles so far in its code epoch (kept when that epoch has
 at least 10 of them), and Student's t of those differences is taken for val_f1 and for ROC AUC. With at least 6 of T's
-cycles, the score is the smaller t; above c = 4.5 the rule fires. The scoring is scripts/loop_replicate_rule.scores at
-its REGISTERED values, imported, not copied.
+cycles, the score is the smaller t; above c = 4.5 the rule fires. Since 2026-10-31
+(docs/preregistration/2026-10-31_loop_replicate_rule_sd_floor.md) each t's SD is at least the field's, the SD of the
+same differences over every other tweak's cycles, so a tweak that barely changes the model cannot fire on a steady
+offset (lr 1e-5 did, on 2026-10-29). The scoring is scripts/loop_replicate_rule.scores at its LIVE values, imported,
+not copied; each record keeps the unfloored score beside it.
 
 The cycles are cycles.jsonl's: those that faced this checkpoint's bytes at this budget, validation protocol and input
 fingerprint, with complete matching patch counts and the same captured baseline settings (not crashed or blocked),
@@ -136,22 +139,30 @@ def rows(records: list[dict], current: dict) -> list[dict]:
 
 def decide(records: list[dict], current: dict) -> dict:
     """The rule's score for current's tweak at current's end, and whether it fires."""
-    from scripts.loop_replicate_rule import MEASURES, REGISTERED, scores
+    from scripts.loop_replicate_rule import LIVE, MEASURES, scores
 
     if not _scored(current):
         return {"tweak": current.get("tweak"), "score": None, "fires": False, "reason": "not scored"}  # fmt: skip
     read = rows(records, current)
-    measures = MEASURES[REGISTERED["measures"]]
+    measures = MEASURES[LIVE["measures"]]
     labels = [r["tweak"] for r in read]
-    s = float(scores(read, labels, measures, REGISTERED["min_cycles"], REGISTERED["min_others"])[-1])  # fmt: skip
+    args = (read, labels, measures, LIVE["min_cycles"], LIVE["min_others"])
+    s = float(scores(*args, floor=LIVE["sd_floor"])[-1])
+    unfloored = float(scores(*args)[-1])
     return {
         "tweak": current["tweak"],
-        "score": round(s, 4) if math.isfinite(s) else (None if s < 0 else "inf"),
-        "fires": s > REGISTERED["c"],
-        "c": REGISTERED["c"],
+        "score": _rounded(s),
+        "unfloored_score": _rounded(unfloored),
+        "sd_floor": LIVE["sd_floor"],
+        "fires": s > LIVE["c"],
+        "c": LIVE["c"],
         "tweak_cycles": labels.count(current["tweak"]),
         "cycles": len(read),
     }
+
+
+def _rounded(s: float):
+    return round(s, 4) if math.isfinite(s) else (None if s < 0 else "inf")
 
 
 def eligible(result: dict, enforce_prize_gates: bool) -> str | None:

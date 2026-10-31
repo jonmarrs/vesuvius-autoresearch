@@ -64,11 +64,30 @@ def test_replaying_the_window_fires_where_the_registered_test_did():
         and records[fired[0]]["tweak"] == first["tweak"]
     )
     got = RL.decide(records[: fired[0]], records[fired[0]])
+    # The registered test scored it without the SD floor (2026-10-31 amendment), which lowers it from 7.17 to 4.82.
+    floor = json.loads((ROOT / "reports/loop_replicate_rule_sd_floor_2026-10-31.json").read_text())  # fmt: skip
     assert (
-        round(got["score"], 4) == first["score"]
+        got["unfloored_score"] == first["score"]
+        and got["score"] == floor["windows"]["confirmation"]["floored"]["first_promotion"]["score"]
+        and got["sd_floor"] is True
         and got["tweak_cycles"] == first["tweak_cycles_so_far"]
-    )
+    )  # fmt: skip
     assert {records[j]["tweak"] for j in fired} == {"aug_mode_batchgeneratorsv2"}
+
+
+def test_replaying_the_cycles_lr_1e_05_was_promoted_on_promotes_nothing():
+    """The 161 cycles the live rule read when it promoted lr 1e-5 on 2026-10-29 at t 5.57 on +0.0002 val_f1."""
+    floor = json.loads((ROOT / "reports/loop_replicate_rule_sd_floor_2026-10-31.json").read_text())  # fmt: skip
+    rows = floor["rows"]["lr_1e-05_promotion"]
+    records = [
+        _record(r["start"], r["tweak"], r["val_f1"], r["roc_auc"], epoch=r["epoch"])
+        for r in rows
+    ]
+    decisions = [RL.decide(records[:j], records[j]) for j in range(len(records))]
+    assert not any(d["fires"] for d in decisions)
+    last = decisions[-1]
+    assert last["tweak"] == "lr_1e-05" and last["unfloored_score"] == 5.5696
+    assert last["score"] < 1 and last["tweak_cycles"] == 6
 
 
 def test_only_scored_cycles_against_the_same_incumbent_at_the_same_budget_are_read():
