@@ -8,6 +8,8 @@ import platform
 import re
 from pathlib import Path
 
+from .depth_window import depth_window
+
 BUCKET = "vesuvius-challenge-open-data"
 BLOCK_BYTES = 1024 * 1024
 DEFAULT_MAX_BYTES = 4 * 1024**3
@@ -164,8 +166,8 @@ def build_plan(filesystem, prefix, options):
         count = options["center_layers"]
         if count > len(layers):
             raise ValueError("center_layers exceeds available layers")
-        start = (len(layers) - count) // 2
-        selected = layers[start : start + count]
+        start, stop = depth_window(len(layers), count)
+        selected = layers[start:stop]
     if any(b[0] != a[0] + 1 for a, b in zip(selected, selected[1:], strict=False)):
         raise ValueError("selected layer depth indices must be consecutive")
     files = [
@@ -333,7 +335,7 @@ def execute_plan(filesystem, prefix, output, plan):
 
     code = {
         name: Snapshot.read(Path(__file__).with_name(name), 256 * 1024)
-        for name in ("fetch.py", "download_artifacts.py")
+        for name in ("fetch.py", "download_artifacts.py", "depth_window.py")
     }
     with publish_new(output) as staging:
         files = [
