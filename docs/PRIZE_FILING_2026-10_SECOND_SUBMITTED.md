@@ -1,7 +1,10 @@
 # October 2026 Progress Prize — second filed response
 
-**Submitted by the owner on October 31, 2026, by 1:59 p.m. Pacific**, before the
-11:59 p.m. Pacific deadline. It adds Villa **#2141** and **#2259** to the
+**Submitted by the owner; verified directly against the Google Forms email
+receipt.** The receipt is dated **October 31, 2026 at 1:58:08 p.m. Pacific**
+(**20:58:08 UTC**), before the 11:59 p.m. Pacific deadline. This is the receipt's
+date, not a separately recorded form-submission timestamp. It adds Villa
+**#2141** and **#2259** to the
 [engineering entry filed on October 29](PRIZE_FILING_2026-10_SUBMITTED.md).
 Both merged on October 30 (2:04 and 2:37 p.m. Pacific), after that entry was
 filed, so it does not credit them.
@@ -12,16 +15,18 @@ went in as a second response on the same October form. Its first sentence
 names the first entry. The form was accepting responses when checked at 1:19
 p.m. Pacific.
 
-The URL field and the **335-word** contribution below are the answers as
-received. They are identical to the text prepared for pasting. The terms were
-agreed, and the response is filed as an individual, like the first.
+The URL field and the **335-word** contribution below match the email's HTML
+answer fields after CRLF-to-LF normalization and trimming surrounding whitespace;
+paragraph breaks are preserved. The identity fields, individual classification
+and terms agreement were also verified against the intended answers.
 
-This record is weaker than the first. The owner pasted the response copy into
-the working session. That copy carries no date, and no original email is kept
-by this workflow. The only time recorded is the owner's report of the
-submission. The [redacted record](../reports/evidence/october_prize_second_submission_2026-10-31.json)
-keeps the public fields, that time and the content hashes. Email address, name,
-team wording and Discord name are excluded.
+The initial record relied on the owner's pasted response copy and report that
+submission was complete by 1:59 p.m. Pacific. Direct mailbox review now confirms
+the original receipt and its timestamp. The
+[redacted record](../reports/evidence/october_prize_second_submission_2026-10-31.json)
+keeps those times, public answer fields and content hashes. No local raw email
+archive was created for this verification. Email address, name, team wording,
+Discord name, message IDs and raw headers are excluded from the public record.
 
 The [separate research entry](PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md)
 remains unsubmitted in this workflow.

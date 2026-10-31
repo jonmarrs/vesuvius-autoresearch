@@ -1,6 +1,6 @@
 {
   "schema": "october-progress-prize-submission-v1",
-  "status": "SUBMITTED_OWNER_PASTED_RECEIPT",
+  "status": "SUBMITTED_VERIFIED",
   "month": "2026-10",
   "entry": "second engineering response: Villa fixes merged after the first",
   "submitted_as": "individual contributor",
@@ -12,16 +12,20 @@
   "first_response": "reports/evidence/october_prize_submission_2026-10-30.json",
   "why_a_second_response": "Villa #2141 and #2259 merged on 2026-10-30, after the first response; that response's receipt has no edit link, so they were filed as a second response that names the first.",
   "receipt": {
-    "source": "Google Forms response copy, pasted by the owner into the working session",
-    "date_utc": null,
+    "source": "Google Forms response receipt reviewed directly in the connected mailbox",
+    "date_utc": "2026-10-31T20:58:08+00:00",
+    "date_pacific": "2026-10-31T13:58:08-07:00",
     "reported_submitted_by_pacific": "2026-10-31T13:59:00-07:00",
-    "timestamp_scope": "The pasted copy carries no date. The owner reported the submission in the session by 1:59 p.m. Pacific; that is the only time recorded.",
+    "timestamp_scope": "Date of the Google Forms email receipt; no separate form response ID or submission timestamp is provided. The earlier owner-reported submission bound is preserved separately.",
+    "emailed_copy_received": true,
+    "verified_at_utc": "2026-10-31T21:55:53+00:00",
     "private_original_retained": false,
     "form_accepting_responses_checked_pacific": "2026-10-31T13:19:46-07:00"
   },
   "deadline_pacific": "2026-10-31T23:59:00-07:00",
   "deadline_utc": "2026-11-01T06:59:00+00:00",
   "reported_time_precedes_deadline": true,
+  "receipt_precedes_deadline": true,
   "merged_villa_prs": [
     2141,
     2259
@@ -41,7 +45,9 @@
   },
   "verification": {
     "all_submitted_fields_match_prepared_entry": true,
-    "comparison": "The pasted URL field and contribution are identical to the text prepared for pasting in the session; the terms response was agreed and the classification is individual, as in the first response.",
+    "comparison": "Exact HTML answer fields in the original Google Forms email after CRLF-to-LF normalization and trimming surrounding whitespace; paragraphs preserved. Identity fields, individual classification and terms agreement also match the intended answers.",
+    "receipt_verified_directly": true,
+    "terms_agreed": true,
     "submitted_contribution_txt_sha256": "dde2d74107c609495f1247c7750ae9c69acb4114267cd4311ede745b1e22f8b2",
     "submitted_urls_txt_sha256": "5a324a99802b80b52d4fa02920539079d7a07b0fbeb7f67fb55a0f0db18bb9e2",
     "text_hash_scope": "UTF-8 text with LF newlines and one trailing newline"
@@ -52,12 +58,15 @@
     "scope": "Only this engineering receipt was located and verified; the optional research entry has not been submitted in this workflow."
   },
   "redaction": {
-    "public_fields": "Contribution URLs/text, individual classification, the reported time and content hashes only.",
+    "public_fields": "Contribution URLs/text, individual classification, receipt and owner-reported times, verification results and public-answer hashes only.",
     "excluded": [
       "email",
       "full name",
       "team-description wording",
-      "Discord display name"
+      "Discord display name",
+      "receipt message IDs",
+      "raw receipt and headers",
+      "account/setup links"
     ]
   }
 }

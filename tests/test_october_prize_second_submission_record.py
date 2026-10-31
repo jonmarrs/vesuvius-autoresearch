@@ -1,10 +1,9 @@
 """The second October response, its redacted record and the first response agree.
 
 Villa #2141 and #2259 merged after the October 29 entry was filed, so they went in a
-second response that names the first. The owner pasted the response copy into the
-session; it carries no date, so the record keeps the owner's reported time. These
-checks bind the public copy of the answers to the record, and the second response's
-claims to the first record and to the merge times.
+second response that names the first. Direct email review confirmed the receipt
+date and the submitted answers; the earlier owner-reported bound is retained.
+These checks bind the public answers to the record and its receipt/merge times.
 """
 
 import hashlib
@@ -65,11 +64,23 @@ def test_the_counts_and_times_agree():
     assert len(CONTRIBUTION.split()) == RECORD["contribution_words"] == 335
     assert "**335-word**" in FILED
     receipt = RECORD["receipt"]
-    assert receipt["date_utc"] is None and receipt["private_original_retained"] is False
+    assert RECORD["status"] == "SUBMITTED_VERIFIED"
+    received = datetime.fromisoformat(receipt["date_utc"])
+    pacific = datetime.fromisoformat(receipt["date_pacific"])
+    assert received == pacific and pacific == received.astimezone(PACIFIC)
+    assert received.isoformat() == "2026-10-31T20:58:08+00:00"
+    assert receipt["private_original_retained"] is False
+    assert receipt["emailed_copy_received"] is True
+    assert RECORD["verification"]["receipt_verified_directly"] is True
+    assert RECORD["verification"]["terms_agreed"] is True
     reported = datetime.fromisoformat(receipt["reported_submitted_by_pacific"])
     deadline = datetime.fromisoformat(RECORD["deadline_utc"])
     assert deadline == datetime.fromisoformat(FIRST["deadline_utc"])
     assert RECORD["reported_time_precedes_deadline"] is (reported < deadline) is True
+    assert RECORD["receipt_precedes_deadline"] is (received < deadline) is True
+    assert received <= reported
+    assert datetime.fromisoformat(receipt["verified_at_utc"]) >= received
+    assert f"{pacific:%-I:%M:%S} p.m. Pacific" in FILED
     assert f"by {reported:%-I:%M} p.m. Pacific" in FILED
     checked = datetime.fromisoformat(
         receipt["form_accepting_responses_checked_pacific"]
