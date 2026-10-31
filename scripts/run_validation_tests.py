@@ -145,6 +145,7 @@ VALIDATION_TESTS = [
     "tests/test_loader_workers.py",
     "tests/test_loop_control_arm.py",
     "tests/test_loop_does_not_request_lasagna.py",
+    "tests/test_loop_lr_floor.py",
     "tests/test_loop_host_load.py",
     "tests/test_promote_loop_candidate.py",
     "tests/test_replicate_rule_live.py",
