@@ -1,0 +1,17 @@
+{
+  "contract": 1,
+  "scope": "public metadata conditional-range transport smoke",
+  "source": "s3://vesuvius-challenge-open-data/PHercParis4/segments/20230702185753/surface-volumes/1.129um-0.23m-78keV-volume-20260608103018-L1.zarr/.zattrs",
+  "bytes": 3450,
+  "etag": "\"f735467a3bf7e0aa9e8c47c06ef3cef1\"",
+  "sha256": "1451b48a7263d5b8e84dd48a26cc9cf0093ff559ebe67e57121bc7715efba487",
+  "range_and_identity_headers_checked": true,
+  "python": "3.10.21",
+  "s3fs": "2026.9.0",
+  "aiobotocore": "3.10.0",
+  "fsspec": "2026.9.0",
+  "image_or_ct_chunks_read": false,
+  "full_segment_download_tested": false,
+  "scientific_accuracy_verified": false,
+  "note": "One anonymous public metadata object was read using the range helper. SDK service-stub and synthetic conversion tests cover separate failure/selection contracts; this is not a real-data quality or download-performance benchmark."
+}

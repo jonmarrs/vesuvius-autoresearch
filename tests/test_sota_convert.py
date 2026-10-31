@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -14,14 +15,17 @@ def _make_src(root, seg, n_src=40, h=128, w=128, label_hw=None):
     layers = os.path.join(root, seg, "layers")
     os.makedirs(layers, exist_ok=True)
     for i in range(n_src):
-        tifffile.imwrite(os.path.join(layers, f"{i:02d}.tif"),
-                         (np.random.rand(h, w) * 60000).astype(np.uint16))
+        tifffile.imwrite(
+            os.path.join(layers, f"{i:02d}.tif"),
+            (np.random.rand(h, w) * 60000).astype(np.uint16),
+        )
     lh, lw = label_hw or (h, w)
     lab = np.zeros((lh, lw), np.uint8)
-    lab[lh // 4:lh // 2, lw // 4:lw // 2] = 255
+    lab[lh // 4 : lh // 2, lw // 4 : lw // 2] = 255
     cv2.imwrite(os.path.join(root, seg, f"{seg}_inklabels.png"), lab)
-    cv2.imwrite(os.path.join(root, seg, f"{seg}_mask.png"),
-                np.full((lh, lw), 255, np.uint8))
+    cv2.imwrite(
+        os.path.join(root, seg, f"{seg}_mask.png"), np.full((lh, lw), 255, np.uint8)
+    )
     return os.path.join(root, seg)
 
 
@@ -38,9 +42,11 @@ def test_convert_writes_26_layers_and_labels(tmp_path):
 
 def test_convert_output_loads_via_detector(tmp_path):
     import sys
+
     sys.path.insert(0, os.path.abspath("."))
     from vesuvius_autoresearch.detector.config import DetectorConfig
     from vesuvius_autoresearch.detector.data import read_image_mask
+
     src = _make_src(str(tmp_path / "src"), "segB")
     convert_surface_volume(src, "segB", str(tmp_path / "out"))
     cfg = DetectorConfig(data_root=str(tmp_path / "out"))
@@ -75,10 +81,11 @@ def test_convert_float32_tiff_layers(tmp_path):
 
     # Add label and mask
     lab = np.zeros((h, w), np.uint8)
-    lab[h // 4:h // 2, w // 4:w // 2] = 255
+    lab[h // 4 : h // 2, w // 4 : w // 2] = 255
     cv2.imwrite(os.path.join(root, seg, f"{seg}_inklabels.png"), lab)
-    cv2.imwrite(os.path.join(root, seg, f"{seg}_mask.png"),
-                np.full((h, w), 255, np.uint8))
+    cv2.imwrite(
+        os.path.join(root, seg, f"{seg}_mask.png"), np.full((h, w), 255, np.uint8)
+    )
 
     # Convert
     out = convert_surface_volume(os.path.join(root, seg), seg, str(tmp_path / "out"))
@@ -91,6 +98,7 @@ def test_convert_float32_tiff_layers(tmp_path):
 
 def test_to_uint8_rejects_unexpected_int_dtype():
     from repro.sota_data.convert import to_uint8
+
     with pytest.raises(ValueError, match="dtype"):
         to_uint8(np.zeros((4, 4), np.int32))
 
@@ -98,11 +106,14 @@ def test_to_uint8_rejects_unexpected_int_dtype():
 def test_convert_unreadable_label_raises(tmp_path):
     src = _make_src(str(tmp_path / "src"), "segE")
     # corrupt the label file so cv2.imread returns None
-    with open(os.path.join(str(tmp_path / "src"), "segE", "segE_inklabels.png"), "wb") as f:
+    with open(
+        os.path.join(str(tmp_path / "src"), "segE", "segE_inklabels.png"), "wb"
+    ) as f:
         f.write(b"not a png")
     with pytest.raises(ValueError, match="label"):
-        convert_surface_volume(os.path.join(str(tmp_path / "src"), "segE"), "segE",
-                               str(tmp_path / "out"))
+        convert_surface_volume(
+            os.path.join(str(tmp_path / "src"), "segE"), "segE", str(tmp_path / "out")
+        )
 
 
 def test_a_label_within_two_px_is_padded_onto_the_grid_not_stretched(tmp_path):
@@ -138,7 +149,9 @@ def test_the_tolerance_is_the_labeled_datasets():
 def test_a_label_or_mask_of_another_crop_or_scale_is_refused(tmp_path, name):
     """10% short: inside the old 20% bound, so it was stretched onto the layers."""
     src = _make_src(str(tmp_path / "src"), "segG", h=128, w=128)
-    cv2.imwrite(os.path.join(src, f"segG_{name}.png"), np.full((115, 128), 255, np.uint8))
+    cv2.imwrite(
+        os.path.join(src, f"segG_{name}.png"), np.full((115, 128), 255, np.uint8)
+    )
     with pytest.raises(ValueError, match="mismatch > 2 px"):
         convert_surface_volume(src, "segG", str(tmp_path / "out"))
 
@@ -160,7 +173,9 @@ def fetch_module(monkeypatch):
     yield module, memory
     sys.modules.pop("repro.sota_data.fetch", None)
     package = sys.modules["repro.sota_data"]
-    if getattr(package, "fetch", None) is module:  # leave no module bound to the stand-in
+    if (
+        getattr(package, "fetch", None) is module
+    ):  # leave no module bound to the stand-in
         delattr(package, "fetch")
 
 
@@ -190,7 +205,13 @@ def test_fetch_puts_the_segment_where_convert_reads_it(tmp_path, fetch_module):
         memory.rm(base, recursive=True)
     assert out == str(tmp_path / "segH")
     assert not (tmp_path / "segH" / "segH_test_fetch").exists()
-    assert sorted(os.listdir(out)) == ["layers", "segH_inklabels.png", "segH_mask.png"]
+    assert sorted(os.listdir(out)) == [
+        "download.json",
+        "layers",
+        "segH_inklabels.png",
+        "segH_mask.png",
+        "sources",
+    ]
     converted = convert_surface_volume(out, "segH", str(tmp_path / "out"))
     assert len(os.listdir(os.path.join(converted, "layers"))) == 26
 
@@ -204,6 +225,51 @@ def test_fetch_refuses_a_mask_that_is_a_directory(tmp_path, fetch_module):
         memory.pipe(f"{base}/layers/00.tif", b"x")
         memory.pipe(f"{base}/masks/segJ_mask.png", b"y")
         with pytest.raises(ValueError, match="not a file"):
-            fetch.fetch_segment("PHercParis4/segments/segJ_test_fetch", str(tmp_path / "j"))
+            fetch.fetch_segment(
+                "PHercParis4/segments/segJ_test_fetch", str(tmp_path / "j")
+            )
+    finally:
+        memory.rm(base, recursive=True)
+
+
+def test_centered_download_preserves_the_actual_converters_selected_planes(
+    tmp_path, fetch_module
+):
+    import io
+
+    fetch, memory = fetch_module
+    prefix = "PHercParis4/segments/center_selection_test"
+    base = f"{fetch.BUCKET}/{prefix}"
+    try:
+        for index in range(41):
+            buffer = io.BytesIO()
+            tifffile.imwrite(buffer, np.full((16, 16), index * 1000, np.uint16))
+            memory.pipe(f"{base}/layers/{index:02d}.tif", buffer.getvalue())
+        png = cv2.imencode(".png", np.full((16, 16), 255, np.uint8))[1].tobytes()
+        memory.pipe(base + "/segment_inklabels.png", png)
+        memory.pipe(base + "/segment_mask.png", png)
+        full = fetch.fetch_segment(prefix, str(tmp_path / "full"))
+        centered = fetch.fetch_segment(
+            prefix, str(tmp_path / "centered"), center_layers=26
+        )
+        full_converted = convert_surface_volume(
+            full, "full", str(tmp_path / "converted")
+        )
+        centered_converted = convert_surface_volume(
+            centered, "centered", str(tmp_path / "converted")
+        )
+        for index in range(17, 43):
+            np.testing.assert_array_equal(
+                tifffile.imread(Path(full_converted) / "layers" / f"{index:02d}.tif"),
+                tifffile.imread(
+                    Path(centered_converted) / "layers" / f"{index:02d}.tif"
+                ),
+            )
+        import json
+
+        report = json.loads((tmp_path / "centered/download.json").read_text())
+        original = json.loads((tmp_path / "full/download.json").read_text())
+        assert report["selected_depth_indices"] == list(range(7, 33))
+        assert report["total_bytes"] < original["total_bytes"]
     finally:
         memory.rm(base, recursive=True)
