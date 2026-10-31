@@ -8,12 +8,14 @@ budget. Historical reports and preregistrations retain their original scope.
 
 1. **Engineering entry filed; decide on the separate research entry.** The
    [filed engineering record](PRIZE_FILING_2026-10_SUBMITTED.md) preserves the
-   three Villa merges and verified receipt. The optional ScrollGT research
+   three Villa merges and verified receipt; the
+   [second response](PRIZE_FILING_2026-10_SECOND_SUBMITTED.md) adds #2141 and
+   #2259, merged on October 30. The optional ScrollGT research
    answer remains unsubmitted in this workflow. Follow the
    [final-week plan](PRIZE_PLAN_2026-10_FINAL_WEEK.md) before the October 31,
    11:59 p.m. Pacific deadline; new experiments are not a filing prerequisite.
-2. **Finish integrations people can use.** Address feedback on the three
-   pending Villa PRs and verify the prepared seed-heading fix through the
+2. **Finish integrations people can use.** Address feedback on the pending
+   Villa PR (#2258; #2141 and #2259 merged on October 30) and verify the prepared seed-heading fix through the
    [current object-store workflow](VILLA_OBJECT_STORE_EXPORT_CHECK.md) on a
    configured host. Respect the upstream PR cap. Existing fixture checks
    are preparation, not native real-data proof or additional merged credit.

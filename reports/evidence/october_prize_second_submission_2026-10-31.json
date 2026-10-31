@@ -1,0 +1,63 @@
+{
+  "schema": "october-progress-prize-submission-v1",
+  "status": "SUBMITTED_OWNER_PASTED_RECEIPT",
+  "month": "2026-10",
+  "entry": "second engineering response: Villa fixes merged after the first",
+  "submitted_as": "individual contributor",
+  "submitted_by": "repository owner in their own browser",
+  "form": {
+    "title": "October 2026 Progress Prizes",
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform"
+  },
+  "first_response": "reports/evidence/october_prize_submission_2026-10-30.json",
+  "why_a_second_response": "Villa #2141 and #2259 merged on 2026-10-30, after the first response; that response's receipt has no edit link, so they were filed as a second response that names the first.",
+  "receipt": {
+    "source": "Google Forms response copy, pasted by the owner into the working session",
+    "date_utc": null,
+    "reported_submitted_by_pacific": "2026-10-31T13:59:00-07:00",
+    "timestamp_scope": "The pasted copy carries no date. The owner reported the submission in the session by 1:59 p.m. Pacific; that is the only time recorded.",
+    "private_original_retained": false,
+    "form_accepting_responses_checked_pacific": "2026-10-31T13:19:46-07:00"
+  },
+  "deadline_pacific": "2026-10-31T23:59:00-07:00",
+  "deadline_utc": "2026-11-01T06:59:00+00:00",
+  "reported_time_precedes_deadline": true,
+  "merged_villa_prs": [
+    2141,
+    2259
+  ],
+  "villa_merged_at_utc": {
+    "2141": "2026-10-30T21:04:45+00:00",
+    "2259": "2026-10-30T21:37:35+00:00"
+  },
+  "contribution_words": 335,
+  "submitted_public_fields": {
+    "urls": [
+      "https://github.com/ScrollPrize/villa/pull/2141",
+      "https://github.com/ScrollPrize/villa/pull/2259",
+      "https://github.com/jonmarrs/vesuvius-autoresearch"
+    ],
+    "contribution": "This adds to my October engineering entry of October 29 (Villa #2022, #2044 and #2155). These two fixes merged on October 30, after that entry was filed, and are not credited in it.\n\n(1) Which scroll data. PHerc. Paris 4 / Scroll 1: Villa's published spiral-fitting track stores (for example tracks/m7_ds2_z3000_18000_surf.dbm), and the command-line tools of Villa's VC3D release (VC3D-e2254eb-2026-10-22) that render scroll surfaces.\n\n(2) How this helps people read the scrolls.\n\n- #2141 (merged 2026-10-30): open Villa's published SQLite track stores read-only on every supported Python version. The published PHerc. Paris 4 stores are WAL databases; on Python 3.10 and 3.11 the reader failed to open one from a read-only directory (\"attempt to write a readonly database\") and left -wal/-shm files beside it in a writable one. With the fix a checkpointed store opens from a read-only directory without creating sidecars, and committed WAL pages stay visible.\n- #2259 (merged 2026-10-30): document how to run the release's command-line tools on headless Linux. On Debian 13 with no display, calling the extracted vc_render_tifxyz directly segfaulted with no output; launching it through the bundled AppRun printed its help and exited 0. The docs now give a Debian/Ubuntu package command for the host libraries, the extraction and AppRun commands, and why the wrapper is required.\n\n(3) What this enables. Spiral fitting can read the published track stores from read-only or shared dataset directories, and users on headless servers can launch the release's render tools by following the docs, as issue #2153 needed.\n\n(4) Evidence. #2141's six reader tests cover sidecar-free reads, a read-only directory, recognized SQLite stores, committed WAL pages and a file symlink; an earlier version was validated on Windows by @vincentl065, the author of the original fallback. A store with an un-checkpointed WAL still needs SQLite's normal locking and may still fail in a read-only directory. #2259 compares the two launch paths on the same release (SHA-256 46365113…); it checked tool startup, not a render. The real-data render that needed it is reported in #2153."
+  },
+  "verification": {
+    "all_submitted_fields_match_prepared_entry": true,
+    "comparison": "The pasted URL field and contribution are identical to the text prepared for pasting in the session; the terms response was agreed and the classification is individual, as in the first response.",
+    "submitted_contribution_txt_sha256": "dde2d74107c609495f1247c7750ae9c69acb4114267cd4311ede745b1e22f8b2",
+    "submitted_urls_txt_sha256": "5a324a99802b80b52d4fa02920539079d7a07b0fbeb7f67fb55a0f0db18bb9e2",
+    "text_hash_scope": "UTF-8 text with LF newlines and one trailing newline"
+  },
+  "research_entry": {
+    "status": "NOT_SUBMITTED_IN_THIS_WORKFLOW",
+    "prepared_answer": "docs/PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md",
+    "scope": "Only this engineering receipt was located and verified; the optional research entry has not been submitted in this workflow."
+  },
+  "redaction": {
+    "public_fields": "Contribution URLs/text, individual classification, the reported time and content hashes only.",
+    "excluded": [
+      "email",
+      "full name",
+      "team-description wording",
+      "Discord display name"
+    ]
+  }
+}

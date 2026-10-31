@@ -11,7 +11,9 @@ measurements; internal tooling and merged PR counts alone do not establish impac
 
 **October Progress Prize: engineering entry filed.** The
 [submitted entry and receipt verification](docs/PRIZE_FILING_2026-10_SUBMITTED.md)
-record the three Villa fixes. The optional research entry remains unsubmitted.
+record the three Villa fixes. Villa #2141 and #2259, merged the next day, went in a
+[second response](docs/PRIZE_FILING_2026-10_SECOND_SUBMITTED.md) on October 31.
+The optional research entry remains unsubmitted.
 
 **Check a checkout without starting training:** `python3 scripts/workspace_status.py`.
 This reads setup and process metadata; it does not load model weights, read study
