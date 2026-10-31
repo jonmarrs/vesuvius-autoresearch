@@ -4,8 +4,8 @@ Date: 2026-10-31. Baseline: `307a57d3` (main after #312).
 Reviewer: Claude (Anthropic), at the owner's request.
 
 This round covers the 17:13 UTC firing. Two read-only reviews ran beside mine, one of #310 and one of #312, and I
-checked each of their findings before acting on it. The owner's later merges (#305, #309, #311, #313–#317) are left
-for the next round.
+checked each of their findings before acting on it. The owner's later merges (#305, #309, #311, #313–#317) are merged
+into this branch but left for the next round.
 - **#302** reads out the registered unchanged-control comparison: `BEATS_UNCHANGED`, with a post hoc audit.
 - **#308** restores `CUDA_VISIBLE_DEVICES` and `MPLBACKEND` after each Villa evaluation test.
 - **#310** converts detector fragments as complete generations with a completion manifest. It also makes
@@ -44,7 +44,8 @@ for the next round.
 - **#310's documentation.**
   - The guide gives the new cap, the replaceable leftovers, and that an undecodable image needs conversion.
   - `README.md` had the new data-preparation paragraph between the `--config` sentence and "The JSON object
-    overrides…", which then referred to nothing. The paragraph now follows the example.
+    overrides…", which then referred to nothing. The owner's later merges reworded that sentence ("A detector
+    configuration JSON overrides…"), which resolves it, so this round's reordering was dropped when merging main.
   - `REPRODUCE.md` said a fragment is reconverted when a file is missing. It now says: missing, or failing its
     checks.
 - **A damaged PNG escaped the shared PNG reader** (#312, `scripts/data_catalogue.py`).
