@@ -204,17 +204,18 @@ start.
 Each detector command accepts `--config detector_config.json` after the subcommand
 (a detector configuration, not the loop's root `config.json`).
 
-Before training, use the CPU-only [detector data preparation check](docs/DETECTOR_DATA_PREPARATION.md):
-`python repro/gp_winner/convert_fragment.py --frag FragX --dst-root /path/to/converted_fragments --check`.
-It checks decoded images and available conversion hashes without Torch or CUDA.
-Conversion now stages complete fragments and refuses already converted uint8
-source layers, preventing mixed generations and accidental signal loss.
 The JSON object overrides `DetectorConfig` defaults; use the same architecture,
 depth and window settings used to train the checkpoint. For example:
 
 ```json
 {"data_root": "/path/to/converted_fragments", "architecture": "timesformer"}
 ```
+
+Before training, use the CPU-only [detector data preparation check](docs/DETECTOR_DATA_PREPARATION.md):
+`python repro/gp_winner/convert_fragment.py --frag FragX --dst-root /path/to/converted_fragments --check`.
+It checks decoded images and available conversion hashes without Torch or CUDA.
+Conversion now stages complete fragments and refuses already converted uint8
+source layers, preventing mixed generations and accidental signal loss.
 
 New checkpoints record their detector configuration and reject mismatched model
 or depth-window settings before reading fragment data. Legacy checkpoints remain

@@ -157,8 +157,8 @@ def test_the_inputs_fingerprint_names_what_the_sample_is_drawn_from(
     (frag / "inklabels.png").write_bytes(b"ink, relabeled")
     relabeled = fingerprint(uri)
     assert relabeled != base
-    # refine_labels_villa.py --in-place writes this beside inklabels.png, and
-    # validation prefers it.
+    # A hand-placed refined label beside inklabels.png: validation prefers it.
+    # (refine_labels_villa.py --in-place wrote one until #312.)
     (frag / "inklabels_refined.png").write_bytes(b"ink, relabeled")
     assert promotion.validation_label_path(uri).endswith("inklabels_refined.png")
     assert fingerprint(uri) not in (base, relabeled)
@@ -585,7 +585,7 @@ def _fingerprinted_incumbent(tmp_path):
 def test_the_loop_stops_before_a_cycle_once_the_validation_labels_change(
     tmp_path, monkeypatch, capsys
 ):
-    """A refined label file written mid-shift (refine_labels_villa.py --in-place)
+    """A refined label file placed mid-shift (once refine_labels_villa.py --in-place)
     would have every later cycle scored on other targets than the incumbent."""
     frag = _fingerprinted_incumbent(tmp_path)
 

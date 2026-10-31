@@ -74,6 +74,6 @@ Python helpers are removed; Git history preserves their implementation. 3D label
 editing needs a separately reviewed workflow; a 3D input is never silently treated
 as a 2D proposal.
 
-The June cross-scroll specification already documents **89–97% overfilled**
-labels being set aside. This engineering change prevents these entry points from
+The June cross-scroll specification already documents overfilled labels
+(**89–97% ink**, against 0.057–0.079 for `inklabels.png`) being set aside. This engineering change prevents these entry points from
 repeating that workflow. It does not revalidate historical data or results.

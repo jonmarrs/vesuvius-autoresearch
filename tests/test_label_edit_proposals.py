@@ -249,25 +249,43 @@ def test_bad_region_is_rejected(tmp_path, kind):
 
 
 @pytest.mark.parametrize(
-    "kind", ["existing", "source", "inside_source", "image_name", "symlink"]
+    "kind",
+    [
+        "existing",
+        "source",
+        "preferred_name",
+        "inside_source",
+        "inside_region",
+        "image_name",
+        "symlink",
+    ],
 )
 def test_destination_cannot_overwrite_or_become_an_auto_preferred_label(tmp_path, kind):
     source = fixture(tmp_path)
     out = tmp_path / "proposal"
+    region = None
     if kind == "existing":
         out.mkdir()
         (out / "user.txt").write_text("keep")
     elif kind == "source":
         out = source
-    elif kind == "inside_source":
+    elif kind == "preferred_name":
         out = source.parent / "inklabels_refined.png"
+    elif kind == "inside_source":
+        # A review directory name, so only the source-folder rule refuses it.
+        out = source.parent / "review"
+    elif kind == "inside_region":
+        region = tmp_path / "masks" / "region.png"
+        region.parent.mkdir()
+        Image.fromarray(np.full((16, 16), 255, np.uint8)).save(region)
+        out = region.parent / "review"
     elif kind == "image_name":
         out = tmp_path / "filled.png"
     elif kind == "symlink":
         out.symlink_to(tmp_path / "missing")
     before = snapshot(tmp_path)
     with pytest.raises(ValueError):
-        proposals.create_proposal(source, out)
+        proposals.create_proposal(source, out, region_mask=region)
     assert snapshot(tmp_path) == before
 
 

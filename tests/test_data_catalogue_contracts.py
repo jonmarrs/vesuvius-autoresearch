@@ -25,6 +25,33 @@ def workspace(tmp_path, monkeypatch):
         plt.close(number)
 
 
+def _broken_png_chunk(shape):
+    """A PNG whose image data continues in a chunk of type NUL: Pillow raises
+    SyntaxError, not OSError, while decoding it."""
+    import io
+    import struct
+    import zlib
+
+    buffer = io.BytesIO()
+    Image.fromarray(np.full(shape, 255, np.uint8)).save(buffer, "PNG")
+    data = buffer.getvalue()
+    start = data.index(b"IDAT") - 4
+    (length,) = struct.unpack(">I", data[start : start + 4])
+    payload = data[start + 8 : start + 8 + length]
+
+    def chunk(kind, body):
+        crc = struct.pack(">I", zlib.crc32(kind + body))
+        return struct.pack(">I", len(body)) + kind + body + crc
+
+    half = len(payload) // 2
+    return (
+        data[:start]
+        + chunk(b"IDAT", payload[:half])
+        + chunk(b"\0\0\0\0", payload[half:])
+        + data[start + 12 + length :]
+    )
+
+
 def fragment(root, name="fragment", *, labels=None, mask=None):
     directory = root / "local_data" / name
     directory.mkdir()
@@ -374,7 +401,7 @@ def test_atlas_rejects_ambiguous_image_modes(workspace, mode):
 
 @pytest.mark.parametrize("name", ["inklabels.png", "mask.png"])
 @pytest.mark.parametrize(
-    "kind", ["corrupt", "jpeg", "directory", "link", "broken_link"]
+    "kind", ["corrupt", "broken_chunk", "jpeg", "directory", "link", "broken_link"]
 )
 def test_bad_selected_sources_fail_instead_of_silent_skips(workspace, name, kind):
     directory = fragment(workspace, mask=np.ones((4, 6)))
@@ -382,6 +409,8 @@ def test_bad_selected_sources_fail_instead_of_silent_skips(workspace, name, kind
     path.unlink()
     if kind == "corrupt":
         path.write_bytes(b"not an image")
+    elif kind == "broken_chunk":
+        path.write_bytes(_broken_png_chunk((4, 6)))
     elif kind == "jpeg":
         Image.new("L", (6, 4)).save(path, format="JPEG")
     elif kind == "directory":

@@ -398,3 +398,107 @@ runpy.run_path(sys.argv[0], run_name='__main__')
     assert result.returncode == 0, result.stderr
     assert "verified output hashes" in result.stdout
     assert tree(tmp_path) == before
+
+
+def test_the_default_held_out_fragment_fits_the_pixel_budget(tmp_path):
+    """PHercParis2Fr143, DetectorConfig's held-out fragment, is 14830 x 9506:
+    140,973,980 pixels, above Pillow's warning level and the earlier 64 Mi cap."""
+    shape = (14830, 9506)
+    root = tmp_path / "src" / "fragment"
+    (root / "surface_volume").mkdir(parents=True)
+    Image.fromarray(np.full(shape, 200 * 256, np.uint16)).save(
+        root / "surface_volume/00.tif", compression="tiff_lzw"
+    )
+    for name in ("inklabels.png", "mask.png"):
+        Image.fromarray(np.zeros(shape, np.uint8)).save(root / name)
+    conversion.convert_fragment("fragment", tmp_path / "src", tmp_path / "dst", 0, 1)
+    assert conversion.conversion_status(tmp_path / "dst", "fragment", 0, 1) == (
+        True,
+        "verified output hashes",
+    )
+
+
+def _broken_png_chunk():
+    """A PNG whose image data continues in a chunk of type NUL: Pillow raises
+    SyntaxError, not OSError, while decoding it."""
+    import io
+    import struct
+    import zlib
+
+    buffer = io.BytesIO()
+    Image.fromarray(np.full((5, 7), 255, np.uint8)).save(buffer, "PNG")
+    data = buffer.getvalue()
+    start = data.index(b"IDAT") - 4
+    (length,) = struct.unpack(">I", data[start : start + 4])
+    payload = data[start + 8 : start + 8 + length]
+
+    def chunk(kind, body):
+        crc = struct.pack(">I", zlib.crc32(kind + body))
+        return struct.pack(">I", len(body)) + kind + body + crc
+
+    half = len(payload) // 2
+    return (
+        data[:start]
+        + chunk(b"IDAT", payload[:half])
+        + chunk(b"\0\0\0\0", payload[half:])
+        + data[start + 12 + length :]
+    )
+
+
+@pytest.mark.parametrize("kind", ["broken_png", "jpeg_label"])
+def test_undecodable_outputs_read_as_needing_conversion(tmp_path, kind):
+    """--check and reproduce rebuild such a fragment; they must not crash on it."""
+    source(tmp_path)
+    run_conversion(tmp_path)
+    output = tmp_path / "dst/fragment"
+    if kind == "broken_png":
+        (output / "fragment_mask.png").write_bytes(_broken_png_chunk())
+        assert not status(tmp_path)[0]
+    else:
+        # A legacy layout's JPEG label has no n_frames; with no manifest it is usable.
+        (output / "fragment_inklabels.png").unlink()
+        (output / conversion.MANIFEST).unlink()
+        Image.fromarray(np.full((5, 7), 255, np.uint8)).save(
+            output / "fragment_inklabels.jpg"
+        )
+        assert status(tmp_path) == (True, "legacy image checks; no source provenance")
+
+
+def test_an_interrupted_previous_conversion_is_rebuilt_not_refused(tmp_path):
+    """The previous converter wrote each file through a hidden '.<name>.part'.
+    Those are neither labels nor user files: a rebuild replaces them."""
+    source(tmp_path)
+    run_conversion(tmp_path)
+    output = tmp_path / "dst/fragment"
+    (output / conversion.MANIFEST).unlink()
+    (output / "layers/.01.tif.part").write_bytes(b"partial")
+    (output / ".fragment_inklabels.png.part").write_bytes(b"partial")
+    assert status(tmp_path) == (True, "legacy image checks; no source provenance")
+    run_conversion(tmp_path)
+    assert not list(output.rglob(".*.part"))
+    assert status(tmp_path) == (True, "verified output hashes")
+
+
+def test_an_interruption_between_the_renames_restores_the_previous_fragment(
+    tmp_path, monkeypatch
+):
+    src = source(tmp_path)
+    run_conversion(tmp_path)
+    output = tmp_path / "dst/fragment"
+    before = tree(output)
+    Image.fromarray(np.full((5, 7), 65535, np.uint16)).save(
+        src / "surface_volume/00.tif"
+    )
+    real = Path.rename
+
+    def rename(path, target):
+        result = real(path, target)
+        if Path(target).name.endswith("-previous"):
+            raise KeyboardInterrupt
+        return result
+
+    monkeypatch.setattr(Path, "rename", rename)
+    with pytest.raises(KeyboardInterrupt):
+        run_conversion(tmp_path)
+    assert tree(output) == before
+    assert list((tmp_path / "dst").iterdir()) == [output]

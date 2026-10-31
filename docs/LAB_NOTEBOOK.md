@@ -4,7 +4,7 @@ Chronological log of shift-level intent, configurations, and outcomes from the a
 
 ## How to read this notebook
 
-- **Label-quality correction (2026-10-31).** The April 24 entry's “higher-quality” filled labels were not validated as better targets. The June cross-scroll specification records 89–97% overfilled masks being set aside. The old editing commands are now retired in favor of [reviewable proposals](LABEL_EDIT_PROPOSALS.md); their existence and filename priority do not establish quality.
+- **Label-quality correction (2026-10-31).** The April 24 entry's “higher-quality” filled labels were not validated as better targets. The June cross-scroll specification records overfilled masks (89–97% ink, against 0.057–0.079 for `inklabels.png`) being set aside. The old editing commands are now retired in favor of [reviewable proposals](LABEL_EDIT_PROPOSALS.md); their existence and filename priority do not establish quality.
 
 - **Cycle-level data lives elsewhere.** This file is intent-level; for the actual per-cycle history, `results.tsv`, `autoresearch_history.json`, and `sprint_logs/sprint_log_YYYY-MM-DD_*_{day,night}_shift.md` are the authoritative records.
 - **`val_bpb` regime shift on 2026-05-03.** Entries dated *before* 2026-05-03 reference `val_bpb` numbers from the pre-`c9f578f` evaluation pipeline, which had a documented zero-Dice validation wall (sparse validation regions producing artificially low loss values). After commit `c9f578f` introduced ink-aware sampling + Dynamic Threshold Search, the same loop on `PHercParis2Fr143` settles at `val_bpb ≈ 0.4145`. Pre- and post-2026-05-03 numbers are not directly comparable. See [`PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md`](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) for the methodology annotation.

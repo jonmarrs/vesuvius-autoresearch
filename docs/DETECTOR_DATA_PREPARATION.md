@@ -34,7 +34,9 @@ would erase their signal. The scale remains **uint16 // 256**, with the detector
 existing clipping to 200 applied later by its loader. Labels are copied byte for
 byte; grayscale soft labels are preserved.
 
-Each image is limited to 67,108,864 pixels. `--max-pixels` can lower that limit.
+Each image is limited to 167,772,160 pixels, enough for the 14830 × 9506
+PHercParis2Fr143 fragment and below Pillow's own refusal. `--max-pixels` can
+lower that limit.
 Each encoded source is limited to `4 * max_pixels + 1 MiB`; a conversion selects
 at most 512 layers. Processing and source rechecks proceed one file at a time,
 so memory scales with a plane, not with the complete volume. There is no measured
@@ -48,7 +50,9 @@ conversion preserves the previous fragment. A rebuild replaces the converter's
 entire managed generation, so obsolete layer files are removed together.
 
 The destination fragment may contain only `layers/NN.tif`, the canonical
-`<id>_inklabels.png`, `<id>_mask.png`, and `conversion.json`. Unrelated files,
+`<id>_inklabels.png`, `<id>_mask.png`, and `conversion.json`, plus the hidden
+`.<name>.part` files an interrupted run of the previous converter left beside
+them, which a rebuild removes with the rest of the generation. Unrelated files,
 annotations, alternate labels and symlinks block replacement; choose a new
 destination root to keep those files. Source and destination fragments must be
 disjoint. IDs must be single directory names.
@@ -71,9 +75,11 @@ does not need permission to change that directory's parent link.
 an ambient `convert_fragment` module to Python's import path. It validates the
 requested images' bit depth and geometry before reusing them. A present
 completion manifest must cover the requested range and match those output bytes;
-a damaged or stale manifest blocks reuse. Existing native/legacy layouts with
-one `*inklabels.*` file remain usable after image checks, and are reported as
-**legacy image checks; no source provenance**.
+a damaged or stale manifest blocks reuse, and an image that cannot be decoded
+reads as `NEEDS_CONVERSION`. Existing native/legacy layouts with one
+`*inklabels.*` file remain usable after image checks, and are reported as
+**legacy image checks; no source provenance**. Hidden files are not labels, as
+for the loader.
 
 `READY` verifies the prepared files at check time. It does not reread the original
 sources, prove that they are still current, authenticate a manifest, prove
