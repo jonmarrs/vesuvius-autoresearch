@@ -155,6 +155,11 @@ unmaintained and fetch raw CT, TIFF layers or label PNGs, not these zarrs; the
 `download_data.py --fragment 4` this guide used to give names a moved script,
 downloads nothing and exits 0.
 
+Those filename priorities do not establish label quality. The old bulk
+refinement and spiral-region filling commands are retired. Use the
+[label edit proposal workflow](docs/LABEL_EDIT_PROPOSALS.md) to inspect bounded
+2D edits with before/after images and provenance before a separate data change.
+
 **Score the incumbent before the first start.** The loop compares each cycle
 with the val_f1 stored in `best_model.pt`, and starts only if that score was
 measured under the current validation protocol (`scripts/training/promotion.py`,

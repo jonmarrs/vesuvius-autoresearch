@@ -1,85 +1,85 @@
 #!/usr/bin/env python3
-"""
-Vesuvius Autoresearch: Label Hole Filling Pipeline
-Wraps the vesuvius/scripts/fill_inner_outer_labels.py from the ScrollPrize/villa submodule.
-This script cleans and fills gaps in our ink labels (inklabels.png) to ensure
-the training swarm optimizes against high-quality, continuous strokes.
-
-Usage:
-  uv run scripts/preprocess_labels.py --input path/to/inklabels.png --output path/to/filled_labels.png
-"""
+"""Create a review bundle of bounded 2D hole-fill proposals; never adopt labels."""
 
 import argparse
-import os
+import json
 import sys
+from pathlib import Path
 
-import cv2
-
-# Add villa path for imports
-vesuvius_src_path = os.path.abspath("villa/vesuvius/src")
-sys.path.append(vesuvius_src_path)
-
-try:
-    from vesuvius.scripts.fill_inner_outer_labels import (
-        detect_inner_region,
-        detect_outer_region,
-    )
-except ImportError:
-    print("Error: Could not import detection functions from villa submodule.")
-    sys.exit(1)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(REPO_ROOT), str(REPO_ROOT / "src")]
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Fill holes in Vesuvius ink labels")
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, required=True, help="bounded binary PNG")
     parser.add_argument(
-        "--input", type=str, required=True, help="Path to raw inklabels.png"
+        "--out",
+        "--output",
+        type=Path,
+        required=True,
+        help="new review directory outside source folders",
     )
     parser.add_argument(
-        "--output", type=str, required=True, help="Output path for filled labels"
+        "--region-mask",
+        type=Path,
+        help="binary PNG declaring pixels eligible for proposed edits",
     )
+    parser.add_argument("--max-hole-pixels", type=int, default=16)
+    parser.add_argument("--max-added-pixels", type=int, default=4096)
     parser.add_argument(
-        "--fill-value", type=int, default=255, help="Value to fill (default 255)"
+        "--connectivity",
+        type=int,
+        choices=(4, 8),
+        default=8,
+        help="background connectivity",
     )
+    parser.add_argument("--max-pixels", type=int, default=2048**2)
     parser.add_argument(
-        "--alpha", type=float, default=0.005, help="Alpha for outer detection"
+        "--dry-run",
+        action="store_true",
+        help="compute the bounded proposal and print JSON; create no output",
     )
-    parser.add_argument(
-        "--skip-outer", action="store_true", help="Skip outer region filling"
-    )
-    parser.add_argument(
-        "--skip-inner", action="store_true", help="Skip inner region filling"
-    )
-    args = parser.parse_args()
+    parser.add_argument("--alpha", help=argparse.SUPPRESS)
+    parser.add_argument("--fill-value", help=argparse.SUPPRESS)
+    parser.add_argument("--skip-inner", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--skip-outer", action="store_true", help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    if (
+        args.alpha is not None
+        or args.fill_value is not None
+        or args.skip_inner
+        or args.skip_outer
+    ):
+        parser.error(
+            "spiral inner/outer filling flags are retired for ink PNGs; see docs/LABEL_EDIT_PROPOSALS.md"
+        )
+    # --help and retired options need neither scientific packages nor Villa.
+    from scripts.label_edit_proposals import create_proposal
 
-    print("--- Vesuvius Autoresearch Label Hole Filling (Direct PNG) ---")
-    print(f"Input: {args.input}")
-    print(f"Output: {args.output}")
-
-    label_img = cv2.imread(args.input, cv2.IMREAD_GRAYSCALE)
-    if label_img is None:
-        print(f"Error: Could not read {args.input}")
-        sys.exit(1)
-
-    # Initialize output with original labels
-    filled_labels = label_img.copy()
-
-    if not args.skip_outer:
-        print(f"Detecting outer regions (alpha={args.alpha})...")
-        outer_mask = detect_outer_region(label_img, alpha=args.alpha, max_points=10000)
-        if outer_mask is not None:
-            filled_labels[outer_mask] = args.fill_value
-            print(f"  Filled {outer_mask.sum()} outer pixels.")
-
-    if not args.skip_inner:
-        print("Detecting inner regions...")
-        inner_mask = detect_inner_region(label_img)
-        if inner_mask is not None:
-            filled_labels[inner_mask] = args.fill_value
-            print(f"  Filled {inner_mask.sum()} inner pixels.")
-
-    cv2.imwrite(args.output, filled_labels)
-    print(f"\nSuccess! Filled labels saved to {args.output}")
+    try:
+        report = create_proposal(
+            args.input,
+            args.out,
+            region_mask=args.region_mask,
+            max_hole_pixels=args.max_hole_pixels,
+            max_added_pixels=args.max_added_pixels,
+            connectivity=args.connectivity,
+            max_pixels=args.max_pixels,
+            dry_run=args.dry_run,
+        )
+    except (OSError, ValueError) as exc:
+        print(f"Label proposal failed: {exc}", file=sys.stderr)
+        return 1
+    if args.dry_run:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print(f"PROPOSAL_ONLY: {args.out.resolve() / 'review.md'}")
+        print(
+            f"Added {report['counts']['added_pixels']} pixels; training targets have not been adopted."
+        )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
