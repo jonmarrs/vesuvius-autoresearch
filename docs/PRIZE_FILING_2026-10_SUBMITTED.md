@@ -23,6 +23,9 @@ remains unsubmitted in this workflow. Earlier readiness snapshots and the
 [frozen engineering preparation](PRIZE_FILING_2026-10_FORM_ANSWERS.md) remain
 unchanged records of preparation; this file records the completed engineering
 filing. No duplicate response or response edit was made for this record.
+Villa #2141 and #2259 merged on October 30, after this response, and were
+filed on October 31 as a [second response](PRIZE_FILING_2026-10_SECOND_SUBMITTED.md)
+that names this one.
 
 ## URL field as received
 
