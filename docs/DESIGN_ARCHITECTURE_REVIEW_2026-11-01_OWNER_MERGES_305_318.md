@@ -39,6 +39,8 @@ their findings before acting on it.
   - A label over Pillow's limit raised `DecompressionBombError`, which is not an `OSError`. Segment 20231022170901's
     6656 × 35840 label is one.
   - Both are now input errors, so the CLI exits 1 with its message. The tests fail on #315's code.
+  - The label test pins Pillow's default limit. Importing `core/vesuvius_loader.py` sets it to `None` for the whole
+    process, so in the full suite the label opens.
 - **Layer files not in `download.json` moved the depth window** (#315).
   - The centered window is taken over every local layer, but only the selected layers were checked against the
     record.
@@ -127,6 +129,8 @@ their findings before acting on it.
   - **Smaller limits:**
     - The fixed 512 MiB per-file limit is below the downloader's 2 GiB maximum.
     - Bad option values exit 1, where the guide reserves 2 for usage errors.
+  - **Pillow's limit depends on what the process imported.** The detector loader lifts it at import, so the
+    converter refuses an oversized label in its own process but reads it in one that imported the loader.
   - **Two-step centering.** Downloading 27 layers and then converting 26 can select one plane off from centering 26
     directly.
   - **Untested guards:**
@@ -164,7 +168,9 @@ their findings before acting on it.
   - Detector report tests: 70 passed.
 - **Each fix and new guard test checked against its code.** Ten mutants in `repro/sota_data` and eight in the
   detector reports and CLI were each caught by the intended new test. Reverting each fix fails its test.
-- **The checks.** Ruff 0.9.10 `check` and `format` are clean on the changed Python files. MYPY
+- **The checks.** Ruff 0.9.10 `check` and `format` are clean on the changed Python files. Mypy is clean over
+  the whole repository (869 files).
 - **The standard suite** SUITE
-- **The test modules outside the suite** OUTSIDE
+- **The 231 test modules outside the suite** give 2,107 passed, 80 skipped, 13 failed and 21 collection errors: the
+  same failures as round #139. #318 added the one new module, whose 6 tests pass.
 - **The doc audit** AUDIT

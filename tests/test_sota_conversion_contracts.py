@@ -461,12 +461,17 @@ def test_a_layer_that_is_not_a_tiff_is_an_input_error(tmp_path, capsys):
     assert "not a readable TIFF" in capsys.readouterr().err
 
 
-def test_a_label_over_pillows_pixel_limit_is_an_input_error(tmp_path, capsys):
+def test_a_label_over_pillows_pixel_limit_is_an_input_error(
+    tmp_path, capsys, monkeypatch
+):
     """6656 x 35840 is the label of segment 20231022170901
     (reports/detector/orientation_probe_2026-07-11.md); only headers are read."""
     import struct
     import zlib
 
+    # Pillow's default, as in the converter's own process. Importing the detector
+    # loader (core/vesuvius_loader.py) lifts the limit for the whole process.
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1024 * 1024 * 1024 // 4 // 3)
     shape = (6656, 35840)
     source = tmp_path / "source"
     (source / "layers").mkdir(parents=True)
