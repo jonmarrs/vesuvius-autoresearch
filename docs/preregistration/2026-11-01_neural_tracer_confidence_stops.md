@@ -2,6 +2,8 @@
 
 **Written 2026-11-01, before any stop was compared with the ground truth.** CPU only, on runs already made: no new
 tracing, no GPU, no download. The script is `scripts/neural_tracer_confidence_stops.py`, committed with this file.
+**Pushed at 06:57 PST (d2e912a7); run 07:04–07:45 PST: finding 101, `reports/neural_tracer_confidence_stops.md`. The
+gate passed on all 21 cubes. P1 and P2 held, P3 missed (median G 0.083): the rule closes the line.**
 
 ## The question
 
