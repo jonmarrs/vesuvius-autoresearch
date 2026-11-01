@@ -170,7 +170,10 @@ their findings before acting on it.
   detector reports and CLI were each caught by the intended new test. Reverting each fix fails its test.
 - **The checks.** Ruff 0.9.10 `check` and `format` are clean on the changed Python files. Mypy is clean over
   the whole repository (869 files).
-- **The standard suite** SUITE
+- **The standard suite** gives the same failures as round #139's merged run:
+  - the 43 standing failures, from `s3fs`, `numba`, `jsonschema` and Villa files absent here;
+  - the 14 SDK cases that need `s3fs`;
+  - the 2 modules that cannot be collected (`tensorstore`, `s3fs`).
 - **The 231 test modules outside the suite** give 2,107 passed, 80 skipped, 13 failed and 21 collection errors: the
   same failures as round #139. #318 added the one new module, whose 6 tests pass.
-- **The doc audit** AUDIT
+- **The doc audit** finds no new unresolved reference.
