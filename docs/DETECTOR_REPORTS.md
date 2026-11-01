@@ -74,7 +74,8 @@ Caught publication errors restore the previous files, their permission modes and
 previously absent files' absence. An interrupted write before publication leaves
 all previous reports intact. Existing symlink/special-file targets, a symlink
 report directory and output/checkpoint aliases are refused. Output path/type/size
-checks run before expensive CLI evaluation or measurement inference. Names stay
+checks run before expensive CLI evaluation or measurement inference, and
+`reproduce` runs them before conversion and training. Names stay
 inside the selected local report directory. Unrelated files are preserved.
 
 If rollback also fails, the error names a retained `.detector-report-*` recovery

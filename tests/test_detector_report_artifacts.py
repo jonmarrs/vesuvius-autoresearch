@@ -494,3 +494,98 @@ assert not {{'numpy', 'torch', 'cv2', 'PIL'}}.intersection(sys.modules)
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["report_status"] == "COMPLETE"
+
+
+def test_reproduce_checks_the_report_directory_before_converting_or_training(
+    tmp_path, monkeypatch
+):
+    from vesuvius_autoresearch.detector import cli
+
+    training = importlib.import_module("vesuvius_autoresearch.detector.train")
+    calls = []
+    monkeypatch.setattr(cli, "_ensure_converted", lambda cfg: calls.append("convert"))
+    monkeypatch.setattr(training, "train", lambda cfg: calls.append("train"))
+    path = tmp_path / "reports"
+    path.write_bytes(b"unrelated file")
+    with pytest.raises(ValueError, match="directory"):
+        cli._reproduce(DetectorConfig(reports_dir=str(path)))
+    assert calls == []
+    assert path.read_bytes() == b"unrelated file"
+
+
+def test_failed_rollback_after_the_new_marker_is_installed_hides_it(
+    tmp_path, monkeypatch
+):
+    _old(tmp_path)
+    real = os.replace
+
+    def replace(source, target):
+        if Path(source).parent.name == "previous":
+            raise OSError("cannot restore previous file")
+        result = real(source, target)
+        if Path(source).parent.name == "staged" and Path(source).name == MARKER:
+            raise OSError("failure after the new marker was installed")
+        return result
+
+    monkeypatch.setattr(ra.os, "replace", replace)
+    with pytest.raises(RuntimeError, match="retain recovery files"):
+        _evaluate(tmp_path)
+    # The new marker must not vouch for payloads the failed rollback left behind.
+    assert not (tmp_path / MARKER).exists()
+
+
+def _tampered(marker, **changes):
+    record = json.loads(marker.read_text())
+    record.update(changes)
+    marker.write_text(json.dumps(record))
+    return marker
+
+
+@pytest.mark.parametrize(
+    "changes,message",
+    [
+        ({"report_status": "COMPLETE"}, "disagrees"),
+        ({"target_count": 5}, "target counts"),
+    ],
+)
+def test_checker_rejects_measurement_status_or_counts_that_do_not_agree(
+    tmp_path, monkeypatch, changes, message
+):
+    _measure(tmp_path, monkeypatch, ("two",))
+    marker = tmp_path / "cross_scroll_measurement_manifest.json"
+    with pytest.raises(ValueError, match=message):
+        ra.check_report(_tampered(marker, **changes))
+
+
+@pytest.mark.parametrize(
+    "changes,message",
+    [
+        ({"created_at_utc": "2026-10-31T00:00:00"}, "UTC"),
+        ({"artifact_contract": 2}, "unsupported report contract"),
+    ],
+)
+def test_checker_rejects_a_naive_time_or_another_contract(tmp_path, changes, message):
+    _evaluate(tmp_path)
+    with pytest.raises(ValueError, match=message):
+        ra.check_report(_tampered(tmp_path / MARKER, **changes))
+
+
+def test_publication_refuses_payloads_or_a_marker_over_the_budget(tmp_path):
+    payloads = {name: b"" for name in NAMES[:2]}
+    with pytest.raises(ValueError, match="budget"):
+        ra.publish_report(
+            tmp_path,
+            {**payloads, NAMES[0]: b"x" * (ra.MAX_FILE_BYTES + 1)},
+            MARKER,
+            {"report_status": "COMPLETE"},
+            "detector_evaluation",
+        )
+    with pytest.raises(ValueError, match="marker exceeds"):
+        ra.publish_report(
+            tmp_path,
+            payloads,
+            MARKER,
+            {"report_status": "COMPLETE", "pad": "x" * ra.MAX_MARKER_BYTES},
+            "detector_evaluation",
+        )
+    assert not list(tmp_path.iterdir())

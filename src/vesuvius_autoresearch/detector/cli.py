@@ -85,8 +85,16 @@ def _reproduce(cfg):
     uniform blend; this does not repeat that selection. The checkpoint scored is
     printed, and named in the scorecard.
     """
+    from vesuvius_autoresearch.core.report_artifacts import report_output
+
     from .train import train
 
+    # Check the report targets before conversion and hours of training, not after.
+    report_output(
+        cfg.reports_dir,
+        f"{cfg.valid_fragment_id}_scorecard.json",
+        "detector_evaluation",
+    )
     _ensure_converted(cfg)
     ckpt = train(cfg)
     card = _eval_fragment(cfg, ckpt, cfg.valid_fragment_id)

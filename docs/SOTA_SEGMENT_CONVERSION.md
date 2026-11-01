@@ -84,8 +84,10 @@ Each consumed source is hashed and decoded from the **same captured bytes**.
 When `download.json` exists, its contract/status/path identities are validated and
 each consumed layer/label/mask must match its recorded byte count and SHA-256.
 The label/mask selection must also match the record; deleting a downloaded mask
-cannot silently substitute an all-valid mask.
-Unconsumed raw layers and downloader tool captures are outside that check's
+cannot silently substitute an all-valid mask. The local layer files must be exactly
+the recorded ones: the centered window is taken over all of them, so an added or
+deleted layer would otherwise move it while every consumed file still verified.
+Unconsumed layers' bytes and downloader tool captures are outside that check's
 scope. Legacy sources without a download record remain supported and explicitly
 record `download_consumed_hashes_verified: false`.
 

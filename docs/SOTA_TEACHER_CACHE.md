@@ -66,8 +66,10 @@ metadata checked before payload transfer. SDK listing buffers, HTTP/retry traffi
 and disk reservation are outside these limits.
 
 Before publication, the TIFF header must describe one nonempty scalar 2D image,
-at most **536,870,912 pixels**, with uint8, uint16 or float16/32/64 samples. Color,
-stacks and signed/unsupported types fail. This is a header check; downloading does
+at most **4,294,967,296 pixels**, with uint8, uint16 or float16/32/64 samples. The
+largest teacher the distillation runners recorded is 34880 x 97280 (3,393,126,400
+pixels). Color, stacks, signed/unsupported types and files that are not TIFFs fail
+as input errors. This is a header check; downloading does
 not certify finite or meaningful model probabilities.
 
 `read_teacher(path)` checks a present bundle record, captures at most 8 GiB of
