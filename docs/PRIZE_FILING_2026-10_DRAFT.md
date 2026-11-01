@@ -70,8 +70,8 @@ clipped "#1780" to "#17".
    on 2026-10-19, and 0.8.2 (the placement note on five in-sample cubes, #157, and the tolerance note, finding 94) on
    2026-10-20. 0.8.3 (the seed-rule note on the 256³ cubes, findings 96–97) and 0.9.0 (the scan around each cube,
    findings 97–98) were merged on 2026-10-24 and tagged together as v0.9.0. The URL field cites
-   `tree/v0.9.0`; the test binds the cite to ScrollGT's newest tag, so a later
-   release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
+   `tree/v0.9.0`; the test binds the cite to ScrollGT's newest tag made by the October deadline (v0.9.1), so
+   a release after the deadline leaves this month's draft unchanged. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
    (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20, findings 95–97 on 2026-10-23, finding 98
    on 2026-10-24, and findings 99 and 100 on 2026-10-25.
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
