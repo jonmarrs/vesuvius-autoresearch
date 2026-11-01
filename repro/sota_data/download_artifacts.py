@@ -151,7 +151,8 @@ def build_plan(filesystem, prefix, options):
         raise ValueError("combined listing exceeds max_entries")
     layers = []
     for name, entry in layer_entries.items():
-        if name.endswith(".tif"):
+        # Hidden files are ignored, as the converter ignores them.
+        if name.endswith(".tif") and not name.startswith("."):
             if not re.fullmatch(r"[0-9]+\.tif", name) or entry["type"] != "file":
                 raise ValueError(
                     "layer TIFF names must be direct files with integer depth indices"

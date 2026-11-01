@@ -570,3 +570,26 @@ sys.argv=[sys.argv[1],'--help'];runpy.run_path(sys.argv[0],run_name='__main__')
     )
     assert result.returncode == 0, result.stderr
     assert "--center-layers" in result.stdout and "--dry-run" in result.stdout
+
+
+def test_hidden_layer_files_are_ignored_as_the_converter_ignores_them(bucket, tmp_path):
+    fs, _, base = bucket
+    fs.pipe(base + "/layers/._00.tif", b"AppleDouble metadata")
+    selected = plan(bucket, tmp_path)
+    assert selected["selected_depth_indices"] == list(range(8))
+    assert selected["ignored_layer_entries"] == 1
+
+
+def test_the_combined_listing_budget_is_enforced(bucket, tmp_path):
+    # 3 root and 8 layer entries: each listing fits 10, together they do not.
+    with pytest.raises(ValueError, match="combined"):
+        plan(bucket, tmp_path, max_entries=10)
+
+
+def test_one_file_cannot_be_both_the_label_and_the_mask(bucket, tmp_path):
+    fs, _, base = bucket
+    fs.rm(base + "/segment_inklabels.png")
+    fs.rm(base + "/segment_mask.png")
+    fs.pipe(base + "/segment_inklabels_mask.png", b"both")
+    with pytest.raises(ValueError, match="unambiguous"):
+        plan(bucket, tmp_path)

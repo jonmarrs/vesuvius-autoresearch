@@ -437,3 +437,69 @@ assert not {'numpy','cv2','tifffile','torch','s3fs'}.intersection(sys.modules)
     )
     assert result.returncode == 0, result.stderr
     assert "--float-encoding" in result.stdout
+
+
+def _cli(source, tmp_path, *extra):
+    return main(
+        [
+            "--src",
+            str(source),
+            "--segment",
+            "s",
+            "--out-root",
+            str(tmp_path / "out"),
+            "--dry-run",
+            *extra,
+        ]
+    )
+
+
+def test_a_layer_that_is_not_a_tiff_is_an_input_error(tmp_path, capsys):
+    source = _source(tmp_path)
+    (source / "layers/1.tif").write_bytes(b"<html>503 Service Unavailable</html>")
+    assert _cli(source, tmp_path, "--layers", "2") == 1
+    assert "not a readable TIFF" in capsys.readouterr().err
+
+
+def test_a_label_over_pillows_pixel_limit_is_an_input_error(tmp_path, capsys):
+    """6656 x 35840 is the label of segment 20231022170901
+    (reports/detector/orientation_probe_2026-07-11.md); only headers are read."""
+    import struct
+    import zlib
+
+    shape = (6656, 35840)
+    source = tmp_path / "source"
+    (source / "layers").mkdir(parents=True)
+    written = io.BytesIO()
+    tifffile.imwrite(written, np.zeros((4, 4), np.uint8))
+    layer = io.BytesIO(written.getvalue())
+    with tifffile.TiffFile(layer, mode="r+b") as image:
+        image.pages[0].tags["ImageLength"].overwrite(shape[0])
+        image.pages[0].tags["ImageWidth"].overwrite(shape[1])
+    (source / "layers/0.tif").write_bytes(layer.getvalue())
+
+    def chunk(kind, body):
+        crc = struct.pack(">I", zlib.crc32(kind + body))
+        return struct.pack(">I", len(body)) + kind + body + crc
+
+    header = struct.pack(">IIBBBBB", shape[1], shape[0], 8, 0, 0, 0, 0)
+    (source / "s_inklabels.png").write_bytes(
+        b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IEND", b"")
+    )
+    assert _cli(source, tmp_path, "--layers", "1", "--max-voxels", "536870912") == 1
+    assert "label file unreadable" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("change", ["added", "deleted"])
+def test_layer_files_must_be_the_downloaded_ones(tmp_path, change):
+    """The centred window is taken over every local layer: an added or deleted
+    unselected layer would move it while every consumed file still verifies."""
+    source = _source(tmp_path, np.zeros((4, 4, 5), np.uint8))
+    _record(source)
+    if change == "added":
+        tifffile.imwrite(source / "layers/4.tif", np.zeros((4, 5), np.uint8))
+    else:
+        (source / "layers/3.tif").unlink()  # outside the centred pair 1, 2
+    with pytest.raises(ValueError, match="layer files disagree with download.json"):
+        convert_surface_volume(source, "s", tmp_path / "out", n_layers=2)
+    assert not (tmp_path / "out").exists()

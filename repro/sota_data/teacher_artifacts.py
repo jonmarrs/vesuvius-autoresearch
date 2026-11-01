@@ -16,7 +16,9 @@ from .fragment import resolve_float_encoding
 
 DEFAULT_MAX_BYTES = 2 * 1024**3
 MAX_BYTES = 8 * 1024**3
-MAX_PIXELS = 512 * 1024**2
+# The largest teacher the distillation runners recorded is 34880 x 97280 = 3,393,126,400
+# pixels (reports/detector/sota_distill_measurement.json).
+MAX_PIXELS = 4 * 1024**3
 
 
 def _budget(value):
@@ -26,7 +28,11 @@ def _budget(value):
 
 
 def _header(source):
-    with tifffile.TiffFile(source) as image:
+    try:
+        image = tifffile.TiffFile(source)
+    except tifffile.TiffFileError as exc:  # an Exception, not a ValueError
+        raise ValueError(f"teacher is not a readable TIFF: {exc}") from exc
+    with image:
         if len(image.pages) != 1 or len(image.series) != 1:
             raise ValueError("teacher must be one scalar 2D TIFF, not a stack")
         page = image.pages[0]

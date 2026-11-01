@@ -50,7 +50,8 @@ peak-memory benchmark is claimed.
 
 Nested caches, Zarr trees and unrelated files are not downloaded. Layer indices
 must be unique and the selected indices consecutive. Root label/mask matching
-uses the converter's case-sensitive, non-hidden filename behavior. Ambiguous
+uses the converter's case-sensitive, non-hidden filename behavior, and hidden
+files in `layers/` are ignored, as the converter ignores them. Ambiguous
 labels/masks and matching directory entries fail before any payloads. Missing
 masks remain explicitly absent; the download does not invent one.
 

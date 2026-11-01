@@ -229,7 +229,8 @@ def test_teacher_pixel_budget_is_checked_before_decoding(tmp_path, monkeypatch):
     path = tmp_path / "oversized.tif"
     tifffile.imwrite(path, np.zeros((4, 4), np.uint8))
     with tifffile.TiffFile(path, mode="r+b") as image:
-        image.pages[0].tags["ImageLength"].overwrite(ta.MAX_PIXELS + 1)
+        # 4 columns, so one more row than the budget allows (a uint32 tag).
+        image.pages[0].tags["ImageLength"].overwrite(ta.MAX_PIXELS // 4 + 1)
     monkeypatch.setattr(
         tifffile,
         "imread",
@@ -435,3 +436,73 @@ assert not {'numpy', 'tifffile', 'cv2', 'torch', 's3fs'}.intersection(sys.module
     )
     assert result.returncode == 0, result.stderr
     assert "--dry-run" in result.stdout and "--source" in result.stdout
+
+
+def _claiming(shape):
+    """A small TIFF whose header claims `shape`: headers are checked, never decoded."""
+    written = io.BytesIO()
+    tifffile.imwrite(written, np.zeros((4, 4), np.uint8))
+    buffer = io.BytesIO(written.getvalue())
+    with tifffile.TiffFile(buffer, mode="r+b") as image:
+        image.pages[0].tags["ImageLength"].overwrite(shape[0])
+        image.pages[0].tags["ImageWidth"].overwrite(shape[1])
+    return buffer.getvalue()
+
+
+# The teachers recorded in reports/detector/sota_distill_measurement.json and
+# cross_scroll_distill.json; the largest is 34880 x 97280 = 3,393,126,400 pixels.
+@pytest.mark.parametrize("shape", [(34880, 97280), (41600, 79600), (51000, 39980)])
+def test_the_runners_recorded_teachers_fit_the_pixel_budget(bucket, tmp_path, shape):
+    fs, prefix = bucket
+    fs.pipe(prefix + "/prediction.tif", _claiming(shape))
+    path = Path(_fetch(bucket, tmp_path))
+    assert json.loads((path.parent / "teacher.json").read_text())["header"][
+        "shape"
+    ] == list(shape)
+
+
+def test_an_object_that_is_not_a_tiff_is_an_input_error(bucket, tmp_path):
+    fs, prefix = bucket
+    fs.pipe(prefix + "/prediction.tif", b"<html>error page</html>")
+    with pytest.raises(ValueError, match="not a readable TIFF"):
+        _fetch(bucket, tmp_path)
+    assert not (tmp_path / "cache").exists()
+
+
+def test_a_same_size_corrupted_cache_is_an_input_error(bucket, tmp_path):
+    path = Path(_fetch(bucket, tmp_path))
+    path.write_bytes(b"\0" * path.stat().st_size)
+    with pytest.raises(ValueError):
+        _fetch(bucket, tmp_path)
+    with pytest.raises(ValueError):
+        ta.read_teacher(path)
+
+
+def test_a_repixelled_bundle_disagrees_with_its_record(bucket, tmp_path):
+    path = Path(_fetch(bucket, tmp_path))
+    size = path.stat().st_size
+    tifffile.imwrite(path, np.full((8, 8), 7, np.uint8))
+    assert path.stat().st_size == size
+    with pytest.raises(ValueError, match="disagree"):
+        ta.read_teacher(path)
+
+
+def test_a_same_name_replacement_during_download_is_refused(
+    bucket, tmp_path, monkeypatch
+):
+    fs, prefix = bucket
+    original, calls = ta.plan_teacher, 0
+
+    def plan(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            buffer = io.BytesIO()
+            tifffile.imwrite(buffer, np.full((16, 16), 9, np.uint8))
+            fs.pipe(prefix + "/prediction.tif", buffer.getvalue())
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ta, "plan_teacher", plan)
+    with pytest.raises(ValueError, match="changed during download"):
+        _fetch(bucket, tmp_path)
+    assert not (tmp_path / "cache").exists()

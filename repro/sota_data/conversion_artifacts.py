@@ -44,7 +44,11 @@ def _capture(path, maximum=MAX_FILE_BYTES):
 
 
 def _tiff_header(source):
-    with tifffile.TiffFile(source) as image:
+    try:
+        image = tifffile.TiffFile(source)
+    except tifffile.TiffFileError as exc:  # an Exception, not a ValueError
+        raise ValueError(f"layer is not a readable TIFF: {exc}") from exc
+    with image:
         if len(image.series) != 1 or len(image.pages) != 1:
             raise ValueError("layer must be a single 2D grayscale TIFF")
         page = image.pages[0]
@@ -71,8 +75,9 @@ def _image_header(source, what):
             ):
                 raise ValueError(f"{what} must be a single uint8 grayscale image")
             return list(reversed(image.size))
-    except OSError as exc:
-        raise ValueError(f"{what} file unreadable") from exc
+    # Pillow refuses images over twice its pixel limit with an Exception, not OSError.
+    except (OSError, Image.DecompressionBombError) as exc:
+        raise ValueError(f"{what} file unreadable: {exc}") from exc
 
 
 def _selection(source, count):
@@ -248,6 +253,15 @@ def build_plan(
             entry["relative_path"] for entry in entries[n_layers:]
         }:
             raise ValueError("supervision selection disagrees with download.json")
+        # The centred window is taken over every local layer, so an added or
+        # deleted layer would move it while the consumed files still verify.
+        local_layers = {
+            f"layers/{path.name}"
+            for path in (source / "layers").glob("*.tif")
+            if not path.name.startswith(".")
+        }
+        if local_layers != {name for name in expected if name.startswith("layers/")}:
+            raise ValueError("layer files disagree with download.json")
     return {
         "contract": 1,
         "status": "HEADER_PLAN_ONLY",
