@@ -7,6 +7,7 @@ committed JSON and asserts the draft states it.
 
 import json
 import statistics
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -246,25 +247,60 @@ def test_fiber_heldout_numbers_match_finding_83():
     assert "Twenty-three of my registered predictions failed" in txt
 
 
-def test_scrollgt_cite_is_its_newest_tag():
-    """The URL field cited v0.4.1 after v0.5.0 was tagged; tie it to the sibling checkout's newest tag."""
+def _october_deadline() -> datetime:
+    record = _REPO / "reports/evidence/october_prize_submission_2026-10-30.json"
+    return datetime.fromisoformat(json.loads(record.read_text())["deadline_utc"])
+
+
+def _tags_made_by(repo: Path, cutoff: datetime) -> list:
+    """The repo's v* tags created at or before `cutoff`, newest version first ([] without a checkout)."""
     import subprocess
 
-    sg = main_checkout().parent / "scrollgt"
     try:
         out = subprocess.run(
-            ["git", "-C", str(sg), "tag", "--list", "v*", "--sort=-v:refname"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.split()
+            ["git", "-C", str(repo), "for-each-ref", "--sort=-v:refname",
+             "--format=%(refname:short) %(creatordate:unix)", "refs/tags/v*"],
+            capture_output=True, text=True, check=True,
+        ).stdout.split("\n")  # fmt: skip
     except (OSError, subprocess.CalledProcessError):
-        out = []
-    if not out:
+        return []
+    rows = [line.split() for line in out if line]
+    return [tag for tag, made in rows if int(made) <= cutoff.timestamp()]
+
+
+def test_scrollgt_cite_is_its_newest_tag():
+    """The URL field cited v0.4.1 after v0.5.0 was tagged; tie it to the sibling checkout's newest tag
+    made by the October deadline, so a later release (v0.9.2) does not rewrite the filed month."""
+    tags = _tags_made_by(main_checkout().parent / "scrollgt", _october_deadline())
+    if not tags:
         pytest.skip("scrollgt checkout with tags not beside this repo")
     assert (
-        f"https://github.com/jonmarrs/scrollgt/tree/{out[0]}" in _DRAFT.read_text()
-    ), f"cite ScrollGT {out[0]}"
+        f"https://github.com/jonmarrs/scrollgt/tree/{tags[0]}" in _DRAFT.read_text()
+    ), f"cite ScrollGT {tags[0]}"
+
+
+def test_the_newest_tag_by_the_deadline_ignores_later_tags(tmp_path):
+    """A tag made after the October deadline (ScrollGT v0.9.2) must not unsettle the filed cite."""
+    import os
+    import subprocess
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+    def git(*args, date=None):
+        e = dict(env, GIT_COMMITTER_DATE=date) if date else env
+        subprocess.run(["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t", *args],
+                       check=True, capture_output=True, env=e)  # fmt: skip
+
+    git("init", "-q")
+    git("commit", "-q", "--allow-empty", "-m", "c")
+    git("tag", "-a", "v0.9.1", "-m", "a", date="2026-10-28T01:10:55+00:00")
+    git("tag", "-a", "v0.9.2", "-m", "b", date="2026-11-01T07:00:00+00:00")
+    deadline = _october_deadline()
+    assert _tags_made_by(tmp_path, deadline) == ["v0.9.1"]
+    assert (
+        _tags_made_by(tmp_path, datetime.fromisoformat("2026-11-02T00:00:00+00:00"))[0]
+        == "v0.9.2"
+    )
 
 
 def test_scrollgt_0_7_0_claims_match_its_released_data():
