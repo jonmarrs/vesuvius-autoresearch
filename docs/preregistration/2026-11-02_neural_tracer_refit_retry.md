@@ -93,8 +93,9 @@ Findings 91–102 developed on all 21. This is a development pilot, a screen, no
 
 Gains are over the baseline's ERLpen on the same cube, at tolerance 2 (ScrollGT `score_tracing`, scoring version 3).
 
-**What sets the sizes.** The retry can only add what lies past a confidence stop, and finding 102 bounds the gain from
-continuing along the right fiber at 0.314 at most, and 0.061 within 20 voxels of each stop. A retry that succeeds
+**What sets the sizes.** Directly, the retry adds only what lies past a confidence stop. Finding 102 puts the ceiling
+for continuing along the right fiber at a held-out median of 0.314 (0.149–0.479 by cube), and of 0.061 within 20 voxels
+of each stop. A retry that succeeds
 re-enters the ordinary loop, so it can go on for tens of voxels; one that fails ends the trace as before. **For:**
 villa built the retry for this failure. **Against:** finding 101 found most interior confidence stops already off the
 reference 20 voxels before they stop, so many retries would extend wrong traces; and a refit to the decision's own
