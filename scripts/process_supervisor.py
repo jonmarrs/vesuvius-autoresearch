@@ -90,7 +90,9 @@ class ProcessSupervisor:
         If the wait is interrupted, the group is killed before the exception
         propagates. Once SIGKILL is sent, a leader that is slow to be reaped no
         longer raises TimeoutExpired, which the loop would take for its run's
-        own timeout and carry on."""
+        own timeout and carry on, and stop() waits, bounded, for the rest of the
+        group as _kill does: it returned once the leader was reaped, with
+        workers still exiting."""
         if self.stopping is not None:
             self._kill(self.stopping)
             return
@@ -116,10 +118,9 @@ class ProcessSupervisor:
                     break
                 time.sleep(0.05)
             else:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
+                # Not only its leader: the rest of the group may still be exiting.
+                self._kill(process)
+                return
             self._reap(process)
         except BaseException:
             self._kill(process)
