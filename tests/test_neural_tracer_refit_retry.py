@@ -430,3 +430,29 @@ def test_p1_is_the_median_not_the_mean():
         rows["refit"][c][PEN] = 10 * (1.5 if i < 4 else 1.0)  # mean gain 0.2, median 0
     v = rr.verdict(rows, base, records)
     assert v["median_gain_held"] == 0 and v["prediction_P1"] is False
+
+
+UNSHIPPED = _REPO / "reports/evidence/fiber_skeletons_unshipped_2026-11-02.json"
+
+
+def test_the_confirmation_cubes_are_the_recorded_ten():
+    """The registration's confirmation set: Dataset004's cubes ScrollGT does not ship, as the evidence records them."""
+    ev = json.loads(UNSHIPPED.read_text())
+    un, txt = ev["unshipped"], REG.read_text()
+    flat = " ".join(txt.split())
+    assert ev["releases"]["Dataset004_sk-fibers-binary-20250728"]["nml_files"] == 31
+    assert ev["scrollgt"]["fiber_cubes"] == 21 and len(un) == 10
+    assert not set(un) & set(rr.ALL_CUBES)
+    for c, r in un.items():
+        assert (
+            f"| {c} | {r['first_release'][:10]} | {r['fibers_scored']} | {r['nodes_in_bounds']:,} |"
+            in txt
+        )
+    n2 = sum(r["first_release"].startswith("Dataset002") for r in un.values())
+    assert (n2, len(un) - n2) == (7, 3)
+    assert "holds 31 hand-traced cubes; ScrollGT ships 21" in flat
+    assert "The presence model trained on seven of them" in flat
+    assert (
+        "The other three first appear in Dataset003 (14 + 7), which does not match it"
+        in flat
+    )

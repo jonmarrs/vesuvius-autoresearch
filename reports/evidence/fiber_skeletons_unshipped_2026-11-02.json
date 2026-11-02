@@ -1,0 +1,171 @@
+{
+ "date": "2026-11-02",
+ "source": "https://dl.ash2txt.org/datasets/fiber-skeletons/ (directory listings of each release's nml/ and imagesTr/)",
+ "question": "Do villa's hand-traced fiber references hold cubes outside the 21 ScrollGT ships, which findings 91-102 developed on?",
+ "releases": {
+  "Dataset001_sk-fibers-20250124": {
+   "nml_files": 11,
+   "cubes_absent_from_scrollgt": []
+  },
+  "Dataset002_sk-fibers-hzvt-20250228": {
+   "nml_files": 18,
+   "cubes_absent_from_scrollgt": [
+    "s1_02494_01494_03994_512",
+    "s5_05497_01997_02997_256",
+    "s5_05497_02497_02497_256",
+    "s5_08994_02994_03994_512",
+    "s5_08997_02497_04997_256",
+    "s5_11497_05497_03997_256",
+    "s5_16997_03497_03997_256"
+   ]
+  },
+  "Dataset003_sk-fibers-hzvt-20250404": {
+   "nml_files": 21,
+   "cubes_absent_from_scrollgt": [
+    "s1_02494_01494_03994_512",
+    "s1_08994_02494_03494_512",
+    "s1_09997_02497_03497_256",
+    "s5_05497_01997_02997_256",
+    "s5_05497_02497_02497_256",
+    "s5_08994_02994_03994_512",
+    "s5_08997_02497_04997_256",
+    "s5_11497_05497_03997_256",
+    "s5_15494_04494_02494_512",
+    "s5_16997_03497_03997_256"
+   ]
+  },
+  "Dataset004_sk-fibers-binary-20250728": {
+   "nml_files": 31,
+   "cubes_absent_from_scrollgt": [
+    "s1_02494_01494_03994_512",
+    "s1_08994_02494_03494_512",
+    "s1_09997_02497_03497_256",
+    "s5_05497_01997_02997_256",
+    "s5_05497_02497_02497_256",
+    "s5_08994_02994_03994_512",
+    "s5_08997_02497_04997_256",
+    "s5_11497_05497_03997_256",
+    "s5_15494_04494_02494_512",
+    "s5_16997_03497_03997_256"
+   ]
+  }
+ },
+ "imagesTr_files": {
+  "Dataset001_sk-fibers-20250124": 11,
+  "Dataset002_sk-fibers-hzvt-20250228": 18,
+  "Dataset003_sk-fibers-hzvt-20250404": 21,
+  "Dataset004_sk-fibers-binary-20250728": 31
+ },
+ "scrollgt": {
+  "commit": "6d05d64",
+  "fiber_cubes": 21,
+  "first_release": {
+   "Dataset001_sk-fibers-20250124": 11,
+   "Dataset002_sk-fibers-hzvt-20250228": 0,
+   "Dataset003_sk-fibers-hzvt-20250404": 0,
+   "Dataset004_sk-fibers-binary-20250728": 10
+  }
+ },
+ "mask_training_fingerprint": "scrollprize/fiber_hz_vt: 18 cubes, 13 at 256^3 and 5 at 512^3 (finding 82), the composition of Dataset002 (13 + 5) and not of Dataset003 (14 + 7)",
+ "unshipped": {
+  "s1_02494_01494_03994_512": {
+   "first_release": "Dataset002_sk-fibers-hzvt-20250228",
+   "nml": "fibers_s1a_02494z_01494y_03994x_512_v01.nml",
+   "sha256": "08158b12e4e7ea9919b1e45c77bab8d34fe74c92e4a078bbe944736221caabbc",
+   "fibers": 674,
+   "fibers_scored": 664,
+   "nodes_in_bounds": 30698,
+   "voxel_size_um": 7.91
+  },
+  "s1_08994_02494_03494_512": {
+   "first_release": "Dataset003_sk-fibers-hzvt-20250404",
+   "nml": "fibers_s1a_08994z_02494y_03494x_512_v01.nml",
+   "sha256": "ac3e4ce198dd1190585afc157dccc01e9c41db01d11a1f7ff9df4463e425f99f",
+   "fibers": 696,
+   "fibers_scored": 686,
+   "nodes_in_bounds": 40912,
+   "voxel_size_um": 7.91
+  },
+  "s1_09997_02497_03497_256": {
+   "first_release": "Dataset003_sk-fibers-hzvt-20250404",
+   "nml": "fibers_s1a_09997z_02497y_03497x_256_v00.nml",
+   "sha256": "2e6377c131843281713c7d71dcc0c3f1189a860ecc509d0518013f4c889d1f48",
+   "fibers": 125,
+   "fibers_scored": 123,
+   "nodes_in_bounds": 2527,
+   "voxel_size_um": 7.91
+  },
+  "s5_05497_01997_02997_256": {
+   "first_release": "Dataset002_sk-fibers-hzvt-20250228",
+   "nml": "fibers_s5_05497z_01997y_02997x_256_v01.nml",
+   "sha256": "affbce7a420684f63926952357faa4540fdb1bf4b2a1bb5dcdeef4e21607e186",
+   "fibers": 153,
+   "fibers_scored": 140,
+   "nodes_in_bounds": 4420,
+   "voxel_size_um": 7.91
+  },
+  "s5_05497_02497_02497_256": {
+   "first_release": "Dataset002_sk-fibers-hzvt-20250228",
+   "nml": "fibers_s5_05497z_02497y_02497x_256_v00.nml",
+   "sha256": "d66fc2d33c47d282716389634e19aa64e7454a5c6485fa63cf23543b5e787c2f",
+   "fibers": 111,
+   "fibers_scored": 108,
+   "nodes_in_bounds": 2697,
+   "voxel_size_um": 7.91
+  },
+  "s5_08994_02994_03994_512": {
+   "first_release": "Dataset002_sk-fibers-hzvt-20250228",
+   "nml": "fibers_s5_08994z_02994y_03994x_512_v00.nml",
+   "sha256": "ff89cab79e990a5d91bb5823ed1607e0d6818f4ece0fe16ad3aad4ef2a2e04ed",
+   "fibers": 254,
+   "fibers_scored": 235,
+   "nodes_in_bounds": 6021,
+   "voxel_size_um": 7.91
+  },
+  "s5_08997_02497_04997_256": {
+   "first_release": "Dataset002_sk-fibers-hzvt-20250228",
+   "nml": "fibers_s5_08997z_02497y_04997x_256_v00.nml",
+   "sha256": "20c21c99a81cae5e2871be5a558fb1b6140020c9e62349723e0f58b86ac624b9",
+   "fibers": 121,
+   "fibers_scored": 120,
+   "nodes_in_bounds": 5237,
+   "voxel_size_um": 7.91
+  },
+  "s5_11497_05497_03997_256": {
+   "first_release": "Dataset002_sk-fibers-hzvt-20250228",
+   "nml": "fibers_s5_11497z_05497y_03997x_256_v00.nml",
+   "sha256": "a43fee7385b6589b8a976da6dfb3a054754864c518bc7953ca7029008542ad91",
+   "fibers": 148,
+   "fibers_scored": 148,
+   "nodes_in_bounds": 4927,
+   "voxel_size_um": 7.91
+  },
+  "s5_15494_04494_02494_512": {
+   "first_release": "Dataset003_sk-fibers-hzvt-20250404",
+   "nml": "fibers_s5_15494z_04494y_02494x_512_v01.nml",
+   "sha256": "d84fd73609f0f10052a8a580abc5f185b0af0ae25d7228d64e9a27375ac8508b",
+   "fibers": 900,
+   "fibers_scored": 877,
+   "nodes_in_bounds": 22196,
+   "voxel_size_um": 7.91
+  },
+  "s5_16997_03497_03997_256": {
+   "first_release": "Dataset002_sk-fibers-hzvt-20250228",
+   "nml": "fibers_s5_16997z_03497y_03997x_256_v00.nml",
+   "sha256": "6c88f50cbb7b33189bd0e68470986c8f6418fe23c0cf183289820d4379ec2cc1",
+   "fibers": 167,
+   "fibers_scored": 163,
+   "nodes_in_bounds": 8236,
+   "voxel_size_um": 7.91
+  }
+ },
+ "counting": "ScrollGT parse_nml (6d05d64) with the cube origin from the file name; a node is in bounds when every coordinate lies in [0, size); fibers_scored counts fibers with at least two in-bounds nodes, ScrollGT's n_fibers_scored. Checked against ScrollGT's meta.json on s3_00994_00494_01994_512 (655, 649, 32774) and s5_16997_03997_04497_256 (287, 282, 8022): equal.",
+ "overlap_with_the_21": "none: no unshipped cube, padded by the protocol's 128 CT voxels, intersects any of the 21 cubes or another unshipped cube on the same scroll",
+ "used_before": "none: no cube origin, in either naming, appears in this repository (origin/main 3e239b60) or in any path under spiral_out to depth 6 (zarr stores not descended), before these NMLs were fetched",
+ "tracer_training_sources": "scrollprize/fiber_single_small at 4511825 records its dataset_config: Paris 4 (Scroll 1) fibers from a manifest, and automated fiber volumes on PHerc0175A, PHerc1447, PHercParis4 and PHerc0125; no fiber-skeletons release",
+ "not_checked": [
+  "each NML against its release's semantic label (ScrollGT's exporter refuses below 0.999)",
+  "the padded CT fetch (findings 97 and 98's code fetches Scroll 1, 3 and 5)",
+  "the presence: fiber_hz_vt run on each cube, a GPU step"
+ ]
+}

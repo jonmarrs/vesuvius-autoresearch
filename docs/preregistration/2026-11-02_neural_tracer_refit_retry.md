@@ -145,9 +145,46 @@ change, whatever the reading, is a separate decision by the owner.
   stands in for the strategy's "independently reviewed continuity" and "wrong connections". A positive pilot needs
   human review of the added traces before a larger test.
 * **It is not confirmation.** All 21 cubes are development data. ScrollGT holds no other fiber cubes (21 on its main,
-  1605fadb); whether villa's fiber datasets hold references outside these 21 is unchecked.
+  1605fadb), but villa's references hold ten more (next section).
 * **It describes the pinned tracer.** villa #2359 (merged 2026-10-29) added full-volume tracing and chunk-cache
   scheduling to the volume tracer; a villa change would have to be checked again on villa's main.
+
+## Cubes for a confirmation, checked 2026-11-02
+
+villa's `fiber-skeletons` Dataset004 (2025-07-28), the newest release, holds 31 hand-traced cubes; ScrollGT ships 21
+(11 first released in Dataset001, 10 first in Dataset004). The other ten have never been traced or scored here: no
+cube's origin appears in this repository or under `spiral_out`. None of them, padded by the protocol's 128 CT voxels,
+overlaps one of the 21. `reports/evidence/fiber_skeletons_unshipped_2026-11-02.json` records the release listings, each
+NML's SHA-256, and the counts below, made with ScrollGT's NML parser; the same counting reproduces ScrollGT's published
+counts on two shipped cubes.
+
+| cube | first release | fibers scored | in-bounds nodes |
+|---|---|---:|---:|
+| s1_02494_01494_03994_512 | Dataset002 | 664 | 30,698 |
+| s1_08994_02494_03494_512 | Dataset003 | 686 | 40,912 |
+| s1_09997_02497_03497_256 | Dataset003 | 123 | 2,527 |
+| s5_05497_01997_02997_256 | Dataset002 | 140 | 4,420 |
+| s5_05497_02497_02497_256 | Dataset002 | 108 | 2,697 |
+| s5_08994_02994_03994_512 | Dataset002 | 235 | 6,021 |
+| s5_08997_02497_04997_256 | Dataset002 | 120 | 5,237 |
+| s5_11497_05497_03997_256 | Dataset002 | 148 | 4,927 |
+| s5_15494_04494_02494_512 | Dataset003 | 877 | 22,196 |
+| s5_16997_03497_03997_256 | Dataset002 | 163 | 8,236 |
+
+* **The presence model trained on seven of them.** They first appear in Dataset002, whose 18 cubes (13 at 256³, 5 at
+  512³) match `fiber_hz_vt`'s training fingerprint (finding 82), so the presence is in-sample on them, as on the 11
+  in-sample cubes. The other three first appear in Dataset003 (14 + 7), which does not match it; finding 83 held out
+  only cubes absent from both.
+* **The tracer trained on none of them.** `fiber_single_small` records its training data: Paris 4 fibers from a
+  manifest, and automated fiber volumes on PHerc0175A, PHerc1447, Paris 4 and PHerc0125. No `fiber-skeletons` release
+  is among them. Paris 4 is Scroll 1, the scroll of three of the ten (and five of the 21); whether its training
+  fibers pass through these cubes is not public.
+* **Not checked:** each NML against its release's semantic label (ScrollGT's exporter refuses one below 0.999 node
+  landing); the padded CT fetch (findings 97 and 98's code fetches Scrolls 1, 3 and 5); the presence, which needs
+  `fiber_hz_vt` run on each cube on the GPU.
+
+A positive pilot therefore has a confirmation set to register on: the ten, with the three Dataset003 cubes the only
+ones held out from the presence. A negative pilot needs none.
 
 ## Limits
 
