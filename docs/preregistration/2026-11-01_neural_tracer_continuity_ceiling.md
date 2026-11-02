@@ -5,6 +5,9 @@ GPU, no download. The script is `scripts/neural_tracer_continuity_ceiling.py`, c
 Before this was pushed, the script ran once on one in-sample cube, `s1_00497_01497_03997_256`, which decides
 nothing, for its timing and gate: the gate passed (36 s), U's gain there was 0.103, and nothing in the method changed
 after it.
+**Pushed at 14:29 PST (3a4821d2); run 14:29–15:56 PST: finding 102, `reports/neural_tracer_continuity_ceiling.md`.
+The gate passed on all 21 cubes. P1 and P3 held, P2 missed (median gain of U 0.314, of U_20 0.061): the line stays
+open as a continuity lever.**
 
 ## The question
 

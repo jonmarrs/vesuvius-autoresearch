@@ -75,7 +75,9 @@ cubes, which decide nothing, the median G is 0.032.
 The strategy's rank-2 line named premature confidence stops as one failure mode to investigate. As a way to add
 coverage, it closes here without GPU time. A continuity version is a different question. Its ceiling would join each
 split's two traces and fill the gap between them, then re-score ERL with merges penalized. That would need its own
-registration, and could run CPU-only on these same runs.
+registration, and could run CPU-only on these same runs. *(Added 2026-11-01:
+[finding 102](neural_tracer_continuity_ceiling.md) ran it. The continuity ceiling clears the bar, so the line stays
+open as a continuity lever.)*
 
 The larger observation is not the registered question. Most of the tracer's confidence stops end traces that are
 already off the hand-traced fibers. That is the precision side, the trade villa's open problems page asks for:
