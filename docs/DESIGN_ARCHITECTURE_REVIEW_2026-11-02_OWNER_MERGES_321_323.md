@@ -71,7 +71,13 @@ No change was needed. This record is the round's only change.
 
 - **#321's module:** 38 passed, 4 skipped. **The four neural-tracer modules:** 64 passed.
 - **The checks.** Ruff 0.9.10 `check` and `format` are clean on the seven new or changed Python files, and mypy is
-  clean on both scripts. MYPY
-- **The standard suite** SUITE
-- **The test modules outside the suite** OUTSIDE
-- **The doc audit** AUDIT
+  clean on both scripts. Mypy is clean over the whole
+  repository (875 files).
+- **The standard suite** gives the same failures as round #140:
+  - the 43 standing failures;
+  - the 14 SDK cases that need `s3fs`;
+  - the 2 modules that cannot be collected.
+- **The 235 test modules outside the suite** give 2,172 passed, 80 skipped, 13 failed and 21 collection errors: the
+  same failures as round #140. The four new modules and #321's new test add 65 passes.
+- **The doc audit's** only new unresolved references are `6d05d642` in both new reports. That is the ScrollGT
+  commit their inputs came from, in the sibling repository.
