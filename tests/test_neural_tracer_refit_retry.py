@@ -1,0 +1,432 @@
+"""scripts/neural_tracer_refit_arm.py, scripts/neural_tracer_refit_retry.py and their chain: the proposed pilot's design
+(docs/preregistration/2026-11-02_neural_tracer_refit_retry.md), in villa's source at the pin and in our own scripts."""
+
+from __future__ import annotations
+
+import ast
+import dataclasses
+import json
+import os
+import re
+import statistics
+import sys
+import types
+from pathlib import Path
+
+import pytest
+
+_REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO / "scripts"))
+import neural_tracer_refit_arm as arm  # noqa: E402
+
+TRACERS = Path(os.environ.get("VILLA_ROOT", _REPO / "villa")) / (
+    "vesuvius/src/vesuvius/neural_tracing/tracers"
+)
+
+
+def _villa(rel: str) -> str:
+    if not TRACERS.exists() and "VILLA_ROOT" not in os.environ:
+        pytest.skip("Villa tracer sources absent; set VILLA_ROOT to check them")
+    return (TRACERS / rel).read_text()
+
+
+@dataclasses.dataclass
+class _Params:
+    """Stands in for villa's TraceParams: a dataclass with the field, off by default."""
+
+    n_commit: int = 8
+    confidence: float = 0.5
+    forward_chunk: int = 128
+    refit_retry: bool = False
+
+
+def test_the_launcher_needs_one_arm():
+    assert arm.split_argv(["--arm", "refit", "--out", "o", "--box", "1"]) == (
+        "refit",
+        ["--out", "o", "--box", "1"],
+    )
+    assert arm.split_argv(["--arm=villa", "--out", "o"]) == ("villa", ["--out", "o"])
+    for bad in (
+        ["--out", "o"],
+        ["--arm", "retry"],
+        ["--arm", "refit", "--arm=villa"],
+        ["--ar", "refit"],
+    ):
+        with pytest.raises(SystemExit):
+            arm.split_argv(bad)
+
+
+def test_a_resume_needs_the_same_arm(tmp_path):
+    out = tmp_path / "run"
+    rec = arm.record_arm(out, "refit")
+    assert rec["arm"] == "refit" and rec["refit_retry"] is True
+    assert arm.record_arm(out, "refit")["arm"] == "refit"
+    with pytest.raises(SystemExit, match="another arm"):
+        arm.record_arm(out, "villa")
+    other = tmp_path / "plain"
+    other.mkdir()
+    (other / "run.json").write_text("{}")
+    with pytest.raises(SystemExit, match="without this launcher"):
+        arm.record_arm(other, "villa")
+
+
+@pytest.mark.parametrize("name, want", [("villa", False), ("refit", True)])
+def test_the_arm_sets_only_the_retry(name, want):
+    tracer = types.SimpleNamespace(p=_Params(forward_chunk=64))
+    built = (tracer, "vol", "spec", "policy")
+    seen: dict = {}
+    wrapped = arm.wrapped_build_tracer(name, lambda args: built, seen)
+    t, *rest = wrapped("args")
+    assert t is tracer and rest == ["vol", "spec", "policy"]
+    assert t.p == _Params(forward_chunk=64, refit_retry=want)
+    assert seen == {"refit_retry": want}
+
+
+def test_main_runs_villas_main_wrapped_and_records_the_setting_in_effect(
+    tmp_path, monkeypatch
+):
+    """main() wraps villa's build_tracer for the run, then puts it back; the record holds what the tracer held."""
+    seen = {}
+    tracer = types.SimpleNamespace(p=_Params())
+
+    def original(args):
+        return tracer, "vol", "spec", "policy"
+
+    def villa_main(rest):
+        seen["rest"] = rest
+        seen["built"] = fake.build_tracer(types.SimpleNamespace())[0].p.refit_retry
+        return 0
+
+    fake = types.SimpleNamespace(main=villa_main, build_tracer=original)
+    pkg = "vesuvius.neural_tracing.tracers.fibers.tracing"
+    for i, _ in enumerate(pkg.split(".")):
+        name = ".".join(pkg.split(".")[: i + 1])
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    sys.modules[pkg].volume = fake
+    monkeypatch.setitem(sys.modules, pkg + ".volume", fake)
+    out = tmp_path / "run"
+    assert arm.main(["--arm", "refit", "--out", str(out), "--box", "0,0,0,1,1,1"]) == 0
+    assert seen == {"rest": ["--out", str(out), "--box", "0,0,0,1,1,1"], "built": True}
+    assert fake.build_tracer is original
+    rec = json.loads((out / "refit_arm.json").read_text())
+    assert rec == {
+        "arm": "refit",
+        "refit_retry": True,
+        "launcher": "scripts/neural_tracer_refit_arm.py",
+        "in_effect": True,
+    }
+
+
+def test_villa_is_as_the_registration_says():
+    """The reachability the registration rests on, in villa's source at the pin."""
+    trace = _villa("fibers/tracing/trace.py")
+    assert "refit_retry: bool = False" in trace
+    # the retry acts at a would-be confidence stop, once per stop: reset after every advance
+    assert (
+        "if would_stop and pp.refit_retry and not retried[i] and not recovery_blocked:"
+        in trace
+    )
+    assert "refit = predicted_axis(pos[j]+points[j] @ fr[j].T, pos[j], self.refit_window)" in trace  # fmt: skip
+    assert "retried[i], predicted[i] = True, True" in trace
+    assert trace.count("retried[i] = False") == 1
+    # the tracer holds its rollout parameters as `p` and reads them at each trace() call
+    assert (
+        "self.n_history, self.p, self.device = n_history, params or TraceParams(), str(device)"
+        in trace
+    )
+    assert "pp = self.p" in trace
+    volume = _villa("fibers/tracing/volume.py")
+    # the volume tracer never sets it, and its main builds the tracer by the module-global name
+    assert "refit" not in volume
+    assert "tracer, vol, spec, policy = build_tracer(args)" in volume
+    assert "params = TraceParams.from_policy(policy, max_len=args.max_len" in volume
+    assert "tracer.trace(" in volume
+    # villa calls a forward-chunk change speed-only: the floor arm's perturbation
+    assert "ap.add_argument('--forward-chunk', type=int, default=128)" in volume
+    assert re.search(r"speed_only = \([^)]*'forward_chunk'", volume)
+    # the single-seed CLI is where villa exposes it
+    assert '"--refit-retry"' in _villa("fibers/tracing/inference.py")
+
+
+def _local_imports(script: str, seen: set[str]) -> set[str]:
+    for node in ast.walk(ast.parse((_REPO / "scripts" / f"{script}.py").read_text())):
+        for name in (
+            [a.name for a in node.names] if isinstance(node, ast.Import) else []
+        ):
+            if (_REPO / "scripts" / f"{name}.py").exists() and name not in seen:
+                seen.add(name)
+                _local_imports(name, seen)
+    return seen
+
+
+# The scorer and the chain. Imported here: the launcher's tests above need nothing but the launcher.
+import neural_tracer_ct_context as cc  # noqa: E402
+import neural_tracer_ct_context_512 as c5  # noqa: E402
+import neural_tracer_refit_retry as rr  # noqa: E402
+import neural_tracer_steep_heading as sh  # noqa: E402
+
+CHAIN = _REPO / "repro/fibers/run_neural_tracer_refit_retry_chain.sh"
+F97_CHAIN = _REPO / "repro/fibers/run_neural_tracer_ct_context_chain.sh"
+F98_CHAIN = _REPO / "repro/fibers/run_neural_tracer_ct_context_512_chain.sh"
+REG = _REPO / "docs/preregistration/2026-11-02_neural_tracer_refit_retry.md"
+PEN, COV, PREC, MERGES = rr.PEN, rr.COV, rr.PREC, rr.MERGES
+
+
+def _row(pen=10.0, cov=0.5, prec=0.5, merges=3):
+    return {PEN: pen, COV: cov, PREC: prec, MERGES: merges}
+
+
+def _case(gain=0.2, floor=0.0, prec=0.0, merges=0, floor_merges=0, inside=0.0):
+    """Every held-out cube's ERLpen moved by `gain` (refit) and `floor`; precision by `prec`; merges by `merges`."""
+    base = {c: _row() for c in rr.ALL_CUBES}
+    rows = {
+        "refit": {
+            c: _row(10 * (1 + (gain if c in rr.HELD else inside)), prec=0.5 + prec,
+                    merges=3 + (merges if c == rr.HELD[0] else 0))
+            for c in rr.ALL_CUBES
+        },
+        "floor": {
+            c: _row(10 * (1 + floor), merges=3 + (floor_merges if c == rr.HELD[0] else 0))
+            for c in rr.HELD
+        },
+    }  # fmt: skip
+    records = {a: {c: {"in_effect": rr.IN_EFFECT[a]} for c in rr.ARM_CUBES[a]} for a in rr.ARMS}  # fmt: skip
+    return rows, base, records
+
+
+def test_the_cubes_and_arms_are_findings_100s():
+    assert (rr.HELD, rr.IN_SAMPLE, rr.ALL_CUBES, rr.SMOKE) == (sh.HELD, sh.IN_SAMPLE, sh.ALL_CUBES, sh.SMOKE)  # fmt: skip
+    assert len(rr.HELD) == 10 and len(rr.IN_SAMPLE) == 11 and rr.SMOKE in rr.HELD
+    assert rr.ARMS == ("refit", "floor")
+    assert rr.ARM_CUBES == {"refit": rr.ALL_CUBES, "floor": rr.HELD}
+    assert rr.IN_EFFECT == {"refit": True, "floor": False}
+    assert rr.BASE_RUNS == sh.BASE_RUNS
+
+
+def test_the_decision_rule():
+    v = rr.verdict(*_case())
+    assert (v["prediction_P1"], v["prediction_P2"], v["prediction_P3"]) == (
+        True,
+        True,
+        True,
+    )
+    assert rr.status(True, v, []) == "OK"
+    assert v["reading"].startswith(
+        "villa's refit retry raises held-out ERLpen by a median 0.200"
+    )
+    assert "propose a registered test on cubes outside these 21" in v["reading"]
+    assert rr.verdict(*_case(gain=0.0999))["prediction_P1"] is False
+    assert rr.verdict(*_case(gain=0.10))["prediction_P1"]
+    v = rr.verdict(*_case(merges=1))
+    assert not v["prediction_P2"] and v["prediction_P1"]
+    assert "with more merges" in v["reading"] and "stops a candidate" in v["reading"]
+    v = rr.verdict(*_case(prec=-0.031))
+    assert not v["prediction_P3"] and "at a cost in precision" in v["reading"]
+    assert rr.verdict(*_case(prec=-0.0299))["prediction_P3"]
+    v = rr.verdict(*_case(gain=0.05))
+    assert not v["prediction_P1"] and "under the 0.10 bar" in v["reading"]
+    assert "close it as a continuation rule" in v["reading"]
+    v = rr.verdict(*_case(gain=0.05, merges=2, prec=-0.05))
+    assert v["reading"].endswith("; it also adds merges and costs precision")
+
+
+def test_p2_allows_only_the_floors_change_in_merges():
+    # the floor arm moved the held-out merges by 2: the refit arm may move them by as much, not more
+    assert rr.verdict(*_case(merges=2, floor_merges=-2))["prediction_P2"]
+    assert not rr.verdict(*_case(merges=3, floor_merges=2))["prediction_P2"]
+    assert rr.verdict(*_case(merges=-4))["prediction_P2"]
+
+
+def test_p3_counts_eight_of_the_ten():
+    rows, base, records = _case()
+    for c in rr.HELD[:2]:
+        rows["refit"][c][PREC] = 0.5 - 0.04
+    assert rr.verdict(rows, base, records)["prediction_P3"]
+    rows["refit"][rr.HELD[2]][PREC] = 0.5 - 0.04
+    assert not rr.verdict(rows, base, records)["prediction_P3"]
+
+
+def test_the_failure_branches_emit_no_reading():
+    v = rr.verdict(*_case(floor=0.03))
+    assert v["floor_ok"] is False and v["reading"] is None
+    assert rr.status(True, v, []) == "FLOOR_TOO_LARGE"
+    assert rr.verdict(*_case(floor=-0.0299))["floor_ok"]
+    rows, base, records = _case()
+    records["refit"][rr.IN_SAMPLE[0]]["in_effect"] = False
+    v = rr.verdict(rows, base, records)
+    assert v["manipulation_ok"] is False and v["reading"] is None
+    assert rr.status(True, v, []) == "MANIPULATION_FAILED"
+    rows, base, records = _case()
+    records["floor"][rr.HELD[0]]["in_effect"] = (
+        None  # a floor run not through the launcher
+    )
+    assert rr.status(True, rr.verdict(rows, base, records), []) == "MANIPULATION_FAILED"
+    assert rr.status(False, rr.verdict(*_case()), []) == "SMOKE_FAILED"
+    assert (
+        rr.status(None, rr.verdict(*_case()), []) == "INCOMPLETE"
+    )  # no smoke on record
+
+
+def test_partial_samples_are_refused():
+    for arm_, cube in (("refit", rr.IN_SAMPLE[-1]), ("floor", rr.HELD[-1])):
+        rows, base, records = _case()
+        del rows[arm_][cube]
+        v = rr.verdict(rows, base, records)
+        assert v["prediction_P1"] is None and v["reading"] is None
+        assert rr.status(True, v, [f"{arm_}/{cube}"]) == "INCOMPLETE"
+
+
+def test_the_descriptive_figures():
+    rows, base, records = _case(gain=0.2, inside=0.05)
+    ceiling = {c: 0.4 for c in rr.ALL_CUBES}
+    v = rr.verdict(rows, base, records, ceiling)
+    assert v["median_gain_in_sample"] == pytest.approx(0.05)
+    assert v["share_of_ceiling"] == {c: pytest.approx(0.5) for c in rr.HELD}
+    assert v["merges_held"] == {"base": 30, "refit": 30, "floor": 30}
+    assert v["coverage_factor"][rr.HELD[0]] == 1.0
+
+
+def test_run_record_reads_the_last_line_of_each_tile_and_the_arm(tmp_path):
+    lines = [
+        {"tile": "a", "dots": 9, "stop_confidence": 5, "seconds": 1.0},
+        {"tile": "a", "dots": 10, "traced": 7, "stop_confidence": 4, "stop_bounds": 2, "seconds": 3.0},
+        {"tile": "b", "dots": 1, "stop_owned_or_live": 1, "seconds": 0.5},
+    ]  # fmt: skip
+    (tmp_path / "tiles.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in lines) + "\n"
+    )
+    r = rr.run_record(tmp_path)
+    assert (r["dots"], r["traced"], r["stop_confidence"], r["stop_bounds"], r["stop_owned_or_live"]) == (11, 7, 4, 2, 1)  # fmt: skip
+    assert r["tiles"] == 2 and r["seconds"] == 3.5 and "in_effect" not in r
+    (tmp_path / "refit_arm.json").write_text(
+        json.dumps({"arm": "refit", "in_effect": True})
+    )
+    r = rr.run_record(tmp_path)
+    assert (r["arm"], r["in_effect"]) == ("refit", True)
+
+
+def test_the_thresholds_are_the_registrations():
+    text = " ".join(REG.read_text().split())
+    assert (
+        rr.GAIN_BAR == 0.10 and "median held-out ERLpen gain of at least 0.10" in text
+    )
+    assert rr.FLOOR_MAX == 0.03 and "below 0.03" in text
+    assert (rr.P3_DROP, rr.P3_AT_LEAST) == (0.03, 8)
+    assert (
+        "at most 0.03 below the baseline's, or above it, on at least 8 of the 10"
+        in text
+    )
+    assert (
+        rr.FLOOR_CHUNK == 64
+        and "--forward-chunk 64" in text
+        and "--forward-chunk 64" in CHAIN.read_text()
+    )
+    for status in (
+        "SMOKE_FAILED",
+        "MANIPULATION_FAILED",
+        "INCOMPLETE",
+        "FLOOR_TOO_LARGE",
+    ):
+        assert status in text, status
+
+
+def _flags(text: str, after: str) -> set[str]:
+    cmd = text.split(after, 1)[1].split(">", 1)[0]
+    return set(re.findall(r"--[a-z-]+", cmd))
+
+
+def test_the_trace_is_findings_97_and_98s_command():
+    ours = CHAIN.read_text()
+    for theirs in (F97_CHAIN.read_text(), F98_CHAIN.read_text()):
+        ckpt = re.compile(r'^CKPT="([^"]+)"$', re.M)
+        assert ckpt.search(ours).group(1) == ckpt.search(theirs).group(1)
+        assert _flags(ours, '"$W/neural_tracer_refit_arm.py"') - {"--arm"} == _flags(
+            theirs, "tracers.fibers.tracing.volume"
+        )
+    assert "base=$T/ct_context_run" in ours and "base=$T/ct_context_512_run" in ours
+    assert "box=64,64,64,192,192,192" in ours and "box=64,64,64,320,320,320" in ours
+    assert '--out "$2" "${@:4}"' in ours
+
+
+def _cubes(text: str, name: str) -> list[str]:
+    return re.search(rf'^{name}="(.*?)"', text, re.S | re.M).group(1).split()
+
+
+def test_the_smoke_gates_the_arms_and_held_out_runs_first():
+    text = CHAIN.read_text()
+    assert _cubes(text, "HELD") == rr.HELD and _cubes(text, "IN_SAMPLE") == rr.IN_SAMPLE
+    assert (
+        f"SMOKE={rr.SMOKE}" in text and 'trace villa "$W/smoke/$SMOKE" "$SMOKE"' in text
+    )
+    assert (
+        text.index("trace villa")
+        < text.index('refit_retry.py" smoke')
+        < text.index("run_arm refit HELD")
+    )
+    assert "exit 4" in text.split('say "SMOKE_OK"')[0]
+    # refit on the held-out cubes, then the floor on them, then refit in sample
+    order = [
+        text.index(s)
+        for s in ("run_arm refit HELD", "run_arm floor HELD", "run_arm refit IN_SAMPLE")
+    ]
+    assert order == sorted(order)
+    assert 'floor) trace villa "$out" "$C" --forward-chunk 64' in text
+    assert 'W="${W:-$T/refit_retry_run}"' in text
+    assert (
+        "tracers\\.fibers\\.tracing\\.volume|neural_tracer_heading_arm|neural_tracer_refit_arm|"
+        in text
+    )
+
+
+def test_the_chain_freezes_every_script_it_runs():
+    frozen = (
+        re.search(r"for f in (.*?); do", CHAIN.read_text(), re.S)
+        .group(1)
+        .replace("\\\n", " ")
+        .split()
+    )
+    want = _local_imports(
+        "neural_tracer_refit_retry",
+        {"neural_tracer_refit_retry", "neural_tracer_refit_arm"},
+    )
+    assert set(frozen) == {f"{s}.py" for s in want}
+    text = CHAIN.read_text()
+    assert text.index('export PYTHONPATH="$REPO/src') < text.index(
+        '"$PY" "$LOOPDIR/scripts/loop_control.py"'
+    )
+
+
+def test_the_baseline_and_the_ceiling_exist():
+    base2, _, rec = sh.baseline()
+    assert set(base2) == set(rec) == set(rr.ALL_CUBES)
+    assert all(base2[c][PEN] > 0 for c in rr.ALL_CUBES)
+    ceiling = rr.ceiling_gains()
+    assert set(ceiling) == set(rr.ALL_CUBES)
+    f102 = json.loads(rr.CEILING.read_text())["verdict"]
+    assert statistics.median(ceiling[c] for c in rr.HELD) == pytest.approx(
+        f102["median_U"]
+    )
+    assert cc.TOLS == (2.0, 4.0) and rr.HELD[2:] == c5.S3_CUBES
+
+
+def test_the_bars_are_inclusive_as_registered(monkeypatch):
+    """ "At least 0.10" and "not below 0.03": exact values, which no ratio of floats produces, by a patched gain."""
+
+    def exact(refit, floor):
+        return lambda rows, base, cubes, key=PEN: {
+            c: refit if cubes == rr.ALL_CUBES else floor for c in cubes
+        }
+
+    monkeypatch.setattr(rr, "gains", exact(0.10, 0.0))
+    assert rr.verdict(*_case())["prediction_P1"] is True
+    monkeypatch.setattr(rr, "gains", exact(0.2, 0.03))
+    v = rr.verdict(*_case())
+    assert v["floor_ok"] is False and rr.status(True, v, []) == "FLOOR_TOO_LARGE"
+
+
+def test_p1_is_the_median_not_the_mean():
+    rows, base, records = _case()
+    for i, c in enumerate(rr.HELD):
+        rows["refit"][c][PEN] = 10 * (1.5 if i < 4 else 1.0)  # mean gain 0.2, median 0
+    v = rr.verdict(rows, base, records)
+    assert v["median_gain_held"] == 0 and v["prediction_P1"] is False
