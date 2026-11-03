@@ -149,6 +149,52 @@ while not Path({str(pidfile)!r}).exists(): time.sleep(.01)
             os.kill(int(pidfile.read_text()), signal.SIGKILL)
 
 
+def test_an_escalated_stop_returns_only_once_the_group_is_gone(tmp_path):
+    """Once SIGTERM's grace ran out, stop() sent SIGKILL, reaped the leader and
+    returned, though _kill waits for the whole group: a worker still exiting
+    outlived the stop. Under load the handoff then reported its group cleaned up
+    with the worker still running. Here the worker stays in the group, dead but
+    unreaped, for 0.5 s: its parent is in another group of the run's session."""
+    pids, reaped = tmp_path / "pids", tmp_path / "reaped"
+    parent = f"""
+import os, signal, sys, time
+from pathlib import Path
+group = int(sys.argv[1])
+worker = os.fork()
+if worker == 0:
+    os.setpgid(0, group)
+    time.sleep(60)
+    os._exit(0)
+os.setpgid(worker, group)
+Path({str(pids)!r}).write_text(f"{{worker}} {{os.getpid()}}")
+while Path(f"/proc/{{worker}}/stat").read_text().rsplit(")", 1)[1].split()[0] != "Z":
+    time.sleep(0.01)
+time.sleep(0.5)
+os.waitpid(worker, 0)
+Path({str(reaped)!r}).write_text("")
+"""
+    # The leader and, by inheritance, the worker ignore SIGTERM.
+    leader = f"""
+import os, signal, subprocess, sys, time
+from pathlib import Path
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+subprocess.Popen([sys.executable, "-c", {parent!r}, str(os.getpgid(0))], preexec_fn=os.setpgrp)
+while not Path({str(pids)!r}).exists(): time.sleep(0.01)
+"""
+    supervisor = ProcessSupervisor(grace_seconds=2)
+    try:
+        assert (
+            supervisor.run([sys.executable, "-c", leader], timeout=30).returncode == 0
+        )
+        assert reaped.exists()
+        assert supervisor.active is None and supervisor.stopping is None
+    finally:
+        if pids.exists():
+            for pid in map(int, pids.read_text().split()):
+                if alive(pid):
+                    os.kill(pid, signal.SIGKILL)
+
+
 def _stop_twice_as_the_loop_does(supervisor, command, signal_times, on_stop):
     """Run command under supervisor and deliver SIGUSR1 at signal_times, handled
     as the loop's signal_handler handles a stop: stop the run, act on its files
