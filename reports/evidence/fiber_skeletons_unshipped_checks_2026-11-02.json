@@ -1,0 +1,533 @@
+{
+ "checked": "2026-11-02",
+ "what": "CPU checks of the ten fiber-skeletons Dataset004 cubes that ScrollGT does not ship, before any of them is traced or scored",
+ "dataset": "https://dl.ash2txt.org/datasets/fiber-skeletons/Dataset004_sk-fibers-binary-20250728/ (nml/, imagesTr/, labelsTr/)",
+ "raw_scans": {
+  "s1": "https://dl.ash2txt.org/full-scrolls/Scroll1/PHercParis4.volpkg/volumes/20230205180739 (uint16 TIFF slices, read by byte range: scripts/raw_tiff_region.py)",
+  "s5": "https://dl.ash2txt.org/full-scrolls/Scroll5/PHerc172.volpkg/volumes_zarr/20241024131838.zarr level 0 (uint16)"
+ },
+ "scan_shapes_zyx": {
+  "s1": [
+   14376,
+   7888,
+   8096
+  ],
+  "s5": [
+   21000,
+   6700,
+   9100
+  ]
+ },
+ "method": {
+  "semantic_gate": "the NML's in-bounds nodes (parsed in the cube's frame, origin from the stem) land on labelsTr > 0 at >= 0.999: ScrollGT's exporter gate (tools/update_fiber_ground_truth.py SEMANTIC_GATE, semantic_landing_rate). labelsTr is villa's voxelisation of the same NML, so this checks the NML's frame against villa's labels, not against the CT",
+  "ct_corners": "two 4 x 64 x 64 blocks of imagesTr (its first voxel's corner and the opposite one) against the raw scan at the stem's origin, converted as villa's fibers-dataset generator made the cubes (/ 257, clipped, truncated)",
+  "padding": "the cube padded by 128 voxels (findings 97 and 98's scan context) lies inside the raw scan",
+  "not_checked": "the NML against the CT itself (ScrollGT's second gate: landing on fiber_hz_vt's P >= 0.5 mask at more than 5x its density) needs fiber_hz_vt's probability, a GPU run"
+ },
+ "cubes": {
+  "s1_02494_01494_03994_512": {
+   "nml": "fibers_s1a_02494z_01494y_03994x_512_v01.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s1_02494_01494_03994_512_0000.tif",
+    "sha256": "1f5752040c0be008b8d4cc887a35f42d4944275d30e0163615b6403c4b807000",
+    "shape": [
+     512,
+     512,
+     512
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s1_02494_01494_03994_512.tif",
+    "sha256": "0202abdf662808c483ea670fb98dfdc2297786e3b34b6cc354d424dc5a38abc7",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.021856
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     2366,
+     1366,
+     3866
+    ],
+    [
+     3134,
+     2134,
+     4634
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s1_08994_02494_03494_512": {
+   "nml": "fibers_s1a_08994z_02494y_03494x_512_v01.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s1_08994_02494_03494_512_0000.tif",
+    "sha256": "c63427319d6829fb3d3777fd3acdc0c319d74e36ae4fd5e5fd68b6730256fb55",
+    "shape": [
+     512,
+     512,
+     512
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s1_08994_02494_03494_512.tif",
+    "sha256": "e2c56854d8922330db63cecb45bc7761b21c597f3cb9ecebc3ca156567722ac2",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.022473
+   },
+   "semantic_landing_rate": 0.999976,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     8866,
+     2366,
+     3366
+    ],
+    [
+     9634,
+     3134,
+     4134
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s1_09997_02497_03497_256": {
+   "nml": "fibers_s1a_09997z_02497y_03497x_256_v00.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s1_09997_02497_03497_256_0000.tif",
+    "sha256": "bc665cbaba66b1974b5bbdd2c74e359b045ff9e1190fc865155879bdb56e9d9b",
+    "shape": [
+     256,
+     256,
+     256
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s1_09997_02497_03497_256.tif",
+    "sha256": "9138998ac048bb69e3b3e90aa5be02c48c2b9659af19fdc62b6bf89ffd7d8293",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.0164
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     9869,
+     2369,
+     3369
+    ],
+    [
+     10381,
+     2881,
+     3881
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s5_05497_01997_02997_256": {
+   "nml": "fibers_s5_05497z_01997y_02997x_256_v01.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s5_05497_01997_02997_256_0000.tif",
+    "sha256": "f70efb2272b107a141ddc34d0026801120498d197ce94e068ac4da3b8457eef9",
+    "shape": [
+     256,
+     256,
+     256
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s5_05497_01997_02997_256.tif",
+    "sha256": "bba93e65e5d97bff468918b2f2a60e6444d5d3b6a9045ffaae40bd4d5fe159b4",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.018147
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     5369,
+     1869,
+     2869
+    ],
+    [
+     5881,
+     2381,
+     3381
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s5_05497_02497_02497_256": {
+   "nml": "fibers_s5_05497z_02497y_02497x_256_v00.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s5_05497_02497_02497_256_0000.tif",
+    "sha256": "4b7cbdc7f99360cb74133f58ae6632915a65e2ad2bdebebd55359cd8c6351485",
+    "shape": [
+     256,
+     256,
+     256
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s5_05497_02497_02497_256.tif",
+    "sha256": "590b048dad42606f7beb979ec448a309daae60185c6501e887e667a5b9af526f",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.015497
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     5369,
+     2369,
+     2369
+    ],
+    [
+     5881,
+     2881,
+     2881
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s5_08994_02994_03994_512": {
+   "nml": "fibers_s5_08994z_02994y_03994x_512_v00.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s5_08994_02994_03994_512_0000.tif",
+    "sha256": "1b4b46736196b35f541996967268557ea3eccbe6ba21c0a1812092345db1b310",
+    "shape": [
+     512,
+     512,
+     512
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s5_08994_02994_03994_512.tif",
+    "sha256": "ac31b002689aa3a607e87fae079e20d1240039967bac82f34a0bf61371756f57",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.00901
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     8866,
+     2866,
+     3866
+    ],
+    [
+     9634,
+     3634,
+     4634
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s5_08997_02497_04997_256": {
+   "nml": "fibers_s5_08997z_02497y_04997x_256_v00.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s5_08997_02497_04997_256_0000.tif",
+    "sha256": "b738435a45b52e51a0e46ffab0a164b64558d9d3d90e6190f4e99fd3365d97e4",
+    "shape": [
+     256,
+     256,
+     256
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s5_08997_02497_04997_256.tif",
+    "sha256": "6bd4fb4e9477c907300caa388a899dad6b50eacce991f6bd5134bc9f83017943",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.018187
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     8869,
+     2369,
+     4869
+    ],
+    [
+     9381,
+     2881,
+     5381
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s5_11497_05497_03997_256": {
+   "nml": "fibers_s5_11497z_05497y_03997x_256_v00.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s5_11497_05497_03997_256_0000.tif",
+    "sha256": "fadef8712299b747833a4469400afac76e1a6cc8238c8e3f53f8eec26481e30e",
+    "shape": [
+     256,
+     256,
+     256
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s5_11497_05497_03997_256.tif",
+    "sha256": "e9d2e72fbc6fbe9a77cb34744635c60c0db4311c7dbfbfa2a4b1caf3f8e8ab4e",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.022113
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     11369,
+     5369,
+     3869
+    ],
+    [
+     11881,
+     5881,
+     4381
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s5_15494_04494_02494_512": {
+   "nml": "fibers_s5_15494z_04494y_02494x_512_v01.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s5_15494_04494_02494_512_0000.tif",
+    "sha256": "2f82f9ec2ac0543b8f72c22e5c00e5f6d22ecebc026095fe1c72c9319b8732ab",
+    "shape": [
+     512,
+     512,
+     512
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s5_15494_04494_02494_512.tif",
+    "sha256": "d7c4ba8c6bf0739e281356c4288ff9987aabf93480121f86830027fef9e33368",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.02533
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     15366,
+     4366,
+     2366
+    ],
+    [
+     16134,
+     5134,
+     3134
+    ]
+   ],
+   "padded_128_inside_scan": true
+  },
+  "s5_16997_03497_03997_256": {
+   "nml": "fibers_s5_16997z_03497y_03997x_256_v00.nml",
+   "nml_scale_um": [
+    7.91,
+    7.91,
+    7.91
+   ],
+   "image": {
+    "file": "imagesTr/s5_16997_03497_03997_256_0000.tif",
+    "sha256": "23611035a83434b34e6d670d50b0cc19b35913d011ae2c3c53b941d16496e769",
+    "shape": [
+     256,
+     256,
+     256
+    ],
+    "dtype": "uint8"
+   },
+   "semantic": {
+    "file": "labelsTr/s5_16997_03497_03997_256.tif",
+    "sha256": "861994af4f0ec60dab4e64551b641c3f2dc0caddb0370c47cb7eea75f011c00e",
+    "values": [
+     0,
+     1
+    ],
+    "foreground_share": 0.022998
+   },
+   "semantic_landing_rate": 1.0,
+   "semantic_gate_ok": true,
+   "ct_corner_voxels_differing": {
+    "near": 0,
+    "far": 0
+   },
+   "ct_corners_identical": true,
+   "padded_128_bounds_zyx": [
+    [
+     16869,
+     3369,
+     3869
+    ],
+    [
+     17381,
+     3881,
+     4381
+    ]
+   ],
+   "padded_128_inside_scan": true
+  }
+ },
+ "full_core_check": {
+  "cube": "s5_05497_01997_02997_256",
+  "padded_shape": [
+   512,
+   512,
+   512
+  ],
+  "core_equals_dataset004": true,
+  "note": "scripts/seed_heading_confirmation.py fetch on one cube: the whole 256^3 core of the padded CT equals imagesTr voxel for voxel"
+ },
+ "ground_truth_path": {
+  "what": "ScrollGT scoring version 3 of finding 97's runs, against ScrollGT's shipped target and against the Dataset004 NML parsed in the cube's frame, keeping fibers with more than one in-bounds node (scripts/seed_heading_confirmation.py ground_truth)",
+  "rows_identical": {
+   "s5_13497_01497_02497_256": {
+    "tol2": true,
+    "tol4": true
+   },
+   "s5_16997_03997_04497_256": {
+    "tol2": true,
+    "tol4": true
+   }
+  }
+ },
+ "villa_main": {
+  "checked_commit": "21d58da8e765014f4a3253b8048642ee377fcd6b",
+  "patch_applies": true,
+  "patch_note": "repro/fibers/villa_volume_seed_heading.patch applies with hunk 2 at offset -201 lines; the 35-degree skip is still in tracing/volume.py",
+  "tracer_imports_here": false,
+  "import_error": "cannot import name 'geometry_scale_to_volume' from 'vc_object_store': villa main needs a rebuild of its native vc_object_store, which this host built at 39a8cf3a",
+  "fiber_tracer_commits_since_39a8cf3a": [
+   "8ff06f762 Add full-volume fiber tracing and scalable chunk-cache scheduling (#2359)",
+   "bf4392a32 fiber volume: keep fractional seed planes on the global grid (#2258)"
+  ]
+ }
+}
