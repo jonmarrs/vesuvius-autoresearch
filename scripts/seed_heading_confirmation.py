@@ -85,6 +85,10 @@ P3_FACTOR = (
 )
 P4_RHO = 0.5  # P4: Spearman's rho between s and the coverage factor, over the ten
 P5_PEN = 0.95  # P5: after/before merge-penalized ERL at tolerance 2 at least this, on every cube
+# ScrollGT's rows are rounded (precision and coverage to 4 decimals, ERL to 2), so a difference or ratio exactly at a
+# threshold can land a float error on the wrong side of it (0.21 / 0.2 is 1.0499999999999998). Each comparison
+# allows this much, far below any real difference between such rows.
+EPS = 1e-9
 EVENTS = {"TRACE", "DONE", "FAILED"}
 
 
@@ -131,6 +135,15 @@ def cube_image(cube: str) -> np.ndarray:
     return img
 
 
+def to_uint8(raw: np.ndarray, slab: int = 64) -> np.ndarray:
+    """cc.to_uint8 a slab at a time, as finding 98 converts its padded 512³ cubes (neural_tracer_ct_context_512): the
+    same voxels, without two float64 copies of a whole 768³ region (about 3.6 GB each) beside the running loop."""
+    out = np.empty(raw.shape, np.uint8)
+    for i in range(0, raw.shape[0], slab):
+        out[i : i + slab] = cc.to_uint8(raw[i : i + slab])
+    return out
+
+
 def fetch(work: Path, cubes=CUBES, get=cc._get, get_ranges=None) -> dict:
     import zarr
 
@@ -140,7 +153,7 @@ def fetch(work: Path, cubes=CUBES, get=cc._get, get_ranges=None) -> dict:
         n, img = size_of(cube), cube_image(cube)
         dst = work / "ct" / f"{cube}.zarr"
         if not dst.exists():
-            padded = cc.to_uint8(
+            padded = to_uint8(
                 cc.read_padded(cube, work / "cache" / cube, get, get_ranges)
             )
             if not np.array_equal(cc.core(padded, MARGIN, n), img):
@@ -183,7 +196,10 @@ def presence(work: Path, device: str, cubes=CUBES) -> dict:
         got = zarr.open(str(dst / "1"), mode="r")[...]
         ok = bool(np.array_equal(got, padded_level(level, cube)))
         record = json.loads((D / f"{cube}_fiberprob.json").read_text())
+        # The identity keys the cache to MODEL's files as they are now; record their hashes, which no check compares
+        # with finding 91's (they are not on record here).
         out[cube] = {"shape": list(got.shape), "core_equals_level": ok, "inference_device": record["inference"]["recipe"]["device"],
+                     "model_files": record["inference"]["model_files"],
                      "probability_sha256": record["probability_sha256"]}  # fmt: skip
         print(cube, out[cube], flush=True)
     return out
@@ -256,11 +272,11 @@ def verdict(rows: dict, records: dict) -> dict:
         "low_skip_cubes": low, "high_skip_cubes": high, "spearman_rho": rho,
         "manipulation": {c: records["after"][c]["no_heading"] == 0 for c in CUBES},
         "median_coverage_factor": statistics.median(cov.values()),
-        "prediction_P1": all(P1_BAND[0] <= cov[c] <= P1_BAND[1] for c in low) if low else None,
-        "prediction_P2": all(prec[c] >= -P2_DROP for c in CUBES),
-        "prediction_P3": all(cov[c] >= P3_FACTOR for c in high) if high else None,
-        "prediction_P4": rho >= P4_RHO if rho is not None else None,
-        "prediction_P5": all(pen[c] >= P5_PEN for c in CUBES),
+        "prediction_P1": all(P1_BAND[0] - EPS <= cov[c] <= P1_BAND[1] + EPS for c in low) if low else None,
+        "prediction_P2": all(prec[c] >= -P2_DROP - EPS for c in CUBES),
+        "prediction_P3": all(cov[c] >= P3_FACTOR - EPS for c in high) if high else None,
+        "prediction_P4": rho >= P4_RHO - EPS if rho is not None else None,
+        "prediction_P5": all(pen[c] >= P5_PEN - EPS for c in CUBES),
     }  # fmt: skip
     out["manipulation_ok"] = all(out["manipulation"].values())
     out["decision"] = decision(out)
@@ -284,12 +300,14 @@ def reading(v: dict) -> str:
             s for s, ok in (("precision", v["prediction_P2"]), ("merge-penalized ERL", v["prediction_P5"])) if not ok)
             + ": hold the villa draft",
         "REPLICATED": f"the coverage gain replicates on the {n} unseen cube{'s' * (n != 1)} that skip at least "
-                      f"{HIGH_SKIP:.2f} of their dots, at the same precision and merge-penalized ERL",
+                      f"{HIGH_SKIP:.2f} of their dots, losing at most {P2_DROP} precision and "
+                      f"{1 - P5_PEN:.0%} of merge-penalized ERL on any cube",
         "NOT_REPLICATED": f"the coverage gain does not replicate on the {n} unseen cube{'s' * (n != 1)} that skip at "
                           f"least {HIGH_SKIP:.2f} of their dots: the draft's gain rests on finding 100's two cubes and "
                           "must say it did not replicate",
         "NO_HIGH_SKIP_CUBE": f"no unseen cube skips {HIGH_SKIP:.2f} of its dots, so the gain is not tested: it rests on "
-                             "finding 100's two cubes; the fix costs neither precision nor merge-penalized ERL here",
+                             f"finding 100's two cubes; the fix loses at most {P2_DROP} precision and "
+                             f"{1 - P5_PEN:.0%} of merge-penalized ERL on any of the ten",
     }[v["decision"]]  # fmt: skip
     if v["prediction_P1"] is False:
         head += (
@@ -304,6 +322,15 @@ def status(smoke_ok: bool | None, failed: list, v: dict) -> str:
     if smoke_ok is None or failed or v["prediction_P2"] is None:
         return "INCOMPLETE"
     return "OK" if v["manipulation_ok"] else "MANIPULATION_FAILED"
+
+
+def outcome(smoke_ok: bool | None, failed: list, v: dict) -> str:
+    """status(), and no decision or reading unless it is OK: verdict() reads the runs whatever the smoke or the
+    manipulation check says, and the decision rule applies to status OK only (a failed check voids it)."""
+    s = status(smoke_ok, failed, v)
+    if s != "OK":
+        v["decision"] = v["reading"] = None
+    return s
 
 
 def villa_commit(work: Path) -> str | None:
@@ -339,7 +366,7 @@ def cmd_score(work: Path, out_path: Path) -> int:
     v = verdict(rows, records)
     out = {
         "registration": "docs/preregistration/2026-11-02_seed_heading_confirmation.md",
-        "status": status(smoke, failed, v),
+        "status": outcome(smoke, failed, v),
         "villa": villa_commit(work),
         "smoke_cube": SMOKE,
         "smoke_identical": smoke,

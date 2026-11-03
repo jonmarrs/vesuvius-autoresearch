@@ -47,6 +47,10 @@ P3_DROP, P3_AT_LEAST = (
     0.03,
     8,
 )  # P3: precision at most P3_DROP lower on at least P3_AT_LEAST held-out cubes
+# ScrollGT's rows are rounded (precision to 4 decimals, ERL to 2), so a difference or ratio exactly at a threshold
+# can land a float error on the wrong side of it (0.50 - 0.53 is -0.030000000000000027). Each comparison allows
+# this much, far below any real difference between such rows.
+EPS = 1e-9
 
 
 def gains(rows: dict, base: dict, cubes, key=PEN) -> dict:
@@ -79,7 +83,9 @@ def run_record(run: Path) -> dict:
 def verdict(
     rows: dict, base_rows: dict, records: dict, ceiling: dict | None = None
 ) -> dict:
-    """rows / records: arm -> cube -> row at tolerance 2 / run record; base_rows: findings 97 and 98's rows."""
+    """rows / records: arm -> cube -> row at tolerance 2 / run record; base_rows: findings 97 and 98's rows.
+    records["smoke"] ({SMOKE: the smoke's record}) joins the manipulation check: the smoke runs through the
+    launcher's villa arm, so it must record the retry off. Without it the check fails."""
     out: dict = {"scored": {a: len(rows.get(a, {})) for a in ARMS}}
     if any(
         c not in rows.get(a, {}) or c not in records.get(a, {})
@@ -93,6 +99,8 @@ def verdict(
         a: {c: records[a][c].get("in_effect") is IN_EFFECT[a] for c in ARM_CUBES[a]}
         for a in ARMS
     }
+    smoke = records.get("smoke", {}).get(SMOKE, {})
+    manipulation["smoke"] = {SMOKE: smoke.get("in_effect") is False}
     merges = {a: sum(rows[a][c][MERGES] for c in HELD) for a in ARMS}
     base_merges = sum(base_rows[c][MERGES] for c in HELD)
     precision = {c: rows["refit"][c][PREC] - base_rows[c][PREC] for c in ALL_CUBES}
@@ -102,7 +110,7 @@ def verdict(
         median_gain_held=statistics.median(g["refit"][c] for c in HELD),
         median_gain_in_sample=statistics.median(g["refit"][c] for c in IN_SAMPLE),
         floor_median_abs=floor,
-        floor_ok=floor < FLOOR_MAX,
+        floor_ok=floor < FLOOR_MAX - EPS,
         coverage_factor={
             c: rows["refit"][c][COV] / base_rows[c][COV] for c in ALL_CUBES
         },
@@ -115,11 +123,13 @@ def verdict(
         out["share_of_ceiling"] = {
             c: g["refit"][c] / ceiling[c] for c in HELD if ceiling[c] > 0
         }
-    out["prediction_P1"] = out["median_gain_held"] >= GAIN_BAR
+    out["prediction_P1"] = out["median_gain_held"] >= GAIN_BAR - EPS
     out["prediction_P2"] = merges["refit"] - base_merges <= abs(
         merges["floor"] - base_merges
     )
-    out["prediction_P3"] = sum(precision[c] >= -P3_DROP for c in HELD) >= P3_AT_LEAST
+    out["prediction_P3"] = (
+        sum(precision[c] >= -P3_DROP - EPS for c in HELD) >= P3_AT_LEAST
+    )
     out["reading"] = reading(out)
     return out  # fmt: skip
 
@@ -156,6 +166,24 @@ def status(smoke_ok: bool | None, v: dict, failed: list) -> str:
     return "OK" if v["floor_ok"] else "FLOOR_TOO_LARGE"
 
 
+def outcome(smoke_ok: bool | None, v: dict, failed: list) -> str:
+    """status(), and no reading unless it is OK: verdict() reads the runs whatever the smoke or a missing run says,
+    and the decision rule makes no reading on SMOKE_FAILED or INCOMPLETE either."""
+    s = status(smoke_ok, v, failed)
+    if s != "OK":
+        v["reading"] = None
+    return s
+
+
+def smoke_record(work: Path) -> tuple[bool | None, dict]:
+    """(identical, the smoke's run record): None and {} with no smoke on record."""
+    path = work / "smoke.json"
+    if not path.exists():
+        return None, {}
+    rec = json.loads(path.read_text())
+    return rec["identical"], {"in_effect": rec.get("in_effect")}
+
+
 def cmd_score(work: Path, out_path: Path) -> int:
     sys.path.insert(0, str(f91.SG / "src"))
     from scrollgt.fibers.eval_trace import SCORING_VERSION, score_tracing
@@ -165,11 +193,12 @@ def cmd_score(work: Path, out_path: Path) -> int:
         raise SystemExit(
             f"registered against ScrollGT scoring version 3, found {SCORING_VERSION}"
         )
-    smoke = json.loads((work / "smoke.json").read_text())["identical"] if (work / "smoke.json").exists() else None  # fmt: skip
+    smoke, smoke_rec = smoke_record(work)
     base2, base4, _ = sh.baseline()
     rows: dict = {a: {} for a in ARMS}
     rows4: dict = {a: {} for a in ARMS}
     records: dict = {a: {} for a in ARMS}
+    records["smoke"] = {SMOKE: smoke_rec}
     unchanged: dict = {a: {} for a in ARMS}
     failed = []
     for a in ARMS:
@@ -191,7 +220,7 @@ def cmd_score(work: Path, out_path: Path) -> int:
     v = verdict(rows, base2, records, ceiling)
     out = {
         "registration": "docs/preregistration/2026-11-02_neural_tracer_refit_retry.md",
-        "status": status(smoke, v, failed),
+        "status": outcome(smoke, v, failed),
         "smoke_cube": SMOKE,
         "smoke_identical": smoke,
         "failed": failed,
@@ -226,13 +255,20 @@ def main(argv: list[str] | None = None) -> int:
             )
     args = ap.parse_args(argv)
     if args.cmd == "smoke":
+        run = args.work / "smoke" / SMOKE
         same = cc.f96_afv_identical(
-            args.work / "smoke" / SMOKE / "fibers.afv",
-            BASE_RUNS[256] / "neural" / SMOKE / "fibers.afv",
+            run / "fibers.afv", BASE_RUNS[256] / "neural" / SMOKE / "fibers.afv"
         )
+        # The manipulation check covers the smoke: its launcher record must show the retry off.
+        arm_rec = run / "refit_arm.json"
+        in_effect = json.loads(arm_rec.read_text()).get("in_effect") if arm_rec.exists() else None  # fmt: skip
         (args.work / "smoke.json").write_text(
-            json.dumps({"cube": SMOKE, "identical": same}) + "\n"
+            json.dumps({"cube": SMOKE, "identical": same, "in_effect": in_effect})
+            + "\n"
         )
+        if in_effect is not False:
+            print(f"SMOKE_FAILED: refit_retry recorded {in_effect}, not off")
+            return 1
         print("SMOKE_OK" if same else "SMOKE_FAILED")
         return 0 if same else 1
     return cmd_score(args.work, args.out)

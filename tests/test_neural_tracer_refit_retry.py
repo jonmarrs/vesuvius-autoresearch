@@ -135,6 +135,16 @@ def test_villa_is_as_the_registration_says():
         in trace
     )
     assert "pp = self.p" in trace
+    # the two sentences the registration quotes from trace.py's comments
+    comments = " ".join(
+        s.strip()[1:].strip() for s in trace.splitlines() if s.strip().startswith("#")
+    )
+    assert (
+        "a decision that would stop on confidence first retries once at the same head with its crop refit to its "
+        "own prediction (frames.learned.predicted_axis over the gate horizon); only a second stop then ends the "
+        "trace" in comments
+    )  # fmt: skip
+    assert "fp32 keeps batch-composition rounding differences from growing into flipped decisions" in comments  # fmt: skip
     volume = _villa("fibers/tracing/volume.py")
     # the volume tracer never sets it, and its main builds the tracer by the module-global name
     assert "refit" not in volume
@@ -191,6 +201,7 @@ def _case(gain=0.2, floor=0.0, prec=0.0, merges=0, floor_merges=0, inside=0.0):
         },
     }  # fmt: skip
     records = {a: {c: {"in_effect": rr.IN_EFFECT[a]} for c in rr.ARM_CUBES[a]} for a in rr.ARMS}  # fmt: skip
+    records["smoke"] = {rr.SMOKE: {"in_effect": False}}
     return rows, base, records
 
 
@@ -265,6 +276,68 @@ def test_the_failure_branches_emit_no_reading():
     assert (
         rr.status(None, rr.verdict(*_case()), []) == "INCOMPLETE"
     )  # no smoke on record
+
+
+def test_failed_and_incomplete_studies_emit_no_reading():
+    """verdict() reads the runs whatever the smoke says; the scored outcome keeps a reading only when it is OK."""
+    for smoke, failed, want in ((False, [], "SMOKE_FAILED"), (None, [], "INCOMPLETE"),
+                                (True, [f"floor/{rr.HELD[0]}"], "INCOMPLETE")):  # fmt: skip
+        v = rr.verdict(*_case())
+        assert v["reading"] is not None
+        assert rr.outcome(smoke, v, failed) == want and v["reading"] is None
+    v = rr.verdict(*_case())
+    assert rr.outcome(True, v, []) == "OK" and v["reading"].startswith("villa's refit")
+
+
+def test_the_smoke_must_record_the_retry_off():
+    """The manipulation check covers the smoke: it runs through the launcher's villa arm."""
+    for in_effect, want in ((False, "OK"), (True, "MANIPULATION_FAILED"), (None, "MANIPULATION_FAILED")):  # fmt: skip
+        rows, base, records = _case()
+        records["smoke"] = {rr.SMOKE: {"in_effect": in_effect}}
+        v = rr.verdict(rows, base, records)
+        assert v["manipulation"]["smoke"] == {rr.SMOKE: in_effect is False}
+        assert rr.outcome(True, v, []) == want
+        assert (v["reading"] is None) == (want != "OK")
+    rows, base, records = _case()
+    del records["smoke"]  # a score that never read the smoke's record
+    v = rr.verdict(rows, base, records)
+    assert rr.outcome(True, v, []) == "MANIPULATION_FAILED"
+
+
+@pytest.mark.parametrize("in_effect, rc", [(False, 0), (True, 1), (None, 1)])
+def test_the_smoke_command_records_the_launchers_setting(tmp_path, monkeypatch, in_effect, rc):  # fmt: skip
+    run = tmp_path / "smoke" / rr.SMOKE
+    run.mkdir(parents=True)
+    if in_effect is not None:
+        (run / "refit_arm.json").write_text(json.dumps({"arm": "villa", "in_effect": in_effect}))  # fmt: skip
+    monkeypatch.setattr(rr.cc, "f96_afv_identical", lambda a, b: True)
+    assert rr.main(["smoke", "--work", str(tmp_path)]) == rc
+    assert json.loads((tmp_path / "smoke.json").read_text())["in_effect"] == in_effect
+    assert rr.smoke_record(tmp_path) == (True, {"in_effect": in_effect})
+    assert rr.smoke_record(tmp_path / "none") == (None, {})
+
+
+def test_thresholds_hold_at_rounded_rows_exactly_on_them():
+    """ScrollGT rounds the rows; a figure exactly at a threshold must not fall on the wrong side by float error."""
+    rows, base, records = _case()
+    for c in rr.HELD:  # a gain of 0.10: 5.72 / 5.2 - 1 = 0.09999999999999987
+        base[c][PEN], rows["refit"][c][PEN] = 5.2, 5.72
+    assert rr.verdict(rows, base, records)["prediction_P1"]
+    rows, base, records = _case()
+    for c in rr.HELD[:3]:  # 0.03 lower: 0.50 - 0.53 = -0.030000000000000027
+        base[c][PREC], rows["refit"][c][PREC] = 0.53, 0.50
+    assert rr.verdict(rows, base, records)["prediction_P3"]
+    rows, base, records = _case()
+    for c in rr.HELD:  # the floor moved by 0.03: 5.82 / 6.0 - 1 = -0.029999999999999916
+        base[c][PEN], rows["floor"][c][PEN] = 6.0, 5.82
+    v = rr.verdict(rows, base, records)
+    assert v["floor_ok"] is False and rr.status(True, v, []) == "FLOOR_TOO_LARGE"
+
+
+def test_the_floor_is_the_median_absolute_change():
+    v = rr.verdict(*_case(floor=-0.05))
+    assert v["floor_median_abs"] == pytest.approx(0.05)
+    assert v["floor_ok"] is False and rr.status(True, v, []) == "FLOOR_TOO_LARGE"
 
 
 def test_partial_samples_are_refused():
