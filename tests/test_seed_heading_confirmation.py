@@ -233,6 +233,71 @@ def test_the_chain_pins_what_the_script_pins():
     assert m.rr.SOURCE["before"] / m.SMOKE == m.SMOKE_REFERENCE
 
 
+def test_a_voided_or_incomplete_study_records_no_decision():
+    """The decision rule applies to status OK only; verdict() decides whatever the smoke or the manipulation says."""
+    cases = (
+        (True, _case(after_skips={A: 1}, after_cov={A: 0.4 * 1.2}, s={A: 0.3}), "MANIPULATION_FAILED"),
+        (False, _case(), "SMOKE_FAILED"),
+        (None, _case(), "INCOMPLETE"),
+    )  # fmt: skip
+    for smoke, case, want in cases:
+        v = m.verdict(*case)
+        assert v["decision"] is not None and v["reading"] is not None
+        assert m.outcome(smoke, [], v) == want
+        assert v["decision"] is None and v["reading"] is None
+    v = m.verdict(*_case())
+    assert m.outcome(True, [], v) == "OK" and v["decision"] == "NO_HIGH_SKIP_CUBE"
+
+
+def test_thresholds_hold_at_rounded_rows_exactly_on_them():
+    """ScrollGT rounds the rows; a figure exactly at a threshold must not fall on the wrong side by float error."""
+    rows, records = _case(s={A: 0.3})
+    before, after = rows["before"], rows["after"]
+    # 1.05 and 0.99 exactly (0.105 / 0.1 and 0.1386 / 0.14 fall below them in floats)
+    before[A]["coverage"], after[A]["coverage"] = 0.1, 0.105
+    before[B]["coverage"], after[B]["coverage"] = 0.14, 0.1386
+    # 0.03 lower (0.50 - 0.53 = -0.030000000000000027) and 0.95 (8.36 / 8.8 = 0.9499999999999998)
+    before[A]["precision"], after[A]["precision"] = 0.53, 0.50
+    before[B]["erl_merge_penalized"], after[B]["erl_merge_penalized"] = 8.8, 8.36
+    v = m.verdict(rows, records)
+    assert B in v["low_skip_cubes"] and A in v["high_skip_cubes"]
+    assert [v[f"prediction_P{i}"] for i in (1, 2, 3, 5)] == [True] * 4
+    assert v["decision"] == "REPLICATED"
+
+
+def test_the_readings_state_the_registered_allowances():
+    """P2 and P5 allow 0.03 of precision and 5% of merge-penalized ERL: no reading says the fix costs nothing."""
+    for case in (_case(), _case(after_cov={A: 0.4 * 1.2}, s={A: 0.3})):
+        reading = m.verdict(*case)["reading"]
+        assert "at most 0.03 precision and 5% of merge-penalized ERL" in reading
+        assert "same precision" not in reading and "neither" not in reading
+
+
+def test_fetch_converts_the_padded_region_a_slab_at_a_time(tmp_path, monkeypatch):
+    """A padded 512³ cube is a 768³ region; converted whole it held two float64 copies of it (3.6 GB each)."""
+    cube, n, margin = "s5_00000_00000_00000_4", 4, 40
+    raw = np.random.default_rng(0).integers(0, 65536, (n + 2 * margin,) * 3, dtype=np.uint16)  # fmt: skip
+    whole = m.cc.to_uint8(raw)
+    core = whole[margin : margin + n, margin : margin + n, margin : margin + n].copy()
+    monkeypatch.setattr(m, "MARGIN", margin)
+    monkeypatch.setattr(m, "cube_image", lambda c: core)
+    monkeypatch.setattr(m.cc, "read_padded", lambda *a: raw)
+    depths: list[int] = []
+    convert = m.cc.to_uint8
+
+    def counted(r):
+        depths.append(len(r))
+        return convert(r)
+
+    monkeypatch.setattr(m.cc, "to_uint8", counted)
+    got = m.fetch(tmp_path, cubes=(cube,))
+    assert got == {
+        cube: {"shape": [n + 2 * margin] * 3, "core_equals_dataset004": True}
+    }
+    assert max(depths) <= 64 and sum(depths) == n + 2 * margin
+    assert np.array_equal(m.to_uint8(raw, slab=7), whole)
+
+
 def test_the_doc_registers_the_scripts_numbers():
     t = _text()
     assert "**Status: PROPOSED 2026-11-02, not registered.**" in t

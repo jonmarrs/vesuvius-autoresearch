@@ -41,8 +41,9 @@ been traced, scored or used here, and none overlaps ScrollGT's cubes, even padde
   `s5_16997_03497_03997_256`.
 * **Three were first released in Dataset003**, so they are held out from it: `s1_08994_02494_03494_512`,
   `s1_09997_02497_03497_256` and `s5_15494_04494_02494_512`.
-* **The tracer's checkpoint trained on none of them.** fiber_single_small's dataset config lists Paris 4 (Scroll 1)
-  fibers from a manifest, plus model-made AFVs. It lists no fiber-skeletons release.
+* **The tracer's checkpoint lists no fiber-skeletons release among its training data.** fiber_single_small's dataset
+  config lists Paris 4 (Scroll 1) fibers from a manifest, plus model-made AFVs. Three of the ten are Scroll-1 cubes;
+  whether those Paris 4 fibers pass through them is not public (PR #326).
 
 **Checked on the CPU on 2026-11-02** (`reports/evidence/fiber_skeletons_unshipped_checks_2026-11-02.json`):
 * **Labels.** On every cube, the NML's in-bounds nodes land on villa's semantic label at 0.99998–1.0. ScrollGT's gate
@@ -61,9 +62,10 @@ Finding 97's protocol throughout, through `scripts/seed_heading_confirmation.py`
 * **CT:** each cube padded by 128 voxels of the public raw scan, converted as villa's dataset generator made the cubes.
   The core must equal the Dataset004 image exactly, or the chain refuses to start (`fetch`, run beforehand with the
   loop running).
-* **Presence:** fiber_hz_vt on each cube's own image, on the GPU. It uses finding 91's model, patch, step and AMP,
-  checked through the cached inference identity. finding 91's 2×2×2 block mean is placed in the padded trace grid,
-  with zeros outside the cube.
+* **Presence:** fiber_hz_vt on each cube's own image, on the GPU, from the model directory finding 91 recorded and
+  with its patch, step and AMP. The cached inference identity, which hashes the model files, keys the cache to that
+  directory as it is now; `presence.json` records the hashes, and nothing here compares them with finding 91's.
+  finding 91's 2×2×2 block mean is placed in the padded trace grid, with zeros outside the cube.
 * **Tracer:** villa's own CLI at `39a8cf3a`. `before` runs the source as villa has it; `after` runs it with the patch.
   Both run in finding 97's tracer environment, with checkpoint `fiber_single_small@451182558c` and finding 97's flags.
   The box is the cube, and `--no-fibers` is set because villa #2316 binds exports to an open-data volume. The chain
@@ -102,7 +104,8 @@ For the villa draft (`docs/VILLA_DRAFT_volume_seed_heading.md`):
   * **`REPLICATED`:** the draft may say the coverage gain replicated on the named unseen cubes.
   * **`NOT_REPLICATED`:** the draft says the gain did not replicate, and that it rests on finding 100's two cubes.
   * **`NO_HIGH_SKIP_CUBE`:** the draft says no unseen cube skipped 20% of its dots, so the gain rests on finding 100's
-    two cubes. It may say the fix cost neither precision nor merge-penalized ERL on ten unseen cubes.
+    two cubes. It may say the fix cost at most 0.03 precision and 5% of merge-penalized ERL on each of ten unseen
+    cubes.
 * **P1 and P4 are reported, not decisive.** If P1 fails, the draft may not say that coverage stays put where few dots
   are skipped.
 

@@ -154,8 +154,11 @@ def test_an_escalated_stop_returns_only_once_the_group_is_gone(tmp_path):
     returned, though _kill waits for the whole group: a worker still exiting
     outlived the stop. Under load the handoff then reported its group cleaned up
     with the worker still running. Here the worker stays in the group, dead but
-    unreaped, for 0.5 s: its parent is in another group of the run's session."""
-    pids, reaped = tmp_path / "pids", tmp_path / "reaped"
+    unreaped, for 0.5 s: its parent is in another group of the run's session.
+    The worker must be gone when stop() returns, not merely dead: a zombie keeps
+    its /proc entry and its place in the group. (A marker its parent wrote after
+    reaping it raced the return: the group empties at the reap, before the write.)"""
+    pids = tmp_path / "pids"
     parent = f"""
 import os, signal, sys, time
 from pathlib import Path
@@ -171,7 +174,6 @@ while Path(f"/proc/{{worker}}/stat").read_text().rsplit(")", 1)[1].split()[0] !=
     time.sleep(0.01)
 time.sleep(0.5)
 os.waitpid(worker, 0)
-Path({str(reaped)!r}).write_text("")
 """
     # The leader and, by inheritance, the worker ignore SIGTERM.
     leader = f"""
@@ -186,7 +188,8 @@ while not Path({str(pids)!r}).exists(): time.sleep(0.01)
         assert (
             supervisor.run([sys.executable, "-c", leader], timeout=30).returncode == 0
         )
-        assert reaped.exists()
+        worker = int(pids.read_text().split()[0])
+        assert not Path(f"/proc/{worker}").exists()  # alive() counts a zombie dead
         assert supervisor.active is None and supervisor.stopping is None
     finally:
         if pids.exists():
