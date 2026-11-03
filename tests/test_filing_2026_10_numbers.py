@@ -268,15 +268,31 @@ def _tags_made_by(repo: Path, cutoff: datetime) -> list:
     return [tag for tag, made in rows if int(made) <= cutoff.timestamp()]
 
 
-def test_scrollgt_cite_is_its_newest_tag():
-    """The URL field cited v0.4.1 after v0.5.0 was tagged; tie it to the sibling checkout's newest tag
-    made by the October deadline, so a later release (v0.9.2) does not rewrite the filed month."""
+def _url_field() -> list:
+    """The draft's URL field: the lines of the fenced block under its "## URL field" heading."""
+    block = _DRAFT.read_text().split("\n## URL field\n", 1)[1].split("```", 2)[1]
+    return [line.strip() for line in block.splitlines() if line.strip()]
+
+
+def test_the_url_field_cites_scrollgt_once_at_v0_9_0():
+    """The field the form receives, not the whole draft: part (2) links other ScrollGT tags."""
+    assert [u for u in _url_field() if "jonmarrs/scrollgt" in u] == [
+        "https://github.com/jonmarrs/scrollgt/tree/v0.9.0"
+    ]
+
+
+def test_the_checklist_names_the_newest_tag_the_url_field_missed():
+    """The URL field cited v0.4.1 after v0.5.0 was tagged, so this test was meant to tie the field to ScrollGT's
+    newest tag. It searched the whole draft, and part (2)'s link to v0.9.1 satisfied it while the field kept
+    v0.9.0. The research entry was not filed, so the field stays as it stood at the October deadline, and the
+    checklist names the newest tag by that deadline, which a later release (v0.9.2) does not change."""
     tags = _tags_made_by(main_checkout().parent / "scrollgt", _october_deadline())
     if not tags:
         pytest.skip("scrollgt checkout with tags not beside this repo")
     assert (
-        f"https://github.com/jonmarrs/scrollgt/tree/{tags[0]}" in _DRAFT.read_text()
-    ), f"cite ScrollGT {tags[0]}"
+        f"The URL field cites `tree/v0.9.0`, not `tree/{tags[0]}`, ScrollGT's newest tag by the October deadline"
+        in _text()
+    )
 
 
 def test_the_newest_tag_by_the_deadline_ignores_later_tags(tmp_path):
@@ -1310,10 +1326,7 @@ def test_scrollgt_0_9_0_is_described_as_released():
     """0.8.3 and 0.9.0 were merged on 2026-10-24 and tagged together as v0.9.0; the draft cites that tag."""
     txt = _text()
     assert "were merged on 2026-10-24 and tagged together as v0.9.0" in txt
-    assert (
-        "https://github.com/jonmarrs/scrollgt/tree/v0.9.0" in txt
-        and "scrollgt/tree/v0.8.2" not in txt
-    )
+    assert "scrollgt/tree/v0.8.2" not in txt
     assert (
         "The URL field cites `tree/v0.9.0`" in txt
     )  # the checklist names the cite it set
