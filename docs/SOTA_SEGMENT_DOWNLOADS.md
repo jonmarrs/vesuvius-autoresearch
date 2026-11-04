@@ -54,6 +54,9 @@ uses the converter's case-sensitive, non-hidden filename behavior, and hidden
 files in `layers/` are ignored, as the converter ignores them. Ambiguous
 labels/masks and matching directory entries fail before any payloads. Missing
 masks remain explicitly absent; the download does not invent one.
+Zero-byte S3 folder markers naming the listed prefix itself are ignored as
+payloads, but still count toward both the per-listing and combined entry budgets
+and the reported ignored-entry counts. A nonempty object at that name is refused.
 
 S3 objects require ETags. Each payload request uses an explicit `GetObject` range
 of at most 1 MiB with `IfMatch` set to the planned ETag. Response identity, range,
@@ -75,6 +78,13 @@ return a nonzero result. A killed process can leave a hidden staging directory;
 it is not the final destination. There is no partial-transfer resume. Serialize
 local writers and keep sources/code stable. Per-object conditions and rechecks
 are not a global S3 snapshot or a power-loss durability guarantee.
+
+SDK connection and HTTP-body failures report the failed listing or byte range,
+the source key and the exception class without dumping the SDK's endpoint/debug
+text. These errors leave no published destination and discard staging, including
+when the final listing recheck fails. After checking connectivity and object
+access, retry the same command if its output path is still absent. The command
+does not resume a partial transfer or add retries beyond those of the SDK.
 
 Exit 0 means a plan or transfer completed; input/transport/publication failures
 exit 1 and usage errors exit 2. Image decoding, CT registration, annotation quality
