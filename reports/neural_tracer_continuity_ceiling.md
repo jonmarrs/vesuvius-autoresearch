@@ -82,7 +82,9 @@ voxels; each gain is against the cube's ERLpen. On the eleven in-sample cubes, w
 
 Finding 101's coverage result stands, but the line is not closed. The registered next step is a development-pilot
 proposal for a continuation rule, judged against the stock tracer by ERLpen and wrong connections, and running it is
-the owner's GPU decision. This result scopes what such a rule would have to do:
+the owner's GPU decision. This result scopes what such a rule would have to do. *(Added 2026-11-03:
+[finding 104](neural_tracer_refit_retry.md) ran villa's own refit retry as that rule. It gains a median 0.003 and adds
+merges, so it closes as a continuation rule; the line now needs a new rule.)*
 
 * **Go on for tens of voxels.** Within 20 voxels the ceiling is a median 6.1%. Short extensions cannot reach the bar.
 * **Go on only where the trace is on a fiber.** Finding 101 found two-thirds of the tracer's interior confidence stops

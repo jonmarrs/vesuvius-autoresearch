@@ -4,6 +4,10 @@
 proposed on 2026-11-02 (PR #326) and reviewed in PR #329. The owner approved the run on 2026-11-03, before any arm was
 traced. The arms, predictions, thresholds and decision rule are as proposed. The chain needs the autoresearch loop
 stopped for about 80 minutes. The launcher, the chain and the scorer below are committed with it.
+**Run 2026-11-03 13:15–14:38 PST from f7145c5d, scored 15:09–17:05 PST: finding 104,
+`reports/neural_tracer_refit_retry.md`. Status OK; all 21 baseline rows reproduced; floor 0.008. P1 missed (median
+held-out gain 0.003), P2 missed (merges +219 against the floor's +35), P3 held (9 of 10): close it as a continuation
+rule.**
 
 **Amended in the open at registration,** after #329's review and before any arm was traced:
 * **The baseline is re-scored.** Findings 97 and 98's recorded rows name no ScrollGT commit. So `score` re-scores the
