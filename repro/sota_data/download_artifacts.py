@@ -25,15 +25,29 @@ class RemoteAccessError(ValueError):
     """An S3 SDK/HTTP failure, reported by both acquisition CLIs as an input error."""
 
 
+def _sdk_errors():
+    """The SDK/HTTP exception classes that can be imported. s3fs always brings both, but a filesystem that only
+    declares an S3 protocol (a test double) needs neither, and must reach the downloader's own checks."""
+    errors: list[type[BaseException]] = []
+    try:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        errors += [BotoCoreError, ClientError]
+    except ImportError:
+        pass
+    try:
+        from aiohttp import ClientError as HTTPError
+
+        errors.append(HTTPError)
+    except ImportError:
+        pass
+    return tuple(errors)
+
+
 @contextmanager
 def _remote_errors(filesystem, operation, key):
     # Keep SDK imports lazy: local backends, cache reuse and --help need none.
-    errors = ()
-    if _is_s3(filesystem):
-        from aiohttp import ClientError as HTTPError
-        from botocore.exceptions import BotoCoreError, ClientError
-
-        errors = (BotoCoreError, ClientError, HTTPError)
+    errors = _sdk_errors() if _is_s3(filesystem) else ()
     try:
         yield
     except errors as exc:

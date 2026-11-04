@@ -297,6 +297,19 @@ def test_invalid_listing_metadata_cannot_form_a_plan(
     assert not (tmp_path / "raw").exists()
 
 
+def test_a_filesystem_that_only_declares_s3_needs_no_sdk(bucket, tmp_path, monkeypatch):
+    """The SDK error mapping imported botocore for any S3-protocol filesystem, so the
+    missing-ETag case above stopped with ModuleNotFoundError where botocore is absent."""
+    for name in ("aiohttp", "botocore", "botocore.exceptions"):
+        # None in sys.modules makes importing the name raise ImportError.
+        monkeypatch.setitem(sys.modules, name, None)
+    fs, _, _ = bucket
+    monkeypatch.setattr(fs, "protocol", ("s3",))
+    with pytest.raises(ValueError, match="require ETags"):
+        download(bucket, tmp_path)
+    assert not (tmp_path / "raw").exists()
+
+
 @pytest.mark.parametrize("fault", ["failure", "short", "long"])
 def test_failed_transfer_publishes_no_partial_raw_directory(
     bucket, tmp_path, monkeypatch, fault
@@ -654,6 +667,28 @@ def test_only_a_zero_byte_folder_marker_can_name_the_listing_itself(
         return [
             *original(path, detail=detail),
             {"name": path + "/", "size": marker_size, "type": "file"},
+        ]
+
+    monkeypatch.setattr(fs, "ls", listing)
+    with pytest.raises(ValueError, match="outside its direct prefix"):
+        plan(bucket, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "suffix, kind", [("", "file"), ("/", "directory")], ids=["no-slash", "directory"]
+)
+def test_a_folder_marker_is_a_file_named_with_the_trailing_slash(
+    bucket, tmp_path, monkeypatch, suffix, kind
+):
+    """Zero bytes alone do not make a marker: an entry naming the listing itself
+    without the slash, or as a directory, is still refused."""
+    fs, _, _ = bucket
+    original = fs.ls
+
+    def listing(path, detail=True):
+        return [
+            *original(path, detail=detail),
+            {"name": path + suffix, "size": 0, "type": kind},
         ]
 
     monkeypatch.setattr(fs, "ls", listing)
