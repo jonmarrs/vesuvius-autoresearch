@@ -38,6 +38,14 @@ completion JSON are rechecked before the staged directory is renamed into place.
 A failed transfer never becomes the final cache. A killed process may leave a
 hidden staging directory; it is not reusable as a completed cache.
 
+Zero-byte S3 folder markers are excluded from teacher candidates and still count
+toward the listing limit. SDK connection and HTTP-body failures use the shared
+downloader's concise diagnostics: operation, source key and exception class,
+without raw endpoint/debug text. Failed downloads or final metadata rechecks
+discard staging and publish no cache. Check connectivity and object access before
+retrying the command; there is no partial-transfer resume or additional retry
+policy beyond the SDK's own.
+
 Ordinary reuse is local and rehashes the file. It refuses missing/changed files,
 bad or missing completion metadata, unexpected entries, symlinks, source-prefix
 or explicit-prediction mismatches. An existing cache pins its recorded prediction;

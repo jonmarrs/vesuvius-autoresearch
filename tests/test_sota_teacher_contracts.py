@@ -272,37 +272,35 @@ def test_teacher_publication_through_the_actual_s3_sdk(tmp_path, monkeypatch, fa
         "Range": f"bytes=0-{len(data) - 1}",
         "IfMatch": etag,
     }
-    try:
-        with AioStubber(fs.s3) as stub:
-            if fault:
-                stub.add_client_error(
-                    "get_object",
-                    service_error_code="PreconditionFailed",
-                    http_status_code=412,
-                    expected_params=parameters,
-                )
-                with pytest.raises(OSError):
-                    ta.fetch_teacher(prefix, tmp_path / "cache", filesystem=fs)
-                assert not (tmp_path / "cache").exists()
-            else:
-                stub.add_response(
-                    "get_object",
-                    {
-                        "Body": body,
-                        "ContentLength": len(data),
-                        "ContentRange": f"bytes 0-{len(data) - 1}/{len(data)}",
-                        "ETag": etag,
-                    },
-                    parameters,
-                )
-                path = ta.fetch_teacher(prefix, tmp_path / "cache", filesystem=fs)
-                pixels, provenance = ta.read_teacher(path)
-                assert np.all(pixels == 200)
-                assert provenance["input"]["sha256"] == hashlib.sha256(data).hexdigest()
-                assert body.closed
-            stub.assert_no_pending_responses()
-    finally:
-        fs.close_session(fs.loop, fs._s3creator)
+    # s3fs's registered finalizer owns the session; do not close it twice.
+    with AioStubber(fs.s3) as stub:
+        if fault:
+            stub.add_client_error(
+                "get_object",
+                service_error_code="PreconditionFailed",
+                http_status_code=412,
+                expected_params=parameters,
+            )
+            with pytest.raises(OSError):
+                ta.fetch_teacher(prefix, tmp_path / "cache", filesystem=fs)
+            assert not (tmp_path / "cache").exists()
+        else:
+            stub.add_response(
+                "get_object",
+                {
+                    "Body": body,
+                    "ContentLength": len(data),
+                    "ContentRange": f"bytes 0-{len(data) - 1}/{len(data)}",
+                    "ETag": etag,
+                },
+                parameters,
+            )
+            path = ta.fetch_teacher(prefix, tmp_path / "cache", filesystem=fs)
+            pixels, provenance = ta.read_teacher(path)
+            assert np.all(pixels == 200)
+            assert provenance["input"]["sha256"] == hashlib.sha256(data).hexdigest()
+            assert body.closed
+        stub.assert_no_pending_responses()
 
 
 def test_cli_dry_run_download_and_invalid_cache(bucket, tmp_path, monkeypatch, capsys):

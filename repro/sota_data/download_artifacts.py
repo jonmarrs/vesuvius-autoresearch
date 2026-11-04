@@ -6,6 +6,7 @@ import hashlib
 import importlib.metadata
 import platform
 import re
+from contextlib import contextmanager
 from pathlib import Path
 
 from .depth_window import depth_window
@@ -18,6 +19,30 @@ MAX_BYTES = 64 * 1024**3
 MAX_FILE_BYTES = 2 * 1024**3
 MAX_FILES = 1024
 MAX_ENTRIES = 4096
+
+
+class RemoteAccessError(ValueError):
+    """An S3 SDK/HTTP failure, reported by both acquisition CLIs as an input error."""
+
+
+@contextmanager
+def _remote_errors(filesystem, operation, key):
+    # Keep SDK imports lazy: local backends, cache reuse and --help need none.
+    errors = ()
+    if _is_s3(filesystem):
+        from aiohttp import ClientError as HTTPError
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        errors = (BotoCoreError, ClientError, HTTPError)
+    try:
+        yield
+    except errors as exc:
+        # SDK messages may contain opaque endpoint/debug details. Retain the
+        # cause for library callers, but give CLI users a bounded diagnostic.
+        raise RemoteAccessError(
+            f"Cannot {operation} s3://{key} ({type(exc).__name__}). "
+            "Check connectivity and object access, then retry the command."
+        ) from exc
 
 
 def _version(name):
@@ -73,8 +98,9 @@ def source_prefix(value):
 def _listing(filesystem, prefix, maximum):
     # The SDK may materialize its response; this limits accepted metadata, not
     # the filesystem implementation's listing buffers. Never recurse.
-    filesystem.invalidate_cache(prefix)
-    entries = filesystem.ls(prefix, detail=True)
+    with _remote_errors(filesystem, "list", prefix):
+        filesystem.invalidate_cache(prefix)
+        entries = filesystem.ls(prefix, detail=True)
     if not isinstance(entries, list) or len(entries) > maximum:
         raise ValueError(f"listing exceeds max_entries={maximum}: {prefix}")
     result = {}
@@ -82,11 +108,20 @@ def _listing(filesystem, prefix, maximum):
         if not isinstance(entry, dict):
             raise ValueError("object listing must contain metadata records")
         key = canonical_key(entry.get("name"))
-        if key.rsplit("/", 1)[0] != prefix:
+        marker = (
+            key == prefix
+            and entry["name"].removeprefix("s3://").lstrip("/") == prefix + "/"
+            and entry.get("type") == "file"
+            and type(entry.get("size")) is int
+            and entry["size"] == 0
+        )
+        if not marker and key.rsplit("/", 1)[0] != prefix:
             raise ValueError(
                 f"listing returned an object outside its direct prefix: {key}"
             )
-        name = key.rsplit("/", 1)[1]
+        # The empty relative name denotes this directory's S3 folder marker.
+        # Keep it as an ignored entry so both listing budgets still count it.
+        name = "" if marker else key.rsplit("/", 1)[1]
         if name in result:
             raise ValueError(f"duplicate object listing: {key}")
         if entry.get("type") not in {"file", "directory"}:
@@ -222,6 +257,11 @@ def _is_s3(filesystem):
 
 def _read_range(filesystem, item, start, end):
     """Use explicit GetObject conditions; open(size=...) can bypass s3fs's ETag guard."""
+    with _remote_errors(filesystem, f"read bytes {start}-{end - 1} from", item["key"]):
+        return _read_range_body(filesystem, item, start, end)
+
+
+def _read_range_body(filesystem, item, start, end):
     expected = end - start
     if not _is_s3(filesystem):
         data = filesystem.cat_file(item["key"], start=start, end=end)

@@ -393,8 +393,9 @@ def s3():
 
     fs = s3fs.S3FileSystem(anon=True, skip_instance_cache=True)
     fs.connect()
-    yield fs
-    fs.close_session(fs.loop, fs._s3creator)
+    # s3fs registers its own finalizer; explicitly closing too enters the same
+    # aiobotocore context's __aexit__ twice and emits unraisable exceptions.
+    return fs
 
 
 class AsyncBody(io.BytesIO):
@@ -593,3 +594,204 @@ def test_one_file_cannot_be_both_the_label_and_the_mask(bucket, tmp_path):
     fs.pipe(base + "/segment_inklabels_mask.png", b"both")
     with pytest.raises(ValueError, match="unambiguous"):
         plan(bucket, tmp_path)
+
+
+@pytest.mark.parametrize("max_entries", [13, 12])
+def test_sdk_folder_markers_are_ignored_but_count_toward_listing_budget(
+    s3, bucket, tmp_path, max_entries
+):
+    from aiobotocore.stub import AioStubber
+
+    _, prefix, _ = bucket
+    with AioStubber(s3.s3) as stub:
+        for suffix, names in (
+            ("", ["segment_inklabels.png", "segment_mask.png"]),
+            ("/layers", [f"{index:02d}.tif" for index in range(8)]),
+        ):
+            key = prefix + suffix + "/"
+            response = {
+                "Contents": [
+                    {"Key": key, "Size": 0, "ETag": '"marker"'},
+                    *[
+                        {"Key": key + name, "Size": 6, "ETag": '"payload"'}
+                        for name in names
+                    ],
+                ],
+                "IsTruncated": False,
+            }
+            if not suffix:
+                response["CommonPrefixes"] = [{"Prefix": key + "layers/"}]
+            stub.add_response(
+                "list_objects_v2",
+                response,
+                {"Bucket": artifacts.BUCKET, "Prefix": key, "Delimiter": "/"},
+            )
+        if max_entries == 12:
+            with pytest.raises(ValueError, match="combined listing"):
+                fetch.plan_segment(
+                    prefix, tmp_path / "raw", filesystem=s3, max_entries=max_entries
+                )
+        else:
+            result = fetch.plan_segment(
+                prefix, tmp_path / "raw", filesystem=s3, max_entries=max_entries
+            )
+            assert result["file_count"] == 10
+            assert result["ignored_root_entries"] == 1
+            assert result["ignored_layer_entries"] == 1
+            assert all(not item["key"].endswith("/") for item in result["files"])
+        stub.assert_no_pending_responses()
+    assert not (tmp_path / "raw").exists()
+
+
+@pytest.mark.parametrize("marker_size", [1, False])
+def test_only_a_zero_byte_folder_marker_can_name_the_listing_itself(
+    bucket, tmp_path, monkeypatch, marker_size
+):
+    fs, _, _ = bucket
+    original = fs.ls
+
+    def listing(path, detail=True):
+        return [
+            *original(path, detail=detail),
+            {"name": path + "/", "size": marker_size, "type": "file"},
+        ]
+
+    monkeypatch.setattr(fs, "ls", listing)
+    with pytest.raises(ValueError, match="outside its direct prefix"):
+        plan(bucket, tmp_path)
+
+
+def test_teacher_plan_skips_a_folder_marker_even_when_its_prefix_ends_in_tif(
+    s3, tmp_path
+):
+    from aiobotocore.stub import AioStubber
+
+    from repro.sota_data.teacher_artifacts import fetch_teacher
+
+    key = "teacher-tests/predictions.tif/"
+    with AioStubber(s3.s3) as stub:
+        stub.add_response(
+            "list_objects_v2",
+            {
+                "Contents": [
+                    {"Key": key, "Size": 0, "ETag": '"marker"'},
+                    {"Key": key + "prediction.tif", "Size": 6, "ETag": '"teacher"'},
+                ],
+                "IsTruncated": False,
+            },
+            {"Bucket": artifacts.BUCKET, "Prefix": key, "Delimiter": "/"},
+        )
+        result = fetch_teacher(key, tmp_path / "cache", filesystem=s3, dry_run=True)
+        assert result["candidates"] == [f"s3://{artifacts.BUCKET}/{key}prediction.tif"]
+        assert result["source"] == result["candidates"][0]
+        assert result["status"] == "METADATA_PLAN_ONLY"
+        stub.assert_no_pending_responses()
+    assert not (tmp_path / "cache").exists()
+
+
+@pytest.mark.parametrize("kind", ["raw", "teacher"])
+@pytest.mark.parametrize("phase", ["listing", "request", "body", "recheck"])
+def test_sdk_transport_failures_have_cli_errors_and_publish_nothing(
+    s3, bucket, tmp_path, monkeypatch, capsys, kind, phase
+):
+    import s3fs
+    from aiobotocore.stub import AioStubber
+    from aiohttp import ClientPayloadError
+    from botocore.exceptions import EndpointConnectionError
+
+    from repro.sota_data import teacher_artifacts, teacher_cache
+
+    memory, prefix, base = bucket
+    output = tmp_path / kind
+    if kind == "teacher":
+        import numpy as np
+        import tifffile
+
+        buffer = io.BytesIO()
+        tifffile.imwrite(buffer, np.full((4, 4), 200, np.uint8))
+        memory.pipe(base + "/prediction.tif", buffer.getvalue())
+
+    calls, inject = 0, False
+
+    def failure():
+        # The diagnostic should not copy opaque SDK/debug details into CLI output.
+        return EndpointConnectionError(endpoint_url="https://private-debug.invalid")
+
+    def listing(path, detail=True):
+        nonlocal calls
+        calls += 1
+        initial_count = 2 if kind == "raw" else 1
+        if inject and (
+            phase == "listing" or phase == "recheck" and calls > initial_count
+        ):
+            raise failure()
+        entries = [dict(item) for item in memory.ls(path, detail=detail)]
+        for item in entries:
+            if item["type"] == "file":
+                item["ETag"] = '"payload"'
+        return entries
+
+    monkeypatch.setattr(s3, "ls", listing)
+    monkeypatch.setattr(fetch, "_filesystem", lambda: s3)
+    monkeypatch.setattr(s3fs, "S3FileSystem", lambda **kwargs: s3)
+    # Build stub responses before enabling the injected listing failure.
+    if kind == "raw":
+        files = fetch.plan_segment(prefix, output, filesystem=s3, center_layers=2)[
+            "files"
+        ]
+        args = [prefix, str(output), "--center-layers", "2"]
+        main = fetch.main
+    else:
+        files = [teacher_artifacts.plan_teacher(s3, prefix)["payload"]]
+        args = ["--prefix", prefix, "--out", str(output)]
+        main = teacher_cache.main
+    inject, calls = True, 0
+
+    class InterruptedBody(AsyncBody):
+        async def read(self, amount=-1):  # type: ignore[override]
+            if self.tell():
+                raise ClientPayloadError("private-debug: incomplete HTTP body")
+            return await super().read(amount)
+
+    bodies = []
+    with AioStubber(s3.s3) as stub:
+        if phase in {"body", "recheck"}:
+            for item in files[:1] if phase == "body" else files:
+                data = memory.store["/" + item["key"]].getvalue()
+                body = InterruptedBody(data) if phase == "body" else AsyncBody(data)
+                bodies.append(body)
+                stub.add_response(
+                    "get_object",
+                    {
+                        "Body": body,
+                        "ContentLength": len(data),
+                        "ContentRange": f"bytes 0-{len(data) - 1}/{len(data)}",
+                        "ETag": item["etag"],
+                    },
+                    {
+                        "Bucket": artifacts.BUCKET,
+                        "Key": item["key"].removeprefix(artifacts.BUCKET + "/"),
+                        "Range": f"bytes=0-{len(data) - 1}",
+                        "IfMatch": item["etag"],
+                    },
+                )
+        elif phase == "request":
+
+            def request(*args, **kwargs):
+                raise failure()
+
+            monkeypatch.setattr(s3, "call_s3", request)
+        assert main(args) == 1
+        stub.assert_no_pending_responses()
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert (
+        "ClientPayloadError" if phase == "body" else "EndpointConnectionError"
+    ) in captured.err
+    assert "s3://" + base in captured.err
+    assert "Check connectivity" in captured.err
+    assert "private-debug" not in captured.err
+    assert "Traceback" not in captured.err
+    assert all(body.closed for body in bodies)
+    assert not output.exists()
+    assert not list(tmp_path.glob(f".{kind}-*"))
