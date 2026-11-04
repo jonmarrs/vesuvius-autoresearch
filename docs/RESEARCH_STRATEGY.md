@@ -84,7 +84,9 @@ team contribution, not a realistic solo promise on the current evidence.
   continuation rule villa's tracer already has, its refit retry. It cut confidence stops by 21% and raised coverage on
   every held-out cube, but only 0.202 of the length it added lies on the reference, merges rose by 219 against the
   floor's 35, and the median held-out ERLpen gain is 0.003 against the 0.10 bar. It closes as a continuation rule; the
-  confidence-stop line needs a rule that tests whether a continuation is on the fiber before keeping it.
+  confidence-stop line needs a rule that tests whether a continuation is on the fiber before keeping it. Presence,
+  checked afterwards and not registered, is too weak a test: it separates the retry's on- from off-reference
+  additions with a median AUC of 0.71, no better than on the stock trace.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013

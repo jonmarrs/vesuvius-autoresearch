@@ -84,6 +84,24 @@ rise by 271.
 
 **Cost.** The held-out refit runs took 1,856 s in total against the baseline's 1,701 s (+9%).
 
+## After the result: presence would not make the retry precise (not registered; decides nothing)
+
+The obvious repair is to keep a retry's continuation only where the presence the tracer already reads says fiber.
+villa's tracer uses presence to place seeds and weight tiles; its stepping and stopping never read it. Before
+proposing such a rule, `scripts/neural_tracer_refit_presence_screen.py` checked on the CPU whether presence can tell
+the retry's on-reference additions from the rest
+(`reports/evidence/neural_tracer_refit_presence_screen_2026-11-03.json`). On the ten held-out cubes there are
+441,586 voxels the refit runs label and the baseline runs do not, 0.355 of them on the reference. That counts every
+voxel the retry moved, so it is larger than the net change of 159,157 above. The on-reference test is ScrollGT's own:
+the script reproduces every baseline row's predicted length and precision.
+
+Presence separates on- from off-reference added voxels with a median AUC of 0.71 (0.68–0.75 by cube). That is no
+better than it does on the baseline's own voxels, 0.70. A threshold cannot buy precision cheaply. At presence 192 of
+255, a gate keeps 0.67 of the added voxels on the reference and 0.35 of those off it, and 0.51 of what it keeps is on
+the reference, below the baseline's 0.553. Only at 240 (0.58) does it pass the baseline, keeping 0.49 of the
+on-reference additions. A stepping rule that ends a continuation where presence falls below the threshold keeps
+only part of what the voxel threshold keeps, so it cannot keep more of the on-reference additions. So presence alone does not rescue the retry, and a presence-gated retry is not worth a GPU pilot.
+
 ## What it changes
 
 **The confidence-stop line has no ready-made rule.** Finding 102 kept it open as a continuity lever, and this pilot
@@ -91,7 +109,7 @@ ran the one continuation rule villa's tracer already has. It gains a median 0.00
 merges, so it closes as a continuation rule, as registered. Further work on the line needs a new rule. Findings 101 and 102 say
 what that rule would have to do: go on for tens of voxels, and only where the trace is on a fiber. This pilot adds a
 third requirement: decide whether the continuation is on the fiber before keeping it. A rule must not keep every
-retry that clears the confidence gate.
+retry that clears the confidence gate. Presence, the cheapest such test, separates too weakly (above).
 
 **No villa proposal.** The registered positive outcome was to propose exposing `--refit-retry` in villa's volume
 tracer. That does not follow. villa's single-seed CLI already exposes it, and nothing here argues for changing its
