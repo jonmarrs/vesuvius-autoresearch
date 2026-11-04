@@ -29,7 +29,7 @@ def main(argv=None):
         )
         print(json.dumps(result if args.dry_run else {"teacher": result}, indent=2))
         return 0
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, ImportError) as exc:  # as fetch.py: a missing SDK too
         print(f"teacher cache failed: {exc}", file=sys.stderr)
         return 1
 

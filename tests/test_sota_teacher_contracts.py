@@ -320,6 +320,21 @@ def test_cli_dry_run_download_and_invalid_cache(bucket, tmp_path, monkeypatch, c
     assert "teacher cache failed" in capsys.readouterr().err
 
 
+def test_cli_reports_a_missing_sdk_as_the_raw_downloader_does(
+    tmp_path, monkeypatch, capsys
+):
+    """Without s3fs, fetch.py reports "Download failed: No module named 's3fs'";
+    the teacher CLI raised the ImportError as a traceback."""
+    from repro.sota_data.teacher_cache import main
+
+    monkeypatch.setitem(sys.modules, "s3fs", None)  # `import s3fs` raises ImportError
+    out = tmp_path / "cache"
+    assert main(["--prefix", "some/prefix", "--out", str(out), "--dry-run"]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("teacher cache failed:") and "s3fs" in err
+    assert not out.exists()
+
+
 @pytest.mark.parametrize("threshold", [np.nan, np.inf, -1, 256, True, 128.5])
 def test_invalid_threshold_cannot_publish_pseudolabels(tmp_path, threshold):
     with pytest.raises(ValueError, match="threshold"):
