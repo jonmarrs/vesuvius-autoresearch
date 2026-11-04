@@ -291,6 +291,164 @@ def test_unsafe_fragment_names_fail_before_reading_data_or_loading_models(
     assert not list(tmp_path.iterdir())
 
 
+@pytest.mark.parametrize("uppercase", [False, True])
+def test_a_known_marker_hash_detects_metadata_edits_without_changing_default_scope(
+    tmp_path, capsys, uppercase
+):
+    card = _evaluate(tmp_path)
+    marker = tmp_path / MARKER
+    digest = hashlib.sha256(marker.read_bytes()).hexdigest()
+    expected = digest.upper() if uppercase else digest
+    assert ra.check_report(marker, expected_sha256=expected) == card
+    arguments = [str(marker), "--expected-sha256", expected]
+    assert main(arguments) == 0
+    assert json.loads(capsys.readouterr().out)["marker_sha256"] == digest
+
+    _tampered(marker, val_f1=0.125)
+    # Unpinned checks verify the declared payloads, not the historical metadata.
+    assert ra.check_report(marker)["val_f1"] == 0.125
+    before = _state(tmp_path)
+    with pytest.raises(ValueError, match="marker SHA-256 mismatch"):
+        ra.check_report(marker, expected_sha256=expected)
+    assert main(arguments) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and "marker SHA-256 mismatch" in captured.err
+    assert _state(tmp_path) == before
+
+
+def test_a_matching_marker_pin_does_not_skip_payload_verification(tmp_path):
+    _evaluate(tmp_path)
+    marker = tmp_path / MARKER
+    digest = hashlib.sha256(marker.read_bytes()).hexdigest()
+    (tmp_path / NAMES[0]).write_bytes(b"changed threshold metrics")
+    with pytest.raises(ValueError, match="artifact changed"):
+        ra.check_report(marker, expected_sha256=digest)
+
+
+def test_a_pinned_marker_is_rechecked_after_payload_reads(tmp_path, monkeypatch):
+    _evaluate(tmp_path)
+    marker = tmp_path / MARKER
+    digest = hashlib.sha256(marker.read_bytes()).hexdigest()
+    capture = ra._capture
+    changed = []
+
+    def read(path, *args, **kwargs):
+        data = capture(path, *args, **kwargs)
+        if path.name == NAMES[0]:
+            _tampered(marker, val_f1=0.125)
+            changed.append(True)
+        return data
+
+    monkeypatch.setattr(ra, "_capture", read)
+    with pytest.raises(ValueError, match="marker changed during verification"):
+        ra.check_report(marker, expected_sha256=digest)
+    assert changed == [True]
+    assert json.loads(marker.read_bytes())["val_f1"] == 0.125
+
+
+def test_a_pinned_partial_measurement_still_has_a_nonzero_exit(
+    tmp_path, monkeypatch, capsys
+):
+    _measure(tmp_path, monkeypatch, ("two",))
+    marker = tmp_path / "cross_scroll_measurement_manifest.json"
+    digest = hashlib.sha256(marker.read_bytes()).hexdigest()
+    assert main([str(marker), "--expected-sha256", digest]) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output["integrity_verified"] is True
+    assert output["report_status"] == "PARTIAL"
+    assert output["marker_sha256"] == digest
+
+
+@pytest.mark.parametrize("expected", ["", "a" * 63, "g" * 64, True])
+def test_invalid_marker_pins_are_rejected_before_file_reads(
+    tmp_path, monkeypatch, expected
+):
+    monkeypatch.setattr(
+        ra, "_capture", lambda *a, **k: pytest.fail("validate the pin before reads")
+    )
+    with pytest.raises(ValueError, match="64 hexadecimal"):
+        ra.check_report(tmp_path / "absent.json", expected_sha256=expected)
+    assert not list(tmp_path.iterdir())
+
+
+def _nested_lists(count):
+    value = 0
+    for _ in range(count):
+        value = [value]
+    return value
+
+
+@pytest.mark.parametrize(
+    "problem,message",
+    [
+        ("root duplicate", "duplicate JSON member"),
+        ("nested duplicate", "duplicate JSON member"),
+        ("overflow", "nonfinite JSON"),
+        ("negative overflow", "nonfinite JSON"),
+        ("parser recursion", "nesting"),
+        ("too many containers", "nesting"),
+    ],
+)
+def test_malformed_marker_json_is_a_read_only_cli_error(
+    tmp_path, capsys, problem, message
+):
+    _evaluate(tmp_path)
+    marker = tmp_path / MARKER
+    record = json.loads(marker.read_bytes())
+    data = json.dumps(record).encode()
+    if problem == "root duplicate":
+        data = b'{"report_status":"FAILED",' + data[1:]
+    elif problem == "nested duplicate":
+        size = record["artifacts"][NAMES[0]]["bytes"]
+        data = data.replace(
+            f'"bytes": {size}'.encode(), f'"bytes": 0, "bytes": {size}'.encode(), 1
+        )
+    elif "overflow" in problem:
+        number = b"-1e999" if problem == "negative overflow" else b"1e999"
+        data = b'{"extra":' + number + b"," + data[1:]
+    else:
+        depth = 5000 if problem == "parser recursion" else 64
+        data = b'{"extra":' + b"[" * depth + b"0" + b"]" * depth + b"," + data[1:]
+    assert len(data) < ra.MAX_MARKER_BYTES
+    marker.write_bytes(data)
+    before = _state(tmp_path)
+    with pytest.raises(ValueError, match=message):
+        ra.check_report(marker)
+    assert main([str(marker)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and message in captured.err
+    assert "Traceback" not in captured.err
+    assert _state(tmp_path) == before
+
+
+def test_marker_json_accepts_the_documented_container_depth_boundary(tmp_path):
+    _evaluate(tmp_path)
+    marker = _tampered(tmp_path / MARKER, extra=_nested_lists(63))
+    assert ra.check_report(marker)["report_status"] == "COMPLETE"
+
+
+@pytest.mark.parametrize("problem", ["duplicate", "depth", "encoder recursion"])
+def test_publication_refuses_metadata_the_checker_cannot_parse_before_writes(
+    tmp_path, problem
+):
+    before = _old(tmp_path)
+    extra = (
+        {1: "first", "1": "second"}
+        if problem == "duplicate"
+        else _nested_lists(64 if problem == "depth" else 1500)
+    )
+    with pytest.raises(ValueError, match="duplicate JSON member|nesting"):
+        ra.publish_report(
+            tmp_path,
+            {name: b"payload" for name in NAMES[:2]},
+            MARKER,
+            {"report_status": "COMPLETE", "extra": extra},
+            "detector_evaluation",
+        )
+    assert _state(tmp_path) == before
+    assert not list(tmp_path.glob(".detector-report-*"))
+
+
 def _measure(root, monkeypatch, fail=()):
     def infer(cfg, checkpoint, fid, model=None):
         if fid in fail:
@@ -473,12 +631,17 @@ def test_new_and_replaced_file_modes_follow_the_report_contract(tmp_path):
     assert stat.S_IMODE((fresh / MARKER).stat().st_mode) == 0o666 & ~current_umask()
 
 
-def test_checker_runs_from_another_cwd_without_ml_or_image_imports(tmp_path):
+@pytest.mark.parametrize("pinned", [False, True])
+def test_checker_runs_from_another_cwd_without_ml_or_image_imports(tmp_path, pinned):
     repo = Path(__file__).resolve().parents[1]
     _evaluate(tmp_path)
+    digest = hashlib.sha256((tmp_path / MARKER).read_bytes()).hexdigest()
+    arguments = [str(tmp_path / MARKER)]
+    if pinned:
+        arguments += ["--expected-sha256", digest]
     script = f"""
 import runpy, sys
-sys.argv = ['check_detector_report', {str(tmp_path / MARKER)!r}]
+sys.argv = ['check_detector_report', *{arguments!r}]
 try:
     runpy.run_path({str(repo / "scripts/check_detector_report.py")!r}, run_name='__main__')
 except SystemExit as exc:
@@ -494,6 +657,8 @@ assert not {{'numpy', 'torch', 'cv2', 'PIL'}}.intersection(sys.modules)
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["report_status"] == "COMPLETE"
+    if pinned:
+        assert json.loads(result.stdout)["marker_sha256"] == digest
 
 
 def test_reproduce_checks_the_report_directory_before_converting_or_training(

@@ -12,11 +12,13 @@ The scorecard is now the completion marker. It retains existing metrics and the
 for the CSV and thumbnail. Metric formulas, thresholds, masks and blending are
 unchanged.
 
-Check a saved generation without importing Torch, NumPy or image libraries:
+Check a newly generated report without importing Torch, NumPy or image libraries.
+Set `REPORT_DIR` to the report directory from that evaluation; the repository's
+tracked legacy scorecard lacks this completion contract and needs regeneration.
 
 ```bash
 python scripts/check_detector_report.py \
-  reports/detector/PHercParis2Fr143_scorecard.json
+  "$REPORT_DIR/PHercParis2Fr143_scorecard.json"
 ```
 
 The script also works from another working directory using its absolute path.
@@ -26,6 +28,38 @@ or an incomplete measurement, and 2 for usage errors. It reads files only; it do
 not run inference or repair a report. A checksum check binds the observed output
 bytes, not the source dataset, actual model weights or scientific validity. It
 does not recompute metrics or establish which attempted run was most recent.
+
+## Pin a recorded report
+
+The default check validates the payload bytes declared by the current marker.
+It cannot detect an edit confined to the marker's metric fields or checkpoint
+display text. When a report is produced and trusted, record its marker's SHA-256
+separately, for example in the run ledger:
+
+```bash
+sha256sum "$REPORT_DIR/PHercParis2Fr143_scorecard.json"
+```
+
+For a later check, set `RECORDED_SHA256` to that saved 64-character hash:
+
+```bash
+python scripts/check_detector_report.py \
+  "$REPORT_DIR/PHercParis2Fr143_scorecard.json" \
+  --expected-sha256 "$RECORDED_SHA256"
+```
+
+The hash comparison uses the same captured bytes that are parsed. Matching it
+still requires valid marker contents, unchanged payload hashes and the normal
+completion checks. On success, JSON output also includes `marker_sha256`, in
+lowercase; uppercase input is accepted. A mismatch or malformed hash exits 1
+without modifying files. A partial measurement still exits 1 when its pin matches.
+Python callers can pass `check_report(path, expected_sha256=recorded_hash)`.
+
+The pin covers exact marker bytes, including metrics, timestamp, formatting and
+declared payload identities. Keep the expected hash independently of the mutable
+report. Computing a new expected hash from the file being inspected would not
+detect an earlier edit. A hash does not establish dataset/model identity,
+scientific correctness or authorship.
 
 ## Cross-scroll measurements
 
@@ -37,7 +71,7 @@ creation time and target/success/failure counts:
 
 ```bash
 python scripts/check_detector_report.py \
-  reports/detector/cross_scroll_measurement_manifest.json
+  "$REPORT_DIR/cross_scroll_measurement_manifest.json"
 ```
 
 | Status | Meaning | Checker exit |
@@ -101,6 +135,13 @@ at most 64 KiB. Existing targets must also fit the per-file limit. Budgets bound
 accepted report bytes, not inference memory, array scoring, thumbnail encoding
 allocations, filesystem buffers or disk space. Those earlier operations can
 allocate before the encoded report size is known.
+
+Marker JSON refuses duplicate members at every object level, nonfinite values
+(including exponent overflow such as `1e999`), and more than 64 nested containers,
+counting the root object. Parser/encoder recursion failures become ordinary input
+errors. Publication applies the same rules to encoded metadata before creating
+staging or replacing any prior report, so it cannot publish a marker its own
+checker would reject for these reasons. Historical files are never repaired.
 
 **Serialize readers and writers.** Multiple flat filenames cannot be swapped in
 one filesystem rename: files may temporarily be absent during replacement. The
