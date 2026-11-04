@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -16,6 +17,7 @@ from .prediction_artifacts import prediction_stem, validate_plan_paths
 MAX_FILE_BYTES = 32 * 1024**2
 MAX_TOTAL_BYTES = 64 * 1024**2
 MAX_MARKER_BYTES = 64 * 1024
+MAX_JSON_DEPTH = 64
 
 
 def _directory(value):
@@ -50,6 +52,53 @@ def _identity(data):
 
 def _reject_constant(value):
     raise ValueError(f"nonfinite JSON: {value}")
+
+
+def _finite_float(value):
+    result = float(value)
+    if not math.isfinite(result):
+        _reject_constant(value[:80])
+    return result
+
+
+def _unique_members(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON member: {key[:80]!r}")
+        result[key] = value
+    return result
+
+
+def _marker_json(data):
+    try:
+        record = json.loads(
+            data,
+            parse_constant=_reject_constant,
+            parse_float=_finite_float,
+            object_pairs_hook=_unique_members,
+        )
+    except RecursionError as exc:
+        raise ValueError("report JSON nesting exceeds parser limits") from exc
+    pending = [(record, 1)]
+    while pending:
+        value, depth = pending.pop()
+        if isinstance(value, (dict, list)):
+            if depth > MAX_JSON_DEPTH:
+                raise ValueError(
+                    f"report JSON nesting exceeds {MAX_JSON_DEPTH} containers"
+                )
+            children = value.values() if isinstance(value, dict) else value
+            pending.extend((child, depth + 1) for child in children)
+    return record
+
+
+def _expected_digest(value):
+    if value is not None:
+        if not isinstance(value, str) or not re.fullmatch("[0-9a-fA-F]{64}", value):
+            raise ValueError("expected_sha256 must contain 64 hexadecimal characters")
+        return value.lower()
+    return None
 
 
 def _status(record):
@@ -173,9 +222,14 @@ def publish_report(directory, payloads, marker, metadata, kind, *, inputs=()):
         "artifacts": {name: _identity(payloads[name]) for name in names},
     }
     _status(record)
-    encoded = (json.dumps(record, indent=2, allow_nan=False) + "\n").encode("utf-8")
+    try:
+        encoded = (json.dumps(record, indent=2, allow_nan=False) + "\n").encode("utf-8")
+    except RecursionError as exc:
+        raise ValueError("report metadata nesting exceeds JSON encoder limits") from exc
     if len(encoded) > MAX_MARKER_BYTES:
         raise ValueError("report completion marker exceeds byte budget")
+    # Refuse ambiguous/unreadable metadata before touching the previous report.
+    _marker_json(encoded)
     all_names = [*names, marker]
     originals = {name: _snapshot(directory / name) for name in all_names}
     directory.mkdir(parents=True, exist_ok=True)
@@ -225,14 +279,17 @@ def publish_report(directory, payloads, marker, metadata, kind, *, inputs=()):
     return record
 
 
-def check_report(marker_path):
-    """Verify the observed report files; does not recalculate scientific metrics."""
+def check_report(marker_path, *, expected_sha256=None):
+    """Verify files and an optional known marker hash, without recalculating metrics."""
+    expected = _expected_digest(expected_sha256)
     marker_path = Path(marker_path).absolute()
     directory = _directory(marker_path.parent)
     marker_path = directory / marker_path.name
     data = _capture(marker_path, MAX_MARKER_BYTES)
+    if expected is not None and _identity(data)["sha256"] != expected:
+        raise ValueError("report completion marker SHA-256 mismatch")
     try:
-        record = json.loads(data, parse_constant=_reject_constant)
+        record = _marker_json(data)
         if (
             type(record["artifact_contract"]) is not int
             or record["artifact_contract"] != 1

@@ -236,10 +236,10 @@ or depth-window settings before reading fragment data. Legacy checkpoints remain
 loadable with a warning to verify the supplied configuration. Set `use_tta` to
 `true` to average four spatial mirror views; its default is `false`.
 
-Evaluation reports now include checksums and completion status. Use the
+Evaluation reports include payload checksums and completion status. Use the
 [report integrity check](docs/DETECTOR_REPORTS.md) before comparing saved CSV,
-thumbnail and scorecard files:
-`python scripts/check_detector_report.py reports/detector/<fragment>_scorecard.json`.
+thumbnail and scorecard files. Its optional `--expected-sha256` checks scorecard
+metadata against a previously recorded marker hash too.
 Cross-scroll measurements also record target counts and partial failures.
 
 Training now honors `weight_decay`, `max_grad_norm`, and `warmup_factor`. Their

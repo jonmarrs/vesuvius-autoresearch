@@ -15,9 +15,14 @@ def main(argv=None):
     parser.add_argument(
         "marker", type=Path, help="fragment scorecard or measurement manifest JSON"
     )
+    parser.add_argument(
+        "--expected-sha256",
+        metavar="HEX",
+        help="verify the marker against a previously recorded SHA-256 (64 hex characters)",
+    )
     args = parser.parse_args(argv)
     try:
-        record = check_report(args.marker)
+        record = check_report(args.marker, expected_sha256=args.expected_sha256)
         result = {
             "integrity_verified": True,
             "report_status": record["report_status"],
@@ -25,6 +30,8 @@ def main(argv=None):
             "created_at_utc": record["created_at_utc"],
             "artifacts": list(record["artifacts"]),
         }
+        if args.expected_sha256 is not None:
+            result["marker_sha256"] = args.expected_sha256.lower()
         if record["report_kind"] == "cross_scroll_measurement":
             result.update(
                 {
