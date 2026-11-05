@@ -107,6 +107,7 @@ VALIDATION_TESTS = [
     "tests/test_lock_observation.py",
     "tests/test_loop_unchanged_control.py",
     "tests/test_workspace_status.py",
+    "tests/test_text_snapshot.py",
     "tests/test_autoresearch_measurement.py",
     "tests/test_shift_budgets.py",
     "tests/test_config_depth_band_fits_fragments.py",
