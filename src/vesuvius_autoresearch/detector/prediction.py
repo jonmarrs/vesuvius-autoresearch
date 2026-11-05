@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import stat
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -67,12 +68,20 @@ def validate_output(output, inputs):
     validate_plan_paths([(output, "prediction output")], inputs)
 
 
-def write_prediction(output, result: InferenceResult, output_format, inputs):
+def write_prediction(
+    output,
+    result: InferenceResult | Callable[[], InferenceResult],
+    output_format,
+    inputs,
+) -> InferenceResult:
     """Replace one complete file, retaining the previous file on save failure.
 
     The NPZ bundle keeps probability, coverage and the fragment mask together;
     a separate sidecar could silently outlive a replaced probability map.
     This is an atomic rename, not writer locking or a power-loss durability claim.
+    A producer is called exactly once after a private sibling staging file has
+    been opened, so immediate filesystem failures precede expensive inference.
+    Direct results remain accepted. Return the result after successful publication.
     """
     if output_format not in {"npy", "npz"}:
         raise ValueError("output_format must be npy or npz")
@@ -80,9 +89,12 @@ def write_prediction(output, result: InferenceResult, output_format, inputs):
     validate_output(output, inputs)
     permissions = replacement_mode(output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=f".{output.name}.", dir=output.parent)
+    fd, temporary = tempfile.mkstemp(prefix=".prediction-", dir=output.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
+            if callable(result):
+                result = result()
+            validate_output(output, inputs)
             os.fchmod(stream.fileno(), permissions)
             if output_format == "npy":
                 np.save(stream, result.probability, allow_pickle=False)
@@ -96,5 +108,6 @@ def write_prediction(output, result: InferenceResult, output_format, inputs):
                 )
         validate_output(output, inputs)
         os.replace(temporary, output)
+        return result
     finally:
         Path(temporary).unlink(missing_ok=True)
