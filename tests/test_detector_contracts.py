@@ -17,6 +17,7 @@ from vesuvius_autoresearch.detector.config import DetectorConfig
 from vesuvius_autoresearch.detector.eval import evaluate
 from vesuvius_autoresearch.detector.model import DetectorModel
 from vesuvius_autoresearch.detector.model_resenc import ResEncDetectorModel
+from vesuvius_autoresearch.detector.prediction import InferenceResult
 from vesuvius_autoresearch.detector.train import build_scheduler
 
 inference = importlib.import_module("vesuvius_autoresearch.detector.infer")
@@ -338,16 +339,20 @@ def test_measure_records_degenerate_target_failure_and_cli_exits_nonzero(
 ):
     cfg = DetectorConfig(reports_dir=str(tmp_path))
     monkeypatch.setattr(
-        measurement, "infer", lambda *args, **kwargs: np.ones((2, 2), np.float32)
+        measurement,
+        "infer",
+        lambda *args, **kwargs: InferenceResult(
+            np.ones((2, 2), np.float32), np.ones((2, 2), bool), np.ones((2, 2), bool)
+        ),
     )
 
-    def inputs(cfg, fid):
+    def inputs(cfg, fid, expected_shape):
         label = np.zeros((2, 2))
         if fid == "good":
             label[0, 0] = 1
-        return None, label, np.ones((2, 2), np.uint8)
+        return label
 
-    monkeypatch.setattr(measurement, "read_image_mask", inputs)
+    monkeypatch.setattr(measurement, "read_ink_label", inputs)
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"reports_dir": str(tmp_path)}))
     assert (
@@ -370,18 +375,22 @@ def test_a_multiline_measurement_error_stays_one_table_row(tmp_path, monkeypatch
         '\tMissing key(s) in state_dict: "head.weight" | "head.bias".'
     )
 
-    def infer(cfg, checkpoint, fid, model=None):
+    def infer(cfg, checkpoint, fid, model=None, **kwargs):
         if fid == "broken":
             raise RuntimeError(error)
-        return np.ones((2, 2), np.float32) * 0.5
+        return InferenceResult(
+            np.ones((2, 2), np.float32) * 0.5,
+            np.ones((2, 2), bool),
+            np.ones((2, 2), bool),
+        )
 
-    def inputs(cfg, fid):
+    def inputs(cfg, fid, expected_shape):
         label = np.zeros((2, 2))
         label[0, 0] = 1
-        return None, label, np.ones((2, 2), np.uint8)
+        return label
 
     monkeypatch.setattr(measurement, "infer", infer)
-    monkeypatch.setattr(measurement, "read_image_mask", inputs)
+    monkeypatch.setattr(measurement, "read_ink_label", inputs)
     rows = measurement.measure(
         cfg, "ckpt", [("good", "scroll2_same"), ("broken", "scroll1_cross")]
     )
@@ -407,7 +416,7 @@ def test_reproduce_names_the_checkpoint_it_scored_and_gates_on_it(
     monkeypatch.setattr(cli, "_ensure_converted", lambda cfg: [])
     monkeypatch.setattr(training, "train", lambda cfg: checkpoint)
 
-    def score(cfg, ckpt, fid):
+    def score(cfg, ckpt, fid, **kwargs):
         scored.append((ckpt, fid))
         return {"pixel_auc": auc, "threshold": 0.4}
 
@@ -429,13 +438,17 @@ def test_the_scorecard_names_the_checkpoint_it_scored(tmp_path, monkeypatch):
     cfg = DetectorConfig(reports_dir=str(tmp_path))
     label = np.zeros((2, 3))
     label[0, 0] = 1
-    prob = np.full((4, 5), 0.5, np.float32)  # padded, as infer's output is
+    prob = np.full((2, 3), 0.5, np.float32)  # inference returns original dimensions
     prob[0, 0] = 0.9
 
-    monkeypatch.setattr(inference, "infer", lambda cfg, ckpt, fid: prob)
     monkeypatch.setattr(
-        cli, "read_image_mask", lambda cfg, fid: (None, label, np.ones((4, 5)))
+        inference,
+        "infer",
+        lambda cfg, ckpt, fid, **kwargs: InferenceResult(
+            prob, np.ones((2, 3), bool), np.ones((2, 3), bool)
+        ),
     )
+    monkeypatch.setattr(cli, "read_ink_label", lambda cfg, fid, shape: label)
     card = cli._eval_fragment(cfg, "models/detector/detector_epoch=3.ckpt", "frag")
     saved = json.loads((tmp_path / "frag_scorecard.json").read_text())
     assert saved == card

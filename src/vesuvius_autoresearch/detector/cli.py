@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 
 from .config import DetectorConfig
-from .data import read_image_mask
+from .data import read_ink_label
+from .prediction import evaluation_inputs
 
 
 def assert_auc(scorecard, target=0.70):
@@ -26,7 +27,9 @@ def _positive_count(value):
     return count
 
 
-def _eval_fragment(cfg, ckpt, fragment_id):
+def _eval_fragment(
+    cfg, ckpt, fragment_id, *, config_path=None, require_full_coverage=False
+):
     from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
     from vesuvius_autoresearch.core.report_artifacts import report_output
 
@@ -38,16 +41,26 @@ def _eval_fragment(cfg, ckpt, fragment_id):
         cfg.reports_dir,
         f"{fragment_id}_scorecard.json",
         "detector_evaluation",
-        inputs=(ckpt,),
+        inputs=evaluation_inputs(cfg, ckpt, [fragment_id], config_path),
     )
-    prob = infer(cfg, ckpt, fragment_id)
-    _, label, mask = read_image_mask(cfg, fragment_id)
-    # read_image_mask pads `mask` (frag_mask) to a tile multiple but leaves `label`
-    # unpadded; crop both prob and mask to the label shape so all three align.
-    h, w = label.shape
-    prob = prob[:h, :w]
-    mask = mask[:h, :w]
-    return evaluate(prob, label, mask, cfg, fragment_id=fragment_id, checkpoint=ckpt)
+    result = infer(
+        cfg,
+        ckpt,
+        fragment_id,
+        return_details=True,
+        require_full_coverage=require_full_coverage,
+    )
+    label = read_ink_label(cfg, fragment_id, result.probability.shape)
+    return evaluate(
+        result.probability,
+        label,
+        result.fragment_mask,
+        cfg,
+        fragment_id=fragment_id,
+        checkpoint=ckpt,
+        coverage=result.coverage,
+        inputs=evaluation_inputs(cfg, ckpt, [fragment_id], config_path),
+    )
 
 
 def _is_converted(cfg, fragment_id):
@@ -86,7 +99,7 @@ def _ensure_converted(cfg, src_root="local_data"):
     return done
 
 
-def _reproduce(cfg):
+def _reproduce(cfg, *, config_path=None):
     """Convert, train, and score the checkpoint train() returns on the held-out fragment.
 
     That checkpoint is the epoch with the lowest mean training loss (train's
@@ -104,10 +117,13 @@ def _reproduce(cfg):
         cfg.reports_dir,
         f"{cfg.valid_fragment_id}_scorecard.json",
         "detector_evaluation",
+        inputs=evaluation_inputs(
+            cfg, None, [*cfg.train_fragment_ids, cfg.valid_fragment_id], config_path
+        ),
     )
     _ensure_converted(cfg)
     ckpt = train(cfg)
-    card = _eval_fragment(cfg, ckpt, cfg.valid_fragment_id)
+    card = _eval_fragment(cfg, ckpt, cfg.valid_fragment_id, config_path=config_path)
     print(
         f"reproduce: checkpoint={ckpt} pixel_auc={card['pixel_auc']:.4f} "
         f"threshold={card['threshold']:.2f}"
@@ -130,6 +146,11 @@ def main(argv=None):
     p_eval = sub.add_parser("eval", parents=[common])
     p_eval.add_argument("--checkpoint", required=True)
     p_eval.add_argument("--fragment", required=True)
+    p_eval.add_argument(
+        "--require-full-coverage",
+        action="store_true",
+        help="refuse any unpredicted fragment pixels",
+    )
     p_train = sub.add_parser("train", parents=[common])
     p_train.add_argument(
         "--max-epochs",
@@ -165,6 +186,11 @@ def main(argv=None):
     )
     p_measure.add_argument("--same", default="PHercParis2Fr143")
     p_measure.add_argument("--cross", default="20230702185753")
+    p_measure.add_argument(
+        "--require-full-coverage",
+        action="store_true",
+        help="record a target failure for any unpredicted fragment pixels",
+    )
     args = ap.parse_args(argv)
     try:
         overrides = {}
@@ -196,13 +222,21 @@ def main(argv=None):
     except ValueError as exc:
         ap.error(f"invalid target selection: {exc}")
     if args.cmd == "reproduce":
-        _reproduce(cfg)
+        _reproduce(cfg, config_path=args.config)
     elif args.cmd == "train":
         from .train import train
 
         print(train(cfg, max_epochs=args.max_epochs, limit_batches=args.limit_batches))
     elif args.cmd == "eval":
-        print(_eval_fragment(cfg, args.checkpoint, args.fragment))
+        print(
+            _eval_fragment(
+                cfg,
+                args.checkpoint,
+                args.fragment,
+                config_path=args.config,
+                require_full_coverage=args.require_full_coverage,
+            )
+        )
     elif args.cmd == "infer":
         from .infer import infer
         from .prediction import prediction_inputs, write_prediction
@@ -233,7 +267,13 @@ def main(argv=None):
         from .measure import measure
 
         targets = [(args.same, "scroll2_same"), (args.cross, "scroll1_cross")]
-        rows = measure(cfg, args.checkpoint, targets)
+        rows = measure(
+            cfg,
+            args.checkpoint,
+            targets,
+            config_path=args.config,
+            require_full_coverage=args.require_full_coverage,
+        )
         for fid, m in rows.items():
             if "error" in m:
                 print(

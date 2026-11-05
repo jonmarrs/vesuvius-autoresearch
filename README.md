@@ -242,6 +242,10 @@ Evaluation reports include payload checksums and completion status. Use the
 thumbnail and scorecard files. Its optional `--expected-sha256` checks scorecard
 metadata against a previously recorded marker hash too.
 Cross-scroll measurements also record target counts and partial failures.
+Evaluation loads CT layers once per target and uses the captured fragment mask
+for scoring. Reports include prediction-coverage counts; `eval` and `measure`
+accept `--require-full-coverage` to refuse unpredicted fragment pixels. See
+[coverage and scoring inputs](docs/DETECTOR_REPORTS.md#coverage-and-scoring-inputs).
 
 Training now honors `weight_decay`, `max_grad_norm`, and `warmup_factor`. Their
 defaults are 0.01, 1.0, and 1.0 respectively, matching the previously executed

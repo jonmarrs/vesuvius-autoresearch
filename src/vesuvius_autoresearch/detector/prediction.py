@@ -1,4 +1,4 @@
-"""Coverage information and publication of one detector prediction artifact."""
+"""Coverage, input-path planning and publication of detector prediction artifacts."""
 
 from __future__ import annotations
 
@@ -12,7 +12,32 @@ from pathlib import Path
 import numpy as np
 
 from vesuvius_autoresearch.core.file_modes import replacement_mode
-from vesuvius_autoresearch.core.prediction_artifacts import validate_plan_paths
+from vesuvius_autoresearch.core.prediction_artifacts import (
+    prediction_stem,
+    validate_plan_paths,
+)
+
+
+def coverage_summary(coverage, fragment_mask):
+    coverage, fragment_mask = np.asarray(coverage), np.asarray(fragment_mask)
+    if (
+        coverage.ndim != 2
+        or not coverage.size
+        or coverage.dtype != np.bool_
+        or fragment_mask.dtype != np.bool_
+        or coverage.shape != fragment_mask.shape
+    ):
+        raise ValueError(
+            "coverage and fragment mask must be matching nonempty 2D boolean maps"
+        )
+    valid = int(np.count_nonzero(fragment_mask))
+    predicted = int(np.count_nonzero(coverage & fragment_mask))
+    return {
+        "valid_pixels": valid,
+        "predicted_pixels": predicted,
+        "uncovered_pixels": valid - predicted,
+        "coverage_fraction": predicted / valid if valid else 0.0,
+    }
 
 
 @dataclass(frozen=True)
@@ -29,20 +54,16 @@ class InferenceResult:
 
     @property
     def summary(self):
-        valid = int(np.count_nonzero(self.fragment_mask))
-        predicted = int(np.count_nonzero(self.coverage & self.fragment_mask))
-        return {
-            "valid_pixels": valid,
-            "predicted_pixels": predicted,
-            "uncovered_pixels": valid - predicted,
-            "coverage_fraction": predicted / valid if valid else 0.0,
-        }
+        return coverage_summary(self.coverage, self.fragment_mask)
 
 
 def prediction_inputs(cfg, checkpoint, fragment_id, config_path=None):
     """Include individual input files so hard links outside the tree are caught."""
+    prediction_stem(fragment_id)
     root = Path(cfg.data_root) / fragment_id
-    inputs = [(checkpoint, "checkpoint"), (root, "fragment inputs")]
+    inputs = [(root, "fragment inputs")]
+    if checkpoint is not None:
+        inputs.append((checkpoint, "checkpoint"))
     inputs.extend(
         (root / "layers" / f"{index:02d}.tif", f"layer {index}")
         for index in range(cfg.start_idx, cfg.end_idx)
@@ -51,6 +72,17 @@ def prediction_inputs(cfg, checkpoint, fragment_id, config_path=None):
     if config_path is not None:
         inputs.append((config_path, "configuration"))
     return inputs
+
+
+def evaluation_inputs(cfg, checkpoint, fragment_ids, config_path=None):
+    """Protect configured sources, including labels; missing targets may fail later."""
+    inputs = []
+    for fid in fragment_ids:
+        inputs.extend(
+            path for path, _ in prediction_inputs(cfg, checkpoint, fid, config_path)
+        )
+        inputs.extend((Path(cfg.data_root) / fid).glob("*inklabels.*"))
+    return tuple(dict.fromkeys(inputs))
 
 
 def validate_output(output, inputs):

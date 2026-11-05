@@ -17,6 +17,7 @@ from vesuvius_autoresearch.core import report_artifacts as ra
 from vesuvius_autoresearch.core.file_modes import current_umask
 from vesuvius_autoresearch.detector import eval as evaluation, measure as measurement
 from vesuvius_autoresearch.detector.config import DetectorConfig
+from vesuvius_autoresearch.detector.prediction import InferenceResult
 
 MARKER = "frag_scorecard.json"
 NAMES = ["frag_metrics_by_threshold.csv", "frag_pred_thumb.png", MARKER]
@@ -450,16 +451,20 @@ def test_publication_refuses_metadata_the_checker_cannot_parse_before_writes(
 
 
 def _measure(root, monkeypatch, fail=()):
-    def infer(cfg, checkpoint, fid, model=None):
+    def infer(cfg, checkpoint, fid, model=None, **kwargs):
         if fid in fail:
             raise RuntimeError("model failure")
-        return np.array([[0.0, 1.0], [1.0, 0.0]])
+        return InferenceResult(
+            np.array([[0.0, 1.0], [1.0, 0.0]]),
+            np.ones((2, 2), bool),
+            np.ones((2, 2), bool),
+        )
 
     monkeypatch.setattr(measurement, "infer", infer)
     monkeypatch.setattr(
         measurement,
-        "read_image_mask",
-        lambda *a: (None, np.array([[0.0, 1.0], [1.0, 0.0]]), np.ones((2, 2))),
+        "read_ink_label",
+        lambda *a: np.array([[0.0, 1.0], [1.0, 0.0]]),
     )
     return measurement.measure(
         DetectorConfig(reports_dir=str(root)), None, [("one", "same"), ("two", "cross")]

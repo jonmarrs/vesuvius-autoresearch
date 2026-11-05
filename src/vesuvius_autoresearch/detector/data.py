@@ -61,9 +61,9 @@ def _valid_aug(cfg):
 def read_volume_mask(cfg, fragment_id):
     """Load layers and the fragment mask without requiring ground-truth ink.
 
-    Return padded arrays and the original (height, width). Training and labeled
-    evaluation add ink labels through read_image_mask; prediction needs only this
-    input contract. Keep clipping and padding identical to the training recipe.
+    Return padded arrays and the original (height, width). Training adds ink
+    labels through read_image_mask; evaluation loads annotations separately after
+    inference. Keep clipping and padding identical to the training recipe.
     """
     cfg.validate()
     prediction_stem(fragment_id)
@@ -99,9 +99,9 @@ def read_volume_mask(cfg, fragment_id):
     return images, frag_mask, original_shape
 
 
-def read_image_mask(cfg, fragment_id):
-    """Load the volume, ink labels and fragment mask for supervised workflows."""
-    images, frag_mask, original_shape = read_volume_mask(cfg, fragment_id)
+def read_ink_label(cfg, fragment_id, expected_shape):
+    """Load annotations alone, aligned to an already loaded/predicted volume."""
+    prediction_stem(fragment_id)
     ink = glob.glob(os.path.join(cfg.data_root, fragment_id, "*inklabels.*"))
     if len(ink) != 1:
         raise ValueError(
@@ -110,12 +110,17 @@ def read_image_mask(cfg, fragment_id):
     mask = cv2.imread(ink[0], 0)
     if mask is None:
         raise FileNotFoundError(f"could not read mask: {ink[0]}")
-    if mask.shape != original_shape:
+    if mask.shape != tuple(expected_shape):
         raise ValueError(
-            f"mask shape mismatch: {ink[0]} has {mask.shape}, expected {original_shape}"
+            f"mask shape mismatch: {ink[0]} has {mask.shape}, expected {tuple(expected_shape)}"
         )
-    mask = mask.astype("float32") / 255.0
-    return images, mask, frag_mask
+    return mask.astype("float32") / 255.0
+
+
+def read_image_mask(cfg, fragment_id):
+    """Load the volume, ink labels and fragment mask for supervised workflows."""
+    images, frag_mask, original_shape = read_volume_mask(cfg, fragment_id)
+    return images, read_ink_label(cfg, fragment_id, original_shape), frag_mask
 
 
 def _tiles_for_fragment(cfg, fragment_id, is_valid):

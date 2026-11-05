@@ -92,6 +92,56 @@ characters fail before any model/data work or report writes. CLI `--same` and
 of silently overwriting a dictionary row. Public data/inference entry points also
 refuse unsafe fragment IDs.
 
+## Coverage and scoring inputs
+
+CLI evaluation and cross-scroll measurement now request inference details and
+load only the ink-label image afterward. The full CT layers and fragment mask
+are decoded once per target; scoring uses that captured mask. Labels must match
+the original prediction dimensions. Training's `read_image_mask` API continues
+to load the volume, labels and mask together.
+
+Successful CLI scorecards and measurement rows add `prediction_coverage`:
+
+| Field | Meaning |
+|---|---|
+| `valid_pixels` | Nonzero pixels in the captured fragment mask |
+| `predicted_pixels` | Valid pixels visited by at least one inference window |
+| `uncovered_pixels` | Valid pixels with the existing zero fill |
+| `coverage_fraction` | Predicted / valid pixels |
+
+A 32×36 full fragment mask at size/stride 16, for example, has 1,152 valid pixels,
+1,024 predicted pixels and 128 uncovered pixels. Default scoring still includes
+all 1,152 valid pixels; counts do not silently change the denominator. Measurement
+Markdown also displays predicted and uncovered counts. A `COMPLETE` report means
+all requested targets were scored, not that every pixel was predicted.
+
+Pass `--require-full-coverage` to `eval` or `measure` to reject uncovered targets.
+Evaluation preserves the previous report on refusal. Measurement records a target
+error, continues and writes a partial/failed report with a nonzero CLI exit. A
+fully covered target remains scoreable alongside a failed one. These options
+retain the inference grid, mask rules, metric formulas and zero-fill convention;
+they do not introduce a covered-only scoring mode.
+
+Python `measure(..., require_full_coverage=True)` supports the same policy.
+The array-level `evaluate(..., coverage=boolean_map)` API optionally records the
+same counts after checking shape/type; callers omitting coverage retain the
+previous metric-only behavior. Absent coverage metadata means unknown coverage,
+not full coverage. The report checker verifies the recorded report bytes, not
+the missing full-resolution coverage maps or model accuracy.
+
+CLI report preflight also protects the supplied configuration, selected converted
+fragment trees, CT layers, fragment masks and discovered ink-label files, in
+addition to the checkpoint. Reports inside a selected input tree or aliasing
+these files are refused before inference; `reproduce` checks its configuration
+and selected converted fragments before conversion/training. Publication rechecks
+the supplied input paths, including aliases created after inference.
+
+Python `measure` callers can supply `config_path=...` for configuration protection.
+Array-level `evaluate` callers can supply extra filesystem `inputs=(...)`; arrays
+alone do not identify their source paths. These checks do not hash or snapshot
+datasets/configurations/checkpoints, verify a scientific split or lock out other
+writers. Keep inputs and paths stable. No historical report is upgraded.
+
 ## Publication and failure behavior
 
 Previously, a thumbnail error after CSV writing left new CSV values beside an
@@ -107,7 +157,7 @@ old scorecard. The report was a mixture of attempts. Both report writers now:
 Caught publication errors restore the previous files, their permission modes and
 previously absent files' absence. An interrupted write before publication leaves
 all previous reports intact. Existing symlink/special-file targets, a symlink
-report directory and output/checkpoint aliases are refused. Output path/type/size
+report directory and output/input aliases are refused. Output path/type/size
 checks run before expensive CLI evaluation or measurement inference, and
 `reproduce` runs them before conversion and training. Names stay
 inside the selected local report directory. Unrelated files are preserved.
