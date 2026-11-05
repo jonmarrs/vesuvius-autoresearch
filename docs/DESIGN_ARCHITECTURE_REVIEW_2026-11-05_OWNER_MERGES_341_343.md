@@ -21,6 +21,9 @@ This round changes no library code. It does three things:
 - makes one of #343's tests type-check;
 - records one observation on #343.
 
+The owner's #344 (detector output preflight) merged at 06:15 UTC, after this firing. It touches none of this
+round's files, and the next round reviews it.
+
 ## What changed
 
 - **#341's report and doc had no test** (`tests/test_fiber_boundary_halo_record.py`, listed in the suite).
@@ -89,7 +92,16 @@ This round changes no library code. It does three things:
 
 - **The touched modules**, `test_fiber_boundary_halo_record`, `test_fiber_direction_tiled`,
   `test_fiber_streaming_cli` and `test_fiber_trace`, pass.
-- **Ruff and mypy.**
-- **The standard suite.**
-- **The test modules outside the suite.**
-- **The doc audit**, run alone.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed files. Mypy is clean over the whole
+  repository: 888 files, after the fix above.
+- **The standard suite** gives round #147's 70 failing ids:
+  - the 43 standing failures;
+  - the 25 SDK cases;
+  - the 2 collection errors.
+- **The 240 test modules outside the suite** give 2,255 passed, 82 skipped, 13 failed and 21 errors.
+  - The failing ids are round #147's.
+  - The 3 extra passes are #340's `test_gpu_window_2026_11_03_record.py`.
+- **The doc audit**, run alone, adds three unresolved references.
+  - All three are round #147's record quoting commits of other repositories: villa `9c343a1` and `baf5e605b`,
+    and ScrollGT `1605fadb`.
+  - This record adds none.
