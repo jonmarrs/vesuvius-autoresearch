@@ -133,6 +133,13 @@ memory before allowing it. One CPU worker is now the default because each
 worker holds whole-cube temporaries. Submitted trees and retained results are
 limited to one batch of at most that many workers, rather than every tree.
 
+Trees at the skeleton root and inside groups at any nesting depth are included
+using the SDK's recursive traversal. Earlier versions visited only the root and
+one group level; deeper annotations could silently publish empty or incomplete
+labels. Regenerate affected runs into a new output directory. New skeleton
+metadata records `tree_traversal: "recursive"`; the field describes enumeration,
+not label accuracy.
+
 The existing edge interpolation, expansion, and principal-axis classification
 remain heuristic: `0=background`, `1=horizontal`, `2=vertical`, `3=mixed`.
 Bounds are checked in XYZ before integer conversion, so negative fractional
@@ -142,10 +149,9 @@ origin, shape, settings and TIFF hash in `labels_meta.json`, and rechecks the
 NML before publishing the new directory. Dry run checks filename/settings only
 and does not load the annotation or import its SDK.
 
-Native WebKnossos parsing and processing SDK tree objects in subprocesses were
-not exercised, and neither was real CUDA. Geometry and publication regressions
-run on CPU; SDK publication tests use a stub. A real two-worker process pool was
-tested with synthetic tree objects. The small public-CT check is operational
-parity evidence,
-not a label-quality result. See the
+CPU regressions now save and load actual SDK NML annotations and process their
+trees through real one- and two-worker pools. They cover root, direct, deeply
+nested and mixed groups, plus complete CLI publication. These are correctness
+checks; CUDA and label quality remain unverified. The earlier synthetic and
+small public-CT controls are recorded in the
 [design and architecture review](DESIGN_ARCHITECTURE_REVIEW_2026-10-30_FIBER_LABELS.md).
