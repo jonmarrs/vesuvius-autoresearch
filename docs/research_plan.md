@@ -42,8 +42,8 @@ budget. Historical reports and preregistrations retain their original scope.
 4. **Choose one bounded research pilot after its prerequisites are met.**
    Conservative fiber connectivity and independently reviewed label correction
    address the official [open problems](https://scrollprize.org/2026_open_problems).
-   Findings 101–104 in the strategy close the existing refit retry as a useful
-   continuation rule: coverage rose while wrong connections also rose. A new
+   Findings 101, 102 and 104 in the strategy close the existing refit retry as a
+   useful continuation rule: coverage rose while wrong connections also rose. A new
    continuation needs a discriminating rule and a fixed comparison protocol;
    neither relaxed stops nor a presence-only gate is supported by that result.
    Keep independent human-click reach, precision and wrong connections beside
