@@ -71,7 +71,11 @@ Each new test passes as merged and fails against its mutant.
 
 - **The touched modules**, `test_prune_fit_checkpoints` and `test_reclaim_fit_checkpoints`, pass: 51 with the added
   tests.
-- **Ruff and mypy.**
-- **The standard suite.**
-- **The test modules outside the suite.**
-- **The doc audit**, run alone.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed test file. Mypy is clean over the
+  whole repository: 894 files.
+- **The standard suite** gives round #151's 70 failing ids. #354 moved the prune and reclaim modules into the
+  suite, and they pass.
+- **The 238 test modules outside the suite** give 2,241 passed, 82 skipped, 13 failed and 21 errors.
+  - The failing ids are round #151's.
+  - The 14 fewer passes are the two moved modules' 7 tests each, as they stood before #354.
+- **The doc audit**, run alone, finds no new unresolved reference.
