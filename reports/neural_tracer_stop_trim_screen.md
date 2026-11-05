@@ -49,7 +49,9 @@ neighbouring fiber. It reads presence, agreement between the fiber's direction a
 the side, at every step rather than at stops. Its author reports that most bad beam traces were ones that "slid onto
 the next fiber over and just kept going". The 84% here is consistent with the same failure in the neural tracer, but
 this screen does not locate it. Testing that would need per-step features along the traces; these runs record only
-points and stop reasons.
+points and stop reasons. *(Added 2026-11-05: a [follow-up](neural_tracer_offref_location.md) places all of the
+off-reference length. At tolerance 2, 39.2% lies beside the fiber being followed and 27.3% on fibers the reference
+never passes; departure-shaped length is 33.5%.)*
 
 ## What it cannot say
 
