@@ -15,6 +15,7 @@ from vesuvius_autoresearch.fibers.trace import (
     StopReason,
     TraceParams,
     TraceResult,
+    _walk,
     trace_fibers,
 )
 
@@ -36,6 +37,141 @@ def _params(**kw):
     }
     base.update(kw)
     return TraceParams(**base)
+
+
+def _invalid_destination(axis=2, bad_direction=None, seed_at=4):
+    shape = [5, 5, 5]
+    shape[axis] = 17
+    response = np.ones(shape)
+    seeds = np.zeros(shape)
+    start = [2, 2, 2]
+    start[axis] = seed_at
+    seeds[tuple(start)] = 1
+    directions = np.zeros((*shape, 3))
+    directions[..., axis] = 1
+    valid = np.ones(shape, dtype=bool)
+    plane = [slice(None)] * 3
+    plane[axis] = 8
+    if bad_direction is None:
+        valid[tuple(plane)] = False
+    else:
+        directions[tuple(plane)] = bad_direction
+    return response, seeds, directions, valid
+
+
+@pytest.mark.parametrize("axis", range(3))
+@pytest.mark.parametrize("seed_at", [4, 12])
+@pytest.mark.parametrize("max_skip_steps", [0, 2])
+def test_emitted_points_never_enter_orientation_invalid_voxels(
+    axis, seed_at, max_skip_steps
+):
+    response, seeds, directions, valid = _invalid_destination(axis, seed_at=seed_at)
+    result = trace_fibers(
+        response=response,
+        seed_response=seeds,
+        directions=directions,
+        valid=valid,
+        params=TraceParams(
+            seed_stride=1,
+            claim_radius=0,
+            min_length=1,
+            max_skip_steps=max_skip_steps,
+        ),
+    )
+    assert len(result.fibers) == 1
+    fiber = result.fibers[0]
+    indices = np.rint(fiber.points).astype(int)
+    assert valid[tuple(indices.T)].all()
+    assert StopReason.INVALID_DIRECTION in (fiber.stop_start, fiber.stop_end)
+
+
+@pytest.mark.parametrize(
+    "bad_direction", [np.zeros(3), np.full(3, np.nan), np.full(3, np.inf)]
+)
+def test_invalid_destination_vector_is_not_recorded_even_when_mask_is_true(
+    bad_direction,
+):
+    response, seeds, directions, valid = _invalid_destination(
+        bad_direction=bad_direction
+    )
+    result = trace_fibers(
+        response=response,
+        seed_response=seeds,
+        directions=directions,
+        valid=valid,
+        params=TraceParams(seed_stride=1, claim_radius=0, min_length=1),
+    )
+    assert len(result.fibers) == 1
+    fiber = result.fibers[0]
+    assert np.isfinite(fiber.points).all()
+    assert (np.rint(fiber.points[:, 2]) != 8).all()
+    assert fiber.stop_end == StopReason.INVALID_DIRECTION
+
+
+@pytest.mark.parametrize(
+    "bad_direction", [np.zeros(3), np.full(3, np.nan), np.full(3, np.inf)]
+)
+def test_invalid_seed_direction_abstains_without_crashing(bad_direction):
+    response, seeds, directions, valid = _invalid_destination(
+        bad_direction=bad_direction, seed_at=8
+    )
+    result = trace_fibers(
+        response=response,
+        seed_response=seeds,
+        directions=directions,
+        valid=valid,
+        params=TraceParams(seed_stride=1, claim_radius=0, min_length=1),
+    )
+    assert not result.fibers
+    assert result.n_seeds_tried == 1
+
+
+@pytest.mark.parametrize("axis", range(3))
+def test_coasting_and_max_steps_cannot_record_an_invalid_destination(axis):
+    response, _, directions, valid = _invalid_destination(axis)
+    start = np.full(3, 2.0)
+    start[axis] = 7
+    forward = np.eye(3)[axis]
+    directions[tuple(start.astype(int))] = np.eye(3)[(axis + 1) % 3]
+    points, _, reason = _walk(
+        start,
+        forward,
+        response,
+        directions,
+        valid,
+        np.zeros(response.shape, np.int32),
+        TraceParams(max_skip_steps=2, max_steps=1),
+        1,
+    )
+    assert points == []
+    assert reason == StopReason.INVALID_DIRECTION
+
+
+@pytest.mark.parametrize("earlier_gate", ["collision", "low_response", "valid_control"])
+def test_destination_check_preserves_existing_stop_priority(earlier_gate):
+    response, _, directions, valid = _invalid_destination()
+    claimed = np.zeros(response.shape, np.int32)
+    if earlier_gate == "collision":
+        claimed[2, 2, 8] = 2
+        expected = StopReason.COLLISION
+    elif earlier_gate == "low_response":
+        response[:] = 0
+        expected = StopReason.LOW_RESPONSE
+    else:
+        valid[:] = True
+        expected = StopReason.MAX_LENGTH
+    points, _, reason = _walk(
+        np.array([2.0, 2.0, 7.0]),
+        np.array([0.0, 0.0, 1.0]),
+        response,
+        directions,
+        valid,
+        claimed,
+        TraceParams(max_steps=1),
+        1,
+    )
+    assert reason == expected
+    assert len(points) == (1 if earlier_gate == "valid_control" else 0)
 
 
 def test_traces_one_instance_per_tube():

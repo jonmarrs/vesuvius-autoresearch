@@ -758,10 +758,15 @@ def test_trace_defaults_are_the_published_configuration(bench_cube):
     params, relink = _ran_with(calls)
     assert asdict(params) == record["trace_parameters"] == PUBLISHED_TRACE
     assert asdict(relink) == record["relink_parameters"] == PUBLISHED_RELINK
-    assert record["tracing_recipe"] == PUBLISHED_RECIPE
+    assert record["tracing_recipe"] == {**PUBLISHED_RECIPE, "walk_version": 2}
     provenance = record["provenance"]
     assert (provenance["tolerance"], provenance["mask_threshold"]) == (2.0, 0.5)
     assert [c["tolerance"] for c in calls["score_tracing"]] == [2.0, 2.0]
+
+
+def test_trace_report_records_the_destination_policy_version(bench_cube):
+    record, _, _ = bench_cube()
+    assert record["tracing_recipe"]["walk_version"] == 2
 
 
 def test_trace_runs_and_records_every_parameter_it_is_given(bench_cube):
@@ -800,7 +805,7 @@ def test_trace_runs_and_records_every_parameter_it_is_given(bench_cube):
 def test_trace_runs_the_recipe_it_records(bench_cube, block):
     record, instances, calls = bench_cube("--detect-block", str(block))
     recipe = record["tracing_recipe"]
-    assert recipe == {**PUBLISHED_RECIPE, "detect_block": block}
+    assert recipe == {**PUBLISHED_RECIPE, "detect_block": block, "walk_version": 2}
     orientation, seeding = recipe["orientation"], recipe["seed_response"]
     if block:
         (field,) = calls["fiber_direction_tiled"]

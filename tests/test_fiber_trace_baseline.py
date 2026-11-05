@@ -1,8 +1,9 @@
-"""Baseline lock: the tracer's current behaviour, so an improvement is provable.
+"""Published parameter defaults and representative clean/curvature-field controls.
 
-These tests do not assert the tracer is good. They assert it behaves exactly as
-it did when the published baseline was measured, so that a later change can be
-attributed to the change rather than to drift.
+These tests pin the original settings and specific synthetic behaviors, not
+full reproduction of historical traces or evidence of tracing quality. Walk
+version 2 separately corrects destination validity; historical measured outputs
+remain unchanged in their reports and need a fresh run for current code.
 """
 
 import numpy as np
@@ -47,7 +48,7 @@ def _straight_tube(shape=(40, 40, 40), axis=0, centre=(20, 20), radius=2.0):
 
 
 def test_defaults_preserve_published_behaviour():
-    """The new parameters must all default to a no-op."""
+    """The smoothing, coasting and seed-NMS parameters retain their defaults."""
     p = TraceParams()
     assert p.tangent_window == 1, "default must reproduce the published baseline"
     assert p.max_skip_steps == 0, "default must reproduce the published baseline"

@@ -38,6 +38,9 @@ from vesuvius_autoresearch.fibers.detection import (
     hessian,
 )
 
+# Earlier, unversioned walks recorded a destination before checking its direction.
+WALK_VERSION = 2
+
 
 class StopReason(str, Enum):
     """Why a walk terminated. Reported per fiber end, never silently dropped."""
@@ -97,8 +100,8 @@ class TraceParams:
     is the value the frozen, shipped-improvement configuration actually uses -- 3 is a
     reasonable prior, not the measured optimum.
 
-    Defaults to 1, which is exactly the published baseline's behaviour; pass 5 to get
-    the measured, frozen configuration.
+    Defaults to 1, the published baseline's tangent-window setting; pass 5 for
+    the measured smoothing setting. Walk validity policy is versioned separately.
     """
 
     max_skip_steps: int = 0
@@ -127,8 +130,8 @@ class TraceParams:
     the price of wrong-instance merges. It ships disabled (0) for that reason, not
     because it was untested.
 
-    Defaults to 0, the published baseline's behaviour and the value the frozen,
-    shipped-improvement configuration also uses.
+    Defaults to 0, the published baseline's coasting budget and the value the
+    frozen, shipped-improvement configuration also uses.
     """
 
     max_steps: int = 4000
@@ -321,7 +324,7 @@ def _direction_at(
         return None
     d = dirs[idx].astype(float)
     n = np.linalg.norm(d)
-    if n < 1e-8:
+    if not np.isfinite(n) or n < 1e-8:
         return None
     d = d / n
     if prev is not None and float(np.dot(d, prev)) < 0.0:
@@ -395,6 +398,13 @@ def _walk(
             break
         if r < params.continue_threshold:
             reason = StopReason.LOW_RESPONSE
+            break
+
+        # Validate the destination before committing it, including the final
+        # allowed step and coasting steps. Otherwise an invalid endpoint gets
+        # recorded and claimed before the next iteration notices it.
+        if _direction_at(dirs, valid, nxt, None) is None:
+            reason = StopReason.INVALID_DIRECTION
             break
 
         pts.append(nxt.copy())
