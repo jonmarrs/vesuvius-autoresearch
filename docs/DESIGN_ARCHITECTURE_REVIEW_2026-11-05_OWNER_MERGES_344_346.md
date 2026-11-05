@@ -61,10 +61,18 @@ This round changes no library or script code. It adds one test for #344's after-
 
 - **The touched modules**, `test_detector_prediction_artifacts`, `test_detector_cli` and `test_fiber_label_generation`,
   pass. The SDK cases ran with the locked SDK as above.
-- **Ruff and mypy.**
-- **The standard suite.**
-- **The test modules outside the suite.**
-- **The doc audit**, run alone.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed test file. Mypy is clean over the
+  whole repository: 888 files.
+- **The standard suite** gives round #148's 70 failing ids:
+  - the 43 standing failures;
+  - the 25 SDK cases;
+  - the 2 collection errors.
+- **The 240 test modules outside the suite** give 2,255 passed, 82 skipped, 13 failed and 21 errors. These are
+  round #148's figures.
+- **The doc audit**, run alone, adds three unresolved references.
+  - All three are round #148's record repeating, by name, the external commits that round #147's record had
+    quoted.
+  - This record names none of them, so the repetition stops here.
 
 A note on this round's own work: my first mutation runs left out a private `--basetemp`. The detector tests' temporary
 directories, 2.4 GB under `/tmp/pytest-of-root`, then filled the disk, together with the 621 MB SDK overlay. I
