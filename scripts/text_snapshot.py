@@ -1,8 +1,14 @@
 """Bounded UTF-8 source captures shared by reports and command planners."""
 
 import hashlib
+import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
+
+
+def _nonblocking_open(path, flags):
+    return os.open(path, flags | getattr(os, "O_NONBLOCK", 0))
 
 
 @dataclass(frozen=True)
@@ -13,10 +19,19 @@ class Snapshot:
 
     @classmethod
     def read(cls, path, limit):
+        if type(limit) is not int or limit < 1:
+            raise ValueError("capture limit must be a positive integer")
         path = Path(path).resolve()
         if not path.is_file():
             raise ValueError(f"input must be a regular file: {path}")
-        with path.open("rb") as stream:
+        # A path can become a FIFO after is_file(). Open nonblocking on POSIX
+        # and validate the actual descriptor before reading any bytes.
+        with open(path, "rb", opener=_nonblocking_open) as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError(f"input must be a regular file: {path}")
+            if info.st_size > limit:
+                raise ValueError(f"input exceeds {limit} bytes: {path}")
             data = stream.read(limit + 1)
         if len(data) > limit:
             raise ValueError(f"input exceeds {limit} bytes: {path}")

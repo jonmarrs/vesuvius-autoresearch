@@ -22,13 +22,21 @@ if __package__ in (None, ""):
     sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from scripts import loop_control
+from scripts.text_snapshot import Snapshot
 from scripts.training.config import ExperimentConfig
 from scripts.training.input_paths import training_label_path, validation_label_path
 
+DEFAULT_CONFIG_BYTES = 1024**2
+MAX_CONFIG_BYTES = 16 * 1024**2
 
-def inspect_workspace(repo: Path, config_path: Path = Path("config.json")) -> dict:
+
+def inspect_workspace(
+    repo: Path,
+    config_path: Path = Path("config.json"),
+    *,
+    max_config_bytes: int = DEFAULT_CONFIG_BYTES,
+) -> dict:
     """Return observations only; an idle process state is not a GPU reservation."""
-    repo = repo.resolve()
     checks: list[dict] = []
     report = {
         "contract": 1,
@@ -93,7 +101,25 @@ def inspect_workspace(repo: Path, config_path: Path = Path("config.json")) -> di
         )
         return found
 
-    if not repo.is_dir():
+    if (
+        type(max_config_bytes) is not int
+        or not 1 <= max_config_bytes <= MAX_CONFIG_BYTES
+    ):
+        add(
+            "config",
+            "blocked",
+            f"max_config_bytes must be an integer from 1 to {MAX_CONFIG_BYTES}.",
+        )
+        return finish()
+    report["config_byte_limit"] = max_config_bytes
+    try:
+        repo = repo.resolve()
+        directory = repo.is_dir()
+    except (OSError, RuntimeError, ValueError) as exc:
+        add("repository", "blocked", f"Cannot inspect repository path: {exc}", repo)
+        return finish()
+    report["repository"] = str(repo)
+    if not directory:
         add("repository", "blocked", "Repository directory is missing.", repo)
         return finish()
     add("repository", "ok", "Directory is present.", repo)
@@ -170,7 +196,11 @@ def inspect_workspace(repo: Path, config_path: Path = Path("config.json")) -> di
 
     path = repo / config_path
     try:
-        raw = path.read_text()
+        source = Snapshot.read(path, max_config_bytes)
+        report["config_source"] = source.provenance()
+        # Match ExperimentConfig's existing UTF-8 JSON behavior. Snapshot.text()
+        # strips a BOM for source planners; a BOM in this config remains invalid.
+        raw = source.data.decode("utf-8")
         if not isinstance(json.loads(raw), dict):
             raise ValueError("configuration must be a JSON object")
         notice = io.StringIO()
@@ -184,7 +214,7 @@ def inspect_workspace(repo: Path, config_path: Path = Path("config.json")) -> di
         )
         if notice.getvalue().strip():
             add("config_normalization", "info", notice.getvalue().strip())
-    except (OSError, ValueError, TypeError, AttributeError) as exc:
+    except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as exc:
         add("config", "blocked", f"Cannot load configuration: {exc}", path)
         return finish()
 
@@ -251,8 +281,16 @@ def main(argv=None):
         help="Configuration path, relative to --repo unless absolute.",
     )
     parser.add_argument("--json", action="store_true", help="Print one JSON report.")
+    parser.add_argument(
+        "--max-config-bytes",
+        type=int,
+        default=DEFAULT_CONFIG_BYTES,
+        help=f"configuration byte budget (default {DEFAULT_CONFIG_BYTES}, maximum {MAX_CONFIG_BYTES})",
+    )
     args = parser.parse_args(argv)
-    report = inspect_workspace(args.repo, args.config)
+    report = inspect_workspace(
+        args.repo, args.config, max_config_bytes=args.max_config_bytes
+    )
     if args.json:
         print(json.dumps(report, indent=2, allow_nan=False))
     else:
@@ -261,6 +299,12 @@ def main(argv=None):
             location = f" [{item['path']}]" if "path" in item else ""
             print(
                 f"{item['status'].upper()} {item['name']}: {item['message']}{location}"
+            )
+        if "config_source" in report:
+            source = report["config_source"]
+            print(
+                f"Configuration snapshot: SHA-256 {source['sha256']} "
+                f"({source['bytes']} captured bytes)."
             )
         print("Training readiness: not checked.")
         for limitation in report["limitations"]:

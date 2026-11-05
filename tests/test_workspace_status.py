@@ -1,6 +1,7 @@
 """Read-only setup diagnostics must use training paths without loading research data."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -205,3 +206,153 @@ def test_exit_codes_follow_blocked_and_unknown_status(workspace, capsys):
     save_config(workspace, uris=[])
     assert status.main(["--repo", str(repo), "--json"]) == 1
     assert json.loads(capsys.readouterr().out)["setup_status"] == "blocked"
+
+
+def test_configuration_fingerprint_uses_the_same_captured_bytes_as_parsing(
+    workspace, monkeypatch, capsys
+):
+    import hashlib
+
+    repo, config = workspace
+    path = repo / "config.json"
+    original_bytes = path.read_bytes()
+    from_json = status.ExperimentConfig.from_json
+
+    def parse(raw):
+        path.write_text(json.dumps({**config, "uris": ["changed/volume.zarr"]}))
+        return from_json(raw)
+
+    monkeypatch.setattr(status.ExperimentConfig, "from_json", parse)
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "ok"
+    assert report["config_source"] == {
+        "path": str(path.resolve()),
+        "bytes": len(original_bytes),
+        "sha256": hashlib.sha256(original_bytes).hexdigest(),
+    }
+    assert path.read_bytes() != original_bytes
+    assert check(report, "training[0]")["path"] == str(repo / config["uris"][0])
+    path.write_bytes(original_bytes)
+    monkeypatch.setattr(status.ExperimentConfig, "from_json", from_json)
+    assert status.main(["--repo", str(repo)]) == 0
+    assert report["config_source"]["sha256"] in capsys.readouterr().out
+
+
+def test_default_config_byte_budget_refuses_an_otherwise_valid_large_file(workspace):
+    repo, _ = workspace
+    path = repo / "config.json"
+    path.write_bytes(b" " * (1024**2) + path.read_bytes())
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert "exceeds" in check(report, "config")["message"]
+    assert "config_source" not in report
+
+
+def test_symlinked_config_keeps_repo_relative_paths_and_names_its_actual_source(
+    workspace,
+):
+    repo, _ = workspace
+    settings = repo / "settings"
+    settings.mkdir()
+    source = settings / "selected.json"
+    (repo / "config.json").rename(source)
+    (repo / "config.json").symlink_to(source)
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "ok"
+    assert report["config_source"]["path"] == str(source.resolve())
+    assert check(report, "training[0]")["path"] == str(
+        repo / "train/surface_volume.zarr"
+    )
+
+
+def test_explicit_config_budget_accepts_the_byte_boundary_and_rejects_one_less(
+    workspace, capsys
+):
+    repo, _ = workspace
+    size = (repo / "config.json").stat().st_size
+    assert status.inspect_workspace(repo, max_config_bytes=size)["setup_status"] == "ok"
+    assert (
+        status.inspect_workspace(repo, max_config_bytes=size - 1)["setup_status"]
+        == "blocked"
+    )
+    assert (
+        status.main(["--repo", str(repo), "--max-config-bytes", str(size), "--json"])
+        == 0
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report["config_byte_limit"] == size
+    assert report["config_source"]["bytes"] == size
+
+
+@pytest.mark.parametrize("limit", [0, True, 16 * 1024**2 + 1])
+def test_bad_config_budgets_fail_before_process_or_config_reads(
+    workspace, monkeypatch, limit
+):
+    repo, _ = workspace
+    monkeypatch.setattr(
+        status.loop_control, "running_pid", lambda *a: pytest.fail("invalid budget")
+    )
+    report = status.inspect_workspace(repo, max_config_bytes=limit)
+    assert report["setup_status"] == "blocked"
+    assert "max_config_bytes" in check(report, "config")["message"]
+
+
+@pytest.mark.parametrize("target", ["repository", "config"])
+def test_path_resolution_loops_are_structured_blocked_diagnostics(workspace, target):
+    repo, _ = workspace
+    loop = repo / "loop"
+    loop.symlink_to(loop)
+    report = (
+        status.inspect_workspace(loop)
+        if target == "repository"
+        else status.inspect_workspace(repo, loop)
+    )
+    assert report["setup_status"] == "blocked"
+    assert "loop" in check(report, target)["message"].lower()
+
+
+def test_deep_json_is_a_blocked_config_report_instead_of_a_traceback(workspace, capsys):
+    repo, _ = workspace
+    path = repo / "config.json"
+    path.write_text('{"extra":' + "[" * 5000 + "0" + "]" * 5000 + "}")
+    assert status.main(["--repo", str(repo), "--json"]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["setup_status"] == "blocked"
+    assert check(report, "config")["status"] == "blocked"
+
+
+def test_config_bom_stays_a_parse_error_and_has_a_raw_byte_fingerprint(workspace):
+    import hashlib
+
+    repo, _ = workspace
+    path = repo / "config.json"
+    raw = b"\xef\xbb\xbf" + path.read_bytes()
+    path.write_bytes(raw)
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert report["config_source"]["sha256"] == hashlib.sha256(raw).hexdigest()
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFO")
+def test_cli_refuses_a_fifo_config_without_waiting_for_a_writer(workspace):
+    repo, _ = workspace
+    path = repo / "config.json"
+    path.unlink()
+    os.mkfifo(path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/workspace_status.py"),
+            "--repo",
+            str(repo),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert result.returncode == 1, result.stderr
+    report = json.loads(result.stdout)
+    assert report["setup_status"] == "blocked"
+    assert "regular file" in check(report, "config")["message"]
+    assert "Traceback" not in result.stderr

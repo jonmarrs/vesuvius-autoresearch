@@ -16,10 +16,11 @@ record the three Villa fixes. Villa #2141 and #2259, merged the next day, went i
 The optional research entry remains unsubmitted.
 
 **Check a checkout without starting training:** `python3 scripts/workspace_status.py`.
+The diagnostic bounds config reads and fingerprints the captured configuration.
 This reads setup and process metadata; it does not load model weights, read study
 measurements or access CUDA. Use `--json` for a structured report. A passing setup
 check is not a GPU, model-compatibility or prize-eligibility check.
-See [status output and next steps](docs/WORKSPACE_STATUS.md).
+See [status output, config budgets and next steps](docs/WORKSPACE_STATUS.md).
 
 **Window limits:** the project's existing 64-pixel recipe and artifact checks are
 local evaluation contracts. Current official reading-prize rules allow larger

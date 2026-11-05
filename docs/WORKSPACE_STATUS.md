@@ -19,6 +19,33 @@ processes, checkpoint presence, configuration parsing and configured data/label
 paths. It shares label selection with the trainer, including refined-label
 priority and the confidence-weight requirement for pseudo-labels.
 
+Configuration reads are limited to **1 MiB** by default. They require a regular
+UTF-8 file; directories, FIFOs and files over the selected limit produce a
+blocked config check. On POSIX, the shared capture also opens nonblocking and
+checks the actual descriptor, so replacing a regular path with a FIFO between
+the path check and open cannot make it wait for a writer. Deeply nested JSON and
+unresolvable repository/config paths produce structured diagnostics.
+
+For a deliberately larger configuration, select an integer byte budget, up to
+**16 MiB**:
+
+```sh
+python3 scripts/workspace_status.py --max-config-bytes 2097152 --json
+```
+
+JSON output includes `config_byte_limit`. After a successful UTF-8 capture,
+`config_source` gives its resolved path, byte count and SHA-256, even if JSON
+parsing subsequently fails. Human output prints that fingerprint too. Parsing
+and hashing use the same captured bytes, before `ExperimentConfig` normalizes
+legacy fields or filters validation overlap. Existing checks continue to show
+configured paths and normalization notices. File symlinks remain supported and
+the fingerprint names the resolved target; data paths still resolve from `--repo`.
+
+The fingerprint identifies the config bytes inspected, not normalized settings
+or checkpoint compatibility. Another writer can replace the config afterward.
+A UTF-8 BOM remains a config parse error, matching the existing JSON loader.
+The byte budget is not a total memory or filesystem time limit.
+
 | Exit | Setup status | Meaning |
 | --- | --- | --- |
 | 0 | `ok` | The inspected local paths and configuration checks passed. |
