@@ -126,9 +126,7 @@ def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=1)
     from concurrent.futures import ProcessPoolExecutor, as_completed
     from itertools import islice
 
-    all_trees = list(annotation.skeleton.trees)
-    for group in annotation.skeleton.groups:
-        all_trees.extend(group.trees)
+    all_trees = list(annotation.skeleton.flattened_trees())
 
     accum_h = np.zeros(output_shape, dtype=np.uint8)
     accum_v = np.zeros(output_shape, dtype=np.uint8)
@@ -231,6 +229,7 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
                 "label_kind": "annotation_derived_orientation_heuristic",
                 "source_nml": str(nml_path),
                 "source_nml_sha256": nml_sha,
+                "tree_traversal": "recursive",
                 "axes": ["z", "y", "x"],
                 "origin_zyx": [z_start, y_start, x_start],
                 "shape_zyx": [size] * 3,

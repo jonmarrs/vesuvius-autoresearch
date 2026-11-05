@@ -344,6 +344,94 @@ def test_empty_skeleton_does_not_generate_corner_fibers(generator):
     assert not result.any()
 
 
+def _sdk_skeleton(webknossos, depths):
+    annotation = webknossos.Annotation(
+        name="fiber-groups", dataset_name="fixture", voxel_size=(1, 1, 1)
+    )
+    for index, depth in enumerate(depths):
+        group = annotation.skeleton
+        for level in range(depth):
+            group = group.add_group(f"fiber-{index}-group-{level}")
+        trace = group.add_tree(f"fiber-{index}")
+        y = 1 + 2 * index
+        a = trace.add_node(position=(1, y, 3))
+        b = trace.add_node(position=(6, y, 3))
+        trace.add_edge(a, b)
+    return annotation
+
+
+@pytest.mark.parametrize("depth", [0, 1, 2, 4])
+@pytest.mark.parametrize("workers", [1, 2])
+def test_sdk_group_depth_does_not_change_voxelized_fibers(
+    generator, tmp_path, depth, workers
+):
+    webknossos = pytest.importorskip("webknossos")
+    root = _sdk_skeleton(webknossos, [0])
+    nested = _sdk_skeleton(webknossos, [depth])
+    source = tmp_path / "nested.nml"
+    nested.save(source)
+    loaded = webknossos.Annotation.load(source)
+    assert len(list(loaded.skeleton.flattened_trees())) == 1
+    reference = generator._voxelize_skeleton(
+        root, (8, 8, 8), (0, 0, 0), radius=1, n_workers=workers
+    )
+    result = generator._voxelize_skeleton(
+        loaded, (8, 8, 8), (0, 0, 0), radius=1, n_workers=workers
+    )
+    assert reference.any()
+    np.testing.assert_array_equal(result, reference)
+
+
+def test_sdk_mixed_root_direct_and_nested_groups_all_contribute(generator):
+    webknossos = pytest.importorskip("webknossos")
+    flat = _sdk_skeleton(webknossos, [0, 0, 0])
+    grouped = _sdk_skeleton(webknossos, [0, 1, 3])
+    reference = generator._voxelize_skeleton(
+        flat, (8, 8, 8), (0, 0, 0), radius=0, n_workers=2
+    )
+    result = generator._voxelize_skeleton(
+        grouped, (8, 8, 8), (0, 0, 0), radius=0, n_workers=2
+    )
+    assert all(reference[3, y, 3] for y in (1, 3, 5))
+    np.testing.assert_array_equal(result, reference)
+
+
+def test_real_sdk_nested_nml_cli_publishes_complete_fibers(tmp_path):
+    webknossos = pytest.importorskip("webknossos")
+    labels = []
+    for depth in (1, 3):
+        source = tmp_path / f"group{depth}_s5_00000z_00000y_00000x_8_v00.nml"
+        _sdk_skeleton(webknossos, [depth]).save(source)
+        output = tmp_path / f"labels-depth-{depth}"
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "scripts/labeling/generate_fiber_labels.py",
+                "--mode",
+                "skeleton",
+                "--nml-path",
+                str(source),
+                "--output-dir",
+                str(output),
+                "--radius",
+                "1",
+                "--n-workers",
+                "2",
+            ],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert completed.returncode == 0, completed.stderr
+        labels.append(tifffile.imread(output / "labels.tif"))
+        metadata = json.loads((output / "labels_meta.json").read_text())
+        assert metadata["source_nml_sha256"] and metadata["label_file_sha256"]
+        assert metadata["tree_traversal"] == "recursive"
+    assert labels[0].any()
+    np.testing.assert_array_equal(labels[1], labels[0])
+
+
 def test_many_skeleton_trees_do_not_queue_unbounded_volume_results(
     generator, monkeypatch
 ):
@@ -382,7 +470,7 @@ def test_many_skeleton_trees_do_not_queue_unbounded_volume_results(
     monkeypatch.setattr(concurrent.futures, "ProcessPoolExecutor", BoundedExecutor)
     monkeypatch.setattr(concurrent.futures, "as_completed", consume)
     annotation = SimpleNamespace(
-        skeleton=SimpleNamespace(trees=list(range(101)), groups=[])
+        skeleton=SimpleNamespace(flattened_trees=lambda: iter(range(101)))
     )
     result = generator._voxelize_skeleton(annotation, (3, 3, 3), (0, 0, 0), n_workers=2)
     assert len(submitted) == 101 and not outstanding
@@ -392,8 +480,9 @@ def test_many_skeleton_trees_do_not_queue_unbounded_volume_results(
 def test_skeleton_process_pool_preserves_overlapping_orientations(generator):
     annotation = SimpleNamespace(
         skeleton=SimpleNamespace(
-            trees=[tree((0, 2, 2), (4, 2, 2)), tree((2, 2, 0), (2, 2, 4))],
-            groups=[],
+            flattened_trees=lambda: iter(
+                [tree((0, 2, 2), (4, 2, 2)), tree((2, 2, 0), (2, 2, 4))]
+            ),
         )
     )
     result = generator._voxelize_skeleton(
@@ -517,6 +606,7 @@ def test_skeleton_publish_has_source_hash_and_preserves_old_outputs(
     )
     meta = json.loads((settings.output_dir / "labels_meta.json").read_text())
     assert meta["origin_zyx"] == [10, 20, 30] and meta["source_nml_sha256"]
+    assert meta["tree_traversal"] == "recursive"
     before = (settings.output_dir / "labels.tif").read_bytes()
     with pytest.raises(ValueError, match="already exists"):
         generator._run_skeleton_mode(settings)
