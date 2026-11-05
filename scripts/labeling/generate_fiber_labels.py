@@ -35,6 +35,7 @@ from scripts.labeling.label_artifacts import (
     publish_new,
 )
 from vesuvius_autoresearch.fibers import detect_vesselness
+from vesuvius_autoresearch.fibers.detection import EIGENSOLVER_VERSION
 from vesuvius_autoresearch.fibers.provenance import file_sha256
 
 # ---------------------------------------------------------------------------
@@ -230,6 +231,7 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
                 "source_nml": str(nml_path),
                 "source_nml_sha256": nml_sha,
                 "tree_traversal": "recursive",
+                "hessian_eigensolver_version": EIGENSOLVER_VERSION,
                 "axes": ["z", "y", "x"],
                 "origin_zyx": [z_start, y_start, x_start],
                 "shape_zyx": [size] * 3,

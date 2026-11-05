@@ -428,6 +428,7 @@ def test_real_sdk_nested_nml_cli_publishes_complete_fibers(tmp_path):
         metadata = json.loads((output / "labels_meta.json").read_text())
         assert metadata["source_nml_sha256"] and metadata["label_file_sha256"]
         assert metadata["tree_traversal"] == "recursive"
+        assert metadata["hessian_eigensolver_version"] == 2
     assert labels[0].any()
     np.testing.assert_array_equal(labels[1], labels[0])
 
@@ -607,6 +608,7 @@ def test_skeleton_publish_has_source_hash_and_preserves_old_outputs(
     meta = json.loads((settings.output_dir / "labels_meta.json").read_text())
     assert meta["origin_zyx"] == [10, 20, 30] and meta["source_nml_sha256"]
     assert meta["tree_traversal"] == "recursive"
+    assert meta["hessian_eigensolver_version"] == 2
     before = (settings.output_dir / "labels.tif").read_bytes()
     with pytest.raises(ValueError, match="already exists"):
         generator._run_skeleton_mode(settings)

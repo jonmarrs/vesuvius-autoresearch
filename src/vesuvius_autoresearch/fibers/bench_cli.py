@@ -155,9 +155,12 @@ def _fiber_prob(
 
 
 def _measurement_provenance(data_dir, cube, args, gt):
+    from vesuvius_autoresearch.fibers.detection import EIGENSOLVER_VERSION
+
     record = json.loads((data_dir / f"{cube}_fiberprob.json").read_text())
     return {
         "scoring_version": SCORING_VERSION,
+        "hessian_eigensolver_version": EIGENSOLVER_VERSION,
         "inference": record["inference"],
         "probability_sha256": record["probability_sha256"],
         "skeleton_sha256": gt.source_sha256,

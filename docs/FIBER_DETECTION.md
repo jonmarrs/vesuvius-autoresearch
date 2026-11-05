@@ -24,6 +24,23 @@ Vendored from the validated `sprint033-fibers-gpu` branch (proposed upstream as
 [ScrollPrize/villa#1033](https://github.com/ScrollPrize/villa/pull/1033), closed
 without review).
 
+**Numerical correction, November 5, 2026:** eigensolver version 2 scales each
+matrix by its largest component and solves the mean-centered cubic, with exact
+diagonal and zero cases. The previous absolute epsilon terms could fabricate
+curvature and change eigenvalue signs at small scales. The method follows
+[Eberly, section 5.1](https://www.geometrictools.com/Documentation/RobustEigenSymmetric3x3.pdf).
+Repeated roots still have weaker numerical accuracy than distinct roots.
+Benchmark measurement provenance and skeleton-label metadata now record
+`hessian_eigensolver_version: 2`; candidate labels already record the filter
+source hash. Outputs without this version have not been attested to version 2. Regenerate outputs
+into new directories when comparing solver revisions. The model probability
+cache and connectivity scoring versions are unchanged.
+
+The [bounded public-CT CPU audit](../reports/fiber_eigenvalue_scales_2026-11-05.md)
+measures numerical agreement with NumPy, not tracing accuracy. GPU parity, VRAM and speed for this correction
+have not been measured. The earlier performance/results records use the legacy
+solver and must not be presented as validation of version 2.
+
 ## Validated performance
 
 These June measurements describe the in-memory API at that revision on an

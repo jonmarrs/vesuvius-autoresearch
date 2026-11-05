@@ -83,6 +83,7 @@ VALIDATION_TESTS = [
     "tests/test_nml_import_contracts.py",
     "tests/test_seed_heading_chain_status.py",
     "tests/test_fibers.py",
+    "tests/test_fiber_eigenvalue_scales.py",
     "tests/test_fibers_cli.py",
     "tests/test_fiber_eval_trace.py",
     "tests/test_checkpoint_tool_contracts.py",
