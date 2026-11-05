@@ -43,13 +43,18 @@ import numpy as np
 from vesuvius_autoresearch.fibers.provenance import SCORING_VERSION
 from vesuvius_autoresearch.fibers.skeleton_io import Skeleton
 
-# The scoring definition is ScrollGT's (github.com/jonmarrs/scrollgt, v0.7.0, its fiber scoring
+# The scoring definition is ScrollGT's (github.com/jonmarrs/scrollgt, v0.9.1, its fiber scoring
 # version 3): edges walked in path order, runs ending at stretch boundaries, ERL divided by the
-# ground-truth length. Everything from
-# `ConnectivityScores` to `oracle_from_skeleton` is vendored verbatim, except that ScrollGT's
+# ground-truth length. ScrollGT 0.9.1 computes the distance transforms in z slabs with an exact
+# halo (`_distance_blocks`), which bounds their memory and changes no score. Everything from
+# `_EDT_BLOCK_DEPTH` and `ConnectivityScores` to `oracle_from_skeleton` is vendored verbatim, except that ScrollGT's
 # `score_tracing` is `_score_tracing_scrollgt` here. tests/test_fiber_scoring_matches_scrollgt.py
 # fails if the two drift apart. `score_tracing` below adds input validation only, which never
 # changes a score.
+
+
+# EDT's temporary arrays otherwise scale with the whole cube (several GiB at 512³).
+_EDT_BLOCK_DEPTH = 64
 
 
 @dataclass
@@ -93,6 +98,40 @@ class ConnectivityScores:
         }
 
 
+def _distance_blocks(background: np.ndarray, radius: float, *, return_indices=False):
+    """Exact EDT within ``radius``, in z slabs with a ceil(radius) halo.
+
+    Every foreground voxel that can affect an interior point is in the halo.
+    Keep SciPy's nearest-voxel tie handling; translate its z indices back to the
+    original volume. Distances beyond the radius are not used by either caller.
+    """
+    from scipy import ndimage
+
+    depth = background.shape[0]
+    finite = np.isfinite(radius)
+    block = _EDT_BLOCK_DEPTH if finite else depth
+    halo = int(min(depth, np.ceil(radius))) if finite else 0
+    for start in range(0, depth, block):
+        stop = min(start + block, depth)
+        lo, hi = max(0, start - halo), min(depth, stop + halo)
+        window = background[lo:hi]
+        if window.all():
+            # No true foreground nearby. EDT on an all-background window invents
+            # an outside (-1, 0, 0) seed; it must not wrap to the last global slice.
+            continue
+        core = slice(start - lo, stop - lo)
+        if return_indices:
+            distance, nearest = ndimage.distance_transform_edt(
+                window, return_indices=True
+            )
+            nearest[0] += lo
+            nearest = nearest[:, core]
+        else:
+            distance = ndimage.distance_transform_edt(window)
+            nearest = None
+        yield slice(start, stop), distance[core], nearest
+
+
 def _dilate_labels(instances: np.ndarray, radius: float) -> np.ndarray:
     """Grow instance labels by `radius` so a near-miss counts as a hit.
 
@@ -102,15 +141,13 @@ def _dilate_labels(instances: np.ndarray, radius: float) -> np.ndarray:
     """
     if radius <= 0:
         return instances
-    from scipy import ndimage
-
     background = instances == 0
-    # distance_transform_edt with return_indices gives, for each background voxel,
-    # the index of the nearest non-background voxel.
-    dist, (iz, iy, ix) = ndimage.distance_transform_edt(background, return_indices=True)
     out = instances.copy()
-    grow = background & (dist <= radius)
-    out[grow] = instances[iz[grow], iy[grow], ix[grow]]
+    for slab, distance, (iz, iy, ix) in _distance_blocks(
+        background, radius, return_indices=True
+    ):
+        grow = background[slab] & (distance <= radius)
+        out[slab][grow] = instances[iz[grow], iy[grow], ix[grow]]
     return out
 
 
@@ -309,9 +346,9 @@ def _score_tracing_scrollgt(
             if all(0 <= idx[a] < shape[a] for a in range(3)):
                 gt_mask[idx] = True
     if tolerance > 0 and gt_mask.any():
-        from scipy import ndimage
-
-        gt_near = ndimage.distance_transform_edt(~gt_mask) <= tolerance
+        gt_near = np.zeros(shape, dtype=bool)
+        for slab, distance, _ in _distance_blocks(~gt_mask, tolerance):
+            gt_near[slab] = distance <= tolerance
     else:
         gt_near = gt_mask
     pred_vox = instances > 0

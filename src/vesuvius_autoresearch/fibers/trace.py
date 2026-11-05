@@ -26,6 +26,7 @@ validity mask; this module never steps through an invalid voxel.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -717,12 +718,53 @@ def relink_fragments(
     of chains. Fragments are concatenated in order, giving a single instance per
     chain.
 
+    Endpoint lookup uses a spatial index, then applies the original distance,
+    angle and cost tests. It preserves the accepted links and their tie order.
+    The returned endpoint stop reasons follow the concatenated point order;
+    `stop_counts` retains the input walks' counts, including joined endpoints.
+
     Returns a new `TraceResult`; the input is not modified, so a caller can score
     both and report the difference rather than only the improved number.
     """
     params = params or RelinkParams()
+    for name, limit in (
+        ("max_gap", None),
+        ("max_link_angle_deg", 180),
+        ("max_tangent_angle_deg", 180),
+        ("gap_weight", None),
+        ("angle_weight", None),
+        ("gap_fill_step", None),
+    ):
+        value = getattr(params, name)
+        if (
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, (int, float, np.integer, np.floating))
+            or not math.isfinite(value)
+            or value < 0
+            or (name == "gap_fill_step" and value == 0)
+            or (limit is not None and value > limit)
+        ):
+            raise ValueError(f"invalid relink parameter {name}: {value!r}")
+    if (
+        isinstance(params.endpoint_window, (bool, np.bool_))
+        or not isinstance(params.endpoint_window, (int, np.integer))
+        or params.endpoint_window < 1
+    ):
+        raise ValueError("endpoint_window must be a positive integer")
     frags = result.fibers
     n = len(frags)
+    for fragment in frags:
+        points = np.asarray(fragment.points)
+        if (
+            points.ndim != 2
+            or points.shape[1] != 3
+            or len(points) < 2
+            or points.dtype.kind not in "uif"
+            or not np.isfinite(points).all()
+        ):
+            raise ValueError(
+                "fragment points must be finite real arrays of shape (N, 3), N >= 2"
+            )
     if n < 2:
         return TraceResult(
             fibers=list(frags),
@@ -739,11 +781,16 @@ def relink_fragments(
         pos[2 * i], tan[2 * i] = f.points[0], t0
         pos[2 * i + 1], tan[2 * i + 1] = f.points[-1], t1
 
+    from scipy.spatial import cKDTree
+
+    tree = cKDTree(pos)
     cands = []
     for a in range(2 * n):
         fa = a // 2
-        for b in range(a + 1, 2 * n):
-            if b // 2 == fa:
+        # A cube is a conservative superset of the old Euclidean gap test.
+        # Keep that exact norm test below, including equality at max_gap.
+        for b in sorted(tree.query_ball_point(pos[a], params.max_gap, p=np.inf)):
+            if b <= a or b // 2 == fa:
                 continue
             d = pos[b] - pos[a]
             gap = float(np.linalg.norm(d))
@@ -838,8 +885,8 @@ def relink_fragments(
                 points=merged,
                 mean_response=float(np.mean(resp_mean)),
                 min_response=float(np.min(resp_min)),
-                stop_start=first.stop_start,
-                stop_end=last.stop_end,
+                stop_start=first.stop_start if start_ep % 2 == 0 else first.stop_end,
+                stop_end=last.stop_end if ep % 2 == 0 else last.stop_start,
             )
         )
 

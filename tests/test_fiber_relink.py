@@ -12,6 +12,7 @@ tests that matter most are the ones asserting it *refuses* to link.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from vesuvius_autoresearch.fibers.trace import (
     RelinkParams,
@@ -181,3 +182,122 @@ def test_confidence_uses_worst_fragment():
     out = relink_fragments(r, RelinkParams(max_gap=6.0))
     assert len(out) == 1
     assert out.fibers[0].min_response == 0.2
+
+
+@pytest.mark.parametrize("reverse_first", [False, True])
+@pytest.mark.parametrize("reverse_last", [False, True])
+def test_stop_reasons_follow_the_output_endpoints(reverse_first, reverse_last):
+    first = _frag(_line(16, 16, 0, 20))
+    last = _frag(_line(16, 16, 25, 45))
+    first.stop_start, first.stop_end = (
+        StopReason.OUT_OF_BOUNDS,
+        StopReason.HIGH_CURVATURE,
+    )
+    last.stop_start, last.stop_end = StopReason.LOW_RESPONSE, StopReason.MAX_LENGTH
+    for fragment, reverse in [(first, reverse_first), (last, reverse_last)]:
+        if reverse:
+            fragment.points = fragment.points[::-1].copy()
+            fragment.stop_start, fragment.stop_end = (
+                fragment.stop_end,
+                fragment.stop_start,
+            )
+    original = _result([first, last])
+    original.stop_counts = {
+        "out_of_bounds": 1,
+        "high_curvature": 1,
+        "low_response": 1,
+        "max_length": 1,
+    }
+    out = relink_fragments(original)
+    assert len(out) == 1
+    fiber = out.fibers[0]
+    reasons = {0.0: StopReason.OUT_OF_BOUNDS, 45.0: StopReason.MAX_LENGTH}
+    assert fiber.stop_start == reasons[fiber.points[0, 2]]
+    assert fiber.stop_end == reasons[fiber.points[-1, 2]]
+    assert out.stop_counts == original.stop_counts
+    assert out.stop_counts is not original.stop_counts
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_spatial_search_matches_exhaustive_pairs(monkeypatch, seed):
+    from scipy import spatial
+
+    rng = np.random.default_rng(seed)
+    fragments = []
+    for _ in range(40):
+        start = rng.uniform(0, 30, 3)
+        direction = rng.normal(size=3)
+        direction /= np.linalg.norm(direction)
+        points = start + np.arange(8)[:, None] * direction
+        fragments.append(_frag(points))
+    # Include equal-cost alternatives, exact-gap boundary, and a reversed chain.
+    fragments.extend(
+        [
+            _frag(_line(16, 16, 0, 10)),
+            _frag(_line(16, 16, 16, 26)),
+            _frag(_line(16, 16, 16, 26)),
+            _frag(_line(16, 16, 32, 42)[::-1]),
+        ]
+    )
+    result = _result(fragments)
+    params = RelinkParams(max_gap=6, max_link_angle_deg=45, max_tangent_angle_deg=60)
+    indexed = relink_fragments(result, params)
+
+    class ExhaustivePairs:
+        def __init__(self, points):
+            self.count = len(points)
+
+        def query_ball_point(self, *args, **kwargs):
+            # Disable only the broad phase: every original endpoint pair is tested.
+            return range(self.count)
+
+    monkeypatch.setattr(spatial, "cKDTree", ExhaustivePairs)
+    exhaustive = relink_fragments(result, params)
+    assert len(indexed) == len(exhaustive)
+    for actual, expected in zip(indexed.fibers, exhaustive.fibers, strict=True):
+        np.testing.assert_array_equal(actual.points, expected.points)
+        assert actual.mean_response == expected.mean_response
+        assert actual.min_response == expected.min_response
+        assert actual.stop_start == expected.stop_start
+        assert actual.stop_end == expected.stop_end
+    np.testing.assert_array_equal(indexed.to_instances(), exhaustive.to_instances())
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("max_gap", np.nan),
+        ("max_gap", np.inf),
+        ("max_gap", -1),
+        ("max_link_angle_deg", np.nan),
+        ("max_link_angle_deg", 181),
+        ("max_tangent_angle_deg", -1),
+        ("angle_weight", np.inf),
+        ("gap_weight", -1),
+        ("gap_fill_step", 0),
+        ("gap_fill_step", np.nan),
+        ("endpoint_window", 0),
+        ("endpoint_window", 1.5),
+        ("endpoint_window", True),
+    ],
+)
+def test_invalid_relink_parameters_fail_even_on_empty_inputs(name, value):
+    params = RelinkParams(**{name: value})
+    with pytest.raises(ValueError, match=name):
+        relink_fragments(_result([]), params)
+
+
+@pytest.mark.parametrize(
+    "points",
+    [
+        np.empty((0, 3)),
+        np.ones((1, 3)),
+        np.ones((2, 2)),
+        np.ones(3),
+        np.array([[0, 0, np.nan]]),
+        np.array([[0, 0, np.inf]]),
+    ],
+)
+def test_invalid_fragment_geometry_is_rejected(points):
+    with pytest.raises(ValueError, match="fragment points"):
+        relink_fragments(_result([_frag(points)]))
