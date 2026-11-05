@@ -16,6 +16,9 @@ This round covers the 15:13 UTC firing. Main had not moved from `07b5dd6c` in th
 
 This round changes no library code. It adds one test.
 
+The owner's #349 (bounded workspace config captures) merged at 15:22 UTC, after this firing began. It touches none of
+this round's files, and the next round reviews it.
+
 ## What changed
 
 - **`_mapped_storage`'s cycle guard had no test** (`tests/test_fiber_streaming_storage.py`).
@@ -50,7 +53,9 @@ This round changes no library code. It adds one test.
 ## Verification
 
 - **The touched module**, `test_fiber_streaming_storage`, gives 77 passed with the added test.
-- **Ruff and mypy.**
-- **The standard suite.**
-- **The test modules outside the suite.**
-- **The doc audit**, run alone.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed test file. Mypy is clean over the
+  whole repository: 889 files.
+- **The standard suite** gives round #149's 70 failing ids. #348's new module, which is in the suite, passes.
+- **The 240 test modules outside the suite** give 2,255 passed, 82 skipped, 13 failed and 21 errors. These are
+  round #149's figures.
+- **The doc audit**, run alone, finds no new unresolved reference.
