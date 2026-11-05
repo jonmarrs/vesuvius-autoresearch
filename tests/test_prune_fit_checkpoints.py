@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -496,4 +497,77 @@ def test_leading_dash_names_are_literal_reference_patterns(tmp_path, monkeypatch
     arm = _arm(root, "-named")
     repo = _repo(tmp_path, ["-named"])
     assert _main(monkeypatch, repo, root, "--delete") == 0
+    assert (arm / mod.CKPT).exists()
+
+
+def test_each_removal_rechecks_its_own_identity_after_earlier_removals(
+    tmp_path, monkeypatch, capsys
+):
+    """docs/CHECKPOINT_PRUNING.md: each identity "is checked immediately before its own removal". A checkpoint
+    replaced while an earlier one is being removed must be refused, and the run must stop as PARTIAL."""
+    root = tmp_path / "fits"
+    first = _arm(root, "fit-a-patch_unused_first")
+    second = _arm(root, "fit-b-patch_unused_second")
+    repo = _repo(tmp_path)
+    remove = os.remove
+
+    def remove_then_replace_the_next(path):
+        remove(path)
+        if Path(path) == first / mod.CKPT:
+            (second / mod.CKPT).write_bytes(b"a new fit checkpoint")
+
+    monkeypatch.setattr(os, "remove", remove_then_replace_the_next)
+    result = _main(monkeypatch, repo, root, "--delete", "--json")
+    report = json.loads(capsys.readouterr().out)
+    assert result == 1
+    assert (report["status"], report["deleted_count"]) == ("PARTIAL", 1)
+    assert not (first / mod.CKPT).exists()
+    assert (second / mod.CKPT).read_bytes() == b"a new fit checkpoint"
+
+
+def test_a_same_size_rewrite_with_its_mtime_restored_is_still_drift(tmp_path):
+    """The identity keeps the change time: a rewrite that keeps the inode, size, mode and mtime differs only there."""
+    root = tmp_path / "fits"
+    arm = _arm(root, "fit-patch_rewritten")
+    _, (row,) = mod._discover(root)
+    path = arm / mod.CKPT
+    before = path.stat()
+    time.sleep(0.05)  # past a coarse filesystem clock tick
+    path.write_bytes(b"y" * before.st_size)
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+    after = path.stat()
+    if after.st_ctime_ns == before.st_ctime_ns:
+        pytest.skip("this filesystem did not advance the change time")
+    assert (after.st_ino, after.st_size, after.st_mode, after.st_mtime_ns) == (
+        before.st_ino,
+        before.st_size,
+        before.st_mode,
+        before.st_mtime_ns,
+    )
+    with pytest.raises(ValueError, match="changed"):
+        mod._unchanged(row)
+
+
+def test_a_dry_run_plan_whose_head_moves_after_its_last_check_is_blocked(
+    tmp_path, monkeypatch, capsys
+):
+    """ "Changing HEAD" is an error for a plan too: its reference_commit must still be HEAD when the plan ends."""
+    root = tmp_path / "fits"
+    arm = _arm(root, "fit-patch_unused")
+    repo = _repo(tmp_path)
+    original = mod.is_referenced
+
+    def check_then_commit(*args, **kwargs):
+        result = original(*args, **kwargs)
+        (repo / "reports/new.md").write_text("unrelated")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-qm", "moved after the last check")
+        return result
+
+    monkeypatch.setattr(mod, "is_referenced", check_then_commit)
+    result = _main(monkeypatch, repo, root, "--json")
+    report = json.loads(capsys.readouterr().out)
+    assert result == 1
+    assert report["status"] == "BLOCKED"
+    assert any("HEAD changed" in error for error in report["errors"])
     assert (arm / mod.CKPT).exists()
