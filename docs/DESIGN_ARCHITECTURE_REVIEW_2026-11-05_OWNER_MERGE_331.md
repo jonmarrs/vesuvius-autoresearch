@@ -97,7 +97,14 @@ This round corrects one line of finding 104's report and adds two tests.
 
 - **The two studies' modules, the two report modules and the screen's module:** 84 passed, with the added tests.
 - **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed test files. Mypy is clean over the whole
-  repository.
-- **The standard suite.**
-- **The test modules outside the suite.**
-- **The doc audit**, run alone.
+  repository: 884 files, which includes #331's four.
+- **The standard suite** gives the same failures as round #145:
+  - the 43 standing failures;
+  - the 25 SDK cases that need `s3fs`;
+  - the 2 modules that cannot be collected.
+- **The 240 test modules outside the suite** (#331 added three) give 2,265 passed, 80 skipped, 13 failed and 21
+  collection errors. The failures are the same as round #145's. The 24 extra passes are the three new modules.
+- **The doc audit**, run alone, finds one new unresolved reference: finding 103's villa main `deb1b6953`, from 11-03.
+  - This checkout's villa clone stops at 10-16, and the audit never fetches, so it cannot resolve the commit here.
+  - The 59 standing entries are of the same kind: commits of other repositories that the local clones do not hold.
+  - The reference is the owner's record of villa's main that day, so it is left as written.
