@@ -13,6 +13,9 @@ import math
 import numpy as np
 from scipy import ndimage
 
+# 1: uncentered cubic with absolute epsilon; 2: scaled, centered cubic.
+EIGENSOLVER_VERSION = 2
+
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cupy_ndimage
@@ -134,46 +137,47 @@ def hessian(volume, gauss_sigma=2, sigma=6, norm_range=None):
 
 
 def compute_eigenvalues_3x3_batch(J):
-    """
-    Compute eigenvalues for batched 3x3 symmetric matrices using Cardano's analytical formula.
-    Avoids CuPy's batched eigvalsh failure on large arrays (cuSolver errors).
-    Works interchangeably with NumPy and CuPy via xp.
-    Input: J of shape (..., 3, 3)
-    Output: eigenvalues of shape (..., 3) in ascending order
+    """Ascending eigenvalues of symmetric (..., 3, 3) upper-triangle matrices.
+
+    Scale and center the problem before solving its characteristic cubic
+    (Eberly, RobustEigenSymmetric3x3, section 5.1). Fixed absolute epsilon terms
+    in the old uncentered cubic fabricated curvatures and changed signs on weak
+    Hessians. Only exact zero divisors receive a safe denominator here.
+    Diagonal matrices return their diagonal exactly, including zero/isotropic
+    inputs. No batched eigvalsh/cuSolver call is required.
     """
     xp, _ = get_backend(J)
-    a11 = J[..., 0, 0]
-    a22 = J[..., 1, 1]
-    a33 = J[..., 2, 2]
-    a12 = J[..., 0, 1]
-    a13 = J[..., 0, 2]
-    a23 = J[..., 1, 2]
+    a11, a22, a33 = J[..., 0, 0], J[..., 1, 1], J[..., 2, 2]
+    a12, a13, a23 = J[..., 0, 1], J[..., 0, 2], J[..., 1, 2]
+    diagonal = (a12 == 0) & (a13 == 0) & (a23 == 0)
 
-    p1 = a11 + a22 + a33
-    p2 = a11 * a22 + a11 * a33 + a22 * a33 - a12 * a12 - a13 * a13 - a23 * a23
-    p3 = (
-        a11 * (a22 * a33 - a23 * a23)
-        - a12 * (a12 * a33 - a13 * a23)
-        + a13 * (a12 * a23 - a13 * a22)
+    # Bound the six independent components before squaring or taking a
+    # determinant. A uniform rescaling must rescale the spectrum, not change it.
+    scale = xp.maximum(xp.maximum(xp.abs(a11), xp.abs(a22)), xp.abs(a33))
+    scale = xp.maximum(
+        scale, xp.maximum(xp.maximum(xp.abs(a12), xp.abs(a13)), xp.abs(a23))
     )
-
-    q = p1 * p1 / 9.0 - p2 / 3.0
-    r = p1 * p1 * p1 / 27.0 - p1 * p2 / 6.0 + p3 / 2.0
-
-    eps = 1e-12
-    sqrt_q = xp.sqrt(xp.clip(q, a_min=eps, a_max=None))
-    theta = xp.arccos(xp.clip(r / (sqrt_q**3 + eps), a_min=-1.0, a_max=1.0))
-
-    sqrt_q_2 = 2.0 * sqrt_q
-    p1_3 = p1 / 3.0
-
-    lambda1 = p1_3 + sqrt_q_2 * xp.cos(theta / 3.0)
-    lambda2 = p1_3 + sqrt_q_2 * xp.cos((theta - 2.0 * math.pi) / 3.0)
-    lambda3 = p1_3 + sqrt_q_2 * xp.cos((theta - 4.0 * math.pi) / 3.0)
-
-    eigenvalues = xp.stack([lambda1, lambda2, lambda3], axis=-1)
-    eigenvalues = xp.sort(eigenvalues, axis=-1)
-    return eigenvalues
+    safe_scale = xp.where(scale > 0, scale, xp.ones_like(scale))
+    d1, d2, d3 = a11 / safe_scale, a22 / safe_scale, a33 / safe_scale
+    o1, o2, o3 = a12 / safe_scale, a13 / safe_scale, a23 / safe_scale
+    mean = (d1 + d2 + d3) / 3.0
+    c1, c2, c3 = d1 - mean, d2 - mean, d3 - mean
+    p = xp.sqrt((c1 * c1 + c2 * c2 + c3 * c3 + 2 * (o1 * o1 + o2 * o2 + o3 * o3)) / 6.0)
+    safe_p = xp.where(p > 0, p, xp.ones_like(p))
+    b1, b2, b3 = c1 / safe_p, c2 / safe_p, c3 / safe_p
+    b12, b13, b23 = o1 / safe_p, o2 / safe_p, o3 / safe_p
+    determinant = (
+        b1 * (b2 * b3 - b23 * b23)
+        - b12 * (b12 * b3 - b13 * b23)
+        + b13 * (b12 * b23 - b13 * b2)
+    )
+    phi = xp.arccos(xp.clip(determinant / 2.0, -1.0, 1.0)) / 3.0
+    largest = mean + 2.0 * p * xp.cos(phi)
+    smallest = mean + 2.0 * p * xp.cos(phi + 2.0 * math.pi / 3.0)
+    middle = 3.0 * mean - largest - smallest
+    values = xp.stack([smallest, middle, largest], axis=-1) * safe_scale[..., None]
+    exact = xp.stack([a11, a22, a33], axis=-1)
+    return xp.sort(xp.where(diagonal[..., None], exact, values), axis=-1)
 
 
 def symmetrize_upper(J):

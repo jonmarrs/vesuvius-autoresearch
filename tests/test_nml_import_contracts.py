@@ -238,7 +238,10 @@ def test_strict_benchmark_refuses_partial_ground_truth_without_replacing_report(
     assert output.read_bytes() == b"previous complete report"
 
 
-@pytest.mark.parametrize("prior_policy", ["same", "legacy", "old_parser", "strict"])
+@pytest.mark.parametrize(
+    "prior_policy",
+    ["same", "legacy", "old_parser", "strict", "missing_solver", "old_solver"],
+)
 def test_floor_refresh_only_preserves_rows_with_matching_import_provenance(
     cube, monkeypatch, prior_policy
 ):
@@ -254,6 +257,10 @@ def test_floor_refresh_only_preserves_rows_with_matching_import_provenance(
         provenance["skeleton_parser"]["version"] = 1
     elif prior_policy == "strict":
         provenance["skeleton_parser"]["dangling_edges"] = "error"
+    elif prior_policy == "missing_solver":
+        provenance.pop("hessian_eigensolver_version")
+    elif prior_policy == "old_solver":
+        provenance["hessian_eigensolver_version"] = 1
     row = score_tracing(gt, np.load(instances), tolerance=0).as_row()
     output = root / "all.json"
     output.write_text(

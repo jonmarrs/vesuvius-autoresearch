@@ -140,6 +140,11 @@ labels. Regenerate affected runs into a new output directory. New skeleton
 metadata records `tree_traversal: "recursive"`; the field describes enumeration,
 not label accuracy.
 
+New skeleton runs also record `hessian_eigensolver_version: 2` for the corrected
+vesselness eigensolver. Candidate-mode metadata identifies the filter source by
+hash. Earlier outputs remain intact; use new run directories when comparing
+solver revisions. See the [numerical audit](../reports/fiber_eigenvalue_scales_2026-11-05.md).
+
 The existing edge interpolation, expansion, and principal-axis classification
 remain heuristic: `0=background`, `1=horizontal`, `2=vertical`, `3=mixed`.
 Bounds are checked in XYZ before integer conversion, so negative fractional
