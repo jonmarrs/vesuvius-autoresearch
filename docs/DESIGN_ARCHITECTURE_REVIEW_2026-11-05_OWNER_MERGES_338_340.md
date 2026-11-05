@@ -1,6 +1,6 @@
-# Design and architecture review — the owner's #338 and #339
+# Design and architecture review — the owner's #338, #339 and #340
 
-Date: 2026-11-05. Baseline: `86c688db` (main after #339).
+Date: 2026-11-05. Baseline: `71045374` (main after #340; #340 merged during the round).
 Reviewer: Claude (Anthropic), at the owner's request.
 
 This round covers the 05:12 UTC firing.
@@ -12,8 +12,13 @@ This round covers the 05:12 UTC firing.
   - A k-d tree finds nearby endpoints. The original distance, angle and cost tests still decide every link.
   - Two correctness fixes come with it: stop reasons for reversed fragments, and input validation.
   - It adds a CPU replay benchmark, its evidence and `docs/FIBER_RELINKING.md`, and it updates the research plan.
+- **#340 records the 11-03 GPU window's wrapper and its log** as evidence.
+  - Findings 103 and 104 now point to both.
+  - It adds the seed-heading draft's check against villa main `2d4067b52`.
 
-This round changes no library code. It adds tests and corrects one line of the research plan.
+This round changes no library code. It adds tests and corrects one line of the research plan. The owner's #341
+(fiber detection's boundary halo) merged at 05:46 UTC, while this round was being validated. It touches none of
+this round's files, and the next round reviews it.
 
 ## What changed
 
@@ -79,6 +84,23 @@ This round changes no library code. It adds tests and corrects one line of the r
   - Its harness hash is the committed `benchmark_relink.py`.
   - Its medians and speedups follow from its timings.
 
+- **#340's wrapper and log support what findings 103 and 104 say about the run.**
+  - The wrapper refuses to start unless its checkout is the clean registration commit, f7145c5d.
+  - The log shows the steps in order:
+    - `stop.sh rc=0`, then `loop_control status rc=1` (nothing running), with 0 MiB of GPU memory in use;
+    - both chains from f7145c5d, at villa `39a8cf3a1` and `ccb431818`;
+    - every cube's `DONE`;
+    - both `CHAIN_COMPLETE` lines and `start.sh rc=0`.
+  - Each report's trace window is its chain's start and end: 12:32–13:15 and 13:15–14:38 PST.
+  - The seed-heading chain logs no `SMOKE_OK` by design: it goes on past the smoke only when `smoke.json` says
+    identical.
+  - The 12:32–12:39 gap before its smoke is the chain's presence step. That is consistent with round #146's
+    statement that `presence` ran from the registration commit.
+  - The skipped villa-main re-check (no `vc_object_store` built for `deb1b6953`) is the one finding 103 reports.
+  - #340's three tests bind these facts, and they pass.
+  - This resolves #330's observation, which round #146 repeated, that no loop-pausing wrapper was committed. The
+    wrapper is committed as a record, not as a runnable script.
+
 ## Observations for the owner (not changed)
 
 - **The relink record's `resampler_source_sha256` is now stale in form only.** It hashes the whole of
@@ -88,13 +110,31 @@ This round changes no library code. It adds tests and corrects one line of the r
   test are unchecked. The new tests check exactness, not identity with ScrollGT.
 - **The research plan's Villa claims were not checked.** These are the November rollover, the deadline, the prize
   amounts and the issue and PR statuses. They need Villa's GitHub, which this review does not read.
+- **#340's villa-main claims were not checked**, for the same reason: the patch no longer applying at `2d4067b52`,
+  `ct_seed_heading`'s four arguments and the `GaussianBlur` change.
 
 ## Verification
 
 - **The four touched modules:** `test_fiber_eval_trace`, `test_fiber_relink`, `test_fiber_relink_record` and
   `test_fiber_scoring_matches_scrollgt`. They give 72 passed and 15 skipped; the 15 are the sync tests, which have
   no ScrollGT checkout here.
-- **Ruff and mypy.**
-- **The standard suite.**
-- **The test modules outside the suite.**
-- **The doc audit**, run alone.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed files. Mypy is clean over the whole
+  repository: 886 files.
+- **The standard suite** gives round #146's 70 failing ids, both before and after merging #340:
+  - the 43 standing failures;
+  - the 25 SDK cases;
+  - the 2 collection errors.
+- **The 239 test modules outside the suite** give 2,252 passed, 82 skipped, 13 failed and 21 errors. These are
+  round #146's failures.
+  - The 13 fewer passes are `test_fiber_relink.py`'s 13 tests, which #338 moved into the suite.
+  - The 2 extra skips are #339's new sync-test cases.
+  - #340 adds a 240th module, `test_gpu_window_2026_11_03_record.py`. It passes, as do the three report modules it
+    edits around.
+  - `test_live_documents_stay_clean` fails as before. It lists only villa paths that this checkout's partial villa
+    clone lacks.
+- **The doc audit**, run alone, adds seven unresolved commit references. All seven are commits of other
+  repositories that this checkout's clones do not hold:
+  - villa `2d4067b52`, `baf5e605b`, `9c343a1` and `deb1b6953`;
+  - ScrollGT `1605fadb`.
+  
+  The audit never fetches. Three of the seven are this round's and #146's records quoting the owner's references.
