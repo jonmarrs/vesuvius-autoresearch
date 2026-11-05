@@ -147,6 +147,8 @@ VALIDATION_TESTS = [
     "tests/test_disable_augmentation.py",
     "tests/test_f1_improvement_criterion.py",
     "tests/test_file_modes.py",
+    "tests/test_prune_fit_checkpoints.py",
+    "tests/test_reclaim_fit_checkpoints.py",
     "tests/test_frangi_fiber_target.py",
     "tests/test_frangi_torch.py",
     "tests/test_improvement_criterion.py",

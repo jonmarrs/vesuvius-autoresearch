@@ -50,8 +50,12 @@ import argparse
 import sys
 from pathlib import Path
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.checkpoint_cleanup import CKPT, discover_checkpoints, require_unchanged
+
 SPIRAL_OUT = "/home/jon/openclaw-workspace/Neo-VM/spiral_out"
-CKPT = "checkpoint_fitted.ckpt"
 # The live study. Its fit dirs stay whole: the chain may still be writing, and a
 # clean triplet A would re-render from s2/s3 meshes.
 PROTECTED = tuple(f"curbase_s{i}" for i in range(1, 10)) + ("curbase_s1rr",)
@@ -66,13 +70,11 @@ def arm_of(fit_dir: Path) -> str:
 
 
 def find(spiral_out: str) -> list[tuple[Path, str, int]]:
-    out = []
-    for c in sorted(Path(spiral_out).glob(f"*/{CKPT}")):
-        try:
-            out.append((c, arm_of(c.parent), c.stat().st_size))
-        except OSError:
-            continue
-    return out
+    _, candidates = discover_checkpoints(spiral_out)
+    return [
+        (Path(row["path"]), arm_of(Path(row["path"]).parent), row["bytes"])
+        for row in candidates
+    ]
 
 
 def main() -> int:
@@ -85,7 +87,16 @@ def main() -> int:
     args = ap.parse_args()
 
     protected = set(PROTECTED) - set(args.also)
-    rows = find(args.spiral_out)
+    try:
+        _, candidates = discover_checkpoints(args.spiral_out)
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(f"Reclaim refused: {exc}", file=sys.stderr)
+        return 1
+    rows = [
+        (Path(row["path"]), arm_of(Path(row["path"]).parent), row["bytes"])
+        for row in candidates
+    ]
+    identities = {Path(row["path"]): row for row in candidates}
     if not rows:
         print("no checkpoints found")
         return 0
@@ -110,23 +121,40 @@ def main() -> int:
         print("\nDRY RUN. Nothing deleted. Re-run with --apply to reclaim.")
         return 0
 
-    freed = 0
+    selected = []
+    refused = False
     for path, arm, size in free_ck:
+        try:
+            require_unchanged(identities[path])
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"Reclaim refused before deletion: {exc}", file=sys.stderr)
+            return 1
         # Re-check the sibling meshes survive: deleting a checkpoint must never be
         # the step that leaves an arm unrenderable.
         if not (path.parent / "meshes").is_dir():
             print(
                 f"  SKIP {arm}: no meshes/ beside it; refusing to strip its last artifact"
             )
+            refused = True
             continue
+        selected.append((path, arm, size))
+    freed = 0
+    for path, arm, size in selected:
         try:
+            require_unchanged(identities[path])
+            if not (path.parent / "meshes").is_dir():
+                raise ValueError(
+                    "meshes/ disappeared; refusing to strip its last artifact"
+                )
             path.unlink()
             freed += size
-            print(f"  freed {size / 2**30:.1f}G  {arm}")
-        except OSError as e:
+            print(f"  removed {size / 2**30:.1f}G logical checkpoint bytes  {arm}")
+        except (OSError, ValueError, RuntimeError) as e:
+            refused = True
             print(f"  FAILED {arm}: {e}")
-    print(f"\nreclaimed {freed / 2**30:.1f}G")
-    return 0
+            break
+    print(f"\nremoved {freed / 2**30:.1f}G logical checkpoint bytes")
+    return int(refused)
 
 
 if __name__ == "__main__":

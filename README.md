@@ -491,6 +491,10 @@ provenance, supported contracts, and migration.
 
 ## Project structure
 
+For maintenance of completed spiral fits, see the
+[checkpoint cleanup guide](docs/CHECKPOINT_PRUNING.md), including reference checks,
+dry-run plans and the limits of each cleanup policy.
+
 ```
 src/vesuvius_autoresearch/detector/ — the productionized ink detector (train/infer/eval/metrics/measure CLI)
 repro/sota_data/         — SOTA open-data tooling: S3 discover/fetch, OME-Zarr convert, distillation pipeline
