@@ -50,7 +50,7 @@ def _invalid_destination(axis=2, bad_direction=None, seed_at=4):
     directions = np.zeros((*shape, 3))
     directions[..., axis] = 1
     valid = np.ones(shape, dtype=bool)
-    plane = [slice(None)] * 3
+    plane: list[slice | int] = [slice(None)] * 3
     plane[axis] = 8
     if bad_direction is None:
         valid[tuple(plane)] = False

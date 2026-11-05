@@ -181,6 +181,7 @@ VALIDATION_TESTS = [
     "tests/test_cldice_loss.py",
     "tests/test_detector_metrics.py",
     "tests/test_fiber_direction_tiled.py",
+    "tests/test_fiber_boundary_halo_record.py",
     "tests/test_fiber_orientation.py",
     "tests/test_fiber_trace.py",
     "tests/test_fiber_relink.py",
