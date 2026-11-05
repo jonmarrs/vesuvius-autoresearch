@@ -106,6 +106,17 @@ device, and only core results return to the host. GPU allocation/filter errors
 remain errors; execution does not switch to CPU mid-run. The original in-memory
 Python APIs, filter formulas and CLI float32 output are preserved.
 
+Python callers using `streaming.filter_into` must provide separate writable
+output storage. Memory-mapped input and output must have accessible, identifiable
+backing paths referring to different files, including when passed as ndarray
+views. This also refuses hard-link/symlink aliases, disjoint regions of the same
+file and copy-on-write maps of the same file. Separate virtual mappings can
+otherwise pass NumPy's memory-overlap check while output writes change later CT
+blocks. Keep the backing paths and files stable throughout both passes; this
+check does not synchronize concurrent writers or path replacements. An ordinary
+in-memory copy of a map remains valid output. The CLI already stages its response
+in a separate file.
+
 Choose `--block-size` and `--halo` together: work blocks have at most
 `block_size + 2 * halo` voxels on each axis, clipped to the input. Their Hessian
 and other temporaries must still fit on the device. This is not a hard memory
