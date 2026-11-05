@@ -183,6 +183,7 @@ VALIDATION_TESTS = [
     "tests/test_fiber_direction_tiled.py",
     "tests/test_fiber_orientation.py",
     "tests/test_fiber_trace.py",
+    "tests/test_fiber_relink.py",
     "tests/test_model_shapes.py",
     "tests/test_pixel_auc.py",
     "tests/test_resnet3d_decoder.py",

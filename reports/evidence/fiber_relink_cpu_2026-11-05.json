@@ -1,0 +1,80 @@
+{
+  "measurement": "annotation-derived fragment replay; performance and geometry equivalence only",
+  "accuracy_measured": false,
+  "gpu_used": false,
+  "baseline_ref": "cd3bf6da217cb0300d3a05b35d291acc2c7e9477",
+  "baseline_source_sha256": "c65644e6c36e20763bd180e9bde387c5b31dea0ed4e00ecd12d076c4d7411448",
+  "candidate_source_sha256": "14777a14d36db27e67d0244c271aac4d30f01668b27c0408c0525fdc190e161b",
+  "harness_sha256": "b7f124e7930ebffbcd9859e6509c12d370cf3089067af8f581ea8ab2bea966ed",
+  "resampler_source_sha256": "10e03d4f642a91f322734caa272efa0d8b5c8823978c65ff535c9690b4c4c2bf",
+  "python": "3.10.21",
+  "numpy": "2.2.6",
+  "scipy": "1.15.3",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "command": [
+    "repro/fibers/benchmark_relink.py",
+    "--baseline-ref",
+    "cd3bf6da217cb0300d3a05b35d291acc2c7e9477",
+    "--skeleton",
+    "/workspace/scratch/vesuvius-inputs/s1_00497_01497_03997_256.npz",
+    "--skeleton",
+    "/workspace/scratch/vesuvius-inputs/s5_03997_01497_03997_256.npz",
+    "--repeats",
+    "3",
+    "--out",
+    "reports/evidence/fiber_relink_cpu_2026-11-05.json"
+  ],
+  "repeats": 3,
+  "rows": [
+    {
+      "input": "/workspace/scratch/vesuvius-inputs/s1_00497_01497_03997_256.npz",
+      "input_sha256": "d7a8604aa9b2b84a1498d0669eb490e8a6bb7c7504be188e1792b2d5ebe87764",
+      "input_fragments": 722,
+      "output_fibers": 172,
+      "geometry_sha256": "b6c7b05eb364d14c30ce92a26ab004d794d10d59efbe87c2d3e3a1a4abedf3d4",
+      "exact_geometry": true,
+      "seconds": {
+        "baseline": [
+          2.8251617139999325,
+          2.7844068940000852,
+          2.920380317999843
+        ],
+        "candidate": [
+          0.04994201099998463,
+          0.04613213699985863,
+          0.04084240700012742
+        ]
+      },
+      "median_seconds": {
+        "baseline": 2.8251617139999325,
+        "candidate": 0.04613213699985863
+      },
+      "median_speedup": 61.24064259170543
+    },
+    {
+      "input": "/workspace/scratch/vesuvius-inputs/s5_03997_01497_03997_256.npz",
+      "input_sha256": "6b6863a5b2846e42af05b41f9b24d9b76113a49b5cb5c7a62110f934d260a511",
+      "input_fragments": 540,
+      "output_fibers": 152,
+      "geometry_sha256": "ec520631072df85868b2bb8b51a1b7b1bee8ca06f23eb182378b2395b65cb832",
+      "exact_geometry": true,
+      "seconds": {
+        "baseline": [
+          1.6417071210000813,
+          1.6303623979999884,
+          1.6233199040000272
+        ],
+        "candidate": [
+          0.0410666800000854,
+          0.043139286000041466,
+          0.03386984799999482
+        ]
+      },
+      "median_seconds": {
+        "baseline": 1.6303623979999884,
+        "candidate": 0.0410666800000854
+      },
+      "median_speedup": 39.7003701783684
+    }
+  ]
+}
