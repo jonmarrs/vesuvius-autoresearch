@@ -191,3 +191,21 @@ def test_disjoint_regions_of_one_file_are_conservatively_refused(tmp_path):
             to_device=lambda block: pytest.fail("transferred same-file storage"),
         )
     assert path.read_bytes() == before
+
+
+def test_a_cyclic_base_chain_is_refused_rather_than_walked_forever():
+    """NumPy never builds one, but `_mapped_storage` follows any object's `.base`; its guard must stop a loop.
+    The fake chain raises after 100 hops, so a missing guard fails here instead of hanging."""
+
+    class Cyclic:
+        hops = 0
+
+        @property
+        def base(self):
+            Cyclic.hops += 1
+            if Cyclic.hops > 100:
+                raise RuntimeError("walked the cycle without stopping")
+            return self
+
+    with pytest.raises(ValueError, match="cyclic"):
+        streaming._mapped_storage(Cyclic())
