@@ -5,6 +5,8 @@ uses their Gaussian normalization and filters on one halo block at a time.
 """
 
 import math
+import mmap
+import os
 
 import numpy as np
 
@@ -17,6 +19,44 @@ from .detection import (
 )
 
 GAUSS_SIGMA = 2
+
+
+def _mapped_storage(array):
+    """Find mapping storage through ndarray views; memmap.copy() owns RAM."""
+    filename = None
+    seen = set()
+    while array is not None:
+        if id(array) in seen:
+            raise ValueError("cannot identify cyclic array backing storage")
+        seen.add(id(array))
+        if isinstance(array, mmap.mmap):
+            return True, filename
+        if isinstance(array, memoryview):
+            array = array.obj
+            continue
+        if isinstance(array, np.memmap):
+            filename = array.filename
+        # NumPy stride views may insert a DummyArray between ndarray bases.
+        array = getattr(array, "base", None)
+    return False, None
+
+
+def _validate_backing_files(volume, output):
+    # Separate mmap objects may share the same file despite shares_memory=False.
+    # Require distinct files, conservatively including disjoint file regions and
+    # copy-on-write maps. Paths and their backing files must remain stable.
+    source_mapped, source_path = _mapped_storage(volume)
+    target_mapped, target_path = _mapped_storage(output)
+    if not (source_mapped and target_mapped):
+        return
+    if source_path is None or target_path is None:
+        raise ValueError("mapped CT and output need identifiable backing files")
+    try:
+        same_file = os.path.samefile(source_path, target_path)
+    except OSError as exc:
+        raise ValueError("mapped CT and output need accessible backing files") from exc
+    if same_file:
+        raise ValueError("mapped CT and output must use different backing files")
 
 
 def validate_tiling(block_size, halo):
@@ -73,9 +113,11 @@ def filter_into(
 ):
     """Write float32 responses into a separate host array or disk memory map.
 
-    Inputs must stay stable across both passes. ``to_device`` sees only halo
-    blocks; ``to_host`` receives only the core response. CUDA allocation and
-    filter failures propagate without a change of backend.
+    Inputs and backing paths must stay stable across both passes. Mapped input
+    and output must use identifiable, different files, even for disjoint file
+    regions or copy-on-write maps. ``to_device`` sees only halo blocks;
+    ``to_host`` receives only the core response. CUDA allocation and filter
+    failures propagate without a change of backend.
     """
     validate_tiling(block_size, halo)
     if (
@@ -97,6 +139,7 @@ def filter_into(
         )
     if filter_name not in {"ridges", "vesselness"}:
         raise ValueError("unknown fiber filter")
+    _validate_backing_files(volume, output)
     filter_fn = detect_ridges if filter_name == "ridges" else detect_vesselness
 
     low, high = math.inf, -math.inf
