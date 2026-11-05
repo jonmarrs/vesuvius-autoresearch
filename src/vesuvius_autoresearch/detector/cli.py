@@ -185,20 +185,23 @@ def main(argv=None):
         print(_eval_fragment(cfg, args.checkpoint, args.fragment))
     elif args.cmd == "infer":
         from .infer import infer
-        from .prediction import prediction_inputs, validate_output, write_prediction
+        from .prediction import prediction_inputs, write_prediction
 
         output = Path(args.output)
         inputs = prediction_inputs(cfg, args.checkpoint, args.fragment, args.config)
-        validate_output(output, inputs)
-        result = infer(
-            cfg,
-            args.checkpoint,
-            args.fragment,
-            batch_size=args.batch_size,
-            return_details=True,
-            require_full_coverage=args.require_full_coverage,
+        result = write_prediction(
+            output,
+            lambda: infer(
+                cfg,
+                args.checkpoint,
+                args.fragment,
+                batch_size=args.batch_size,
+                return_details=True,
+                require_full_coverage=args.require_full_coverage,
+            ),
+            args.output_format,
+            inputs,
         )
-        write_prediction(output, result, args.output_format, inputs)
         print(output)
         summary = result.summary
         print(

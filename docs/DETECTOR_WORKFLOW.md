@@ -82,11 +82,19 @@ accepts `require_full_coverage=True`.
 The CLI refuses outputs that overlap its checkpoint, configuration, or fragment
 input tree, including symlink and hard-link aliases to the input files. The
 output itself must not be a symlink or a nonregular file. It checks paths before
-inference and again before publication, then replaces the output by renaming a
-fully serialized sibling temporary file. Save failures retain the previous
+inference, after inference and again before publication, then replaces the
+output by renaming a fully serialized sibling temporary file. Save failures retain the previous
 complete output; replacements retain its permission bits and new files honor
 the umask. Use stable input paths and serialize writers; these checks do not
 lock inputs or coordinate concurrent inference commands.
+
+Before invoking the model, the CLI creates any missing output directories and
+opens a private sibling staging file. Immediate directory or staging errors
+therefore fail before inference. The temporary name has a fixed prefix, so valid
+long ASCII or Unicode output names fit without adding the destination name to
+the staging name. A failed prediction removes staging and preserves an existing
+output; newly created parent directories may remain. Later serialization and
+publication can still fail if space or permissions change.
 
 Evaluation and measurement still score the original fragment mask, including
 uncovered zero-filled pixels. They now receive the inference warning but their

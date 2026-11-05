@@ -1,5 +1,6 @@
 """Coverage visibility and non-destructive detector prediction exports."""
 
+import errno
 import importlib
 import os
 import stat
@@ -149,6 +150,167 @@ def command(tmp_path, output, *extra):
         str(output),
         *extra,
     ]
+
+
+@pytest.mark.parametrize("output_format", ["npy", "npz"])
+@pytest.mark.parametrize("character", ["p", "界"])
+@pytest.mark.parametrize("existing", [False, True])
+def test_valid_long_output_name_does_not_overflow_staging_name(
+    tmp_path, monkeypatch, output_format, character, existing
+):
+    probability = stub_prediction(monkeypatch)
+    suffix = f".{output_format}"
+    limit = os.pathconf(tmp_path, "PC_NAME_MAX")
+    output = tmp_path / (
+        character * ((limit - len(suffix)) // len(character.encode())) + suffix
+    )
+    if existing:
+        output.write_bytes(b"previous prediction")
+        output.chmod(0o440)
+    assert cli.main(command(tmp_path, output, "--output-format", output_format)) == 0
+    if output_format == "npy":
+        actual = np.load(output, allow_pickle=False)
+    else:
+        with np.load(output, allow_pickle=False) as bundle:
+            actual = bundle["probability"]
+    np.testing.assert_array_equal(actual, probability)
+    if existing:
+        assert stat.S_IMODE(output.stat().st_mode) == 0o440
+    assert not list(tmp_path.glob(".prediction-*"))
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_unwritable_output_directory_fails_before_inference(
+    tmp_path, monkeypatch, existing
+):
+    if os.geteuid() == 0:
+        pytest.skip("directory permissions do not constrain root")
+    parent = tmp_path / "locked"
+    parent.mkdir()
+    output = parent / "prediction.npy"
+    if existing:
+        output.write_bytes(b"previous prediction")
+    calls = []
+
+    def infer(*args, **kwargs):
+        calls.append(True)
+        raise AssertionError("inference must not run before output staging succeeds")
+
+    monkeypatch.setattr(inference, "infer", infer)
+    parent.chmod(0o555)
+    try:
+        with pytest.raises(PermissionError):
+            cli.main(command(tmp_path, output))
+        assert calls == []
+        if existing:
+            assert output.read_bytes() == b"previous prediction"
+    finally:
+        parent.chmod(0o755)
+
+
+def test_staging_error_does_not_invoke_prediction_producer(tmp_path, monkeypatch):
+    prediction = importlib.import_module("vesuvius_autoresearch.detector.prediction")
+    output = tmp_path / "prediction.npy"
+    output.write_bytes(b"previous prediction")
+    calls = []
+    stub_prediction(monkeypatch)
+    predict = inference.infer
+
+    def counted(*args, **kwargs):
+        calls.append(True)
+        return predict(*args, **kwargs)
+
+    def fail(*args, **kwargs):
+        raise OSError(errno.ENOSPC, "no room for staging")
+
+    monkeypatch.setattr(inference, "infer", counted)
+    monkeypatch.setattr(prediction.tempfile, "mkstemp", fail)
+    with pytest.raises(OSError, match="no room for staging"):
+        cli.main(command(tmp_path, output))
+    assert calls == []
+    assert output.read_bytes() == b"previous prediction"
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_prediction_failure_cleans_reserved_staging_file(
+    tmp_path, monkeypatch, existing
+):
+    output = tmp_path / "prediction.npy"
+    if existing:
+        output.write_bytes(b"previous prediction")
+    seen = []
+
+    def fail(*args, **kwargs):
+        staged = list(tmp_path.glob(".prediction-*"))
+        assert len(staged) == 1
+        assert staged[0].stat().st_size == 0
+        assert stat.S_IMODE(staged[0].stat().st_mode) == 0o600 & ~current_umask()
+        seen.append(staged[0])
+        raise ValueError("prediction failed")
+
+    monkeypatch.setattr(inference, "infer", fail)
+    with pytest.raises(ValueError, match="prediction failed"):
+        cli.main(command(tmp_path, output))
+    assert len(seen) == 1 and not seen[0].exists()
+    if existing:
+        assert output.read_bytes() == b"previous prediction"
+    else:
+        assert not output.exists()
+
+
+@pytest.mark.parametrize("output_format", ["npy", "npz"])
+@pytest.mark.parametrize("lazy", [False, True])
+def test_prediction_writer_accepts_direct_and_single_call_results(
+    tmp_path, output_format, lazy
+):
+    from vesuvius_autoresearch.detector.prediction import (
+        InferenceResult,
+        write_prediction,
+    )
+
+    probability = np.array([[0.1, 0.9]], dtype=np.float32)
+    mask = np.ones(probability.shape, bool)
+    result = InferenceResult(probability, mask, mask)
+    calls = []
+
+    def produce():
+        calls.append(True)
+        return result
+
+    output = tmp_path / "prediction.exact"
+    actual = write_prediction(output, produce if lazy else result, output_format, [])
+    assert actual is result
+    assert len(calls) == int(lazy)
+    if output_format == "npy":
+        np.testing.assert_array_equal(np.load(output, allow_pickle=False), probability)
+    else:
+        with np.load(output, allow_pickle=False) as bundle:
+            np.testing.assert_array_equal(bundle["probability"], probability)
+            np.testing.assert_array_equal(bundle["coverage"], mask)
+            np.testing.assert_array_equal(bundle["fragment_mask"], mask)
+
+
+@pytest.mark.parametrize("output_format", ["npy", "npz"])
+def test_output_alias_created_during_serialization_is_not_published(
+    tmp_path, monkeypatch, output_format
+):
+    output = tmp_path / "prediction.exact"
+    checkpoint = tmp_path / "model.ckpt"
+    checkpoint.write_bytes(b"checkpoint to preserve")
+    stub_prediction(monkeypatch)
+    name = "save" if output_format == "npy" else "savez_compressed"
+    save = getattr(np, name)
+
+    def serialize_then_alias(*args, **kwargs):
+        save(*args, **kwargs)
+        output.symlink_to(checkpoint)
+
+    monkeypatch.setattr(np, name, serialize_then_alias)
+    with pytest.raises(ValueError, match="symlink"):
+        cli.main(command(tmp_path, output, "--output-format", output_format))
+    assert checkpoint.read_bytes() == b"checkpoint to preserve"
+    assert output.is_symlink() and output.resolve() == checkpoint
+    assert not list(tmp_path.glob(".prediction-*"))
 
 
 @pytest.mark.parametrize("source", ["checkpoint", "config", "layer", "mask"])
