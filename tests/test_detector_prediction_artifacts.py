@@ -539,3 +539,33 @@ def test_cli_bundle_round_trip_with_real_checkpoint_and_unlabeled_fragment(tmp_p
     with pytest.raises(ValueError, match="256.*uncovered"):
         cli.main([*args, "--require-full-coverage"])
     assert output.read_bytes() == previous
+
+
+@pytest.mark.parametrize("output_format", ["npy", "npz"])
+def test_output_alias_created_during_inference_is_refused_before_serialization(
+    tmp_path, monkeypatch, output_format
+):
+    """The check after inference (docs/DETECTOR_WORKFLOW.md): an alias that appears while the model runs stops the
+    write before anything is serialized, not only at publication."""
+    output = tmp_path / "prediction.exact"
+    checkpoint = tmp_path / "model.ckpt"
+    checkpoint.write_bytes(b"checkpoint to preserve")
+    stub_prediction(monkeypatch)
+    predict = inference.infer
+
+    def infer_then_alias(*args, **kwargs):
+        result = predict(*args, **kwargs)
+        output.symlink_to(checkpoint)
+        return result
+
+    monkeypatch.setattr(inference, "infer", infer_then_alias)
+    serialized = []
+    for name in ("save", "savez_compressed"):
+        monkeypatch.setattr(
+            np, name, lambda *a, _name=name, **k: serialized.append(_name)
+        )
+    with pytest.raises(ValueError, match="symlink"):
+        cli.main(command(tmp_path, output, "--output-format", output_format))
+    assert serialized == []
+    assert checkpoint.read_bytes() == b"checkpoint to preserve"
+    assert not list(tmp_path.glob(".prediction-*"))
