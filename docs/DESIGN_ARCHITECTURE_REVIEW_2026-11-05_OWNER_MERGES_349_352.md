@@ -88,7 +88,10 @@ This round changes no library code. It does three things:
 
 - **The touched modules**, `test_text_snapshot`, `test_workspace_status`, `test_fiber_eigenvalue_scales`,
   `test_fiber_eigenvalue_scales_record`, `test_nml_import_contracts` and `test_fiber_label_generation`, pass.
-- **Ruff and mypy.**
-- **The standard suite.**
-- **The test modules outside the suite.**
-- **The doc audit**, run alone.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed files. Mypy is clean over the whole
+  repository: 893 files.
+- **The standard suite** gives round #150's 70 failing ids. #349's and #352's new modules and this round's record
+  test, all in the suite, pass.
+- **The 240 test modules outside the suite** give 2,255 passed, 82 skipped, 13 failed and 21 errors. These are
+  round #150's figures.
+- **The doc audit**, run alone, finds no new unresolved reference.
