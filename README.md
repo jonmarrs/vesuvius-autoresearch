@@ -534,6 +534,10 @@ and reports. Published legacy fiber rankings require recomputation with scoring
 version 4, ScrollGT's definition (vendored, held by a sync test); the [review report](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md)
 describes the change and its validation limits.
 
+The [fragment linker](docs/FIBER_RELINKING.md) now avoids testing distant
+endpoint pairs while preserving its linked geometry. Its CPU replay records
+timings and exact-output checks separately from tracing-quality evidence.
+
 ## Scroll-specific augmentations
 
 `scroll_augmentations.py` is a standalone, dependency-light library of nine
