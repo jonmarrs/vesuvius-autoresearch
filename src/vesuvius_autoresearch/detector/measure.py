@@ -26,6 +26,25 @@ _COLS = [
 ]
 
 
+def _score_target(cfg, checkpoint_path, fragment_id, model, require_full_coverage):
+    # Keep full-resolution arrays local to one target. Only the compact metric
+    # row survives into the next inference, including when a target raises.
+    result = infer(
+        cfg,
+        checkpoint_path,
+        fragment_id,
+        model=model,
+        return_details=True,
+        require_full_coverage=require_full_coverage,
+    )
+    label = read_ink_label(cfg, fragment_id, result.probability.shape)
+    row = score_prediction(
+        result.probability, label, result.fragment_mask, coverage=result.coverage
+    )
+    row.pop("metrics_by_threshold", None)
+    return row
+
+
 def measure(
     cfg,
     checkpoint_path,
@@ -62,22 +81,9 @@ def measure(
     rows = {}
     for fragment_id, scroll_label in targets:
         try:
-            result = infer(
-                cfg,
-                checkpoint_path,
-                fragment_id,
-                model=model,
-                return_details=True,
-                require_full_coverage=require_full_coverage,
+            m = _score_target(
+                cfg, checkpoint_path, fragment_id, model, require_full_coverage
             )
-            label = read_ink_label(cfg, fragment_id, result.probability.shape)
-            m = score_prediction(
-                result.probability,
-                label,
-                result.fragment_mask,
-                coverage=result.coverage,
-            )
-            m.pop("metrics_by_threshold", None)
             m["scroll_label"] = scroll_label
             rows[fragment_id] = m
         except Exception as exc:  # keep going; record the failure

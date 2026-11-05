@@ -28,6 +28,11 @@ protection and prediction coverage at the scoring boundary.
    coverage fraction. Measurement Markdown displays the latter two counts.
    `eval` and `measure` accept `--require-full-coverage`; a strict measurement
    retains successful targets and records uncovered targets as failures.
+5. **Previous target arrays survived into the next inference.** Final review
+   reproduced retained probability/mask/label references during measurement's
+   next target. A per-target scoring function now returns only the compact metric
+   row, releasing those arrays before the next load. A weak-reference regression
+   verifies the lifetime; it does not measure allocator or device-cache behavior.
 
 Data loading owns annotation shape checks; inference owns tiling and coverage;
 the shared scoring boundary validates optional coverage and computes summaries;
@@ -45,15 +50,17 @@ arrays. No historical report or research result was rewritten.
 - Five initial regressions failed against the old code: evaluation and
   measurement each decoded a CT layer twice; both CLI commands overwrote their
   configuration; reproduction reached conversion before detecting that collision.
-- The new module passes **29 cases** for decode counts, captured masks, coverage
+- The new module passes **30 cases** for decode counts, captured masks, coverage
   counts and types, unchanged metric denominators, strict failures, partial
-  measurement, early/late input aliases and changed annotation dimensions.
-- Curated selection: **400 passed, 1 skipped** across **14/181 modules**. This
+  measurement, early/late input aliases, changed annotation dimensions and target
+  array lifetime. The added lifetime regression failed before its fix.
+- Curated selection: **401 passed, 1 skipped** across **14/181 modules**. This
   includes both architecture training fixtures, checkpoint compatibility,
   prediction/report artifacts, conversion, metrics and validation-runner guards.
   The skipped patch-origin check requires the absent local validation fragment.
 - An earlier overlapping detector selection passed **219 tests**; counts are
-  not additive. The focused new module passed all 29 cases independently.
+  not additive. The focused new module passed all 29 initial cases independently
+  before the final lifetime regression was added.
 - CPU smoke: **8 passed, 3 skipped, 0 failed**. Skips are two absent training
   inputs and the unavailable legacy augmentation entry point. Scoped Ruff,
   formatting, Mypy and whitespace checks pass on eleven Python files.

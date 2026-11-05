@@ -2,6 +2,7 @@
 
 import importlib
 import json
+import weakref
 from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
@@ -16,6 +17,7 @@ from vesuvius_autoresearch.core.report_artifacts import check_report
 from vesuvius_autoresearch.detector import cli, data
 from vesuvius_autoresearch.detector.config import DetectorConfig
 from vesuvius_autoresearch.detector.eval import evaluate
+from vesuvius_autoresearch.detector.prediction import InferenceResult
 from vesuvius_autoresearch.detector.scoring import score_prediction
 
 inference = importlib.import_module("vesuvius_autoresearch.detector.infer")
@@ -358,3 +360,32 @@ def test_measurement_rejects_nonboolean_coverage_policy_before_model_work(fragme
             cfg, "test.ckpt", [("frag", "same")], require_full_coverage="false"
         )
     assert loads == []
+
+
+def test_measurement_releases_target_arrays_before_loading_the_next_target(
+    tmp_path, monkeypatch
+):
+    references = []
+
+    def infer(cfg, checkpoint, fid, **kwargs):
+        if fid == "two" and any(ref() is not None for ref in references):
+            raise RuntimeError("previous target arrays retained during next inference")
+        prob = np.array([[0.0, 1.0], [1.0, 0.0]], np.float32)
+        mask = np.ones((2, 2), bool)
+        references.extend([weakref.ref(prob), weakref.ref(mask)])
+        return InferenceResult(prob, mask, mask)
+
+    def label(*args):
+        result = np.array([[0.0, 1.0], [1.0, 0.0]], np.float32)
+        references.append(weakref.ref(result))
+        return result
+
+    monkeypatch.setattr(measurement, "infer", infer)
+    monkeypatch.setattr(measurement, "read_ink_label", label)
+    rows = measurement.measure(
+        DetectorConfig(reports_dir=str(tmp_path)),
+        None,
+        [("one", "same"), ("two", "cross")],
+    )
+    assert all("error" not in row for row in rows.values()), rows
+    assert all(ref() is None for ref in references)

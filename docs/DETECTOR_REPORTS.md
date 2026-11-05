@@ -99,6 +99,9 @@ load only the ink-label image afterward. The full CT layers and fragment mask
 are decoded once per target; scoring uses that captured mask. Labels must match
 the original prediction dimensions. Training's `read_image_mask` API continues
 to load the volume, labels and mask together.
+Measurement scopes prediction, mask and label arrays to one target at a time,
+retaining only metric rows while the next target loads. This releases Python
+references; it is not a guarantee that allocators return memory to the OS/GPU.
 
 Successful CLI scorecards and measurement rows add `prediction_coverage`:
 
