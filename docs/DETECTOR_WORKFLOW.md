@@ -134,6 +134,53 @@ Configuration rejects noninteger dimensions/indices, invalid loss and optimizer
 settings, nonfinite or nonpositive calibration, invalid fragment lists, and
 nonboolean TTA. Invalid JSON configuration is a CLI usage error before work starts.
 
+## Training inputs and development budgets
+
+Training checks all selected fragment names and CT layer paths before decoding
+the first image. Training IDs must be unique and exclude the validation ID.
+Across distinct selected fragments, a layer must not refer to the same underlying
+file as another selected layer, even under another depth index. Device/inode
+identities catch directory symlinks, file symlinks and hard links that would
+otherwise hide reuse behind different fragment names. Symlinks to distinct files
+remain usable; missing and nonregular CT files fail before dataset construction.
+
+This is a filesystem check, not proof of an independent scientific split. Copied
+files, overlapping crops, common scroll ancestry and previously trained-on data
+still need explicit study design and provenance. The check does not hash images
+or lock paths against changes; keep inputs stable throughout the run. It does
+not change tiling, label filtering, augmentations or the training objective.
+
+Use explicit training limits for a short development run:
+
+```sh
+uv run python -m vesuvius_autoresearch.detector.cli train \
+  --config detector_config.json --max-epochs 1 --limit-batches 2
+```
+
+Both flags require positive integers. `--max-epochs` overrides `epochs` for this
+invocation; otherwise the configuration supplies the epoch budget.
+`--limit-batches` caps both training and validation batches per epoch; omitted,
+both run without that cap. These limits do not reduce model size or restrict
+initial fragment loading/tiling, and do not make a full dataset fit in RAM.
+Development runs write normal checkpoints and logs in `model_dir`; use a
+separate directory. Their scores are not full-recipe reproduction measurements.
+
+The Python `train(cfg, max_epochs=None, limit_batches=None)` API also accepts a
+finite `limit_batches` fraction in `(0, 1]`, following Lightning's fraction
+semantics. Too small a fraction can still yield no usable batches. Invalid
+overrides, including zero, booleans and nonfinite values, fail before dataset
+reads, model construction or output-directory creation. In particular,
+`max_epochs=0` no longer silently selects the configured full run.
+
+The caller's configuration is unchanged. Saved `detector_config.epochs` records
+the effective epoch budget. Checkpoints saved by an attached trainer also record
+`detector_training` version 1 with `max_epochs`, `limit_train_batches` and
+`limit_val_batches` from that trainer. An integer batch limit is a count and a
+float is a fraction; Lightning normalizes an omitted limit to `1.0`. These are
+configured caps, not claims of completed epochs or updates. Lightning's existing
+`epoch` and `global_step` fields describe saved progress. Older checkpoints may
+lack this optional metadata, and input-configuration compatibility is unchanged.
+
 ## Prediction and measurement failures
 
 With TTA enabled, inference evaluates the original, horizontal, vertical, and

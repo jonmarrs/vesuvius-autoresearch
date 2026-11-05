@@ -1,6 +1,6 @@
 import importlib
 import os
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import pytest
 import torch
@@ -23,9 +23,15 @@ def test_smoke_train_returns_checkpoint(tmp_path):
     )
     ckpt = train(cfg, max_epochs=1, limit_batches=2)
     assert os.path.exists(ckpt)
-    assert torch.load(ckpt, map_location="cpu", weights_only=False)[
-        "detector_config"
-    ] == asdict(cfg)
+    saved = torch.load(ckpt, map_location="cpu", weights_only=False)
+    assert saved["detector_config"] == asdict(replace(cfg, epochs=1))
+    assert cfg.epochs == 12
+    assert saved["detector_training"] == {
+        "version": 1,
+        "max_epochs": 1,
+        "limit_train_batches": 2,
+        "limit_val_batches": 2,
+    }
 
 
 def test_validation_keeps_the_incomplete_batch(tmp_path, monkeypatch):

@@ -16,6 +16,14 @@ class DetectorCheckpointMixin:
     def on_save_checkpoint(self, checkpoint):
         checkpoint["detector_config"] = asdict(self.cfg)
         checkpoint["detector_config_version"] = 1
+        trainer = getattr(self, "_trainer", None)
+        if trainer is not None:
+            checkpoint["detector_training"] = {
+                "version": 1,
+                "max_epochs": trainer.max_epochs,
+                "limit_train_batches": trainer.limit_train_batches,
+                "limit_val_batches": trainer.limit_val_batches,
+            }
 
     def on_load_checkpoint(self, checkpoint):
         if "detector_config" not in checkpoint:

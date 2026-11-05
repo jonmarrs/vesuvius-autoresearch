@@ -5,6 +5,8 @@ repro/gp_winner/train_ours.py with globals removed and cfg injected."""
 import glob
 import os
 import random
+import stat
+from pathlib import Path
 
 import albumentations as A
 import cv2
@@ -139,10 +141,39 @@ def _tiles_for_fragment(cfg, fragment_id, is_valid):
     return imgs, labels, xyxys, mask.shape
 
 
-def build_datasets(cfg):
-    cfg.validate()
+def validate_training_inputs(cfg):
+    """Inspect all selected CT paths before decoding either side of the split.
+
+    Device/inode equality catches aliases, not copied or overlapping scan regions.
+    This is a local preflight, not a content hash or a concurrent-writer lock.
+    """
+    fragments = [*cfg.train_fragment_ids, cfg.valid_fragment_id]
+    for fid in fragments:
+        prediction_stem(fid)
     if cfg.valid_fragment_id in cfg.train_fragment_ids:
         raise ValueError("valid_fragment_id must not occur in train_fragment_ids")
+    if len(set(cfg.train_fragment_ids)) != len(cfg.train_fragment_ids):
+        raise ValueError("duplicate training fragment IDs would repeat samples")
+    seen = {}
+    for fid in fragments:
+        for index in range(cfg.start_idx, cfg.end_idx):
+            path = Path(cfg.data_root) / fid / "layers" / f"{index:02d}.tif"
+            info = path.stat()
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError(f"CT layer must be a regular file: {path}")
+            identity = (info.st_dev, info.st_ino)
+            previous = seen.get(identity)
+            if previous is not None and previous[0] != fid:
+                raise ValueError(
+                    f"CT layer overlap: {previous[0]!r} ({previous[1]}) and "
+                    f"{fid!r} ({path}) use the same file; choose disjoint fragment inputs"
+                )
+            seen[identity] = (fid, path)
+
+
+def build_datasets(cfg):
+    cfg.validate()
+    validate_training_inputs(cfg)
     tr_imgs, tr_labels = [], []
     for fid in cfg.train_fragment_ids:
         frag_imgs, frag_labels, _, _ = _tiles_for_fragment(cfg, fid, is_valid=False)
