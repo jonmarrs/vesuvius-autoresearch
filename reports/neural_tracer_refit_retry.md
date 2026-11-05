@@ -128,5 +128,5 @@ that registers its confirmation on them must say that its stock baseline there i
   attribute each merge to a retry.
 * **One reference per cube.** Merges and precision are measured against one WEBKNOSSOS reference, which stands in for
   the strategy's "independently reviewed" wrong connections.
-* **Development data.** Findings 91–103 developed on these 21 cubes. A negative screen on them closes this rule; it
+* **Development data.** Findings 91–102 developed on these 21 cubes. A negative screen on them closes this rule; it
   says nothing about rules not run.

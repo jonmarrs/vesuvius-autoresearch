@@ -234,3 +234,28 @@ def test_the_registration_records_the_run():
     )
     assert f"(the most, {max(S.values()):.3f})" in REG
     assert f"P4 missed (ρ {V['spearman_rho']:.2f})" in REG
+
+
+def overlap(a: str, b: str, margin: int) -> list[int]:
+    """Voxels two cubes' regions share on each axis, each padded by margin."""
+    (a0, a1), (b0, b1) = m.cc.padded_bounds(a, margin), m.cc.padded_bounds(b, margin)
+    return [max(0, min(a1[i], b1[i]) - max(a0[i], b0[i])) for i in range(3)]
+
+
+def test_the_neighbouring_cube_and_the_limits():
+    near, f100 = "s5_16997_03497_03997_256", "s5_16997_03997_04497_256"
+    assert sorted(overlap(near, f100, m.MARGIN)) == [12, 12, 512]
+    assert 0 in overlap(near, f100, 0)
+    keep = json.loads((ROOT / "reports/neural_tracer_steep_heading.json").read_text())
+    gain = keep["verdict"]["coverage_factor"]["keep"][f100]
+    assert (
+        f"shares a 12 × 12-voxel column with finding 100's `{f100}`, which gained {gain:.2f}× there; their cubes and "
+        "labels do not overlap" in REPORT
+    )
+    held = [c for c in m.CUBES if c in m.PRESENCE_HELD_OUT]
+    assert (len(m.CUBES), len(held), {c[:2] for c in m.CUBES}) == (10, 3, {"s1", "s5"})
+    assert "Seven of the ten cubes have in-sample presence" in REPORT
+    assert (
+        "**Ten cubes, three of them held out from the presence model.** Scroll 1 and Scroll 5 only."
+        in REPORT
+    )
