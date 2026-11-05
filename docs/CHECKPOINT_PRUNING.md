@@ -27,7 +27,8 @@ and external dependencies need the operator's judgment.
 Missing repositories, unreadable or inconsistent search results, unavailable Git
 objects, timeouts and changing HEAD are errors. They never mean "unreferenced."
 Local Git commands disable optional locks, lazy fetching and text conversion;
-inherited Git directory/index/object locators cannot redirect the selected repo.
+inherited Git directory/index/object locators cannot redirect the selected repo,
+and inherited pathspec settings cannot narrow the stated search scope.
 
 The JSON records the reference commit and scope, selected paths, observed file
 identities, retention decisions and logical byte counts. To remove eligible

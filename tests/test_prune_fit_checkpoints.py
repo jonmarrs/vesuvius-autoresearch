@@ -294,6 +294,23 @@ def test_inherited_git_locators_cannot_redirect_the_reference_scan(
     assert (arm / mod.CKPT).exists()
 
 
+@pytest.mark.parametrize(
+    "variable", ["GIT_LITERAL_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_GLOB_PATHSPECS"]
+)
+def test_inherited_pathspec_settings_cannot_narrow_the_reference_scope(
+    tmp_path, monkeypatch, variable
+):
+    root = tmp_path / "fits"
+    arm = _arm(root, "fit-patch_topref")
+    repo = _repo(tmp_path)
+    (repo / "README.md").write_text("topref")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "top-level reference")
+    monkeypatch.setenv(variable, "1")
+    assert _main(monkeypatch, repo, root, "--delete") == 0
+    assert (arm / mod.CKPT).exists(), "an inherited pathspec hid a committed reference"
+
+
 def test_symlink_arm_directories_are_not_traversed(tmp_path):
     outside = _arm(tmp_path / "external", "fit-patch_unused")
     root = tmp_path / "fits"

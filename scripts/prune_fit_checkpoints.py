@@ -25,7 +25,6 @@ import argparse
 import json
 import os
 import re
-import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -41,7 +40,7 @@ from scripts.checkpoint_cleanup import (
 
 SEARCH_SUBDIRS = ("reports", "docs", "scripts", "repro", "tests")
 SEARCH_PATHS = (*SEARCH_SUBDIRS, ":(top,glob)*.md", "config.json")
-_GIT_LOCATORS = (
+_GIT_SCOPE_OVERRIDES = (
     "GIT_DIR",
     "GIT_WORK_TREE",
     "GIT_INDEX_FILE",
@@ -49,11 +48,19 @@ _GIT_LOCATORS = (
     "GIT_OBJECT_DIRECTORY",
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
     "GIT_PREFIX",
+    "GIT_LITERAL_PATHSPECS",
+    "GIT_GLOB_PATHSPECS",
+    "GIT_NOGLOB_PATHSPECS",
+    "GIT_ICASE_PATHSPECS",
 )
 
 
 def _git_env():
-    env = {key: value for key, value in os.environ.items() if key not in _GIT_LOCATORS}
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in _GIT_SCOPE_OVERRIDES
+    }
     env.update(GIT_NO_LAZY_FETCH="1", GIT_TERMINAL_PROMPT="0", GIT_OPTIONAL_LOCKS="0")
     return env
 

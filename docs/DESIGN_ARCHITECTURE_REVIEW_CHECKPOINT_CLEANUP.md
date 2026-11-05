@@ -14,7 +14,8 @@ their filesystem checks, and operator-facing plans/results.
    of a citation could allow its checkpoint to be deleted. It now checks HEAD,
    the index and current tracked/nonignored untracked files. The scope also
    includes top-level Markdown and config.json, which the old directory-only
-   search missed. Full names and short tags remain literal substring patterns.
+   search missed. Inherited pathspec settings cannot narrow that scope. Full
+   names and short tags remain literal substring patterns.
 3. **Aliases and replacement could redirect cleanup.** Both commands followed
    symlink arm directories. The pruner could also unlink a new checkpoint at a
    previously planned path. A shared stat-only helper now discovers direct
@@ -35,10 +36,11 @@ its protected tags, explicit --also releases and sibling mesh-directory gate.
 Neither policy determines whether a fit is active or whether resuming it will be
 needed. Both remain dry-run by default with their existing explicit action flags.
 
-Local Git queries ignore inherited repository/index/object locators, disable lazy
-fetching and optional locks, and bypass text conversion. The checker does not
-load checkpoint contents. The two cleanup test modules are now in the curated
-runner; their CLI argument fixtures restore sys.argv after each test.
+Local Git queries ignore inherited repository/index/object and pathspec
+overrides, disable lazy fetching and optional locks, and bypass text conversion.
+The checker does not load checkpoint contents. The two cleanup test modules are
+now in the curated runner; their CLI argument fixtures restore sys.argv after
+each test.
 
 ## Verification
 
@@ -46,14 +48,17 @@ runner; their CLI argument fixtures restore sys.argv after each test.
   reproducing reference loss, failed-search deletion and path replacement, plus
   the missing JSON interface. Two original reclaimer regressions also failed,
   reproducing symlink redirection and deletion of a changed checkpoint.
-- Final selection: **127 passed** across 7/176 curated modules, including both
+- Final selection: **131 passed** across 7/177 curated modules, including both
   cleanup modules, file modes, validation-runner/coverage guards, workspace status
-  and text capture. There are **31 new cleanup cases**; all deletion tests use
+  and text capture. There are **34 new cleanup cases**; all deletion tests use
   disposable files and Git repositories.
 - Real Git tests cover committed, staged and untracked references, top-level
   documents/configs, moved HEAD, inherited locators, missing promisor blobs,
   literal leading-dash patterns and excluded logs. The missing-blob case also
   verifies that the check did not fetch the object.
+- The final review reproduced deletion despite a committed README reference
+  when `GIT_LITERAL_PATHSPECS=1` hid the top-level Markdown pathspec. Clearing
+  inherited pathspec overrides fixes that case; three settings are exercised.
 - Filesystem tests cover alias directories, replacement, special checkpoint
   files, late preflight failure, actual partial-action accounting and the final
   mesh gate. Both CLI help paths work from another cwd without ML imports.
@@ -63,6 +68,7 @@ runner; their CLI argument fixtures restore sys.argv after each test.
 
 Validation used Python 3.10.21, Git 2.52.0 and Torch 2.9.1 on CPU. Exact commands
 and captured output are in the PR test report. No live fit cleanup was run.
+Main's changes through `836a00e9` were integrated before final validation.
 
 ## Limits
 
