@@ -5,6 +5,9 @@ run on 2026-11-03, before any cube was traced. By then only the padded CT had be
 the rest's from 10:23 PST on 11-03. The predictions, their thresholds and the decision rule are as proposed. The
 chain needs the autoresearch loop stopped for about an hour. The script, the chain and their tests are committed with
 it.
+**Run 2026-11-03 12:32–13:15 PST from f7145c5d, scored 14:39–15:09 PST: finding 103,
+`reports/seed_heading_confirmation.md`. Status OK, decision `NO_HIGH_SKIP_CUBE`: no cube skipped 0.20 of its dots (the
+most, 0.167), so P3 went untested. P1, P2 and P5 held; P4 missed (ρ 0.21).**
 
 **Amended in the open at registration,** after #329's review and before any trace:
 * **Data identity.** `fetch`, `presence` and `score` refuse an NML or image whose SHA-256 differs from the 11-02

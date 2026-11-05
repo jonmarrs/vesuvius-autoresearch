@@ -29,6 +29,11 @@ both exports against its original tile geometry and identities. Its fixture
 tests are not native integration evidence; the current-main volume-tracing
 CLI comparison is still required before posting.
 
+**November 3: the pre-registered confirmation on ten unseen cubes** ([finding 103](../reports/seed_heading_confirmation.md),
+decision `NO_HIGH_SKIP_CUBE`). None of the ten skipped 20% of its dots, so the coverage gain was not tested there and
+still rests on finding 100's two cubes. The fix's cost stayed within the registered bounds at tolerance 2. The body
+below says only what that decision allows.
+
 ## Before posting
 
 1. **A slot.** One of our three open villa PRs has closed. Code-fix PRs are at most two a week.
@@ -137,6 +142,13 @@ seed dots. On Scroll 3 coverage rises on all eight cubes, by 1.003–1.012×. Pr
 eleven cubes the reference mask trained on, the skip dropped only 3–166 dots per cube, and coverage moves by
 0.996–1.003×, precision by at most 0.002.
 
+**Ten cubes these numbers never saw:** the fiber-skeletons cubes that ScrollGT does not ship (Scroll 1 and Scroll 5),
+traced the same way before and after this PR. None of them skipped 20% of its seed dots on the 35° test (the most was
+0.17), so they do not test the coverage gain, which rests on the two Scroll-5 cubes above. They do bound the cost. On
+each of the ten, precision fell by at most 0.013 and merge-penalized ERL by at most 2.7%. At tolerance 4, one cube
+lost 6.2% of merge-penalized ERL. On the seven cubes that skipped under 2% of their dots, coverage moved by
+0.9998–1.0063×.
+
 [Attach `reports/figures/villa_volume_seed_heading_s5_16997.png`.] The image shows `s5_16997_03997_04497_256`'s
 hand-traced fibers, projected along z, marked where a traced fiber passes within 2 voxels, as ScrollGT's scorer counts
 coverage. Orange is the 0.091 of the ground-truth length covered only with this PR. Red is the 0.016 covered only on
@@ -170,6 +182,7 @@ gets more of its fibers. Elsewhere almost nothing changes.
 * **A heading along the sheet recovered more** on those two cubes: the presence direction projected into the CT's
   sheet plane gave 1.20× and 1.43× coverage. That is a new rule the model never trained on, so it is not proposed here.
 * **Limits:** the gain is on two cubes of one scroll, both cubes on which ScrollGT's reference mask also does poorly.
+  The ten further cubes skipped too few dots to test it.
   One checkpoint at its defaults. The presence is a substitute: ScrollGT's `fiber_hz_vt` probability, not lasagna's.
   The CT is 7.91 µm, read on a 2-voxel trace grid; the checkpoint trained at 9.6 µm.
 * **Tests:** the new `fibers/tests/test_volume_seed_heading.py`, run at `39a8cf3a` on Python 3.14.3 (and at
