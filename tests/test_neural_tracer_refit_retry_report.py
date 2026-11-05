@@ -255,3 +255,25 @@ def test_the_registration_finding_102_and_the_strategy_record_it():
         f"the median held-out ERLpen gain is {V['median_gain_held']:.3f} against the 0.10 bar"
         in STRATEGY
     )
+
+
+def test_the_checks_and_limits_name_what_was_run():
+    assert (
+        f"All {len(D['baseline_reproduced'])} baseline runs, re-scored with the scorer the arms used"
+        in REPORT
+    )
+    add = round(sum(arm(c)["pred_length"] - base(c)["pred_length"] for c in HELD))
+    screen = json.loads(
+        (
+            ROOT
+            / "reports/evidence/neural_tracer_refit_presence_screen_2026-11-03.json"
+        ).read_text()
+    )
+    assert screen["pooled"]["added"] > add
+    assert f"so it is larger than the net change of {add:,} above" in REPORT
+    # Finding 103 traced ten cubes outside these 21 (its smoke only reproduced one of them), so it developed nothing
+    # on them.
+    import seed_heading_confirmation as f103
+
+    assert len(m.ALL_CUBES) == 21 and not set(f103.CUBES) & set(m.ALL_CUBES)
+    assert "Findings 91–102 developed on these 21 cubes" in REPORT
