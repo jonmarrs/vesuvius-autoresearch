@@ -83,7 +83,9 @@ The larger observation is not the registered question. Most of the tracer's conf
 already off the hand-traced fibers. That is the precision side, the trade villa's open problems page asks for:
 "a tracer that confidently follows fewer fibers correctly is more useful than one that follows more fibers with a
 higher error rate". Open villa #2377 addresses it for villa's C++ beam tracer. This shows only that confidence stops
-are where off-reference traces end. It does not show that a stop or trim rule would help.
+are where off-reference traces end. It does not show that a stop or trim rule would help. *(Added 2026-11-05: an
+[exploratory screen](neural_tracer_stop_trim_screen.md) trimmed these ends on the in-sample cubes. A fixed trim loses
+about twice the coverage it gains in precision, and even an oracle trim removes only 16% of the off-reference length.)*
 
 ## Limits
 
