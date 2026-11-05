@@ -298,9 +298,67 @@ def test_fetch_converts_the_padded_region_a_slab_at_a_time(tmp_path, monkeypatch
     assert np.array_equal(m.to_uint8(raw, slab=7), whole)
 
 
+def test_the_registered_hashes_are_the_records():
+    """The data identity registered on 2026-11-03 is the 11-02 records': #326's NML hashes, the checks' images."""
+    nml = json.loads(
+        (
+            ROOT / "reports/evidence/fiber_skeletons_unshipped_2026-11-02.json"
+        ).read_text()
+    )["unshipped"]
+    checks = json.loads(CHECKS.read_text())["cubes"]
+    assert set(m.DATA_SHA256) == set(m.CUBES)
+    for c in m.CUBES:
+        assert m.DATA_SHA256[c] == (nml[c]["sha256"], checks[c]["image"]["sha256"])
+
+
+def test_an_nml_or_image_that_is_not_the_registered_file_is_refused(tmp_path, monkeypatch):  # fmt: skip
+    import hashlib
+
+    c = m.CUBES[0]
+    (tmp_path / "nml").mkdir()
+    nml = tmp_path / "nml" / json.loads(CHECKS.read_text())["cubes"][c]["nml"]
+    nml.write_bytes(b"not the NML")
+    with pytest.raises(SystemExit, match="registered nml"):
+        m.nml_path(c, tmp_path / "nml")
+    monkeypatch.setattr(m, "D", tmp_path)
+    (tmp_path / f"{c}_image.tif").write_bytes(b"not the image")
+    with pytest.raises(SystemExit, match="registered image"):
+        m.cube_image(c)
+    monkeypatch.setitem(m.DATA_SHA256, c, (hashlib.sha256(b"not the NML").hexdigest(), ""))  # fmt: skip
+    assert m.nml_path(c, tmp_path / "nml") == nml
+
+
+def test_a_cube_without_a_baseline_has_no_factor_but_still_faces_p2():
+    rows, records = _case(prec_change={A: -0.031})
+    rows["before"][A]["coverage"] = 0.0
+    v = m.verdict(rows, records)
+    assert v["zero_baseline"] == [A]
+    assert A not in v["coverage_factor"] and A not in v["erl_merge_penalized_factor"]
+    assert A in v["precision_change"] and A not in v["low_skip_cubes"]
+    assert v["prediction_P2"] is False and v["prediction_P5"] is True
+    assert v["decision"] == "HOLD"
+    rows["after"][A]["precision"] = 0.5
+    v = m.verdict(rows, records)
+    assert v["decision"] == "NO_HIGH_SKIP_CUBE" and "left out of P1, P3, P4 and P5" in v["reading"]  # fmt: skip
+    assert m.outcome(True, [], v) == "OK"
+    for c in m.CUBES:
+        rows["before"][c]["erl_merge_penalized"] = 0.0
+    v = m.verdict(rows, records)
+    assert v["prediction_P5"] is None and m.outcome(True, [], v) == "INCOMPLETE"
+    assert v["decision"] is None
+
+
+def test_score_never_replaces_a_result(tmp_path):
+    out = tmp_path / "result.json"
+    out.write_text("{}")
+    with pytest.raises(SystemExit, match="never replaces"):
+        m.cmd_score(tmp_path, out)
+    assert out.read_text() == "{}"
+
+
 def test_the_doc_registers_the_scripts_numbers():
     t = _text()
-    assert "**Status: PROPOSED 2026-11-02, not registered.**" in t
+    assert "**Status: REGISTERED 2026-11-03.**" in t
     assert (
         f"on every cube with s < {m.LOW_SKIP}, coverage factor in {m.P1_BAND[0]}–{m.P1_BAND[1]}"
         in t

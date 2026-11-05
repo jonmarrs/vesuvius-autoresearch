@@ -1,8 +1,20 @@
 # Pre-registration: does the queued villa seed-heading fix hold on ten hand-traced cubes never traced here?
 
-**Status: PROPOSED 2026-11-02, not registered.** Running it is the owner's GPU decision. The chain needs the
-autoresearch loop stopped for about an hour. It becomes the registration, unchanged or amended in the open, when the
-owner approves and before any cube is traced. The script, the chain and their tests are committed with it.
+**Status: REGISTERED 2026-11-03.** Proposed on 2026-11-02 (PR #328) and reviewed in PR #329. The owner approved the
+run on 2026-11-03, before any cube was traced. By then only the padded CT had been fetched: one cube's on 11-02, and
+the rest's from 10:23 PST on 11-03. The predictions, their thresholds and the decision rule are as proposed. The
+chain needs the autoresearch loop stopped for about an hour. The script, the chain and their tests are committed with
+it.
+
+**Amended in the open at registration,** after #329's review and before any trace:
+* **Data identity.** `fetch`, `presence` and `score` refuse an NML or image whose SHA-256 differs from the 11-02
+  records' (`DATA_SHA256`; the NMLs' from PR #326's evidence, the images' from the checks below).
+* **A cube with no baseline.** A cube whose `before` run has coverage or merge-penalized ERL 0 has no factor. It is
+  listed under `zero_baseline` and left out of P1, P3, P4 and P5; P2 still applies to it. As proposed, `score` stopped
+  with an error instead.
+* **One result.** `score` refuses to replace an existing result, and it records the ScrollGT commit it scored with.
+* **Disclosures,** under "What it cannot say": a neighbouring cube, the manipulation check's breadth, and what the
+  chain freezes.
 
 ## The question
 
@@ -33,8 +45,9 @@ Keep's merge-penalized ERL factor lies in 0.978–1.198 on all 21 cubes. No cube
 ## The cubes
 
 villa's fiber-skeletons Dataset004 holds 31 hand-traced cubes. ScrollGT ships 21 of them. The other ten have never
-been traced, scored or used here, and none overlaps ScrollGT's cubes, even padded by 128 voxels
-(`reports/evidence/fiber_skeletons_unshipped_2026-11-02.json`, PR #326):
+been traced, scored or used here. None, padded by 128 voxels, intersects any of ScrollGT's cubes
+(`reports/evidence/fiber_skeletons_unshipped_2026-11-02.json`, PR #326); one padded context does meet another's
+(below):
 * **Seven were first released in Dataset002**, whose 13 + 5 cubes match the presence model's (fiber_hz_vt's) training
   set. Its presence is in-sample on them: `s1_02494_01494_03994_512`, `s5_05497_01997_02997_256`,
   `s5_05497_02497_02497_256`, `s5_08994_02994_03994_512`, `s5_08997_02497_04997_256`, `s5_11497_05497_03997_256` and
@@ -120,15 +133,26 @@ For the villa draft (`docs/VILLA_DRAFT_volume_seed_heading.md`):
   where finding 100 saw no skips. A gain conditioned on `s` is still not a test that tilt causes it (finding 100,
   "What it does not say").
 * **Ten cubes, three of them held out from the presence model.**
+* **One cube neighbours one of finding 100's.** `s5_16997_03497_03997_256` lies 244 voxels from the held-out
+  `s5_16997_03997_04497_256` in y and in x, at the same z. Padded by 128 voxels each, their CT contexts share a
+  12 × 12-voxel column (in y and x) through their whole depth; their cubes and labels do not overlap.
+* **The manipulation check is stricter than the patch.** At the pin, villa counts a dot `no_heading` both when its
+  heading raises `SeedHeadingError` and when it fails the 35° test. The patch removes only the second. So an `after`
+  run with any `no_heading` voids the study without showing that the patch failed. It was 0 on all 21 of finding
+  100's keep runs.
+* **The chain freezes `scripts/`, not `src/`.** `presence` imports `vesuvius_autoresearch` from the checkout's `src/`.
+  The run is made from the registration commit's own worktree, which nothing edits while it runs.
 
 ## The run
 
 1. **CPU, loop running:** `scripts/seed_heading_confirmation.py fetch --work $W` downloads the padded CT.
-   * Scroll 5 comes from the public zarr: about 2.5 minutes for a 256³ cube here.
-   * Scroll 1 comes from raw TIFF slices by byte range. Finding 97 measured about 0.5 slices a second, so the three
-     Scroll-1 cubes, 2,048 slices in all, take about an hour at that rate.
+   * Scroll 5 comes from the public zarr. Scroll 1 comes from raw TIFF slices by byte range: the three Scroll-1
+     cubes are 2,048 padded slices in all. Neither rate is on record here; on 11-03 the first Scroll-1 cube ran at
+     about 0.35 slices a second.
    * The fetch is resumable and writes `$W/prepared.json`.
-2. **GPU, loop stopped:** `repro/fibers/run_seed_heading_confirmation_chain.sh`.
+2. **GPU, loop stopped:** `repro/fibers/run_seed_heading_confirmation_chain.sh`, which refuses to start while the loop
+   runs. A wrapper stops the loop before it and starts it again afterwards, whatever the chain did, as the 10-28
+   re-run's wrapper did (`repro/fibers/run_villa_seed_heading_rerun_paused.sh`).
    * Presence for the ten cubes. fiber_hz_vt's time per cube is not on record here; at 128³ patches with step 0.5,
      it runs 27 patches on a 256³ cube and 343 on a 512³ cube.
    * The smoke.

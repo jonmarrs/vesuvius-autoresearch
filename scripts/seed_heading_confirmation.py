@@ -90,10 +90,54 @@ P5_PEN = 0.95  # P5: after/before merge-penalized ERL at tolerance 2 at least th
 # allows this much, far below any real difference between such rows.
 EPS = 1e-9
 EVENTS = {"TRACE", "DONE", "FAILED"}
+# Each cube's NML and image, (nml, image), as the 2026-11-02 records hash them: the NML in
+# reports/evidence/fiber_skeletons_unshipped_2026-11-02.json, the image in
+# reports/evidence/fiber_skeletons_unshipped_checks_2026-11-02.json. Registered on 2026-11-03, before any trace:
+# fetch, presence and score refuse a file that differs.
+DATA_SHA256 = {
+    "s1_02494_01494_03994_512": ("08158b12e4e7ea9919b1e45c77bab8d34fe74c92e4a078bbe944736221caabbc",
+                                 "1f5752040c0be008b8d4cc887a35f42d4944275d30e0163615b6403c4b807000"),
+    "s1_08994_02494_03494_512": ("ac3e4ce198dd1190585afc157dccc01e9c41db01d11a1f7ff9df4463e425f99f",
+                                 "c63427319d6829fb3d3777fd3acdc0c319d74e36ae4fd5e5fd68b6730256fb55"),
+    "s1_09997_02497_03497_256": ("2e6377c131843281713c7d71dcc0c3f1189a860ecc509d0518013f4c889d1f48",
+                                 "bc665cbaba66b1974b5bbdd2c74e359b045ff9e1190fc865155879bdb56e9d9b"),
+    "s5_05497_01997_02997_256": ("affbce7a420684f63926952357faa4540fdb1bf4b2a1bb5dcdeef4e21607e186",
+                                 "f70efb2272b107a141ddc34d0026801120498d197ce94e068ac4da3b8457eef9"),
+    "s5_05497_02497_02497_256": ("d66fc2d33c47d282716389634e19aa64e7454a5c6485fa63cf23543b5e787c2f",
+                                 "4b7cbdc7f99360cb74133f58ae6632915a65e2ad2bdebebd55359cd8c6351485"),
+    "s5_08994_02994_03994_512": ("ff89cab79e990a5d91bb5823ed1607e0d6818f4ece0fe16ad3aad4ef2a2e04ed",
+                                 "1b4b46736196b35f541996967268557ea3eccbe6ba21c0a1812092345db1b310"),
+    "s5_08997_02497_04997_256": ("20c21c99a81cae5e2871be5a558fb1b6140020c9e62349723e0f58b86ac624b9",
+                                 "b738435a45b52e51a0e46ffab0a164b64558d9d3d90e6190f4e99fd3365d97e4"),
+    "s5_11497_05497_03997_256": ("a43fee7385b6589b8a976da6dfb3a054754864c518bc7953ca7029008542ad91",
+                                 "fadef8712299b747833a4469400afac76e1a6cc8238c8e3f53f8eec26481e30e"),
+    "s5_15494_04494_02494_512": ("d84fd73609f0f10052a8a580abc5f185b0af0ae25d7228d64e9a27375ac8508b",
+                                 "2f82f9ec2ac0543b8f72c22e5c00e5f6d22ecebc026095fe1c72c9319b8732ab"),
+    "s5_16997_03497_03997_256": ("6c88f50cbb7b33189bd0e68470986c8f6418fe23c0cf183289820d4379ec2cc1",
+                                 "23611035a83434b34e6d670d50b0cc19b35913d011ae2c3c53b941d16496e769"),
+}  # fmt: skip
 
 
 def size_of(cube: str) -> int:
     return int(cube.rsplit("_", 1)[1])
+
+
+def sha256_of(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def registered(cube: str, path: Path, kind: str) -> Path:
+    """path, if it is the cube's registered NML or image (DATA_SHA256)."""
+    want = DATA_SHA256[cube][("nml", "image").index(kind)]
+    if sha256_of(path) != want:
+        raise SystemExit(f"{cube}: {path} is not the registered {kind} (sha256 {want})")
+    return path
 
 
 def box(cube: str) -> str:
@@ -108,7 +152,7 @@ def nml_path(cube: str, nml_dir: Path = D / "nml") -> Path:
     found = sorted(nml_dir.glob(f"fibers_{s}*_{z}z_{y}y_{x}x_{n}_v*.nml"))
     if len(found) != 1:
         raise SystemExit(f"{cube}: expected one NML in {nml_dir}, found {[p.name for p in found]}")  # fmt: skip
-    return found[0]
+    return registered(cube, found[0], "nml")
 
 
 def ground_truth(cube: str, nml: Path | None = None):
@@ -129,7 +173,7 @@ def ground_truth(cube: str, nml: Path | None = None):
 def cube_image(cube: str) -> np.ndarray:
     import tifffile
 
-    img = tifffile.imread(D / f"{cube}_image.tif")
+    img = tifffile.imread(registered(cube, D / f"{cube}_image.tif", "image"))
     if img.shape != (size_of(cube),) * 3 or img.dtype != np.uint8:
         raise SystemExit(f"{cube}: image {img.shape} {img.dtype}")
     return img
@@ -255,28 +299,28 @@ def verdict(rows: dict, records: dict) -> dict:
     ):
         return {f"prediction_P{i}": None for i in range(1, 6)} | {"reading": None, "decision": None}  # fmt: skip
     b, a = rows["before"], rows["after"]
-    if zero := [
-        c for c in CUBES if b[c]["coverage"] <= 0 or b[c]["erl_merge_penalized"] <= 0
-    ]:
-        raise ValueError(f"no factor over a baseline of 0: {zero}")
+    # A cube whose `before` run has no coverage or merge-penalized ERL has no factor (registered 2026-11-03): it is
+    # listed and left out of P1, P3, P4 and P5. P2, a difference, still applies to it.
+    zero = [c for c in CUBES if b[c]["coverage"] <= 0 or b[c]["erl_merge_penalized"] <= 0]  # fmt: skip
+    fac = [c for c in CUBES if c not in zero]
     s = {c: skip_share(records["before"][c]) for c in CUBES}
-    cov = {c: a[c]["coverage"] / b[c]["coverage"] for c in CUBES}
+    cov = {c: a[c]["coverage"] / b[c]["coverage"] for c in fac}
     prec = {c: a[c]["precision"] - b[c]["precision"] for c in CUBES}
-    pen = {c: a[c]["erl_merge_penalized"] / b[c]["erl_merge_penalized"] for c in CUBES}
-    low = [c for c in CUBES if s[c] < LOW_SKIP]
-    high = [c for c in CUBES if s[c] >= HIGH_SKIP]
-    rho = spearman([s[c] for c in CUBES], [cov[c] for c in CUBES])
+    pen = {c: a[c]["erl_merge_penalized"] / b[c]["erl_merge_penalized"] for c in fac}
+    low = [c for c in fac if s[c] < LOW_SKIP]
+    high = [c for c in fac if s[c] >= HIGH_SKIP]
+    rho = spearman([s[c] for c in fac], [cov[c] for c in fac])
     out = {
         "skip_share": s, "coverage_factor": cov, "precision_change": prec, "erl_merge_penalized_factor": pen,
         "merges_change": {c: a[c]["merges"] - b[c]["merges"] for c in CUBES},
-        "low_skip_cubes": low, "high_skip_cubes": high, "spearman_rho": rho,
+        "zero_baseline": zero, "low_skip_cubes": low, "high_skip_cubes": high, "spearman_rho": rho,
         "manipulation": {c: records["after"][c]["no_heading"] == 0 for c in CUBES},
-        "median_coverage_factor": statistics.median(cov.values()),
+        "median_coverage_factor": statistics.median(cov.values()) if cov else None,
         "prediction_P1": all(P1_BAND[0] - EPS <= cov[c] <= P1_BAND[1] + EPS for c in low) if low else None,
         "prediction_P2": all(prec[c] >= -P2_DROP - EPS for c in CUBES),
         "prediction_P3": all(cov[c] >= P3_FACTOR - EPS for c in high) if high else None,
         "prediction_P4": rho >= P4_RHO - EPS if rho is not None else None,
-        "prediction_P5": all(pen[c] >= P5_PEN - EPS for c in CUBES),
+        "prediction_P5": all(pen[c] >= P5_PEN - EPS for c in fac) if fac else None,
     }  # fmt: skip
     out["manipulation_ok"] = all(out["manipulation"].values())
     out["decision"] = decision(out)
@@ -313,13 +357,16 @@ def reading(v: dict) -> str:
         head += (
             "; coverage moves by more than 1% on a cube that skips under 2% of its dots"
         )
+    if v["zero_baseline"]:
+        head += (f"; {', '.join(v['zero_baseline'])} had no coverage or merge-penalized ERL before, so no factor: "
+                 "left out of P1, P3, P4 and P5")  # fmt: skip
     return head
 
 
 def status(smoke_ok: bool | None, failed: list, v: dict) -> str:
     if smoke_ok is False:
         return "SMOKE_FAILED"
-    if smoke_ok is None or failed or v["prediction_P2"] is None:
+    if smoke_ok is None or failed or v["prediction_P2"] is None or v["prediction_P5"] is None:  # fmt: skip
         return "INCOMPLETE"
     return "OK" if v["manipulation_ok"] else "MANIPULATION_FAILED"
 
@@ -338,7 +385,16 @@ def villa_commit(work: Path) -> str | None:
     return m[0] if len(set(m)) == 1 else None
 
 
+def scrollgt_commit() -> str | None:
+    import subprocess
+
+    got = subprocess.run(["git", "-C", str(f91.SG), "rev-parse", "HEAD"], capture_output=True, text=True)  # fmt: skip
+    return got.stdout.strip() or None
+
+
 def cmd_score(work: Path, out_path: Path) -> int:
+    if out_path.exists():
+        raise SystemExit(f"{out_path} exists: score writes a result once and never replaces it")  # fmt: skip
     if str(f91.SG / "src") not in sys.path:
         sys.path.insert(0, str(f91.SG / "src"))
     from scrollgt.fibers.eval_trace import SCORING_VERSION, score_tracing
@@ -378,6 +434,8 @@ def cmd_score(work: Path, out_path: Path) -> int:
         "rows_tol4": rows4,
         "records": records,
         "scoring_version": SCORING_VERSION,
+        "scrollgt_commit": scrollgt_commit(),
+        "data_sha256": {c: dict(zip(("nml", "image"), h, strict=True)) for c, h in DATA_SHA256.items()},  # checked on read
         "verdict": v,
     }  # fmt: skip
     out_path.write_text(json.dumps(out, indent=1) + "\n")

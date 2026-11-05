@@ -1,9 +1,19 @@
 # Pre-registration: does villa's own refit retry at confidence stops raise its neural tracer's continuity on the held-out cubes?
 
-**Status: PROPOSED 2026-11-02, not registered.** This is the development-pilot proposal that finding 102 names as the
-next step. Running it is the owner's GPU decision: the chain needs the autoresearch loop stopped for about 80 minutes.
-It becomes the registration, unchanged or amended in the open, when the owner approves and before any arm is traced.
-The launcher, the chain and the scorer below are committed with it.
+**Status: REGISTERED 2026-11-03.** This is the development pilot that finding 102 names as the next step. It was
+proposed on 2026-11-02 (PR #326) and reviewed in PR #329. The owner approved the run on 2026-11-03, before any arm was
+traced. The arms, predictions, thresholds and decision rule are as proposed. The chain needs the autoresearch loop
+stopped for about 80 minutes. The launcher, the chain and the scorer below are committed with it.
+
+**Amended in the open at registration,** after #329's review and before any arm was traced:
+* **The baseline is re-scored.** Findings 97 and 98's recorded rows name no ScrollGT commit. So `score` re-scores the
+  21 baseline runs with the scorer it scores the arms with, and the status is BASELINE_DRIFT, with no reading, unless
+  every row reproduces at both tolerances. On 2026-11-03, before registering, two of them did exactly
+  (`s5_13497_01497_02497_256` and `s3_00994_00494_01994_512`) with ScrollGT `6d05d642`.
+* **One result.** `score` refuses to replace an existing result, and it records the ScrollGT commit it scored with.
+* **Registered as they are,** from #329's review: the floor may move nothing, since villa says `--forward-chunk` bounds
+  memory only. A floor of 0 gives P2 an allowance of 0, which is stricter. The manipulation record shows the setting,
+  not that a retry happened. The unchanged-run check shows that.
 
 ## The question
 
@@ -125,6 +135,7 @@ off. Otherwise the status is MANIPULATION_FAILED.
 | outcome | status and conclusion |
 |---|---|
 | the smoke does not reproduce finding 97's run | SMOKE_FAILED; no arm runs |
+| a baseline run, re-scored, does not give its recorded rows | BASELINE_DRIFT; no reading |
 | a run records the retry other than its arm sets it | MANIPULATION_FAILED; no reading |
 | a run fails, writes nothing, or no smoke is on record | INCOMPLETE |
 | the floor arm's median \|ERLpen change\| is not below 0.03 | FLOOR_TOO_LARGE; no reading: batch composition alone moves ERLpen too far to read a 0.10 bar |
@@ -197,4 +208,5 @@ composition under the retry may differ from batch composition under a smaller fo
 GPU, with the autoresearch loop stopped: the smoke (about a minute) and 31 runs. The baseline's 21 runs took 2,684 s of
 tile time (1,701 s on the held-out cubes). Finding 100's chain ran 42 such runs in 104 minutes, so this chain should take
 about 80 minutes, more if retries are frequent. That is inside the strategy's four-GPU-hour pilot ceiling. Scoring runs
-on the CPU afterwards, with the loop running. No new data are fetched.
+on the CPU afterwards, with the loop running. Re-scoring the baseline adds about 50 minutes to it: on 11-03 a 512³
+cube took 265 s and a 256³ cube 17 s, at nice 19 beside the loop. No new data are fetched.

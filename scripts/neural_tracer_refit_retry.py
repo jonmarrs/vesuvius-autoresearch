@@ -156,9 +156,15 @@ def reading(v: dict) -> str | None:
             + ("; it also " + " and ".join(tail) if tail else ""))  # fmt: skip
 
 
-def status(smoke_ok: bool | None, v: dict, failed: list) -> str:
+def status(
+    smoke_ok: bool | None, v: dict, failed: list, baseline_ok: bool = True
+) -> str:
+    """baseline_ok: the baseline runs, re-scored now, give findings 97 and 98's recorded rows (registered 2026-11-03:
+    the recorded rows name no ScrollGT commit, so the comparison holds only if today's scorer reproduces them)."""
     if smoke_ok is False:
         return "SMOKE_FAILED"
+    if not baseline_ok:
+        return "BASELINE_DRIFT"
     if smoke_ok is None or failed or v["prediction_P1"] is None:
         return "INCOMPLETE"
     if not v["manipulation_ok"]:
@@ -166,13 +172,28 @@ def status(smoke_ok: bool | None, v: dict, failed: list) -> str:
     return "OK" if v["floor_ok"] else "FLOOR_TOO_LARGE"
 
 
-def outcome(smoke_ok: bool | None, v: dict, failed: list) -> str:
+def outcome(
+    smoke_ok: bool | None, v: dict, failed: list, baseline_ok: bool = True
+) -> str:
     """status(), and no reading unless it is OK: verdict() reads the runs whatever the smoke or a missing run says,
     and the decision rule makes no reading on SMOKE_FAILED or INCOMPLETE either."""
-    s = status(smoke_ok, v, failed)
+    s = status(smoke_ok, v, failed, baseline_ok)
     if s != "OK":
         v["reading"] = None
     return s
+
+
+def rows_match(recorded: dict, rescored: dict) -> bool:
+    """A row scored now reproduces a recorded one: every recorded field, exactly, after the same JSON round trip."""
+    now = json.loads(json.dumps(rescored))
+    return all(k in now and now[k] == v for k, v in recorded.items())
+
+
+def scrollgt_commit() -> str | None:
+    import subprocess
+
+    got = subprocess.run(["git", "-C", str(f91.SG), "rev-parse", "HEAD"], capture_output=True, text=True)  # fmt: skip
+    return got.stdout.strip() or None
 
 
 def smoke_record(work: Path) -> tuple[bool | None, dict]:
@@ -185,6 +206,8 @@ def smoke_record(work: Path) -> tuple[bool | None, dict]:
 
 
 def cmd_score(work: Path, out_path: Path) -> int:
+    if out_path.exists():
+        raise SystemExit(f"{out_path} exists: score writes a result once and never replaces it")  # fmt: skip
     sys.path.insert(0, str(f91.SG / "src"))
     from scrollgt.fibers.eval_trace import SCORING_VERSION, score_tracing
     from scrollgt.fibers.target import load_fiber_target
@@ -216,11 +239,22 @@ def cmd_score(work: Path, out_path: Path) -> int:
             print(
                 a, c, f"ERLpen {r[2.0][PEN]:.2f} (was {base2[c][PEN]:.2f})", flush=True
             )
+    # The baseline, re-scored with the scorer the arms just used: it must give the recorded rows.
+    baseline_reproduced = {}
+    for c in ALL_CUBES:
+        skel, _, _ = load_fiber_target(f91.SG / "data" / f"fibers_{c}")
+        base_afv = BASE_RUNS[sh.size_of(c)] / "neural" / c / "fibers.afv"
+        lab = cc.labels_in_cube(base_afv, MARGIN, sh.size_of(c))
+        r = {t: score_tracing(skel, lab, tolerance=t).as_row() for t in TOLS}
+        baseline_reproduced[c] = rows_match(base2[c], r[2.0]) and rows_match(base4[c], r[4.0])  # fmt: skip
+        print("baseline", c, "reproduced" if baseline_reproduced[c] else "DIFFERS", flush=True)  # fmt: skip
     ceiling = ceiling_gains()
     v = verdict(rows, base2, records, ceiling)
     out = {
         "registration": "docs/preregistration/2026-11-02_neural_tracer_refit_retry.md",
-        "status": outcome(smoke, v, failed),
+        "status": outcome(smoke, v, failed, all(baseline_reproduced.values())),
+        "baseline_reproduced": baseline_reproduced,
+        "scrollgt_commit": scrollgt_commit(),
         "smoke_cube": SMOKE,
         "smoke_identical": smoke,
         "failed": failed,

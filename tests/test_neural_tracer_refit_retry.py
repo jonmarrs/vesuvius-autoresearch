@@ -289,6 +289,61 @@ def test_failed_and_incomplete_studies_emit_no_reading():
     assert rr.outcome(True, v, []) == "OK" and v["reading"].startswith("villa's refit")
 
 
+def test_a_baseline_that_does_not_rescore_to_its_rows_voids_the_comparison():
+    """Registered 2026-11-03: findings 97 and 98's rows name no ScrollGT commit, so score re-scores their runs."""
+    v = rr.verdict(*_case())
+    assert rr.outcome(True, v, [], baseline_ok=False) == "BASELINE_DRIFT"
+    assert v["reading"] is None
+    assert rr.status(False, rr.verdict(*_case()), [], False) == "SMOKE_FAILED"
+    v = rr.verdict(*_case())
+    assert rr.outcome(True, v, [], baseline_ok=True) == "OK" and v["reading"]
+
+
+def test_a_rescored_row_must_give_every_recorded_field_exactly():
+    recorded = {"coverage": 0.3333, "erl_merge_penalized": 11.41, "merges": 3}
+    assert rr.rows_match(recorded, {**recorded, "extra": 1.0})
+    assert not rr.rows_match(recorded, {**recorded, "coverage": 0.3334})
+    assert not rr.rows_match(recorded, {"coverage": 0.3333, "merges": 3})
+    assert rr.rows_match({"t": [1, 2]}, {"t": (1, 2)})  # as JSON records it
+
+
+def test_score_never_replaces_a_result(tmp_path, monkeypatch):
+    def reached(*a):
+        raise AssertionError("score went on past an existing result")
+
+    monkeypatch.setattr(rr.sh, "baseline", reached)
+    out = tmp_path / "result.json"
+    out.write_text("{}")
+    with pytest.raises(SystemExit, match="never replaces"):
+        rr.cmd_score(tmp_path, out)
+    assert out.read_text() == "{}"
+
+
+@pytest.mark.parametrize(
+    "coverage_now, want", [(0.5, "INCOMPLETE"), (0.4, "BASELINE_DRIFT")]
+)
+def test_score_rescores_the_baseline_and_voids_on_a_difference(tmp_path, monkeypatch, coverage_now, want):  # fmt: skip
+    """No arm run is on record, so a baseline that reproduces leaves the study INCOMPLETE; one that does not is
+    BASELINE_DRIFT, whatever else is missing."""
+    row = {"coverage": 0.5, "precision": 0.5, "erl_merge_penalized": 10.0, "merges": 3}
+    scored = types.SimpleNamespace(as_row=lambda: dict(row, coverage=coverage_now))
+    monkeypatch.setitem(sys.modules, "scrollgt.fibers.eval_trace",
+                        types.SimpleNamespace(SCORING_VERSION=3, score_tracing=lambda s, lab, tolerance: scored))  # fmt: skip
+    monkeypatch.setitem(sys.modules, "scrollgt.fibers.target",
+                        types.SimpleNamespace(load_fiber_target=lambda p: (None, None, None)))  # fmt: skip
+    rows = {c: row for c in rr.ALL_CUBES}
+    monkeypatch.setattr(rr.sh, "baseline", lambda: (rows, rows, {}))
+    monkeypatch.setattr(rr.cc, "labels_in_cube", lambda *a: None)
+    monkeypatch.setattr(rr, "ceiling_gains", lambda: {c: 0.3 for c in rr.ALL_CUBES})
+    monkeypatch.setattr(rr, "run_record", lambda run: {})
+    out = tmp_path / "result.json"
+    assert rr.cmd_score(tmp_path, out) == 1
+    got = json.loads(out.read_text())
+    assert got["status"] == want
+    assert all(got["baseline_reproduced"].values()) is (want == "INCOMPLETE")
+    assert set(got["baseline_reproduced"]) == set(rr.ALL_CUBES)
+
+
 def test_the_smoke_must_record_the_retry_off():
     """The manipulation check covers the smoke: it runs through the launcher's villa arm."""
     for in_effect, want in ((False, "OK"), (True, "MANIPULATION_FAILED"), (None, "MANIPULATION_FAILED")):  # fmt: skip
