@@ -33,6 +33,26 @@ def test_live_study_arms_are_protected_by_default():
     assert "curbase_s1rr" in rfc.PROTECTED
 
 
+def test_meshes_are_checked_again_before_the_actual_unlink(tmp_path, monkeypatch):
+    arm = _arm(tmp_path, "unprotected")
+    original = rfc.require_unchanged
+    calls = []
+
+    def checked(row):
+        result = original(row)
+        calls.append(True)
+        if len(calls) == 2:
+            (arm / "meshes").rmdir()
+        return result
+
+    monkeypatch.setattr(rfc, "require_unchanged", checked)
+    monkeypatch.setattr(
+        "sys.argv", ["reclaim", "--spiral-out", str(tmp_path), "--apply"]
+    )
+    assert rfc.main() == 1
+    assert len(calls) == 2 and (arm / rfc.CKPT).exists()
+
+
 def test_arm_of_parses_the_dated_fit_dir_name():
     assert (
         rfc.arm_of(Path("2026-09-13_s1_slice-13056-18432_38442-patch_nosamecur_s2"))
@@ -54,6 +74,42 @@ def test_apply_removes_the_checkpoint_but_keeps_the_meshes(tmp_path, monkeypatch
     rfc.main()
     assert not (d / rfc.CKPT).exists()
     assert (d / "meshes").is_dir()
+
+
+def test_a_symlink_arm_cannot_redirect_apply_to_an_external_fit(tmp_path, monkeypatch):
+    outside = _arm(tmp_path / "outside", "unrelated")
+    root = tmp_path / "fits"
+    root.mkdir()
+    (root / "2026-patch_alias").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr("sys.argv", ["reclaim", "--spiral-out", str(root), "--apply"])
+    rfc.main()
+    assert (outside / rfc.CKPT).exists(), (
+        "a symlink redirected deletion outside the selected root"
+    )
+
+
+def test_a_changed_checkpoint_is_not_deleted_after_mesh_preflight(
+    tmp_path, monkeypatch
+):
+    arm = _arm(tmp_path, "unprotected")
+    original = Path.is_dir
+    changed = []
+
+    def is_dir(path):
+        result = original(path)
+        if path == arm / "meshes" and not changed:
+            (arm / rfc.CKPT).write_bytes(b"new checkpoint")
+            changed.append(True)
+        return result
+
+    monkeypatch.setattr(Path, "is_dir", is_dir)
+    monkeypatch.setattr(
+        "sys.argv", ["reclaim", "--spiral-out", str(tmp_path), "--apply"]
+    )
+    result = rfc.main()
+    assert changed == [True]
+    assert (arm / rfc.CKPT).read_bytes() == b"new checkpoint"
+    assert result == 1
 
 
 def test_apply_never_touches_a_protected_arm(tmp_path, monkeypatch):
