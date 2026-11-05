@@ -158,6 +158,52 @@ def test_tiled_transfer_is_bounded_by_halo_blocks(source, tmp_path, monkeypatch)
     np.testing.assert_array_equal(np.load(output), np.zeros(shape, np.float32))
 
 
+@pytest.mark.parametrize(
+    "shape", [(17, 16, 18), (16, 17, 18), (16, 18, 17), (17, 17, 17)]
+)
+@pytest.mark.parametrize("filter_name", ["ridges", "vesselness"])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_minimum_halo_streaming_matches_dense_at_singleton_boundary(
+    shape, filter_name, dtype
+):
+    volume = np.random.default_rng(2026).random(shape).astype(dtype)
+    output = np.empty(shape, dtype=np.float32)
+    streaming.filter_into(
+        volume, output, filter_name=filter_name, block_size=8, halo=10
+    )
+    reference = getattr(detection, f"detect_{filter_name}")(volume.copy()).astype(
+        np.float32
+    )
+    np.testing.assert_array_equal(output, reference)
+
+
+@pytest.mark.parametrize("filter_name", ["ridges", "vesselness"])
+def test_minimum_halo_cli_matches_dense_at_singleton_boundary(tmp_path, filter_name):
+    volume = np.random.default_rng(2026).random((17, 17, 17))
+    source, output = tmp_path / "ct.npy", tmp_path / "response.npy"
+    np.save(source, volume)
+    assert (
+        cli.main(
+            arguments(
+                source,
+                output,
+                "--filter",
+                filter_name,
+                "--tiled",
+                "--block-size",
+                "8",
+                "--halo",
+                "10",
+            )
+        )
+        == 0
+    )
+    reference = getattr(detection, f"detect_{filter_name}")(volume.copy()).astype(
+        np.float32
+    )
+    np.testing.assert_array_equal(np.load(output), reference)
+
+
 def test_tiled_cli_memory_maps_input_and_output(source, tmp_path, monkeypatch):
     from vesuvius_autoresearch.fibers import streaming
 

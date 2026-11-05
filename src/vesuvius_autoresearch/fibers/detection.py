@@ -403,6 +403,23 @@ def detect_vesselness(
     return vesselness
 
 
+def _block_bounds(start, extent, block_size, halo, gauss_sigma):
+    """Source window including the one-sided Hessian stencil at physical faces.
+
+    Two central derivatives reach two smoothed voxels beyond the core. At a
+    physical face, composing two second-order one-sided gradients reaches three.
+    A singleton core at that face needs one extra source voxel at minimum halo.
+    """
+    stop = min(extent, start + block_size)
+    lower, upper = max(0, start - halo), min(extent, stop + halo)
+    face_support = int(4 * gauss_sigma + 0.5) + 4
+    if start == 0:
+        upper = max(upper, min(extent, face_support))
+    if stop == extent:
+        lower = min(lower, max(0, extent - face_support))
+    return lower, upper
+
+
 def _smoothed_global_range(volume, gauss_sigma, block_size, halo):
     """
     Min/max of the Gaussian-smoothed volume, computed tile-by-tile.
@@ -477,8 +494,8 @@ def _detect_tiled(volume, filter_fn, block_size=128, halo=16, **kwargs):
     # path in ~20% of voxels), enough to reorder seeds at a percentile cut.
     result = None
 
+    gauss_sigma = kwargs.get("gauss_sigma", 2)
     if kwargs.get("norm_range") is None:
-        gauss_sigma = kwargs.get("gauss_sigma", 2)
         kwargs["norm_range"] = _smoothed_global_range(
             volume, gauss_sigma, block_size, halo
         )
@@ -487,9 +504,9 @@ def _detect_tiled(volume, filter_fn, block_size=128, halo=16, **kwargs):
         for y in range(0, Y, block_size):
             for x in range(0, X, block_size):
                 # Block coordinates with halo
-                z0, z1 = max(0, z - halo), min(Z, z + block_size + halo)
-                y0, y1 = max(0, y - halo), min(Y, y + block_size + halo)
-                x0, x1 = max(0, x - halo), min(X, x + block_size + halo)
+                z0, z1 = _block_bounds(z, Z, block_size, halo, gauss_sigma)
+                y0, y1 = _block_bounds(y, Y, block_size, halo, gauss_sigma)
+                x0, x1 = _block_bounds(x, X, block_size, halo, gauss_sigma)
 
                 block = volume[z0:z1, y0:y1, x0:x1]
                 block_res = filter_fn(block, **kwargs)
@@ -530,7 +547,8 @@ def fiber_direction_tiled(volume, gauss_sigma=2, sigma=6, block_size=128, halo=1
     whole volume: about 30 GB at 512^3, which the OOM killer stopped three times on
     2026-10-05. Here only one block is live at a time. It is exact, by the same argument as
     `_detect_tiled`: each block carries `halo` voxels of context, at least the Gaussian support
-    plus two derivatives, and is normalized against the global smoothed range. Every interior
+    plus two derivatives (with extra source context for one-sided physical-face
+    stencils), and is normalized against the global smoothed range. Every interior
     voxel therefore sees exactly the dense path's smoothed values, and the eigen-solve is per
     voxel. `tests/test_fiber_direction_tiled.py` checks equality with the dense path.
 
@@ -561,9 +579,9 @@ def fiber_direction_tiled(volume, gauss_sigma=2, sigma=6, block_size=128, halo=1
     for z in range(0, Z, block_size):
         for y in range(0, Y, block_size):
             for x in range(0, X, block_size):
-                z0, z1 = max(0, z - halo), min(Z, z + block_size + halo)
-                y0, y1 = max(0, y - halo), min(Y, y + block_size + halo)
-                x0, x1 = max(0, x - halo), min(X, x + block_size + halo)
+                z0, z1 = _block_bounds(z, Z, block_size, halo, gauss_sigma)
+                y0, y1 = _block_bounds(y, Y, block_size, halo, gauss_sigma)
+                x0, x1 = _block_bounds(x, X, block_size, halo, gauss_sigma)
                 J, _ = hessian(
                     volume[z0:z1, y0:y1, x0:x1],
                     gauss_sigma=gauss_sigma,

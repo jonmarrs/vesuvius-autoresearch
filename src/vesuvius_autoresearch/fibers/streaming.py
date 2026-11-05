@@ -8,7 +8,13 @@ import math
 
 import numpy as np
 
-from .detection import _volume, detect_ridges, detect_vesselness, get_backend
+from .detection import (
+    _block_bounds,
+    _volume,
+    detect_ridges,
+    detect_vesselness,
+    get_backend,
+)
 
 GAUSS_SIGMA = 2
 
@@ -35,11 +41,11 @@ def blocks(shape, block_size, halo):
         for y in range(0, shape[1], block_size):
             for x in range(0, shape[2], block_size):
                 starts = (z, y, x)
-                lower = [max(0, a - halo) for a in starts]
-                upper = [
-                    min(n, a + block_size + halo)
+                bounds = [
+                    _block_bounds(a, n, block_size, halo, GAUSS_SIGMA)
                     for a, n in zip(starts, shape, strict=True)
                 ]
+                lower, upper = zip(*bounds, strict=True)
                 widths = [
                     min(block_size, n - a) for a, n in zip(starts, shape, strict=True)
                 ]

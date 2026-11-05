@@ -37,7 +37,8 @@ CUDA, VRAM or general throughput.
 - Dense CPU→GPU speedups: **14–94×** over NumPy across 64³–256³.
 - Tiled large volumes: **512³ in ~3–5 s at ~1 GB VRAM** (consumer hardware).
 - Tiled-vs-dense parity holds to 1e-4 (the halo must cover the filter support,
-  `4 * gauss_sigma + 2` voxels; the default halo 16 covers `gauss_sigma=2`).
+  `int(4 * gauss_sigma + 0.5) + 2` voxels, with source windows extended for
+  one-sided derivatives at physical faces; the default halo 16 covers `gauss_sigma=2`).
 
 Full numbers and method: [`reports/fibers_gpu_validation_2026-06.md`](../reports/fibers_gpu_validation_2026-06.md).
 
@@ -67,6 +68,16 @@ Filter scales must be finite and positive (`gauss_sigma` may be zero). A tiled
 run requires a positive integer block size and a halo covering the Gaussian
 support plus two derivative voxels: `int(4 * gauss_sigma + 0.5) + 2`, ten voxels
 at the default smoothing scale. A smaller halo is rejected before filtering.
+At a physical volume face, two composed one-sided derivatives reach three
+smoothed voxels inward. Source windows include that context even when the core
+has only one voxel. This preserves the accepted minimum halo and the
+`block_size + 2 * halo` bound on each transferred axis. The
+[October 30 review](DESIGN_ARCHITECTURE_REVIEW_2026-10-30_OWNER_MERGES_292_295.md)
+identified the former singleton-tail mismatch; CPU regressions now compare both
+filters, orientation fields and streamed CLI output directly with dense results.
+These checks establish numerical parity, not better tracing accuracy or GPU
+performance. The [public CT replay](../reports/fiber_boundary_halo_2026-11-05.md)
+records before/after results, pinned inputs and the reproduction command.
 
 ## CLI
 
