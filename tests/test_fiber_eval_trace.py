@@ -265,3 +265,107 @@ def test_branches_loops_and_zero_length_edges_still_score():
         )
     zero = score_tracing(Skeleton(fibers=[self_edge]), inst, tolerance=0).as_row()
     assert zero == reference
+
+
+# ScrollGT 0.9.1 computes the two distance transforms in z slabs with a ceil(radius) halo (#339). The sync test
+# compares the vendored code with ScrollGT's, both slabbed, and skips without a ScrollGT checkout. These tests hold
+# the slabs to the whole-volume transform they replaced, which is what "changes no score" means.
+
+
+def _whole_volume_dilation(instances, radius):
+    """`_dilate_labels` before ScrollGT 0.9.1: one transform over the whole volume."""
+    from scipy import ndimage
+
+    background = instances == 0
+    distance, (iz, iy, ix) = ndimage.distance_transform_edt(
+        background, return_indices=True
+    )
+    out = instances.copy()
+    grow = background & (distance <= radius)
+    out[grow] = instances[iz[grow], iy[grow], ix[grow]]
+    return out
+
+
+def _slab_test_labels(seed):
+    """Labels in the middle slabs, with ties straddling their boundaries, and one in the last slice. The first slab
+    and its halo are empty: SciPy measures an all-background window to an outside (-1, 0, 0) seed, whose index
+    would wrap to that last-slice label."""
+    from vesuvius_autoresearch.fibers import eval_trace as ev
+
+    block = ev._EDT_BLOCK_DEPTH
+    rng = np.random.default_rng(seed)
+    labels = np.zeros((4 * block + 7, 9, 9), np.int32)
+    part = labels[2 * block : 3 * block]
+    hit = rng.random(part.shape) < 0.02
+    part[hit] = rng.integers(1, 5, int(hit.sum()))
+    for b in (2 * block, 3 * block):
+        labels[b - 2, 4, 4], labels[b + 2, 4, 4] = 5, 6
+        labels[b - 3, 2, 6], labels[b + 1, 6, 2] = 7, 8
+    labels[-1, 0, 0] = 9
+    return labels
+
+
+@pytest.mark.parametrize("radius", [0.5, 1.0, 2.0, 2.5, 4.0, 70.0])
+def test_slab_distance_transforms_equal_the_whole_volume_transform(radius):
+    from scipy import ndimage
+
+    from vesuvius_autoresearch.fibers import eval_trace as ev
+
+    labels = _slab_test_labels(int(10 * radius))
+    np.testing.assert_array_equal(
+        ev._dilate_labels(labels, radius), _whole_volume_dilation(labels, radius)
+    )
+    gt = labels > 0
+    near = np.zeros(gt.shape, bool)
+    for slab, distance, _ in ev._distance_blocks(~gt, radius):
+        near[slab] = distance <= radius
+    np.testing.assert_array_equal(near, ndimage.distance_transform_edt(~gt) <= radius)
+
+
+@pytest.mark.parametrize("tolerance", [1.0, 2.0, 4.0])
+def test_slab_scores_equal_whole_volume_scores(monkeypatch, tolerance):
+    from vesuvius_autoresearch.fibers import eval_trace as ev
+
+    depth = 4 * ev._EDT_BLOCK_DEPTH + 7
+    n = depth - 4
+    fibers = []
+    for fid, (y, x) in enumerate([(3, 3), (3, 9), (9, 6)], start=1):
+        coords = np.stack(
+            [np.linspace(2, depth - 3, n), np.full(n, y, float), np.full(n, x, float)],
+            axis=1,
+        )
+        edges = np.array([[i, i + 1] for i in range(n - 1)], dtype=np.int64)
+        fibers.append(
+            Fiber(
+                id=fid,
+                name=f"f{fid}",
+                node_ids=np.arange(n),
+                coords=coords,
+                edges=edges,
+            )
+        )
+    gt = Skeleton(fibers=fibers, scale_um=(7.91,) * 3, origin_zyx=(0, 0, 0))
+    rng = np.random.default_rng(int(tolerance))
+    inst = np.zeros((depth, 13, 13), np.int32)
+    for fid, (y, x) in enumerate([(3, 3), (3, 9), (9, 6)], start=1):
+        for z in range(2, depth - 3):
+            if rng.random() < 0.9:
+                dy, dx = rng.integers(-1, 2, 2)
+                inst[z, y + dy, x + dx] = fid + 3 * int(z // 50)
+    inst[rng.random(inst.shape) < 0.002] = 99
+    slab = ev.score_tracing(gt, inst, tolerance=tolerance).as_row()
+    monkeypatch.setattr(ev, "_EDT_BLOCK_DEPTH", depth)
+    assert ev.score_tracing(gt, inst, tolerance=tolerance).as_row() == slab
+
+
+def test_precision_counts_a_voxel_exactly_at_the_tolerance():
+    """A predicted voxel exactly `tolerance` from the reference is on it (`<=`, as ScrollGT counts)."""
+    gt = Skeleton(
+        fibers=[_straight_fiber(1, 16, 8, 5, 45)],
+        scale_um=(7.91, 7.91, 7.91),
+        origin_zyx=(0, 0, 0),
+    )
+    inst = np.zeros(SHAPE, np.int32)
+    inst[16, 10, 6:45] = 1  # two voxels from the fiber's interior
+    assert score_tracing(gt, inst, tolerance=2.0).as_row()["precision"] == 1.0
+    assert score_tracing(gt, inst, tolerance=1.9).as_row()["precision"] == 0.0
