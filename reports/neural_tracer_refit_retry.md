@@ -2,7 +2,9 @@ Finding 104: villa's refit retry at confidence stops raises held-out ERLpen by a
 
 The result of `docs/preregistration/2026-11-02_neural_tracer_refit_retry.md`, registered at f7145c5d (PR #330) before
 any arm was traced. Traced 2026-11-03 13:15–14:38 PST with the autoresearch loop stopped, from the registration
-commit; scored on the CPU afterwards with ScrollGT 6d05d642 (scoring version 3). Villa `ccb431818`,
+commit (the wrapper that stopped the loop, ran both registered chains and restarted it:
+`reports/evidence/gpu_window_2026-11-03_wrapper_script.txt`, its log `reports/evidence/gpu_window_2026-11-03_wrapper.txt`);
+scored on the CPU afterwards with ScrollGT 6d05d642 (scoring version 3). Villa `ccb431818`,
 `scrollprize/fiber_single_small` at 4511825, findings 97 and 98's inputs and command. Results:
 `reports/neural_tracer_refit_retry.json`.
 
