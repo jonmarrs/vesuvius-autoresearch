@@ -1,0 +1,80 @@
+# November 2026 Progress Prize — DRAFT (started 2026-11-05; not submitted)
+
+**The November round opened 2026-11-05 03:54 UTC (2026-11-04 Pacific)** with villa
+[#2301](https://github.com/ScrollPrize/villa/pull/2301) (merge `9c343a164`):
+* **deadline 11:59pm Pacific, November 30th, 2026**;
+* form `https://docs.google.com/forms/d/e/1FAIpQLSeB6MC_--4UCCEGc3zalX57-uE4puRcE_vJoYJCrEt4uYaaaw/viewform`.
+
+`scripts/check_prize_form_rollover.py` passed on 2026-11-05 at 14:41 UTC: the form is titled “November 2026 Progress
+Prizes”, answers HTTP 200 and accepts responses
+([record](../reports/evidence/november_form_rollover_2026-11-05.json)). Read the same day, it asks what October's
+did: full name, team description, an optional Discord display name, the URL list (required), "What is your
+contribution?" with the same four parts (required), and the terms. These personal fields and consent are the owner's.
+
+**For pasting, open this file. Never copy from terminal output.** In September a terminal-wrapped line clipped
+"#1780" to "#17".
+
+## The criteria changed the day the round opened
+
+villa [#2450](https://github.com/ScrollPrize/villa/pull/2450) (`aa8784bff`, merged by @pmh47 at 03:52 UTC on
+2026-11-05, two minutes before the rollover) rewrote the Progress section of `scrollprize.org/docs/34_prizes.md`:
+
+* **Added:** “We discourage standalone analytic, auditing or evaluation tools, and instead encourage work that directly
+  **advances unwrapping or ink detection**.”
+* **Added to the bug-fix bullet:** “Fixes for issues that are theoretically wrong but rarely or never cause problems in
+  practice are unlikely to be awarded.”
+* **Removed:** the bullet that asked submissions to “Reveal **insightful, actionable** information”, which credited
+  analytic tools that “facilitated improvements to unwrapping or ink detection”.
+* **Changed:** the bundling example is now “improvements to tooling”, where it was “several bugfix PRs on our
+  [villa](https://github.com/ScrollPrize/villa) monorepo”.
+
+The same commit removed “This is why better diagnostics matter just as much as better models” from the open-problems
+page.
+
+What this means here:
+* **ScrollGT, inkdelta and inkagree are standalone evaluation tools,** the kind now discouraged. Cite one only where it
+  changed what an unwrapping or ink-detection tool produces.
+* **Each fix needs a case where it bites in practice:** a real workflow it broke or degraded, and how often.
+* **villa #2258, the only November merge so far, is weak under the new sentence.** By its own description the default
+  64-voxel seed spacing is unchanged, and it “does not establish a quality improvement”. At a fractional spacing of
+  52.73 voxels the seed counts change 1589 → 1590, 11213 → 11175 and 1154 → 1151 on masks from Scrolls 1, 3 and 5,
+  at most 0.34% ([record](../reports/villa_fractional_plane_spacing_2026-10-20.json)). It belongs in a bundle, not at
+  its head.
+
+## Merged in November
+
+* [villa #2258](https://github.com/ScrollPrize/villa/pull/2258) (merged 2026-11-01 Pacific; `2026-11-01T14:56:47Z`,
+  by @bruniss, [merge commit](https://github.com/ScrollPrize/villa/commit/bf4392a328f293b8e11d0c95083bae731ef7fd08)):
+  fiber volume, keep fractional seed planes on the global grid. It merged after October's deadline (2026-11-01 06:59
+  UTC), so it is November's.
+
+## Queued, not posted
+
+* **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)). Before it can be posted: rebase onto villa
+  main (#2440 moved the code around it), rewrite its villa test for the four-argument `ct_seed_heading`, build
+  `vc_reader` and `vc_object_store` for that commit, re-run the two Scroll-5 cubes on the GPU, and add the owner's
+  paragraph. Its case in practice is finding 100's two held-out Scroll-5 cubes (sheet coverage ×1.20 and ×1.43). Finding
+  103 found no unseen cube that skipped 20% of its seed dots: the most was 0.167, which gained 1.040×. The post has
+  to say how often the skip occurs.
+
+## Filing-day checklist
+
+1. Re-read the **whole** Progress section at current upstream: deadline, form and criteria. They changed on 2026-11-05
+   (#2450) and mid-month in September.
+2. Run the rollover check. Exit 1 means stop. If December's rollover has merged, file at the November form above.
+
+   ```sh
+   python3 scripts/check_prize_form_rollover.py \
+     --form https://docs.google.com/forms/d/e/1FAIpQLSeB6MC_--4UCCEGc3zalX57-uE4puRcE_vJoYJCrEt4uYaaaw/viewform \
+     --expected-title 'November 2026 Progress Prizes'
+   ```
+3. List every villa PR of ours merged in November in the URL field and in "Merged in November", each with its
+   "(merged YYYY-MM-DD Pacific)" date, then run
+   `scripts/check_filing_upstream_claims.py --month 2026-11 --filing docs/PRIZE_FILING_2026-11_DRAFT.md`; it must pass.
+4. For each item, state the measured before → after on real data and how often the problem occurs.
+
+## URL field
+
+```text
+https://github.com/ScrollPrize/villa/pull/2258
+```
