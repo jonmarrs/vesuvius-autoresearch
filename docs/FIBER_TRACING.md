@@ -247,6 +247,21 @@ steps, and **abstains** rather than guessing: every walk records why it stopped
 than merging in. `relink_fragments()` then joins collinear fragment endpoints across short gaps,
 filling the gap geometry so the join is a real connection rather than a shared id.
 
+Current walks validate each destination before recording or claiming its point.
+A destination whose nearest-neighbor orientation is masked invalid, zero or
+nonfinite stops with `invalid_direction`, including during coasting and on the
+last allowed step. Existing collision and low-response checks retain their
+precedence. A nonfinite seed direction is skipped instead of crashing the walk.
+This checks the emitted samples; it does not certify every point along the
+continuous segment for arbitrary step sizes.
+
+New benchmark JSON records `tracing_recipe.walk_version = 2`. Historical reports
+without that field used the previous destination policy and retain their
+original measurements. Endpoints, claimed voxels and subsequent seed choices can
+change with this correction; past tracing scores need a fresh run before they
+can describe current code. The change enforces the tracer's abstention contract
+and does not establish better connectivity or reading quality.
+
 Two implementation notes that cost real debugging time and are easy to repeat:
 
 1. **Orientation must come from the probability field, not raw CT.** The Hessian of noisy CT gives

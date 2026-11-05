@@ -423,6 +423,7 @@ def cmd_trace(args) -> int:
         hessian,
     )
     from vesuvius_autoresearch.fibers.trace import (
+        WALK_VERSION,
         RelinkParams,
         TraceParams,
         relink_fragments,
@@ -512,6 +513,7 @@ def cmd_trace(args) -> int:
                 if relink_params is not None
                 else None,
                 "tracing_recipe": {
+                    "walk_version": WALK_VERSION,
                     "detect_block": args.detect_block,
                     "orientation": {
                         "source": "fiber_probability",
