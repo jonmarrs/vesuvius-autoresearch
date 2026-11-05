@@ -22,7 +22,7 @@ from vesuvius_autoresearch.fibers import eval_trace as ours
 from vesuvius_autoresearch.fibers.skeleton_io import Fiber, Skeleton
 
 SCROLLGT = main_checkout().parent / "scrollgt" / "src" / "scrollgt" / "fibers"
-VENDORED = ("ConnectivityScores", "_dilate_labels", "_edge_walk", "_resample_fiber", "_runs_along_fiber",
+VENDORED = ("ConnectivityScores", "_distance_blocks", "_dilate_labels", "_edge_walk", "_resample_fiber", "_runs_along_fiber",
             "_fiber_runs", "floor_single_instance", "floor_voxel_instances", "floor_connected_components",
             "floor_random_instances", "oracle_from_skeleton")  # fmt: skip
 
@@ -101,3 +101,8 @@ def test_scores_are_identical_to_scrollgts_on_a_branched_fiber():
     b = theirs.score_tracing(Skeleton([f]), inst, tolerance=1.0).as_row()
     a.pop("scoring_version"), b.pop("scoring_version")
     assert a == b
+
+
+def test_the_distance_transform_slab_depth_is_scrollgts():
+    """_distance_blocks reads it; the source comparison above covers functions and classes only."""
+    assert ours._EDT_BLOCK_DEPTH == _scrollgt_module()._EDT_BLOCK_DEPTH
