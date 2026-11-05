@@ -105,3 +105,22 @@ assert swapped == [True]
     )
     assert result.returncode == 0, result.stderr
     assert stat.S_ISFIFO(path.stat().st_mode)
+
+
+def test_the_descriptor_size_is_checked_before_any_bytes_are_read(
+    tmp_path, monkeypatch
+):
+    """The descriptor's size refuses an oversized file before reading. Here `fstat` reports one byte over the limit
+    while the file's bytes would fit, so only that size check can refuse it; the read-length check cannot."""
+    path = tmp_path / "source.txt"
+    path.write_bytes(b"small")
+    fstat = os.fstat
+
+    def oversized(descriptor):
+        info = list(fstat(descriptor))
+        info[stat.ST_SIZE] = 6
+        return os.stat_result(info)
+
+    monkeypatch.setattr(os, "fstat", oversized)
+    with pytest.raises(ValueError, match="exceeds 5 bytes"):
+        Snapshot.read(path, 5)

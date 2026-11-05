@@ -43,7 +43,7 @@ only the eigenvalue routine; all other formula and zero-mask behavior stays fixe
 
 The candidate has zero robust sign disagreements on the synthetic sample. Both
 solvers have **zero sign or tube-gate disagreements on this public CT crop**.
-The old public-CT vesselness error is at most 1.0904e-8; version 2 is within
+The old public-CT vesselness error is at most 1.0903e-8; version 2 is within
 1.3184e-15. These small real-data differences support a precision correction,
 not a claim that detection quality improved. No tracing-quality evaluation ran.
 

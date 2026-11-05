@@ -36,7 +36,9 @@ def test_distinct_spectra_match_numpy_at_each_scale(dtype, scale):
     np.testing.assert_array_equal(actual[robust] > 0, reference[robust] > 0)
 
 
-@pytest.mark.parametrize("scale", [1e-150, 1e150])
+# Without the max-component scaling, centering and the cubic still stay finite at 1e±150; the squares of
+# 1e±200 entries overflow or underflow, so only those scales reach the normalization this test is named for.
+@pytest.mark.parametrize("scale", [1e-200, 1e-150, 1e150, 1e200])
 def test_normalization_avoids_intermediate_underflow_and_overflow(scale):
     a = np.array([[1, 0.2, -0.3], [0.2, -2, 0.4], [-0.3, 0.4, 0.5]])
     with np.errstate(all="raise"):
