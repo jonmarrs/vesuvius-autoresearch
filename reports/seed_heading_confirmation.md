@@ -2,7 +2,9 @@ Finding 103: on ten hand-traced cubes never traced here, no cube skipped 20% of 
 
 The result of `docs/preregistration/2026-11-02_seed_heading_confirmation.md`, registered at f7145c5d (PR #330) before
 any cube was traced. Traced 2026-11-03 12:32–13:15 PST with the autoresearch loop stopped, from the registration
-commit; scored on the CPU afterwards with ScrollGT 6d05d642 (scoring version 3). Villa `39a8cf3a`,
+commit (the wrapper that stopped the loop, ran both registered chains and restarted it:
+`reports/evidence/gpu_window_2026-11-03_wrapper_script.txt`, its log `reports/evidence/gpu_window_2026-11-03_wrapper.txt`);
+scored on the CPU afterwards with ScrollGT 6d05d642 (scoring version 3). Villa `39a8cf3a`,
 `scrollprize/fiber_single_small` at its defaults, finding 97's protocol. Every NML and image matched its registered
 SHA-256 (`data_sha256` in the JSON). Results: `reports/seed_heading_confirmation.json`.
 

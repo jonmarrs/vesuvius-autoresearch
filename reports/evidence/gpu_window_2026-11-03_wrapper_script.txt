@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Owner-approved 2026-11-03: one pause of the autoresearch loop for the GPU work, then the loop pull, then restart.
+#  1. wait for the seed-heading fetch to finish with all ten cores equal (else stop here: the loop is never paused)
+#  2. wait for a loop cycle to start, then stop.sh; go on only if loop_control says nothing runs (status 1)
+#  3. the seed-heading confirmation chain, from the registration commit (#330)
+#  4. the refit-retry pilot chain, from the same commit
+#  5. the villa-main re-check of the seed-heading draft, only if villa main's vc_object_store has been built (DRY_RUN first)
+#  6. the loop pull of main 9f538308, only if HEAD, the dry-run tree and the local files are as checked
+#  7. start.sh, whatever happened in 3-6
+set -uo pipefail
+L=/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch
+REPO=$L/.claude/worktrees/register/gpu-runs-2026-11-03
+REG=f7145c5dac7e16250b986a4d51e9039fd111e68f
+T=/home/jon/openclaw-workspace/Neo-VM/spiral_out/neural_tracer
+WSH=$T/seed_heading_confirmation
+WRAPLOG=/tmp/claude-1000/-home-jon-openclaw-workspace-Neo-VM-projects-vesuvius-autoresearch/12e76052-5910-4b2b-a9b8-330f66b5cae5/scratchpad/gpu_window.log
+OUT=$L/autoresearch.out
+PAT='^Running .*-minute training for '
+LOOP_HEAD=191da32ebde0da514ab93a48ffeaf5cff3ad6556
+PULL_SHA=9f5383087529984586f10f0c82734346494ca1dd
+PULL_TREE=ced3223702c30cd4350da29fee9ad1f8fed0d974
+MSG=/tmp/claude-1000/-home-jon-openclaw-workspace-Neo-VM-projects-vesuvius-autoresearch/12e76052-5910-4b2b-a9b8-330f66b5cae5/scratchpad/loop_pull_msg.txt
+VILLA_GIT=/home/jon/openclaw-workspace/Neo-VM/projects/villa-current-39a8cf3a
+VILLA_MAIN=deb1b6953d6725966c57bfe40feddbcd14644858
+VC_MAIN=/home/jon/openclaw-workspace/Neo-VM/projects/villa-build-shims/site-vc-object-store-deb1b6953
+ts() { date '+%F %T'; }
+say() { echo "$(ts) $*" >> "$WRAPLOG"; }
+[ "$(git -C "$REPO" rev-parse HEAD)" = "$REG" ] && [ -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" ] \
+  || { say "ABORT $REPO is not the clean registration commit"; exit 3; }
+say "WAIT for the fetch to finish"
+while :; do
+  busy=0
+  for p in /proc/[0-9]*; do
+    case "$(tr '\0' ' ' < "$p/cmdline" 2>/dev/null)" in *"seed_heading_confirmation.py fetch"*) busy=1 ;; esac
+  done
+  [ $busy = 0 ] && break
+  sleep 30
+done
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if len(d) == 10 and all(r["core_equals_dataset004"] for r in d.values()) else 1)' "$WSH/prepared.json" \
+  || { say "ABORT the fetch did not prepare all ten cores; the loop was not paused"; exit 3; }
+say "fetch done: ten cores equal Dataset004's images"
+n=$(grep -c "$PAT" "$OUT")
+say "WAIT for a loop cycle to start after $n"
+while :; do
+  sleep 5
+  m=$(grep -c "$PAT" "$OUT")
+  [ "$m" -gt "$n" ] && break
+done
+say "cycle started: $(grep "$PAT" "$OUT" | tail -1)"
+bash "$L/stop.sh" >> "$WRAPLOG" 2>&1
+say "stop.sh rc=$?"
+"$L/.venv/bin/python" "$L/scripts/loop_control.py" status --repo "$L" > /dev/null 2>&1
+st=$?
+say "loop_control status rc=$st"
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader >> "$WRAPLOG" 2>&1
+if [ $st = 1 ]; then
+  REPO=$REPO bash "$REPO/repro/fibers/run_seed_heading_confirmation_chain.sh" >> "$WRAPLOG" 2>&1 < /dev/null
+  say "seed-heading confirmation chain rc=$?"
+  REPO=$REPO bash "$REPO/repro/fibers/run_neural_tracer_refit_retry_chain.sh" >> "$WRAPLOG" 2>&1 < /dev/null
+  say "refit-retry pilot chain rc=$?"
+  # The owner's build writes a wheel; its files are the site the chain imports vc_object_store from.
+  WHL=$(ls /home/jon/openclaw-workspace/Neo-VM/projects/villa-build-shims/wheel-deb1b6953/vc_object_store-*.whl 2>/dev/null | head -1)
+  if [ ! -e "$VC_MAIN" ] && [ -n "$WHL" ]; then
+    mkdir -p "$VC_MAIN" && python3 -m zipfile -e "$WHL" "$VC_MAIN" && say "unpacked $WHL into $VC_MAIN"
+  fi
+  if [ -d "$VC_MAIN/vc_object_store" ]; then
+    VILLA_GIT=$VILLA_GIT VILLA_SHA=$VILLA_MAIN VC_SITE=$VC_MAIN REPO=$REPO DRY_RUN=1 \
+      bash "$REPO/repro/fibers/run_villa_seed_heading_rerun.sh" >> "$WRAPLOG" 2>&1 < /dev/null
+    rc=$?
+    say "villa-main re-check dry run rc=$rc"
+    if [ $rc = 0 ]; then
+      VILLA_GIT=$VILLA_GIT VILLA_SHA=$VILLA_MAIN VC_SITE=$VC_MAIN REPO=$REPO \
+        bash "$REPO/repro/fibers/run_villa_seed_heading_rerun.sh" >> "$WRAPLOG" 2>&1 < /dev/null
+      say "villa-main re-check rc=$?"
+    fi
+  else
+    say "SKIP the villa-main re-check: no vc_object_store built for villa ${VILLA_MAIN:0:9}"
+  fi
+  if [ "$(git -C "$L" rev-parse HEAD)" != "$LOOP_HEAD" ]; then
+    say "SKIP the pull: the loop checkout's HEAD moved"
+  elif [ "$(git -C "$L" merge-tree --write-tree HEAD "$PULL_SHA" 2>/dev/null | head -1)" != "$PULL_TREE" ]; then
+    say "SKIP the pull: its dry-run tree differs from the one checked"
+  else
+    before=$(git -C "$L" status --porcelain | sort)
+    if git -C "$L" merge --no-ff -q -F "$MSG" "$PULL_SHA" >> "$WRAPLOG" 2>&1; then
+      say "pulled: HEAD $(git -C "$L" rev-parse --short HEAD), tree $(git -C "$L" rev-parse 'HEAD^{tree}')"
+      [ "$(git -C "$L" rev-parse 'HEAD^{tree}')" = "$PULL_TREE" ] && say "pull: tree == dry run" || say "pull: TREE DIFFERS from the dry run"
+      [ "$(git -C "$L" status --porcelain | sort)" = "$before" ] && say "pull: local files unchanged" || say "pull: LOCAL FILES CHANGED"
+    else
+      say "pull: git merge refused or failed; HEAD $(git -C "$L" rev-parse --short HEAD)"
+    fi
+  fi
+else
+  say "SKIP the GPU work and the pull: loop_control does not say the loop stopped"
+fi
+bash "$L/start.sh" >> "$WRAPLOG" 2>&1
+say "start.sh rc=$?"
+say "WRAPPER_DONE"

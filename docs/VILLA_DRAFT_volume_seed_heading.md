@@ -77,6 +77,19 @@ below says only what that decision allows.
    - The follow-up patch's resume tests at `39a8cf3a` give the October 26 counts
      (`reports/evidence/villa_volume_seed_resume_tests_39a8cf3a.txt`).
 
+   **Changed again: villa #2440 (`baf5e605b`) moved the tracer's CT reading to the native `vc_reader`.** Checked
+   2026-11-04 at villa main `2d4067b52`, without running anything:
+   - The seed-heading patch no longer applies. `_seed_heading` now calls `ct_seed_heading(_WORKER_CT, _WORKER_SPEC,
+     ...)`, which changes the hunk's context. The 35° test the patch removes is unchanged, so the behaviour it fixes is
+     still on main.
+   - The patch's villa test stubs `ct_seed_heading` with three arguments, `(vol, xyz, family)`. At main it is called
+     with four, `(ct, spec, xyz, family)`, so the test needs rewriting with the patch. The resume patch still applies
+     on its own.
+   - `tile_dots` now smooths presence with `vc_reader`'s `GaussianBlur` instead of `ndimage.gaussian_filter`, so the
+     seed dots may differ from `39a8cf3a`'s. The GPU re-run is due again.
+   - Importing `tracing/volume.py` loads `vc_reader` directly and `vc_object_store` through `volume_store` and
+     `fiber_store`. Neither is built for this commit here, so villa's tests and the re-run wait for both builds.
+
    Inspect an existing work directory without running traces or loading arrays:
 
    ```sh
