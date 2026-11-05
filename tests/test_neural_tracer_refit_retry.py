@@ -344,6 +344,32 @@ def test_score_rescores_the_baseline_and_voids_on_a_difference(tmp_path, monkeyp
     assert set(got["baseline_reproduced"]) == set(rr.ALL_CUBES)
 
 
+def test_a_baseline_that_drifts_only_at_tolerance_4_voids_the_comparison(tmp_path, monkeypatch):  # fmt: skip
+    """The registration requires every baseline row to reproduce at both tolerances. Dropping the tolerance-4
+    comparison passed every other test."""
+    row2 = {"coverage": 0.5, "precision": 0.5, "erl_merge_penalized": 10.0, "merges": 3}
+    row4 = dict(row2, coverage=0.6)
+
+    def score_tracing(skel, lab, tolerance):
+        now = row2 if tolerance == 2.0 else dict(row4, coverage=0.61)
+        return types.SimpleNamespace(as_row=lambda now=now: dict(now))
+
+    monkeypatch.setitem(sys.modules, "scrollgt.fibers.eval_trace",
+                        types.SimpleNamespace(SCORING_VERSION=3, score_tracing=score_tracing))  # fmt: skip
+    monkeypatch.setitem(sys.modules, "scrollgt.fibers.target",
+                        types.SimpleNamespace(load_fiber_target=lambda p: (None, None, None)))  # fmt: skip
+    base2, base4 = ({c: dict(r) for c in rr.ALL_CUBES} for r in (row2, row4))
+    monkeypatch.setattr(rr.sh, "baseline", lambda: (base2, base4, {}))
+    monkeypatch.setattr(rr.cc, "labels_in_cube", lambda *a: None)
+    monkeypatch.setattr(rr, "ceiling_gains", lambda: {c: 0.3 for c in rr.ALL_CUBES})
+    monkeypatch.setattr(rr, "run_record", lambda run: {})
+    out = tmp_path / "result.json"
+    assert rr.cmd_score(tmp_path, out) == 1
+    got = json.loads(out.read_text())
+    assert got["status"] == "BASELINE_DRIFT"
+    assert not any(got["baseline_reproduced"].values())
+
+
 def test_the_smoke_must_record_the_retry_off():
     """The manipulation check covers the smoke: it runs through the launcher's villa arm."""
     for in_effect, want in ((False, "OK"), (True, "MANIPULATION_FAILED"), (None, "MANIPULATION_FAILED")):  # fmt: skip
