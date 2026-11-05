@@ -96,10 +96,29 @@ the staging name. A failed prediction removes staging and preserves an existing
 output; newly created parent directories may remain. Later serialization and
 publication can still fail if space or permissions change.
 
-Evaluation and measurement still score the original fragment mask, including
-uncovered zero-filled pixels. They now receive the inference warning but their
-metric formulas, scorecard schema and denominator remain unchanged. This
-feature does not revise published results or establish an accuracy improvement.
+Evaluation and measurement use the fragment mask captured during inference and
+load only ink labels afterward. They no longer decode the CT stack a second time
+to obtain annotations. Labels must match the original prediction dimensions.
+Their default metric formulas and denominator remain unchanged, including
+uncovered zero-filled pixels. New reports record `prediction_coverage` counts;
+this does not revise published results or establish an accuracy improvement.
+
+Both commands also accept `--require-full-coverage`:
+
+```sh
+uv run python -m vesuvius_autoresearch.detector.cli eval \
+  --config detector_config.json --checkpoint /path/to/detector.ckpt \
+  --fragment PHercParis2Fr143 --require-full-coverage
+
+uv run python -m vesuvius_autoresearch.detector.cli measure \
+  --config detector_config.json --checkpoint /path/to/detector.ckpt \
+  --same PHercParis2Fr143 --cross 20230702185753 --require-full-coverage
+```
+
+Strict evaluation fails before report publication and preserves the previous
+report. Strict measurement records the uncovered target as a failure, continues
+with other targets and exits nonzero. Neither option adds windows or scores a
+covered-only subset. See [coverage and input protection](DETECTOR_REPORTS.md#coverage-and-scoring-inputs).
 
 ## Checkpoint compatibility
 

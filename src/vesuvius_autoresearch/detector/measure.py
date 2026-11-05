@@ -9,8 +9,9 @@ import numpy as np
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 from vesuvius_autoresearch.core.report_artifacts import publish_report, report_output
 
-from .data import read_image_mask
+from .data import read_ink_label
 from .infer import infer
+from .prediction import evaluation_inputs
 from .scoring import score_prediction
 
 _COLS = [
@@ -25,8 +26,37 @@ _COLS = [
 ]
 
 
-def measure(cfg, checkpoint_path, targets, model=None):
+def _score_target(cfg, checkpoint_path, fragment_id, model, require_full_coverage):
+    # Keep full-resolution arrays local to one target. Only the compact metric
+    # row survives into the next inference, including when a target raises.
+    result = infer(
+        cfg,
+        checkpoint_path,
+        fragment_id,
+        model=model,
+        return_details=True,
+        require_full_coverage=require_full_coverage,
+    )
+    label = read_ink_label(cfg, fragment_id, result.probability.shape)
+    row = score_prediction(
+        result.probability, label, result.fragment_mask, coverage=result.coverage
+    )
+    row.pop("metrics_by_threshold", None)
+    return row
+
+
+def measure(
+    cfg,
+    checkpoint_path,
+    targets,
+    model=None,
+    *,
+    config_path=None,
+    require_full_coverage=False,
+):
     targets = list(targets)
+    if not isinstance(require_full_coverage, bool):
+        raise ValueError("require_full_coverage must be a boolean")
     seen = set()
     if not targets:
         raise ValueError("measurement requires at least one target")
@@ -44,21 +74,21 @@ def measure(cfg, checkpoint_path, targets, model=None):
         cfg.reports_dir,
         "cross_scroll_measurement_manifest.json",
         "cross_scroll_measurement",
-        inputs=() if checkpoint_path is None else (checkpoint_path,),
+        inputs=evaluation_inputs(
+            cfg, checkpoint_path, (fid for fid, _ in targets), config_path
+        ),
     )
     rows = {}
     for fragment_id, scroll_label in targets:
         try:
-            prob = infer(cfg, checkpoint_path, fragment_id, model=model)
-            _, label, mask = read_image_mask(cfg, fragment_id)
-            h, w = label.shape
-            m = score_prediction(prob[:h, :w], label, mask[:h, :w])
-            m.pop("metrics_by_threshold", None)
+            m = _score_target(
+                cfg, checkpoint_path, fragment_id, model, require_full_coverage
+            )
             m["scroll_label"] = scroll_label
             rows[fragment_id] = m
         except Exception as exc:  # keep going; record the failure
             rows[fragment_id] = {"scroll_label": scroll_label, "error": str(exc)}
-    _write_report(cfg, checkpoint_path, rows)
+    _write_report(cfg, checkpoint_path, rows, config_path=config_path)
     return rows
 
 
@@ -77,14 +107,16 @@ def _fmt(v):
     )
 
 
-def _write_report(cfg, checkpoint_path, rows):
+def _write_report(cfg, checkpoint_path, rows, *, config_path=None):
     lines = [
         "# Cross-Scroll Measurement",
         "",
         f"Checkpoint: `{checkpoint_path}`",
         "",
-        "| fragment | scroll | " + " | ".join(_COLS) + " |",
-        "|---|---|" + "|".join(["---"] * len(_COLS)) + "|",
+        "| fragment | scroll | "
+        + " | ".join([*_COLS, "predicted_pixels", "uncovered_pixels"])
+        + " |",
+        "|---|---|" + "|".join(["---"] * (len(_COLS) + 2)) + "|",
     ]
     for fid, m in rows.items():
         if "error" in m:
@@ -96,6 +128,11 @@ def _write_report(cfg, checkpoint_path, rows):
         lines.append(
             f"| {_cell(fid)} | {_cell(m.get('scroll_label', ''))} | "
             + " | ".join(_fmt(m.get(c, float("nan"))) for c in _COLS)
+            + " | "
+            + " | ".join(
+                str(m.get("prediction_coverage", {}).get(c, "unknown"))
+                for c in ("predicted_pixels", "uncovered_pixels")
+            )
             + " |"
         )
     failed = sum("error" in row for row in rows.values())
@@ -121,5 +158,5 @@ def _write_report(cfg, checkpoint_path, rows):
         "cross_scroll_measurement_manifest.json",
         metadata,
         "cross_scroll_measurement",
-        inputs=() if checkpoint_path is None else (checkpoint_path,),
+        inputs=evaluation_inputs(cfg, checkpoint_path, rows, config_path),
     )

@@ -12,21 +12,34 @@ from vesuvius_autoresearch.core.report_artifacts import publish_report, report_o
 from .scoring import score_prediction
 
 
-def evaluate(prob_map, label, mask, cfg, fragment_id="frag", checkpoint=None):
+def evaluate(
+    prob_map,
+    label,
+    mask,
+    cfg,
+    fragment_id="frag",
+    checkpoint=None,
+    *,
+    coverage=None,
+    inputs=(),
+):
     """Keep legacy filenames/metric aliases; publish the scorecard last.
 
     All files are staged and read back before replacing previous reports. Caught
     publication errors restore the previous generation. Readers/writers must be
     serialized; use check_detector_report.py before trusting report files.
+    Optional coverage records counts without changing the scoring denominator.
+    Include source paths in inputs when protecting array origins on disk.
     """
+    inputs = (*inputs, *(() if checkpoint is None else (checkpoint,)))
     prediction_stem(fragment_id)
     report_output(
         cfg.reports_dir,
         f"{fragment_id}_scorecard.json",
         "detector_evaluation",
-        inputs=() if checkpoint is None else (checkpoint,),
+        inputs=inputs,
     )
-    m = score_prediction(prob_map, label, mask)
+    m = score_prediction(prob_map, label, mask, coverage=coverage)
     by_thr = m.pop("metrics_by_threshold", [])
     card = {"fragment_id": fragment_id, **m, "report_status": "COMPLETE"}
     if checkpoint is not None:
@@ -58,5 +71,5 @@ def evaluate(prob_map, label, mask, cfg, fragment_id="frag", checkpoint=None):
         f"{fragment_id}_scorecard.json",
         card,
         "detector_evaluation",
-        inputs=() if checkpoint is None else (checkpoint,),
+        inputs=inputs,
     )

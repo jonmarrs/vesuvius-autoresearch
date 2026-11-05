@@ -25,7 +25,7 @@ def test_measure_cli_reports_partial_failure(monkeypatch, capsys):
     monkeypatch.setattr(
         module,
         "measure",
-        lambda *args: {
+        lambda *args, **kwargs: {
             "same": {"scroll_label": "same", "val_f1": 0.5},
             "cross": {"scroll_label": "cross", "error": "missing layer 17.tif"},
         },

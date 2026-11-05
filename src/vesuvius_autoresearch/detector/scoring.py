@@ -3,9 +3,10 @@
 import numpy as np
 
 from .metrics import segmentation_metrics
+from .prediction import coverage_summary
 
 
-def score_prediction(prob, label, mask):
+def score_prediction(prob, label, mask, *, coverage=None):
     arrays = [np.asarray(value) for value in (prob, label, mask)]
     for name, array in zip(("probability", "label", "mask"), arrays, strict=True):
         if (
@@ -22,7 +23,14 @@ def score_prediction(prob, label, mask):
         raise ValueError("probabilities and labels must be between 0 and 1")
     if np.any(mask < 0):
         raise ValueError("mask must be nonnegative")
+    summary = (
+        None
+        if coverage is None
+        else coverage_summary(coverage, mask.astype(bool, copy=False))
+    )
     card = segmentation_metrics(prob, label, mask)
     if "note" in card:
         raise ValueError(card["note"])
+    if summary is not None:
+        card["prediction_coverage"] = summary
     return card
