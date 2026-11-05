@@ -42,10 +42,13 @@ reserve resources or launch research work. Training readiness remains unassessed
   passed**, including five-second timeouts on both FIFO reproductions. Two
   additional growth/symlink cases were added afterward; there are **20 new
   cases** in the final modules.
-- Final selection: **388 passed** across 9/172 curated modules: workspace status,
+- Initial compatibility selection: **388 passed** across 9/172 curated modules: workspace status,
   source capture, validation runner, patch datasets, report time/selection,
   experiment reports, ranked inference planning, label edits and SOTA downloads.
   This exercises existing callers of the changed shared reader.
+- After incorporating current main at `da4d1e82`, the final expanded selection
+  passed **464 tests** across 10/173 modules. It also includes the upstream
+  streaming-storage guards, and verifies that both registry additions coexist.
 - CPU smoke: **8 passed, 3 skipped, 0 failed**. The skips are two absent local
   data inputs and the unavailable legacy augmentation entry point.
 - Ruff check/format and scoped Mypy pass on the five changed Python files.
