@@ -249,6 +249,13 @@ recipe. Earlier configuration fields advertised different values but were
 ignored; explicit overrides now affect training. See the
 [detector workflow guide](docs/DETECTOR_WORKFLOW.md) for these contracts.
 
+Training checks selected CT files for aliases across fragments before decoding
+images. For a development run, `detector.cli train` accepts `--max-epochs 1
+--limit-batches 2`; saved checkpoints record the effective limits. These caps
+bound training/validation batches, not initial data-loading memory. See
+[training inputs and development budgets](docs/DETECTOR_WORKFLOW.md#training-inputs-and-development-budgets)
+for split-check limits and the full CLI example.
+
 Predict a converted fragment with layers and a fragment mask; ink labels are optional:
 
 ```bash

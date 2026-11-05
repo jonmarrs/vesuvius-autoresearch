@@ -16,6 +16,16 @@ def assert_auc(scorecard, target=0.70):
         raise AssertionError(f"pixel_auc {auc:.4f} below target {target:.2f}")
 
 
+def _positive_count(value):
+    try:
+        count = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if count < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return count
+
+
 def _eval_fragment(cfg, ckpt, fragment_id):
     from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
     from vesuvius_autoresearch.core.report_artifacts import report_output
@@ -120,7 +130,17 @@ def main(argv=None):
     p_eval = sub.add_parser("eval", parents=[common])
     p_eval.add_argument("--checkpoint", required=True)
     p_eval.add_argument("--fragment", required=True)
-    sub.add_parser("train", parents=[common])
+    p_train = sub.add_parser("train", parents=[common])
+    p_train.add_argument(
+        "--max-epochs",
+        type=_positive_count,
+        help="override the configured epoch budget",
+    )
+    p_train.add_argument(
+        "--limit-batches",
+        type=_positive_count,
+        help="cap both training and validation batches per epoch (development runs)",
+    )
     p_infer = sub.add_parser("infer", parents=[common])
     p_infer.add_argument("--checkpoint", required=True)
     p_infer.add_argument("--fragment", required=True)
@@ -180,7 +200,7 @@ def main(argv=None):
     elif args.cmd == "train":
         from .train import train
 
-        print(train(cfg))
+        print(train(cfg, max_epochs=args.max_epochs, limit_batches=args.limit_batches))
     elif args.cmd == "eval":
         print(_eval_fragment(cfg, args.checkpoint, args.fragment))
     elif args.cmd == "infer":

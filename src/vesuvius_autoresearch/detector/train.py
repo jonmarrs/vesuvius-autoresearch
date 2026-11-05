@@ -1,7 +1,9 @@
 """Training entry point for the TimeSformer detector. Proven recipe: warmup+cosine,
 16-mixed precision, grad-clip 1.0, checkpoint on train loss."""
 
+import math
 import os
+from dataclasses import replace
 
 import pytorch_lightning as pl
 import torch
@@ -74,6 +76,23 @@ def train(cfg, max_epochs=None, limit_batches=None):
 
 def _train(cfg, max_epochs=None, limit_batches=None):
     cfg.validate()
+    if max_epochs is None:
+        max_epochs = cfg.epochs
+    if type(max_epochs) is not int or max_epochs < 1:
+        raise ValueError("max_epochs must be a positive integer or None")
+    if limit_batches is not None and not (
+        (type(limit_batches) is int and limit_batches > 0)
+        or (
+            type(limit_batches) is float
+            and math.isfinite(limit_batches)
+            and 0 < limit_batches <= 1
+        )
+    ):
+        raise ValueError(
+            "limit_batches must be a positive integer, a fraction in (0, 1], or None"
+        )
+    # Record the effective epoch budget without mutating the caller's config.
+    cfg = replace(cfg, epochs=max_epochs)
     pl.seed_everything(cfg.seed, workers=True)
     os.makedirs(cfg.model_dir, exist_ok=True)
     train_ds, valid_ds, _, pred_shape = build_datasets(cfg)
@@ -109,7 +128,7 @@ def _train(cfg, max_epochs=None, limit_batches=None):
         save_top_k=-1,
     )
     trainer = pl.Trainer(
-        max_epochs=max_epochs or cfg.epochs,
+        max_epochs=max_epochs,
         accelerator="auto",
         devices=1,
         logger=CSVLogger(save_dir=cfg.model_dir, name="logs"),
