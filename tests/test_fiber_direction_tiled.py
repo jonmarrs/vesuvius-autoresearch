@@ -11,6 +11,8 @@ import numpy as np
 import pytest
 
 from vesuvius_autoresearch.fibers.detection import (
+    detect_ridges,
+    detect_ridges_tiled,
     detect_vesselness,
     detect_vesselness_tiled,
     fiber_direction,
@@ -58,3 +60,48 @@ def test_too_small_a_halo_is_refused():
         fiber_direction_tiled(
             _volume((20, 20, 20)), gauss_sigma=2, sigma=3, block_size=8, halo=4
         )
+
+
+@pytest.mark.parametrize(
+    "shape", [(17, 16, 18), (16, 17, 18), (16, 18, 17), (17, 17, 17)]
+)
+@pytest.mark.parametrize("gauss_sigma", [0, 1, 2])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_minimum_halo_matches_dense_at_singleton_boundary_tiles(
+    shape, gauss_sigma, dtype
+):
+    volume = np.random.default_rng(2026).random(shape).astype(dtype)
+    halo = int(4 * gauss_sigma + 0.5) + 2
+    for dense_fn, tiled_fn in (
+        (detect_ridges, detect_ridges_tiled),
+        (detect_vesselness, detect_vesselness_tiled),
+    ):
+        dense = dense_fn(volume.copy(), gauss_sigma=gauss_sigma)
+        tiled = tiled_fn(
+            volume.copy(), block_size=8, halo=halo, gauss_sigma=gauss_sigma
+        )
+        np.testing.assert_array_equal(tiled, dense)
+
+    dense_directions, dense_valid = fiber_direction(
+        hessian(volume.copy(), gauss_sigma=gauss_sigma)[0]
+    )
+    tiled_directions, tiled_valid = fiber_direction_tiled(
+        volume, block_size=8, halo=halo, gauss_sigma=gauss_sigma
+    )
+    np.testing.assert_array_equal(tiled_valid, dense_valid)
+    np.testing.assert_array_equal(tiled_directions, dense_directions)
+
+
+def test_one_voxel_blocks_match_dense_at_both_physical_faces():
+    volume = np.random.default_rng(2026).random((5, 6, 7))
+    dense = detect_vesselness(volume.copy(), gauss_sigma=0)
+    tiled = detect_vesselness_tiled(volume.copy(), block_size=1, halo=2, gauss_sigma=0)
+    np.testing.assert_array_equal(tiled, dense)
+    dense_directions, dense_valid = fiber_direction(
+        hessian(volume.copy(), gauss_sigma=0)[0]
+    )
+    tiled_directions, tiled_valid = fiber_direction_tiled(
+        volume, gauss_sigma=0, block_size=1, halo=2
+    )
+    np.testing.assert_array_equal(tiled_valid, dense_valid)
+    np.testing.assert_array_equal(tiled_directions, dense_directions)

@@ -1,0 +1,90 @@
+{
+  "scope": "Independent CPU numerical correctness review; public CT subcrop, no tracing accuracy/GPU/performance claim",
+  "baseline_commit": "71045374417f5ccf88191af66157745ed49799df",
+  "baseline_detection_sha256": "97a6e87af05a5090542a55ac9bd864ca0ad1a35deab53f6ffaaef5048ce1d5e5",
+  "candidate_source_sha256": {
+    "src/vesuvius_autoresearch/fibers/detection.py": "1c68297cfc119d5f2f33d8fbc070ffb44fbc9e50552551cddf783aa905652288",
+    "src/vesuvius_autoresearch/fibers/streaming.py": "1769919f1009f8a26a59d0459c29bdd816f1b2d402941e6f9a772e750950b2af"
+  },
+  "fixture": "/workspace/villa-november/vesuvius/tests/ink_detection/fixtures/ink_roi_case.npz",
+  "fixture_sha256": "2bd2ef9bfbdd620f1250cda59cf83f2f679cb4a8be9feffefd3e3de32ee503ea",
+  "fixture_metadata": {
+    "case": "PHerc0139-20260317000000-0",
+    "centre_rc": [
+      2368,
+      2752
+    ],
+    "source_CT_urls": [
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/17/20",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/17/21",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/17/22",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/18/20",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/18/21",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/18/22",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/19/20",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/19/21",
+      "https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/PHerc0139/segments/20260317000000-w035_2026031718/surface-volumes/9.362um-1.2m-113keV-volume-20250728140407.zarr/0/0/19/22"
+    ],
+    "model": "scrollprize/ink_9um hybrid_3d2d-seed42/step-075000.pth",
+    "model_sha256": "e635558ae6a1a807a7e5ec1e83adfd45bc3c0ac53883ea43f1d4e085d62a9cab",
+    "CT_shape": [
+      17,
+      80,
+      80
+    ],
+    "source_depth_indices": "6:23",
+    "case_protocol_sha256": "f5a3234ff24968ad4774c7fe60e39be4e357abcf63fbb2aefb34c829f504547f",
+    "fixture_sha256": "2bd2ef9bfbdd620f1250cda59cf83f2f679cb4a8be9feffefd3e3de32ee503ea",
+    "scope": "Small real-scroll regression fixture; primary8-case efficacy remains in the separate full evidence package."
+  },
+  "fixture_slice_zyx": [
+    "0:17",
+    "0:17",
+    "0:17"
+  ],
+  "ct_dtype": "uint8",
+  "ct_shape": [
+    17,
+    17,
+    17
+  ],
+  "ct_c_order_bytes_sha256": "53b95b73ce7e40f29a4b59d5574729976d413c5085716c9b99a9afbf164802cc",
+  "parameters": {
+    "block_size": 8,
+    "minimum_halo": 10,
+    "default_halo_check": 16,
+    "gauss_sigma": 2,
+    "sigma": 6
+  },
+  "runtime": {
+    "python": "3.10.21",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3"
+  },
+  "filter_comparisons": [
+    {
+      "filter": "ridges",
+      "baseline_differing_voxels": 351,
+      "baseline_max_abs_error": 6.804182104225287e-05,
+      "candidate_exact_dense": true,
+      "candidate_stream_exact_float32_dense": true,
+      "default_halo16_unchanged": true
+    },
+    {
+      "filter": "vesselness",
+      "baseline_differing_voxels": 200,
+      "baseline_max_abs_error": 3.323510842988264e-05,
+      "candidate_exact_dense": true,
+      "candidate_stream_exact_float32_dense": true,
+      "default_halo16_unchanged": true
+    }
+  ],
+  "orientation_comparison": {
+    "baseline_differing_components": 2424,
+    "baseline_validity_differing_voxels": 0,
+    "candidate_exact_dense": true,
+    "candidate_validity_exact_dense": true
+  },
+  "fixture_villa_commit": "9c343a16494cf61d72727cbc85dc5e12e8773677",
+  "fixture_repository_path": "vesuvius/tests/ink_detection/fixtures/ink_roi_case.npz"
+}
