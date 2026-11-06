@@ -1,0 +1,114 @@
+diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py
+new file mode 100644
+index 000000000..5de0c0e16
+--- /dev/null
++++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py
+@@ -0,0 +1,21 @@
++import numpy as np
++import pytest
++
++from vesuvius.neural_tracing.tracers.fibers.tracing import volume
++from vesuvius.neural_tracing.tracers.shared.ct_structure import SeedHeadingError
++
++
++@pytest.mark.parametrize('degrees', [0, 34, 36, 60, 89, 91, 120, 179])
++def test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction(monkeypatch, degrees):
++    """As training's oriented_seed_heading: the CT axis, however far the presence direction lies from it."""
++    axis = np.array([1., 0., 0.])
++    monkeypatch.setattr(volume, 'ct_seed_heading', lambda ct, spec, xyz, family: axis)
++    direction = np.array([np.cos(np.radians(degrees)), np.sin(np.radians(degrees)), 0.])
++    np.testing.assert_array_equal(volume._seed_heading((None, 'H', direction)), axis if degrees < 90 else -axis)
++
++
++def test_a_dot_without_a_ct_heading_is_dropped(monkeypatch):
++    def unclear(ct, spec, xyz, family):
++        raise SeedHeadingError('H/V is ambiguous for this sheet orientation')
++    monkeypatch.setattr(volume, 'ct_seed_heading', unclear)
++    assert volume._seed_heading((None, 'H', np.array([1., 0., 0.]))) is None
+diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_resume.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_resume.py
+new file mode 100644
+index 000000000..a46fd0aff
+--- /dev/null
++++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_resume.py
+@@ -0,0 +1,47 @@
++import json
++from types import SimpleNamespace
++
++import pytest
++
++from vesuvius.neural_tracing.tracers.fibers.tracing import volume
++
++
++@pytest.mark.parametrize('saved_selection, compatible', [
++    (None, False),
++    ('ct_axis_35deg_v1', False),
++    ('signed_ct_axis_v1', True),
++])
++def test_resume_requires_the_same_seed_selection(tmp_path, monkeypatch, saved_selection, compatible):
++    """Reject old finished tiles before loading them; a matching run still resumes."""
++    class SettingsAccepted(Exception):
++        pass
++
++    def stop_before_loading_tiles(*args):
++        raise SettingsAccepted
++
++    checkpoint = tmp_path / 'checkpoint.pt'
++    checkpoint.write_bytes(b'fixed checkpoint')
++    monkeypatch.setattr(volume, 'build_tracer', lambda args: (
++        SimpleNamespace(checkpoint_path=checkpoint), SimpleNamespace(shape=(4, 4, 4)),
++        SimpleNamespace(grid_scale=2, input_scale=1, ct_zarr='fixed-ct'), SimpleNamespace(to_dict=lambda: {})))
++    monkeypatch.setattr(volume, 'open_zarr', lambda *args, **kwargs: SimpleNamespace(shape=(4, 4, 4)))
++    monkeypatch.setattr(volume.signal, 'signal', lambda *args: None)
++    monkeypatch.setattr(volume, 'Owned', stop_before_loading_tiles)
++    argv = ['--presence', str(tmp_path / 'presence'), '--out', str(tmp_path / 'out')]
++    with pytest.raises(SettingsAccepted):
++        volume.main(argv)
++    path = tmp_path / 'out' / 'run.json'
++    record = json.loads(path.read_text())
++    if saved_selection is None:
++        record.pop('seed_heading_selection', None)
++    else:
++        record['seed_heading_selection'] = saved_selection
++    path.write_text(json.dumps(record))
++    before = path.read_bytes()
++    if compatible:
++        with pytest.raises(SettingsAccepted):
++            volume.main(argv)
++    else:
++        with pytest.raises(SystemExit, match='seed_heading_selection'):
++            volume.main(argv)
++    assert path.read_bytes() == before
+diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+index 3d7c35c2c..d8ea9278d 100644
+--- a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
++++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+@@ -15,8 +15,8 @@ Then a fill-in pass seeds from the tile's 3D ridge maxima (same ridge and family
+ strongest first; skipped within --fill-skip of a parallel written fiber) for fibers that cross no plane steeply
+ inside the tile.
+ 
+-Tracing streams: about --rows traces run at once (each dot traced both ways from the CT seed heading of its family;
+-a dot whose CT heading is more than 35 degrees from its presence direction is skipped), and new dots start as traces
++Tracing streams: about --rows traces run at once (each dot traced both ways from the CT seed heading of its family,
++signed along its presence direction as training seeds are), and new dots start as traces
+ end, in tile order, one tracer call per z row of tiles. A dot is skipped when it lies within --dedupe of a parallel
+ (|cos| > 0.8) written fiber, and waits while it is within --batch-spread of a running seed. Every step, for all
+ running traces at once, a trace stops
+@@ -262,8 +262,6 @@ def _seed_heading(task):
+         h = ct_seed_heading(_WORKER_CT, _WORKER_SPEC, xyz, family)
+     except SeedHeadingError:
+         return None
+-    if abs(h @ direction) < np.cos(np.radians(35)):
+-        return None
+     return h if h @ direction > 0 else -h
+ 
+ 
+@@ -678,7 +676,8 @@ def main(argv=None):
+             z0, z1 = (float(v)*spec.ct_grid_scale/spec.grid_scale for v in args.ct_z.split(','))
+             lo[2], hi[2] = z0, z1
+     record = dict(vars(args), box=dict(lo=lo.tolist(), hi=hi.tolist()), operating_policy=policy.to_dict(),
+-                  seed_heading_policy=SEED_HEADING_POLICY, grid_scale=spec.grid_scale, ct_zarr=spec.ct_zarr,
++                  seed_heading_policy=SEED_HEADING_POLICY, seed_heading_selection='signed_ct_axis_v1',
++                  grid_scale=spec.grid_scale, ct_zarr=spec.ct_zarr,
+                   checkpoint_sha256=file_sha256(tracer.checkpoint_path))
+     run_json = out/'run.json'
+     if run_json.exists():
