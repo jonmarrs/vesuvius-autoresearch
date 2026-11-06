@@ -50,12 +50,24 @@ What this means here:
 
 ## Queued, not posted
 
-* **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)). Before it can be posted: rebase onto villa
-  main (#2440 moved the code around it), rewrite its villa test for the four-argument `ct_seed_heading`, build
-  `vc_reader` and `vc_object_store` for that commit, re-run the two Scroll-5 cubes on the GPU, and add the owner's
-  paragraph. Its case in practice is finding 100's two held-out Scroll-5 cubes (sheet coverage ×1.20 and ×1.43). Finding
-  103 found no unseen cube that skipped 20% of its seed dots: the most was 0.167, which gained 1.040×. The post has
-  to say how often the skip occurs.
+* **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)).
+  * **Done:** the rebase onto villa main `eab6108b9` (#2440 had moved the code around it) and the rewrite of its villa
+    tests for main's four-argument `ct_seed_heading`, our #360 (merged 2026-11-06). Those tests were run with the
+    native readers stubbed only.
+  * **Still needed before posting:** `vc_reader` and `vc_object_store` built for villa main, villa's tests run against
+    those builds, a GPU re-run of the two Scroll-5 cubes, and the owner's paragraph.
+  * **Its case in practice** is finding 100's two held-out Scroll-5 cubes. The fix itself (finding 100's `keep` arm)
+    raised their coverage ×1.11 and ×1.28. The ×1.20 and ×1.43 in finding 100 belong to a heading along the sheet, a
+    rule the draft does not propose. Finding 103 found no unseen cube that skipped 20% of its seed dots: the most was
+    0.167, which gained 1.040×. The post has to say how often the skip occurs.
+* **The splice issue** ([draft](VILLA_DRAFT_volume_splice.md), from [finding 105](../reports/neural_tracer_link_splice.md)).
+  villa's volume tracer keeps overlaps "for joining" and records each piece's links, but nothing joins the pieces.
+  * **The measurement:** on the ten held-out cubes, splicing them as polylines raised ERLpen on every cube, a median
+    +29% at tolerance 4 and +5.3% at tolerance 2, with merges 1,740 → 1,757.
+  * **Form:** an issue, not a PR, since it adds a step villa does not have. Whether to post it is the owner's decision,
+    and the owner writes its paragraph.
+  * **A PR would also need** a run on an open-data volume, so villa's `fibers.vcobj` export can carry the spliced
+    fibers.
 
 ## Filing-day checklist
 
