@@ -57,15 +57,41 @@ for, unlike finding 104's refit retry, which raised coverage but not ERLpen and 
 the hand tracing beside the fiber it follows. The [off-reference analysis](neural_tracer_offref_location.md) put 39% of
 the tracer's tolerance-2 off-reference length there, and joining pieces cannot mend those breaks.
 
-**Next, before any proposal:** the splice as polylines on real outputs. It must drop the overlap points one piece
-duplicates, then pass villa's `fibers.vcobj` export and read back in VC3D. Proposing it to villa is the owner's
+**Next, before any proposal:** the splice as polylines on real outputs (done 2026-11-06, below), then villa's
+`fibers.vcobj` export and a read back in VC3D. Proposing it to villa is the owner's
 decision. It would add a step villa does not have, so it must say where the gain shows (tolerance 4) and where it
 does not reach the bar (tolerance 2).
 
+## As polylines (2026-11-06, a check of the tool, not registered)
+
+`scripts/neural_tracer_splice.py` does the splice on a run's own output directory:
+* it reads `run.json` and the tiles as villa writes them;
+* it takes the arc limit from the run's `--overlap` times its grid scale (32 voxels here, the registered constant);
+* it writes one polyline per chain.
+
+Along a chain, each next piece starts at its spliced end, and its points beside the previous piece's kept overlap are
+dropped. On the 21 runs that is 112,370 points over 8,615 joints, 13.0 per joint on average. Each joint then bridges a
+median of 1.11 to 1.45 voxels, by cube (at most 15.29).
+
+`scripts/neural_tracer_splice_check.py` scored those polylines as finding 105 scored its labelling
+(`reports/evidence/neural_tracer_splice_polylines_2026-11-06.json`). Read from the tiles, the unspliced pieces
+reproduced finding 105's baseline rows exactly on all 21 cubes, with the same number of splices.
+
+| ten held-out cubes | τ = 2 | τ = 4 |
+|---|---|---|
+| median ERLpen gain, polylines | 0.053 (10 of 10 gain) | 0.290 (10 of 10 gain) |
+| median ERLpen gain, finding 105's labelling | 0.063 | 0.302 |
+| summed merges, baseline → polylines | 1,740 → 1,757 | 3,678 → 3,623 |
+| median coverage change | −0.0016 | −0.0006 |
+
+The polylines keep most of the gain. Dropping the overlap points costs a little coverage, where the dropped points lay
+within the tolerance of the reference and the points kept beside them did not. Precision does not move (a median
+change of +0.0002 at τ = 2). What remains untested is villa's own export of the spliced fibers (`fibers.vcobj`) and
+their reading in VC3D.
+
 ## What it cannot say
 
-* **It scores a labelling, not polylines.** The splice moves no voxel. A polyline tool would also drop about 12 voxels
-  of duplicated overlap per splice; the other piece covers them.
+* **The registered result scores a labelling.** The polylines above were checked afterwards, not registered.
 * **The rule was set on these runs' eleven in-sample cubes,** whose spliced scores were seen first. The held-out cubes
   had been read by findings 91–104, but no spliced score of theirs before this run.
 * **One tracer at villa `ccb431818`, one checkpoint at its defaults, one protocol.** villa #2359 refactored the volume
