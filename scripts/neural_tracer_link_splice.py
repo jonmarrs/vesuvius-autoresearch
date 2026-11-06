@@ -54,10 +54,12 @@ def arclength(q: np.ndarray) -> np.ndarray:
     )
 
 
-def splice_candidates(fibers: dict, meta: dict) -> tuple[list[tuple], int]:
+def splice_candidates(
+    fibers: dict, meta: dict, arc_limit: float = SPLICE_ARC
+) -> tuple[list[tuple], int]:
     """(distance, P, P's end, Q, Q's nearer end) for each recorded link of piece P's end (0: first point, 1: last) to
-    fiber Q where P's end lies within SPLICE_ARC voxels of arclength of Q's nearer end and P, leaving that end, heads
-    into Q; and the number of links to a fiber the run does not hold."""
+    fiber Q where P's end lies within `arc_limit` (registered: SPLICE_ARC) voxels of arclength of Q's nearer end and P,
+    leaving that end, heads into Q; and the number of links to a fiber the run does not hold."""
     out, missing = [], 0
     for p_id in sorted(meta):
         _, links = meta[p_id]
@@ -74,7 +76,7 @@ def splice_candidates(fibers: dict, meta: dict) -> tuple[list[tuple], int]:
             dist = np.linalg.norm(q - x, axis=1)
             j = int(np.argmin(dist))
             q_end = 0 if arc[j] <= arc[-1] - arc[j] else 1
-            if min(arc[j], arc[-1] - arc[j]) > SPLICE_ARC:
+            if min(arc[j], arc[-1] - arc[j]) > arc_limit:
                 continue
             k = min(KTAN, len(p) - 1)
             leaving = (p[0] - p[k]) if end == 0 else (p[-1] - p[-1 - k])
