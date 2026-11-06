@@ -4,6 +4,9 @@
 new tracing, no GPU, no download. The script is `scripts/neural_tracer_link_splice.py`, committed with this file.
 Before this was pushed, the script ran once on one in-sample cube, `s1_00497_01497_03997_256`, for its timing and gate.
 The gate passed (30 s), and the result there equals the exploratory screen's below.
+**Pushed at 18:45 PST (a70e71ae); run 18:45–19:49 PST: finding 105, `reports/neural_tracer_link_splice.md`. The gate
+passed on all 21 cubes. P2, P3 and P4 held and P1 missed (median held-out gain 0.063 at τ = 2, 0.302 at τ = 4):
+`SUPPORTED_AT_TOL4_ONLY`.**
 
 ## The question
 
