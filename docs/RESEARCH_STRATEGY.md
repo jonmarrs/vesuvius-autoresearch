@@ -87,6 +87,11 @@ team contribution, not a realistic solo promise on the current evidence.
   confidence-stop line needs a rule that tests whether a continuation is on the fiber before keeping it. Presence,
   checked afterwards and not registered, is too weak a test: it separates the retry's on- from off-reference
   additions with a median AUC of 0.71, no better than on the stock trace.
+- [Finding 105](../reports/neural_tracer_link_splice.md) (2026-11-05, registered) joins the tracer's own pieces
+  instead of continuing them. villa's tracer keeps short overlaps "for joining" and records which fiber each piece's
+  ends touch, but nothing joins them. Splicing each piece to the fiber whose end it overlaps raised held-out ERLpen on
+  all ten cubes, by a median 30% at tolerance 4 and 6.3% at tolerance 2 (under the 0.10 bar there), with summed merges
+  +1.2%. The polyline tool and its VC3D export are untested, and any villa proposal is the owner's decision.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013
