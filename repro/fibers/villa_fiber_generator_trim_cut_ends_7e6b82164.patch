@@ -1,0 +1,134 @@
+diff --git a/vesuvius/src/vesuvius/fiber_spline_generator/cli.py b/vesuvius/src/vesuvius/fiber_spline_generator/cli.py
+index d728f47bf..6126b707b 100644
+--- a/vesuvius/src/vesuvius/fiber_spline_generator/cli.py
++++ b/vesuvius/src/vesuvius/fiber_spline_generator/cli.py
+@@ -332,7 +332,7 @@ def generate(args: argparse.Namespace, report: Reporter) -> dict[str, Any]:
+     network, patch = load_network(folder, device)
+     mirror = args.mirror
+ 
+-    from .extend.stitch import Stitcher
++    from .extend.stitch import Stitcher, trim_cut_ends
+ 
+     generator = {
+         "name": "vesuvius.fiber_spline_generator",
+@@ -403,7 +403,8 @@ def generate(args: argparse.Namespace, report: Reporter) -> dict[str, Any]:
+                     part = (0 if family == "V" else 1) + (done / total if total else 1)
+                     step(0.85 + 0.05 * part, f"fitting {names[family]} fibers · {done} of {total} pieces")
+ 
+-                traces = extract_splines(probabilities, threshold, spline_progress)
++                traces = trim_cut_ends(extract_splines(probabilities, threshold, spline_progress),
++                                       low[::-1], high[::-1], shape_xyz[::-1])
+                 del probabilities
+                 report.emit("block", index=index, state="stitching")
+                 step(0.95, f"joining {len(traces)} fibers to the neighbouring blocks")
+diff --git a/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py b/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py
+index b540d1754..0d68fc6f0 100644
+--- a/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py
++++ b/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py
+@@ -23,12 +23,49 @@ MIN_SCORE = .9
+ MIN_MARGIN = .15
+ MIN_LENGTH = 8.
+ FAMILIES = {"V": 0, "H": 1}
++# A block's splines bend over their last few voxels where its border cuts a
++# fiber, enough to fail the overlap and duplicate tests of the catalogue.
++# Those ends are dropped where the volume continues past the border: the
++# neighbouring block reads them with context on both sides. Half the CLI's
++# 32-voxel block margin, so neighbouring blocks still share 32 voxels of a
++# fiber crossing between them, above the catalogue's 24-voxel overlap.
++CUT_END = 16.
+ 
+ 
+ def _length(points):
+     return float(np.linalg.norm(np.diff(points, axis=0), axis=1).sum())
+ 
+ 
++def trim_cut_ends(traces: Iterable[tuple[str, np.ndarray]], low_zyx: Sequence[int], high_zyx: Sequence[int],
++                  shape_zyx: Sequence[int], distance: float = CUT_END) -> list[tuple[str, np.ndarray]]:
++    """``traces`` of a block read from ``low_zyx`` to ``high_zyx``, in block-local
++    ZYX points, without the points at each end within ``distance`` voxels of a
++    border of the block that the volume continues past. An end at the border of
++    the volume itself is kept; splines left shorter than MIN_LENGTH are dropped."""
++    low, high, shape = (np.asarray(v, dtype=float) for v in (low_zyx, high_zyx, shape_zyx))
++    result = []
++    for family, line in traces:
++        points = np.asarray(line, dtype=np.float64)
++        absolute = points + low
++        cut = np.zeros(len(points), dtype=bool)
++        outer = np.zeros(len(points), dtype=bool)
++        for axis in range(3):
++            if low[axis] > 0:
++                cut |= absolute[:, axis] - low[axis] < distance
++            else:
++                outer |= absolute[:, axis] < 2
++            if high[axis] < shape[axis]:
++                cut |= high[axis] - 1 - absolute[:, axis] < distance
++            else:
++                outer |= shape[axis] - 1 - absolute[:, axis] < 2
++        kept = np.flatnonzero(~cut)
++        first = 0 if not cut[0] or outer[0] else (kept[0] if len(kept) else len(points))
++        last = len(points) if not cut[-1] or outer[-1] else (kept[-1] + 1 if len(kept) else 0)
++        if last - first >= 2 and _length(points[first:last]) >= MIN_LENGTH:
++            result.append((family, points[first:last]))
++    return result
++
++
+ class _Frozen:
+     """Read access to a catalogue that no longer changes, decoding each chain and source once."""
+ 
+diff --git a/vesuvius/tests/fiber_spline_generator/test_stitch.py b/vesuvius/tests/fiber_spline_generator/test_stitch.py
+index bebc6086f..b06cb2f17 100644
+--- a/vesuvius/tests/fiber_spline_generator/test_stitch.py
++++ b/vesuvius/tests/fiber_spline_generator/test_stitch.py
+@@ -3,7 +3,7 @@ import numpy as np
+ from vesuvius.fiber_spline_generator.cli import GAP_MODEL
+ from vesuvius.fiber_spline_generator.extend.ct_support import CTSupport
+ from vesuvius.fiber_spline_generator.extend.gap_model import Predictor, geometry_features
+-from vesuvius.fiber_spline_generator.extend.stitch import Stitcher
++from vesuvius.fiber_spline_generator.extend.stitch import Stitcher, trim_cut_ends
+ 
+ SHAPE_XYZ = (320, 96, 96)
+ 
+@@ -56,6 +56,43 @@ def test_overlapping_splines_of_neighbouring_blocks_become_one_fiber(tmp_path):
+     assert np.abs(points[:, 1:] - 48).max() < 1e-3
+ 
+ 
++def hooked(points, x, offset=1.6, over=4.):
++    """``points`` bent sideways over their last ``over`` voxels before ``x``, as a block border bends a spline."""
++    bent = points.copy()
++    bent[:, 1] += offset * np.clip(1 - np.abs(bent[:, 2] - x) / over, 0, None) ** 2
++    return bent
++
++
++def test_a_fiber_bent_at_both_block_borders_becomes_one_fiber_once_the_cut_ends_are_trimmed(tmp_path):
++    blocks = [("block-0", [0, 0, 0], hooked(line(20, 191), 191), (np.zeros(3), np.array([160, 96, 96]))),
++              ("block-1", [128, 0, 0], hooked(line(1, 170), 1), (np.array([160, 0, 0]), np.array([320, 96, 96])))]
++    for trim, count in ((False, 2), (True, 1)):
++        stitcher = Stitcher(tmp_path / str(trim))
++        try:
++            for name, low, spline, core in blocks:
++                traces = [("V", spline)]
++                if trim:
++                    traces = trim_cut_ends(traces, low[::-1], np.add(low, [192, 96, 96])[::-1], SHAPE_XYZ[::-1])
++                stitcher.add_block(name, low, [192, 96, 96], traces, core)
++            fibers = list(stitcher.chains())
++        finally:
++            stitcher.close()
++        assert len(fibers) == count
++    assert np.isclose(fibers[0]["points"][:, 0].min(), 20) and np.isclose(fibers[0]["points"][:, 0].max(), 298)
++
++
++def test_only_ends_cut_by_a_border_inside_the_volume_are_trimmed():
++    # A block reading x 128..320 of a 320-voxel volume: its low x border is inside the volume, the high one is not.
++    low, high, shape = (0, 0, 128), (96, 96, 320), (96, 96, 320)
++    (_, kept), = trim_cut_ends([("V", line(1, 191))], low, high, shape)
++    assert np.isclose(kept[:, 2].min(), 16) and np.isclose(kept[:, 2].max(), 191)
++    # The end at the volume's border stays; so does a spline whose ends are away from every border.
++    (_, kept), = trim_cut_ends([("V", line(40, 191.5))], low, high, shape)
++    assert np.isclose(kept[:, 2].min(), 40) and np.isclose(kept[:, 2].max(), 191.5)
++    # Nothing is left of a spline lying along the cut border.
++    assert trim_cut_ends([("V", line(0, 10))], low, high, shape) == []
++
++
+ def test_a_short_aligned_gap_is_joined_by_the_catalogue(tmp_path):
+     fibers = whole(tmp_path, [("V", line(10, 130)), ("V", line(146, 290))], np.zeros(SHAPE_XYZ[::-1], np.uint8))
+     assert len(fibers) == 1 and fibers[0]["gaps"] == [[240, 241]]
