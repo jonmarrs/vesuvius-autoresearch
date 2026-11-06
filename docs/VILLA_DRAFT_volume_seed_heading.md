@@ -90,6 +90,26 @@ below says only what that decision allows.
    - Importing `tracing/volume.py` loads `vc_reader` directly and `vc_object_store` through `volume_store` and
      `fiber_store`. Neither is built for this commit here, so villa's tests and the re-run wait for both builds.
 
+   **Rebased 2026-11-05 onto villa main `eab6108b9`**, as one patch for both changes,
+   `repro/fibers/villa_volume_seed_heading_eab6108b9.patch` (+72/−5; local villa branch
+   `fix/volume-seed-heading-main`, commit `a8eaea9aa`, not pushed). Its `volume.py` hunks are the two patches' hunks
+   unchanged. Both tests needed rewriting for main:
+   - The heading test's stand-in for `ct_seed_heading` now takes four arguments, `(ct, spec, xyz, family)`.
+   - The resume test now replaces `open_zarr`, which reads the presence on main where `zarr.open` did, and gives the
+     spec an `input_scale`. On 11-04 the resume patch was said to apply on its own. It does, but its test would have
+     failed at main: `volume.py` no longer imports `zarr`.
+
+   Villa's tests ran with the native `vc_reader` and `vc_object_store` replaced by stand-ins, because neither is built
+   here (`repro/fibers/run_villa_seed_heading_tests_stubbed.sh`,
+   `reports/evidence/villa_volume_seed_heading_tests_eab6108b9_stubbed.txt`):
+   - Without the patch, 7 of the 12 new cases fail: the same five headings (36°, 60°, 89°, 91° and 120°) and the same
+     two resume cases as at `39a8cf3a`. With it, all 12 pass.
+   - Villa's three other volume test files give the same outcomes on both sides, failure for failure. Most of their
+     cases fail on both sides because they need the real readers.
+
+   This checks the patch's logic, not villa's tracer on real data. The real builds, villa's tests with them and the
+   GPU re-run are still due before posting.
+
    Inspect an existing work directory without running traces or loading arrays:
 
    ```sh
