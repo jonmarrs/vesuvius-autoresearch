@@ -112,3 +112,36 @@ def test_each_quoted_criterion_is_villa_s_wording(quote, path, now):
     assert (quote in after, quote in before) == (
         (True, False) if now else (False, True)
     )
+
+
+def test_the_seed_heading_entry_quotes_the_fix_not_the_sheet_heading():
+    """The queued fix is finding 100's `keep` arm; ×1.20/×1.43 are its `sheet` arm, which the draft does not propose."""
+    d = json.loads((ROOT / "reports/neural_tracer_steep_heading.json").read_text())
+    b, rows = d["baseline_rows_tol2"], d["rows_tol2"]
+    s5 = ["s5_13497_01497_02497_256", "s5_16997_03997_04497_256"]
+    keep = [rows["keep"][c]["coverage"] / b[c]["coverage"] for c in s5]
+    sheet = [rows["sheet"][c]["coverage"] / b[c]["coverage"] for c in s5]
+    section = " ".join(_section("Queued, not posted").split())
+    assert f"raised their coverage ×{keep[0]:.2f} and ×{keep[1]:.2f}" in section
+    assert (
+        f"The ×{sheet[0]:.2f} and ×1.43 in finding 100 belong to a heading along the sheet"
+        in section
+    )
+    assert round(sheet[1], 3) == 1.425  # finding 100's report rounds it to 1.43
+
+
+def test_the_splice_entry_is_the_polyline_record():
+    s = json.loads(
+        (
+            ROOT / "reports/evidence/neural_tracer_splice_polylines_2026-11-06.json"
+        ).read_text()
+    )
+    h = s["summary"]["held_out"]
+    m = h["tol2"]["merges"]
+    section = " ".join(_section("Queued, not posted").split())
+    assert (f"a median +{round(100 * h['tol4']['median_gain_poly'])}% at tolerance 4 and "
+            f"+{100 * h['tol2']['median_gain_poly']:.1f}% at tolerance 2, with merges {m['base']:,} → {m['poly']:,}") in section  # fmt: skip
+    assert (
+        h["tol2"]["cubes_gaining"] == h["tol4"]["cubes_gaining"] == 10
+        and "raised ERLpen on every cube" in section
+    )
