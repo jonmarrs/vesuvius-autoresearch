@@ -155,6 +155,7 @@ def ensemble_predict():
         args.uri,
         use_ridges=use_ridges_any,
         ridge_sigma=ridge_sigmas[0] if ridge_sigmas else 2.0,
+        strict_reads=True,
     )
     validate_region(args, patch_size, max_layers, dataset.shape)
     tiles = region_tiles(args, patch_size)

@@ -382,7 +382,7 @@ def predict():
 
     # Open the dataset
     dataset = FastVesuviusVolume(
-        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma
+        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma, strict_reads=True
     )
     validate_region(args, patch_size, num_layers, dataset.shape)
 

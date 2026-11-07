@@ -102,7 +102,7 @@ def production_predict(argv=None):
     model.load_state_dict(state, strict=True)
     model = model.to(device).eval()
     dataset = FastVesuviusVolume(
-        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma
+        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma, strict_reads=True
     )
     ends = (args.z + args.num_layers, args.y + args.height, args.x + args.width)
     if any(end > limit for end, limit in zip(ends, dataset.shape, strict=True)):

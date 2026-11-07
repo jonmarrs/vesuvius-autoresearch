@@ -106,6 +106,63 @@ different depths, taking a prefix starting at the same source z. Incompatible
 members fail before opening the source volume, without spatial resizing or
 cropping to reinterpret their context.
 
+## Read failures and preprocessing
+
+Single-model regional inference, regional ensembles and `production_predict`
+use `FastVesuviusVolume(..., strict_reads=True)`. A requested ridge channel must
+be computed successfully. A failed GPU ridge backend may use a working CPU
+implementation; if both fail, or the patch is too thin for the filter, inference
+raises instead of feeding zero ridge features to the model. This can refuse
+commands that previously finished with degraded-input warnings.
+
+Strict reads require a nonempty Z/Y/X volume and positive, in-bounds read sizes
+at nonnegative integer coordinates. The returned array must have the exact
+requested shape. Supported stored CT is uint8, uint16 or floating point;
+booleans and other integer/complex encodings are rejected rather than guessed
+with a `/255` fallback. uint8 and uint16 retain their `/255` and `/65535` scales,
+including nonnative byte order. Floating CT passes through as float32 and must
+remain finite and representable at that precision. This does not establish that
+the floating source's intensity calibration is appropriate for a checkpoint.
+
+Python callers can opt into the same boundary:
+
+```python
+from vesuvius_autoresearch.core.inference import read_model_block
+from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
+
+volume = FastVesuviusVolume(
+    "/path/to/ct.zarr", use_ridges=True, ridge_sigma=2.0, strict_reads=True
+)
+# Retains the training-compatible ridge depth context before cropping.
+block = read_model_block(volume, z=8, y=100, x=100, num_layers=16, size=64)
+```
+
+Strict direct slicing requires three slices with explicit start/stop bounds
+and unit steps. `read_ct` returns normalized CT alone; `get_raw_patch` retains
+the existing raw-value convention, with uint16 converted to int32 for Torch.
+Both check the source read. `normalize` also refuses nonfinite converted input.
+The strict flag survives pickling; old volume states remain permissive.
+
+`VesuviusS3Dataset(..., strict_reads=True)` exposes strict reads for unlabeled
+patch consumers too. Failed reads/preprocessing raise with sample and source
+context instead of yielding zero patches. Samples must have the complete
+effective channel/depth/patch shape and finite floating values. Lasagna is not
+implemented in this dataset, so a strict request for it fails before opening
+the volume. Its depth/context and patch-catalogue rules are otherwise unchanged.
+
+The Python reader/dataset defaults remain permissive for compatibility, including
+their counted fallbacks. Existing training callers retain those defaults; this
+change does not switch a training recipe or rewrite historical predictions.
+
+Preprocessing errors in these inference commands occur before output replacement,
+so an existing prediction can remain as the previous result. A failed attempt
+does not make that old result current. These are per-read checks, not dataset
+checksums, a lock/snapshot or proof of calibration, coverage quality or independent
+evidence. A backend that returns plausible zeros without reporting a failure
+cannot be distinguished from real zero-valued CT by these checks. Keep paths
+stable and resolve the reported source/backend problem before rerunning.
+Existing tile/shard completeness rules still apply independently of strict reads.
+
 ## Outputs and provenance
 
 Regional commands save float32 NPY maps, grayscale PNG maps and uint8 OME-Zarr
