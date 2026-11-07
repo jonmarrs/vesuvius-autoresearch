@@ -2,6 +2,7 @@ import itertools
 import os
 import sys
 from collections import defaultdict
+from numbers import Integral
 
 import numpy as np
 import torch
@@ -212,16 +213,84 @@ class FastVesuviusVolume:
     """
     Optimized volume loader aligned with Villa Volume Cartographer / VC3D
     OME-Zarr conventions plus CuPy tools for on-the-fly ridge detection.
+
+    strict_reads checks complete supported CT reads and requires real ridge
+    features. Permissive mode keeps the legacy counted fallbacks.
     """
 
-    def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
+    def __init__(
+        self,
+        volume_uri,
+        cache_dir=None,
+        use_ridges=False,
+        ridge_sigma=2.0,
+        strict_reads=False,
+    ):
+        if not isinstance(strict_reads, bool):
+            raise ValueError("strict_reads must be a boolean")
         self.uri = volume_uri
         self.cache_dir = cache_dir or DEFAULT_CACHE_DIR
         self.use_ridges = use_ridges
         self.ridge_sigma = ridge_sigma
+        self.strict_reads = strict_reads
 
         self._init_vol()
         self.shape = self.vol.shape
+        if self.strict_reads:
+            self._validate_shape()
+
+    def _validate_shape(self):
+        if len(self.shape) != 3 or any(
+            not isinstance(value, Integral) or isinstance(value, bool) or value <= 0
+            for value in self.shape
+        ):
+            raise ValueError(
+                f"{self.uri}: strict CT reads require a nonempty Z/Y/X volume"
+            )
+
+    def _read_chunk(self, z, y, x, d, h, w):
+        if self.strict_reads:
+            request = (z, y, x, d, h, w)
+            if any(
+                not isinstance(value, Integral) or isinstance(value, bool)
+                for value in request
+            ):
+                raise ValueError(
+                    f"{self.uri}: CT coordinates and lengths must be integers"
+                )
+            z, y, x, d, h, w = map(int, request)
+            if (
+                min(z, y, x) < 0
+                or min(d, h, w) <= 0
+                or any(
+                    end > limit
+                    for end, limit in zip(
+                        (z + d, y + h, x + w), self.shape, strict=True
+                    )
+                )
+            ):
+                raise ValueError(
+                    f"{self.uri}: CT request must be nonempty and within volume shape {self.shape}"
+                )
+        ct = self.vol.get_chunk(z, y, x, d, h, w)
+        if self.strict_reads:
+            ct = np.asarray(ct)
+            if ct.shape != (d, h, w):
+                raise ValueError(
+                    f"{self.uri}: CT read returned shape {ct.shape}, expected {(d, h, w)}"
+                )
+            if not (
+                (ct.dtype.kind == "u" and ct.dtype.itemsize in (1, 2))
+                or ct.dtype.kind == "f"
+            ):
+                raise ValueError(
+                    f"{self.uri}: unsupported CT dtype {ct.dtype}; strict reads require uint8, uint16 or floating CT"
+                )
+            if not np.isfinite(ct).all() or (
+                ct.dtype.kind == "f" and np.any(np.abs(ct) > np.finfo(np.float32).max)
+            ):
+                raise ValueError(f"{self.uri}: CT values must remain finite as float32")
+        return ct
 
     def _init_vol(self):
         if os.path.exists(self.uri):
@@ -246,18 +315,26 @@ class FastVesuviusVolume:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        self.__dict__.setdefault("strict_reads", False)
         self._init_vol()
+        if self.strict_reads:
+            self.shape = self.vol.shape
+            self._validate_shape()
 
     def normalize(self, patch):
         if isinstance(patch, torch.Tensor):
-            return patch.float()
-        return torch.from_numpy(patch).float()
+            result = patch.float()
+        else:
+            result = torch.from_numpy(patch).float()
+        if self.strict_reads and not torch.isfinite(result).all():
+            raise ValueError(f"{self.uri}: normalized model input must be finite")
+        return result
 
     def read_ct(self, z, y, x, d, h, w) -> np.ndarray:
-        """CT normalized to [0, 1] by dtype, without the ridge channel."""
+        """Scale uint8/uint16 to unit range; pass floating CT through as float32."""
         # Fetch raw CT data through the Volume Cartographer-aligned local
         # OME-Zarr compatibility layer.
-        ct = self.vol.get_chunk(z, y, x, d, h, w)
+        ct = self._read_chunk(z, y, x, d, h, w)
         if not ct.dtype.isnative:  # a big-endian uint16 is not == np.uint16
             ct = ct.astype(ct.dtype.newbyteorder("="))
         # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
@@ -280,6 +357,23 @@ class FastVesuviusVolume:
         Computes ridges on-the-fly if enabled.
         """
         z_slice, y_slice, x_slice = key
+        if self.strict_reads and any(
+            not isinstance(axis, slice)
+            or axis.start is None
+            or axis.stop is None
+            or (
+                axis.step is not None
+                and (
+                    not isinstance(axis.step, Integral)
+                    or isinstance(axis.step, bool)
+                    or axis.step != 1
+                )
+            )
+            for axis in key
+        ):
+            raise ValueError(
+                f"{self.uri}: strict CT slices need explicit bounds and a unit step"
+            )
         ct_norm = self.read_ct(
             z_slice.start,
             y_slice.start,
@@ -291,13 +385,15 @@ class FastVesuviusVolume:
         ct_tensor = torch.from_numpy(ct_norm)
 
         if self.use_ridges:
-            ridges_tensor = ridge_channel(ct_norm, self.ridge_sigma, self.uri)
+            ridges_tensor = ridge_channel(
+                ct_norm, self.ridge_sigma, self.uri, strict=self.strict_reads
+            )
             return torch.stack([ct_tensor, ridges_tensor], dim=0)
 
         return ct_tensor
 
     def get_raw_patch(self, z, y, x, d, h, w) -> torch.Tensor:
-        ct = self.vol.get_chunk(z, y, x, d, h, w)
+        ct = self._read_chunk(z, y, x, d, h, w)
         if not ct.dtype.isnative:  # e.g. a big-endian zarr; torch needs native
             ct = ct.astype(ct.dtype.newbyteorder("="))
         if ct.dtype == np.uint16:
@@ -917,6 +1013,12 @@ def _grid_starts(length, size, stride):
 
 
 class VesuviusS3Dataset(torch.utils.data.Dataset):
+    """Unlabeled patches, with an optional fail-closed source/feature boundary.
+
+    Strict reads propagate failures with sample context instead of zero patches.
+    Lasagna is not implemented here and is refused when strict reads request it.
+    """
+
     def __init__(
         self,
         uri,
@@ -930,7 +1032,14 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         is_unlabeled=True,
         depth_band=None,
         depth_margin=0,
+        strict_reads=False,
     ):
+        if not isinstance(strict_reads, bool):
+            raise ValueError("strict_reads must be a boolean")
+        if strict_reads and use_lasagna:
+            raise ValueError(
+                "Lasagna preprocessing is unavailable in VesuviusS3Dataset"
+            )
         # use_lasagna accepted for API parity with VesuviusLabeledDataset
         # (train.py's get_dataloader passes it unconditionally). The S3Dataset
         # is used for unlabeled volumes (UA-MT) where surface flattening
@@ -944,9 +1053,14 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         self.ridge_sigma = ridge_sigma
         self.use_lasagna = use_lasagna
         self.is_unlabeled = is_unlabeled
+        self.strict_reads = strict_reads
 
         self.volume = FastVesuviusVolume(
-            uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma
+            uri,
+            cache_dir=cache_dir,
+            use_ridges=use_ridges,
+            ridge_sigma=ridge_sigma,
+            strict_reads=strict_reads,
         )
         self.shape = self.volume.shape
         self.num_layers = min(num_layers, self.shape[0])
@@ -990,6 +1104,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         y0, x0 = self.valid_coords[idx]
         rng = np.random.RandomState(idx + (self.seed or 0))
         z_depth = self.shape[0]
+        strict_reads = getattr(self, "strict_reads", False)
         z_request = min(self.num_layers, z_depth)
         z0 = _read_start(rng, self.depth_range, z_depth, z_request)
 
@@ -1001,10 +1116,29 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
             ]
             if not self.use_ridges:
                 patch = patch.unsqueeze(0)
+            expected = (
+                2 if self.use_ridges else 1,
+                self.num_layers,
+                self.patch_size,
+                self.patch_size,
+            )
+            if strict_reads and (
+                not isinstance(patch, torch.Tensor)
+                or tuple(patch.shape) != expected
+                or not patch.is_floating_point()
+                or not torch.isfinite(patch).all()
+            ):
+                raise ValueError(
+                    f"unlabeled patch must be finite floating point with shape {expected}"
+                )
             return patch, torch.zeros(
                 (self.patch_size, self.patch_size), dtype=torch.float32
             )
         except Exception as exc:
+            if strict_reads:
+                raise RuntimeError(
+                    f"failed to read unlabeled patch {idx} from {self.uri}: {exc}"
+                ) from exc
             _warn_limited(
                 "s3_zero_patch",
                 f"returning zero S3 patch for sample {idx} from {self.uri}: {type(exc).__name__}: {exc}",

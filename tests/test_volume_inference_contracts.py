@@ -529,7 +529,7 @@ def test_nonfinite_ct_cannot_be_exported(tmp_path, monkeypatch, mode):
     runner, _, models, volume, _ = setup_prediction(tmp_path, monkeypatch, mode)
     array = zarr.open(str(volume), mode="w", shape=(6, 24, 24), dtype="f4")
     array[:] = float("nan")
-    with pytest.raises(ValueError, match="volume patch must be finite"):
+    with pytest.raises(ValueError, match="CT values must remain finite"):
         runner()
     assert not any(model.inputs for model in models)
     assert not (tmp_path / "out").exists()

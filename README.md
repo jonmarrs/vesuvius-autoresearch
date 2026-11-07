@@ -301,6 +301,10 @@ For regional ink/fiber overlays and ensembles, see
 mirror averaging; their metadata records the applied recipe. Ensemble
 members must share spatial context and calibration. Partial inference shards
 are identified explicitly and cannot pass complete-region submission validation.
+The regional and production commands require complete supported CT reads and
+successful requested ridge features. They fail on preprocessing errors instead
+of exporting zero-feature substitutes; a working CPU ridge fallback is allowed.
+See [read failures and preprocessing](docs/VOLUME_INFERENCE.md#read-failures-and-preprocessing).
 
 For generic weighted tensor means and the status of the legacy First Title
 launcher, see [Ensemble voting](docs/ENSEMBLE_VOTING.md). Voting checks numerical
