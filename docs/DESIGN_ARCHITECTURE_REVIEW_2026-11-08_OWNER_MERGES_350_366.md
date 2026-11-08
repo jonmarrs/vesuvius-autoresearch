@@ -33,7 +33,7 @@ reviews them.
 
 ## What changed
 
-### The code PRs: six guards no test reached (`tests/`)
+### The code PRs: eight guards no test reached (`tests/`)
 
 I made 30 mutants of #365, 28 of #366 and 35 of #357 and #359. Every survivor that breaks a documented promise
 now has a test. Each test passes as merged and fails with its guard removed.
@@ -55,6 +55,12 @@ now has a test. Each test passes as merged and fails with its guard removed.
 - **#366: a descriptor that under-reports its size is not captured truncated** (`test_text_snapshot.py`).
   - `fstat` says 4 bytes and the file has 10. Only the captured-length check refuses it.
   - Without that check, `capture_bytes` returned 5 bytes as the whole checkpoint.
+- **#359: an input alias made while scoring is refused before publication** (`test_detector_evaluation_inputs.py`).
+  - `evaluate()` checks its inputs when it starts, and #359's document says the publisher checks them again.
+  - #359's own test makes its alias during inference, before the first check, so dropping the second check failed
+    nothing. The new test makes the alias while scoring.
+- **#359: the measurement table shows each row's coverage counts.** #359's document says the Markdown displays them.
+  The existing test checked only the header, so a table printing "unknown" passed.
 
 ### The research and draft PRs
 
@@ -115,7 +121,13 @@ now has a test. Each test passes as merged and fails with its guard removed.
   - The sixth drops the dry run's stdout redirect. It is equivalent: the reader is given the selected array's path
     and never prints the OME-level notice.
   - The dry run's arithmetic tile count equals `len(tile_starts)` for every length, size and stride up to 128.
-- **#357's and #359's guards.** DETECTOR_MUTANTS_PLACEHOLDER
+- **#357's and #359's guards.** 31 of 35 mutants fail their modules' tests. Of the four survivors:
+  - two now have tests (above);
+  - dropping the checkpoint's `detector_training` record fails the two training modules, which hold the readback;
+  - dropping `math.isfinite` from the batch-fraction check is equivalent, because `0 < x <= 1` already refuses NaN and
+    infinity.
+- **#357's preflight.** With the regular-file check removed, the FIFO test hangs in `open`, which is what the check
+  prevents.
 - **The owner's review documents' counts:**
   - #365's 56 cases;
   - #357's 32;
@@ -167,5 +179,6 @@ A note on this round's own work.
   #152's failing ids. Every later mutation ran in a separate worktree.
 - **The detector mutants had to be rerun.** A worker restart stopped their first run and left one mutant applied in
   that worktree, which I restored before rerunning.
-- **The read-check mutant hung its test.** With the read check removed, `test_special_layer_files_are_refused…` opened
-  its FIFO and blocked in `wait_for_partner`. I stopped it and counted it as killed.
+- **The regular-file mutant hung its test.** With #357's regular-file check removed,
+  `test_special_layer_files_are_refused_without_opening_them` opened its FIFO and blocked in `wait_for_partner`. I
+  stopped it and counted it as killed.
