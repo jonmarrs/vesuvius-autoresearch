@@ -74,9 +74,9 @@ ERL is scored against the hand tracing within 2 and 4 voxels.
 Against the same cubes run as one block, eight blocks reach 0.703 to 0.923 of its merge-penalized ERL at τ = 4 on
 main, and 0.822 to 0.963 with the trim.
 
-**What it costs:** more crossings of the block faces are lost. Of 1,304 places where a hand-traced fiber crosses a
-block face, 278 are lost with the trim against 172 on main. Whole ones rise from 853 to 884, and broken ones fall from
-279 to 142. The changes run both ways, and 176 crossings are chained only with the trim. Of the 198 crossings worse with
+**What it costs:** more crossings of the block faces are lost. Of 1,304 places where a generated, unpatched one-block
+fiber crosses a block face, 278 are lost with the trim against 172 on main. Whole ones rise from 853 to 884, and broken
+ones fall from 279 to 142. The changes run both ways, and 176 crossings are chained only with the trim. Of the 198 crossings worse with
 the trim, 63 are joins main made that the trimmed copies miss. Three reasons come up most often, in about equal
 measure (a crossing can have more than one):
 * the trimmed overlap is shorter than `MIN_OVERLAP` (29);
@@ -84,8 +84,8 @@ measure (a crossing can have more than one):
 * another overlap at the same end makes the candidate ambiguous (27).
 
 In 125, the copies were never chained. A trimmed copy reaches 16 voxels past the face instead of 32. Where the
-neighbouring block's copies are short or miss the fiber, that stretch is no longer covered. Merge-penalized ERL counts
-both, and it rises on every cube.
+neighbouring block's copies are short or miss the fiber, that stretch is no longer covered. These crossing diagnostics
+are separate from merge-penalized ERL, which is scored against the hand tracing and rises on every cube.
 
 **How often it bites:** on every zone larger than `--block-size` along any axis (the VC3D dialog shows "N blocks to
 process"). The dialog's default zone, 512³ at block 512, is one block and is not changed.

@@ -52,12 +52,15 @@ The gain is patched ERLpen / main ERLpen − 1 on arm real.
 | s3_04494_00994_01494_512 | 13.19 → 13.72 | 32.59 → 36.20 | 85 → 72 | 0.235 → 0.086 | 118/25/25 → 91/28/49 |
 
 The duplicated share is the share of written length within 1.5 voxels of a different written fiber of the same
-family. A crossing is a place where a reference fiber crosses a mid-plane (a block face) with at least 40 voxels of
-its arclength on each side. Its window is that ±40 voxels of the reference. Written fibers of the same family, within
-2 voxels, make the crossing:
+family. A crossing is a place where a generated, unpatched one-block reference fiber crosses a mid-plane (a block face)
+with at least 40 voxels of its arclength on each side. Its window is that ±40 voxels of the reference. Written fibers of
+the same family, within 2 voxels, make the crossing:
 * **whole** when one written fiber covers 95% of the window;
 * **broken** when the written fibers together cover 80% of it;
 * **lost** otherwise.
+
+These diagnostics compare generated fibers. ERLpen and its coverage are scored separately against the hand-traced
+skeleton.
 
 * **P1, P2:** at tolerance 4, ERLpen rises on 8 of 8 cubes, by a median 0.128 (0.030 to 0.234). P1 needed 6 of 8,
   and P2 needed a median of 0.10. Both held.
@@ -105,7 +108,7 @@ its arclength on each side. Its window is that ±40 voxels of the reference. Wri
   Whole crossings fall on two cubes, s3_01994_01494_00994_512 (82 to 73) and s3_04494_00994_01494_512 (118 to 91). On
   s3_04494_00994_01494_512, 19 crossings lose a join, the most of any cube, and 11 gain one. On
   s3_01994_01494_00994_512, 5 lose one and 4 gain one. On the other six cubes, 11 to 46 gain a join and 2 to 10 lose
-  one. ERLpen, which counts both, rises on all eight.
+  one. ERLpen, evaluated separately against the hand tracing, rises on all eight.
 
 ## What it changes
 

@@ -300,7 +300,7 @@ def test_the_lost_crossings_diagnosis():
     )
     assert (
         all(x > 0 for x in gains(d, "real", "tol4"))
-        and "ERLpen, which counts both, rises on all eight." in t
+        and "ERLpen, evaluated separately against the hand tracing, rises on all eight." in t
     )
 
 

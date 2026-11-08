@@ -94,7 +94,7 @@ def test_what_it_costs_is_the_diagnosis():
     }
     n = sum(x["main"].values())
     assert (
-        f"Of {n:,} places where a hand-traced fiber crosses a block face, {x['patched']['lost']} are lost with the "
+        f"Of {n:,} places where a generated, unpatched one-block fiber crosses a block face, {x['patched']['lost']} are lost with the "
         f"trim against {x['main']['lost']} on main. Whole ones rise from {x['main']['whole']} to "
         f"{x['patched']['whole']}, and broken ones fall from {x['main']['broken']} to {x['patched']['broken']}."
     ) in t
@@ -121,6 +121,23 @@ def test_what_it_costs_is_the_diagnosis():
         f"{e['better_by_join']['chained only with the trim']} crossings are chained only with the trim"
         in t
     )
+
+
+def test_crossing_diagnostics_are_distinct_from_hand_traced_erl():
+    draft = flat()
+    report = " ".join((ROOT / "reports/afv_generator_block_seams.md").read_text().split())
+    assert "generated, unpatched one-block reference fiber crosses a mid-plane" in report
+    assert (
+        "These crossing diagnostics are separate from merge-penalized ERL, which is scored against the hand tracing"
+        in draft
+    )
+    assert (
+        "ERLpen and its coverage are scored separately against the hand-traced skeleton."
+        in report
+    )
+    for text in (draft, report):
+        assert "where a hand-traced fiber crosses a block face" not in text
+        assert not re.search(r"(?:ERLpen|[Mm]erge-penalized ERL)[^.]*counts both", text)
 
 
 def test_the_change_is_the_amended_patch():
