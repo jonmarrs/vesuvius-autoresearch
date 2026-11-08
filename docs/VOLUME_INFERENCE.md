@@ -69,6 +69,59 @@ Until 2026-10-16 a model without the head exported its ink map as fiber. A fiber
 head is a trained output, not an independently validated fiber measurement.
 Ensembling does not establish accuracy or hallucination absence.
 
+## Production planning
+
+Inspect a production run before starting model work:
+
+```bash
+uv run python -m scripts.production_predict \
+  --checkpoint best_model.pt --uri /path/to/ct.zarr \
+  --x 0 --y 0 --z 0 --width 1024 --height 1024 \
+  --artifact-stem scroll1_baseline --out-dir predictions/production --dry-run
+```
+
+The JSON document on stdout includes resolved source/checkpoint/output paths,
+checkpoint SHA-256 and byte count, source shape, geometry, tile count and recipe.
+Reader diagnostics go to stderr. `PLANNED` means the declared geometry and
+artifact paths passed preflight. The command deserializes the **trusted project
+checkpoint, including tensors, on CPU**, and opens source metadata. It does not
+construct a model, check that weights match it, read CT voxels, probe CUDA, run
+ridge preprocessing or write prediction artifacts. The corresponding verification
+fields are explicitly false. A plan is not a GPU memory estimate or proof that
+inference will succeed. Remove `--dry-run` to execute the command with the same
+options; a later invocation reads and validates its inputs again.
+
+Production accepts local paths and local `file://` volume URIs. Before model
+work and again before replacing outputs, it checks the Zarr group and metadata
+paths against the source volume, selected array and checkpoint, including
+resolved aliases, ancestor overlaps and existing inode identities. Existing output trees must have
+real directories and regular files without symbolic or hard links; metadata
+must also be a regular file without hard links. Inspection stops after 100,000
+entries in the existing group. An unsafe or oversized existing output is refused;
+choose a fresh output directory or stem. The source volume is not recursively
+scanned. These are path checks at two points in time, not locks: keep source
+paths stable and serialize writers targeting the same artifacts.
+
+Without `--artifact-stem`, names remain
+`prod_pred_<z>_<y>_<x>_<width>x<height>.zarr` and the matching `_meta.json`.
+The override is a single filename stem, without directory components or control
+characters. Use distinct stems or directories for scrolls and model comparisons;
+coordinates alone do not identify a source. A safe rerun replaces the existing
+outputs, invalidating the old metadata before writing the Zarr and writing new
+metadata last. Publication is not transactional: interruption can leave an
+incomplete Zarr without a sidecar. Pre-inference failures leave previous results
+in place and do not make them current.
+
+Checkpoint loading and hashing use the same captured bytes. The default capture
+limit is 4 GiB; use `--max-checkpoint-bytes N` to set a positive byte limit below
+the system read limit. Nonregular files, oversized captures and observed changes
+during capture fail before deserialization. The byte limit is not an RSS limit:
+the serialized capture and deserialized tensors can coexist in host memory.
+The recorded digest identifies those loaded bytes, even if the path is replaced
+later; it does not verify the CT data, training history or scientific validity.
+See the [production architecture review](DESIGN_ARCHITECTURE_REVIEW_PRODUCTION_PLANNING.md)
+for the reproduced defects and validation scope.
+
 ## Geometry and input compatibility
 
 Positions are source voxel indices in x/y/z order. The loader reads z/y/x and

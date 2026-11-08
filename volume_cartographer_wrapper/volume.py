@@ -27,7 +27,8 @@ class VolumeCartographerUnavailable(RuntimeError):
     """Raised when a requested Volume Cartographer path cannot be opened."""
 
 
-def _coerce_local_path(path_or_url: str | Path | None) -> Path:
+def local_volume_path(path_or_url: str | Path | None) -> Path:
+    """Normalize the local path/file-URI contract shared by readers and planners."""
     if path_or_url is None:
         raise VolumeCartographerUnavailable("a local OME-Zarr path is required")
 
@@ -56,12 +57,14 @@ def _coerce_local_path(path_or_url: str | Path | None) -> Path:
     return Path(value)
 
 
-def _select_zarr_level(path: Path) -> Path:
+def local_volume_array_path(path_or_url: str | Path) -> Path:
+    """Resolve the actual array selected from a local array or OME level-0 group."""
+    path = local_volume_path(path_or_url).resolve()
     if (path / ".zarray").exists():
         return path
     level0 = path / "0"
     if (level0 / ".zarray").exists():
-        return level0
+        return level0.resolve()
     return path
 
 
@@ -77,8 +80,8 @@ class FastLocalVolume:
 
     def __init__(self, path: str | Path, prefer_native: bool | None = None):
         del prefer_native  # Kept for compatibility with old call sites.
-        self.source_path = _coerce_local_path(path).resolve()
-        self.path = _select_zarr_level(self.source_path)
+        self.source_path = local_volume_path(path).resolve()
+        self.path = local_volume_array_path(self.source_path)
         self._zarr = zarr.open(str(self.path), mode="r")
         if (
             not isinstance(self._zarr, zarr.Array)
