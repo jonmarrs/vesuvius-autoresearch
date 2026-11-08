@@ -3,6 +3,7 @@
 import hashlib
 import io
 import os
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -202,3 +203,32 @@ def test_the_instance_digest_is_computed_from_the_captured_bytes(tmp_path, monke
     array, identity = read_instances(source, (3, 3, 8))
     assert identity["instances_sha256"] == hashlib.sha256(original).hexdigest()
     assert int(array.max()) == 1
+
+
+def _npy_with_header(array, header_size, version):
+    header = repr(
+        {
+            "descr": np.lib.format.dtype_to_descr(array.dtype),
+            "fortran_order": False,
+            "shape": array.shape,
+        }
+    )
+    header = header.ljust(header_size - 1).encode("latin1") + b"\n"
+    length = struct.pack("<H" if version == (1, 0) else "<I", len(header))
+    return np.lib.format.magic(*version) + length + header + array.tobytes()
+
+
+@pytest.mark.parametrize("version", [(1, 0), (2, 0)])
+def test_capture_reads_every_header_numpy_reads(tmp_path, version):
+    # np.load accepts padded headers up to 10,000 bytes, not only the 128-byte
+    # ones NumPy writes; the capture's header prefix must reach that cap.
+    labels = np.arange(72, dtype=np.int32).reshape(3, 3, 8)
+    source = tmp_path / "instances.npy"
+    source.write_bytes(_npy_with_header(labels, 10_000, version))
+    array, _ = read_instances(source, labels.shape)
+    np.testing.assert_array_equal(array, np.load(source))
+    np.testing.assert_array_equal(array, labels)
+    source.write_bytes(_npy_with_header(labels, 10_001, version))
+    for read in (np.load, lambda path: read_instances(path, labels.shape)):
+        with pytest.raises(ValueError):
+            read(source)

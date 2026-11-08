@@ -263,3 +263,130 @@ def test_trace_output_alias_is_refused_before_model_or_data_work(tmp_path, monke
                 str(output),
             ]
         )
+
+
+@pytest.mark.parametrize("kind", ["symlink", "directory"])
+def test_report_output_must_be_a_regular_file_before_data(tmp_path, monkeypatch, kind):
+    # Neither aliases an input, so only the regular-file check refuses them.
+    _, argv = score_fixture(tmp_path, monkeypatch)
+    output = tmp_path / "report.json"
+    if kind == "symlink":
+        (tmp_path / "elsewhere.json").write_text("kept")
+        output.symlink_to(tmp_path / "elsewhere.json")
+    else:
+        output.mkdir()
+    monkeypatch.setattr(bench_cli, "_load_cube", lambda *a: pytest.fail("data loaded"))
+    with pytest.raises(ValueError, match="report output must be a nonsymlink regular"):
+        bench_cli.main([*argv, "--json-out", str(output)])
+
+
+def test_score_with_floors_plans_the_probability_cache_as_an_output(
+    tmp_path, monkeypatch
+):
+    _, argv = score_fixture(tmp_path, monkeypatch)
+    (tmp_path / "elsewhere.npy").write_bytes(b"kept")
+    (tmp_path / "cube_fiberprob.npy").symlink_to(tmp_path / "elsewhere.npy")
+    load_cube = bench_cli._load_cube
+    monkeypatch.setattr(bench_cli, "_load_cube", lambda *a: pytest.fail("data loaded"))
+    with pytest.raises(ValueError, match="cache output must be a nonsymlink regular"):
+        bench_cli.main([*argv, "--with-floors"])
+    # Without floors, score only reads the cache's paths and never writes them.
+    monkeypatch.setattr(bench_cli, "_load_cube", load_cube)
+    assert bench_cli.main(argv) == 0
+
+
+def test_cache_paths_are_rechecked_after_inference(tmp_path, monkeypatch):
+    from vesuvius_autoresearch.fibers import semantic
+
+    image = tmp_path / "cube_image.tif"
+    image.write_bytes(b"CT")
+    cache = tmp_path / "cube_fiberprob.npy"
+
+    def infer(model, img, **kwargs):
+        cache.symlink_to(image)
+        return np.zeros((2, *img.shape), np.float32)
+
+    monkeypatch.setattr(bench_cli, "inference_identity", lambda *a: {"model": "m"})
+    monkeypatch.setattr(semantic, "load_model", lambda *a, **k: object())
+    monkeypatch.setattr(semantic, "predict_volume", infer)
+    monkeypatch.setattr(semantic, "fiber_probability", lambda prob: prob[0])
+    with pytest.raises(ValueError, match="artifact collision"):
+        bench_cli._fiber_prob(tmp_path, "cube", np.zeros((3, 3, 8)), tmp_path, 8, "cpu")
+    assert cache.is_symlink() and image.read_bytes() == b"CT"
+
+
+def swap_for_model_directory(reports, model):
+    # The report's directory becomes the model's: a write that is not refused
+    # replaces the model's own plans.json.
+    reports.rmdir()
+    reports.symlink_to(model, target_is_directory=True)
+
+
+def model_with_reports(root):
+    model, reports = root / "model", root / "reports"
+    model.mkdir()
+    reports.mkdir()
+    (model / "plans.json").write_text("model plans")
+    return model, reports
+
+
+def test_all_cube_report_path_is_rechecked_after_inference(tmp_path, monkeypatch):
+    model, reports = model_with_reports(tmp_path)
+
+    def infer(*a):
+        swap_for_model_directory(reports, model)
+        return np.ones((3, 3, 8))
+
+    monkeypatch.setattr(bench_cli, "CUBES", ["cube"])
+    monkeypatch.setattr(
+        bench_cli, "_load_cube", lambda *a: (np.zeros((3, 3, 8)), simple_gt())
+    )
+    monkeypatch.setattr(bench_cli, "_fiber_prob", infer)
+    monkeypatch.setattr(bench_cli, "_floor_rows", lambda *a: {})
+    monkeypatch.setattr(bench_cli, "_measurement_provenance", lambda *a: {"stub": True})
+    with pytest.raises(ValueError, match="artifact collision"):
+        bench_cli.main(
+            [
+                "--data-dir",
+                str(tmp_path),
+                "floors",
+                "--all-cubes",
+                "--model",
+                str(model),
+                "--json-out",
+                str(reports / "plans.json"),
+            ]
+        )
+    assert (model / "plans.json").read_text() == "model plans"
+
+
+def test_trace_report_path_is_rechecked_after_saving_instances(
+    bench_cube,  # noqa: F811
+    monkeypatch,
+):
+    data_dir = bench_cube.data_dir
+    model, reports = model_with_reports(data_dir)
+    digest = bench_cli.stream_sha256
+
+    def swap_while_saving(f):
+        swap_for_model_directory(reports, model)
+        return digest(f)
+
+    monkeypatch.setattr(bench_cli, "stream_sha256", swap_while_saving)
+    with pytest.raises(ValueError, match="artifact collision"):
+        bench_cli.main(
+            [
+                "--data-dir",
+                str(data_dir),
+                "trace",
+                "--cube",
+                "cube",
+                "--model",
+                str(model),
+                "--json-out",
+                str(reports / "plans.json"),
+                "--save-instances",
+                str(data_dir / "instances.npy"),
+            ]
+        )
+    assert (model / "plans.json").read_text() == "model plans"
