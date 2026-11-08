@@ -181,3 +181,24 @@ def test_instances_must_have_the_cubes_own_shape(tmp_path, shape):
     np.save(source, np.ones((3, 3, 8), np.int32))
     with pytest.raises(ValueError, match="must match cube shape"):
         read_instances(source, shape)
+
+
+def test_the_instance_digest_is_computed_from_the_captured_bytes(tmp_path, monkeypatch):
+    # Replace the file as soon as it is captured: a digest read again from the path
+    # would describe bytes that were never parsed or scored.
+    from vesuvius_autoresearch.fibers import benchmark_artifacts
+
+    source = tmp_path / "instances.npy"
+    np.save(source, np.ones((3, 3, 8), np.int32))
+    original = source.read_bytes()
+    capture = benchmark_artifacts.capture_bytes
+
+    def replace_after_capture(*args):
+        captured = capture(*args)
+        np.save(source, np.full((3, 3, 8), 2, np.int32))
+        return captured
+
+    monkeypatch.setattr(benchmark_artifacts, "capture_bytes", replace_after_capture)
+    array, identity = read_instances(source, (3, 3, 8))
+    assert identity["instances_sha256"] == hashlib.sha256(original).hexdigest()
+    assert int(array.max()) == 1
