@@ -4,6 +4,10 @@
 patch `repro/fibers/villa_fiber_generator_trim_cut_ends_7e6b82164.patch` (on villa main `7e6b82164`), both committed with
 this file. Before this was pushed, the script ran once on one in-sample cube, `s1_00497_01497_03997_256`, from the
 screen's cached fields: the gate passed and every row equals the screen's (2.4 minutes).
+**Pushed at 16:00 PST (40703acb) and amended at 19:14 PST (6823af7a: the patch to propose; the patch measured is
+unchanged). Run 16:00 PST on 11-06 to 21:57 PST on 11-07: finding 106, `reports/afv_generator_block_seams.md`. The gate
+passed on all eight cubes, and P1, P2, P3 and P4 held (median held-out gain 0.071 at τ = 2, 0.128 at τ = 4):
+`SUPPORTED`.**
 
 ## The question
 

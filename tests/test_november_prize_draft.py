@@ -4,6 +4,7 @@ records of each contribution it names."""
 import datetime as dt
 import json
 import re
+import statistics
 import subprocess
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -144,4 +145,36 @@ def test_the_splice_entry_is_the_polyline_record():
     assert (
         h["tol2"]["cubes_gaining"] == h["tol4"]["cubes_gaining"] == 10
         and "raised ERLpen on every cube" in section
+    )
+
+
+def test_the_seam_trim_entry_is_finding_106s_record():
+    d = json.loads((ROOT / "reports/afv_generator_block_seams.json").read_text())
+    v = d["verdict"]
+    rows = [r["rows"] for r in d["cubes"].values()]
+    lost = [
+        sum(r[f"real/{k}"]["crossings"]["lost"] for r in rows)
+        for k in ("main", "patched")
+    ]
+    n = sum(sum(r["real/main"]["crossings"].values()) for r in rows)
+    m = v["P3_merges_tol2"]
+    section = " ".join(_section("Queued, not posted").split())
+    assert v["decision"] == "SUPPORTED" and len(rows) == 8
+    g = {t: statistics.median(r["real/patched"][t]["erl_merge_penalized"] / r["real/main"][t]["erl_merge_penalized"] - 1 for r in rows)
+         for t in ("tol2", "tol4")}  # fmt: skip
+    assert (round(g["tol4"], 4), round(g["tol2"], 4)) == (
+        v["P2_median_gain_tol4"][0],
+        v["P4_median_gain_tol2"][0],
+    )
+    assert (f"a median +{100 * g['tol4']:.1f}% at tolerance 4 and "
+            f"+{100 * g['tol2']:.1f}% at tolerance 2, with merges {m[0]} → {m[1]} at tolerance 2") in section  # fmt: skip
+    assert f"Lost face crossings rise, {lost[0]} → {lost[1]} of {n:,}." in section
+    erl = [
+        [r[f"real/{k}"][t]["erl_merge_penalized"] for k in ("main", "patched")]
+        for r in rows
+        for t in ("tol2", "tol4")
+    ]
+    assert (
+        all(b > a for a, b in erl)
+        and "trimming the cut ends raised ERLpen on every cube" in section
     )
