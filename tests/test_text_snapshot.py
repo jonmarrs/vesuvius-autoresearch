@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.text_snapshot import Snapshot
+from scripts.text_snapshot import Snapshot, capture_bytes
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -124,3 +124,34 @@ def test_the_descriptor_size_is_checked_before_any_bytes_are_read(
     monkeypatch.setattr(os, "fstat", oversized)
     with pytest.raises(ValueError, match="exceeds 5 bytes"):
         Snapshot.read(path, 5)
+
+
+def test_binary_capture_does_not_require_utf8(tmp_path):
+    path = tmp_path / "weights.pt"
+    path.write_bytes(b"\x00\xff\xfe")
+    assert capture_bytes(path, 2**32) == (path.resolve(), b"\x00\xff\xfe")
+    with pytest.raises(UnicodeDecodeError):
+        Snapshot.read(path, 2**32)
+
+
+@pytest.mark.parametrize("replacement", [b"longer file", b"x", b"other"])
+def test_changed_descriptor_is_rejected_even_below_the_budget(
+    tmp_path, monkeypatch, replacement
+):
+    path = tmp_path / "source.txt"
+    path.write_bytes(b"small")
+    fstat = os.fstat
+    inspections = []
+
+    def inspect(descriptor):
+        info = fstat(descriptor)
+        if not inspections:
+            path.write_bytes(replacement)
+            os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns + 1_000_000))
+        inspections.append(info)
+        return info
+
+    monkeypatch.setattr(os, "fstat", inspect)
+    with pytest.raises(ValueError, match="changed while capturing"):
+        capture_bytes(path, 128)
+    assert len(inspections) == 2

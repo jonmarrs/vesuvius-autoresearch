@@ -292,6 +292,11 @@ Patch size, depth, and ridge inputs come from the checkpoint. Stride defaults to
 half the patch size; a supplied stride must be positive and no larger than the
 patch. The requested region must fit inside the source volume and be at least
 one patch wide and tall. The output includes a uint8 OME-Zarr group and metadata.
+Add `--dry-run` to inspect a JSON plan before inference, and `--artifact-stem`
+to keep comparison runs separate. The plan reads a trusted checkpoint on CPU
+and source metadata; it does not verify model weights, voxels or GPU capacity.
+See [production planning](docs/VOLUME_INFERENCE.md#production-planning) for
+path protection, capture limits and rerun behavior.
 CLI positions are source voxel indices in x/y/z order; OME transforms use z/y/x
 order in micrometers. Voxel size comes from the checkpoint when recorded, with
 `--voxel-size-um` providing the fallback (default 7.91).
