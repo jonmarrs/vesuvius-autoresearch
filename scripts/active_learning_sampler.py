@@ -86,6 +86,7 @@ class ActiveLearningSampler:
         self.model.eval()
 
     def sample_uncertain_regions(self, dataloader, n_samples=10, *, min_distance=0):
+        """Rank a complete ordered catalog traversal; subset the catalog first."""
         positive_integer(n_samples, "n_samples")
         min_distance = minimum_distance(min_distance)
         if getattr(dataloader.dataset, "jitter", False):
@@ -166,6 +167,11 @@ class ActiveLearningSampler:
 
         if not batch_scores:
             raise ValueError("no patches available for active learning")
+        if offset != len(catalog):
+            raise ValueError(
+                f"loader scored {offset} of {len(catalog)} catalog patches; "
+                "deliver every catalog patch (use drop_last=False)"
+            )
         uncertainties = np.concatenate(batch_scores)
         if not np.isfinite(uncertainties).all():
             raise ValueError("uncertainty scores must be finite")
