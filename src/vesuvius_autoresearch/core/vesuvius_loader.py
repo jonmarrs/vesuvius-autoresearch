@@ -1,8 +1,10 @@
+import hashlib
 import itertools
+import json
 import os
 import sys
 from collections import defaultdict
-from numbers import Integral
+from numbers import Integral, Real
 
 import numpy as np
 import torch
@@ -74,6 +76,61 @@ _WARNING_COUNTS = defaultdict(int)
 # Largest per-axis size difference accepted between a 2D label/mask and its
 # volume: export rounding, not a different crop or scale.
 LABEL_SHAPE_TOLERANCE_PX = 2
+
+
+def _coordinate_cache_path(
+    cache_dir, uri, shape, patch_size, target, bbox_threshold, label_threshold
+):
+    """Identify the fitted selection pixels/settings, without another full-image copy.
+
+    Bump the namespace when the coordinate finder or fallback recipe changes.
+    An absent target means the sampler receives implicit uint8 ones on the grid.
+    """
+    if (
+        not isinstance(patch_size, Integral)
+        or isinstance(patch_size, bool)
+        or patch_size <= 0
+    ):
+        raise ValueError("coordinate-cache patch_size must be a positive integer")
+    for name, value in (
+        ("bbox_threshold", bbox_threshold),
+        ("label_threshold", label_threshold),
+    ):
+        if (
+            not isinstance(value, Real)
+            or isinstance(value, bool)
+            or not 0 <= value <= 1
+        ):
+            raise ValueError(
+                f"coordinate-cache {name} must be a finite ratio in [0, 1]"
+            )
+    recipe = {
+        "volume_uri": str(uri),
+        "volume_shape": [int(n) for n in shape],
+        "patch_size": int(patch_size),
+        # Keep type and precision: float() can collapse a longdouble/Fraction
+        # threshold onto a value with different comparison semantics.
+        "thresholds": [
+            (type(value).__module__, type(value).__qualname__, repr(value))
+            for value in (bbox_threshold, label_threshold)
+        ],
+        "fallback_thresholds": [0.01, 0.01],
+        "target": {"implicit_ones": True}
+        if target is None
+        else {"shape": list(target.shape), "dtype": target.dtype.str},
+    }
+    digest = hashlib.sha256(
+        json.dumps(
+            recipe, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()
+    )
+    if target is not None:
+        for start in range(0, len(target), 64):
+            rows = np.ascontiguousarray(target[start : start + 64])
+            digest.update(memoryview(rows).cast("B"))
+    return os.path.join(
+        cache_dir, f"valid_coords_villa_content_v1_{digest.hexdigest()}.npy"
+    )
 
 
 # A DataLoader worker's own counts end with it; share_warning_counts gives it
@@ -487,6 +544,11 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     unwarped patch cannot represent the requested input configuration. A working
     CPU ridge implementation remains a valid fallback from an unavailable GPU.
     The default permissive mode retains warning-and-fallback behavior.
+
+    Coordinate caches identify the effective fitted selection pixels and sampler
+    settings. Timestamp-only caches are ignored and preserved. Explicit JSON
+    catalogs bypass this cache; it does not hash CT intensities or establish
+    label registration or training/validation independence.
     """
 
     def __init__(
@@ -616,59 +678,48 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 fitted[:h, :w] = _arr[:h, :w]
                 setattr(self, _name, fitted)
 
-        # Pre-calculate valid coordinates
-        mask_mtime = (
-            int(os.path.getmtime(mask_path))
-            if mask_path and os.path.exists(mask_path)
-            else 0
-        )
-        labels_mtime = (
-            int(os.path.getmtime(labels_path))
-            if labels_path and os.path.exists(labels_path)
-            else 0
-        )
-
-        import hashlib
-
-        # Never a bare relative filename: that saved the cache into whatever
-        # directory the process was launched from.
-        uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
-        cache_path = os.path.join(
-            self.volume.cache_dir,
-            # "grid": computed on the label/mask as fitted to the volume grid; older
-            # caches came from the unfitted arrays.
-            f"valid_coords_villa_grid_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
+        # Select exactly the array passed to the finder, after fitting it to
+        # the volume grid. Timestamps/paths do not identify those pixels.
+        if self.require_ink and self.labels is not None:
+            target_array, lbl_thresh = self.labels, self.min_ink_ratio
+        elif self.mask is not None:
+            target_array, lbl_thresh = self.mask, self.min_mask_ratio
+        else:
+            target_array, lbl_thresh = None, 0.0
+        cache_path = (
+            None
+            if coords_from_json
+            else _coordinate_cache_path(
+                self.volume.cache_dir,
+                volume_uri,
+                self.shape,
+                self.patch_size,
+                target_array,
+                self.min_mask_ratio,
+                lbl_thresh,
+            )
         )
 
-        if patches_json and os.path.exists(patches_json):
+        if coords_from_json:
             print(f"Loading valid coordinates from JSON patch catalog: {patches_json}")
-            import json
 
             with open(patches_json) as f:
                 patch_data = json.load(f)
             self.valid_coords = np.array(
                 [[p["y"], p["x"]] for p in patch_data.get("patches", [])]
             )
-        elif os.path.exists(cache_path):
+        elif cache_path is not None and os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
         else:
+            assert cache_path is not None
             print(
                 f"Finding valid coordinates (require_ink={require_ink}) for {volume_uri} using Villa find_valid_patches..."
             )
 
             from .patch_catalog import find_valid_patches
 
-            # If require_ink is True, use labels for both bbox and fraction
-            # If require_ink is False, use mask to find foreground patches
-            if self.require_ink and self.labels is not None:
-                target_array = self.labels
-                lbl_thresh = self.min_ink_ratio
-            elif self.mask is not None:
-                target_array = self.mask
-                lbl_thresh = self.min_mask_ratio
-            else:
+            if target_array is None:
                 target_array = np.ones((self.shape[1], self.shape[2]), dtype=np.uint8)
-                lbl_thresh = 0.0
 
             results = find_valid_patches(
                 label_arrays=[target_array],

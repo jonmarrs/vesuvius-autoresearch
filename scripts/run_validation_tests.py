@@ -127,6 +127,7 @@ VALIDATION_TESTS = [
     "tests/test_ablation_harness_isolation.py",
     "tests/test_vesuvius_loader.py",
     "tests/test_labeled_dataset_contracts.py",
+    "tests/test_coordinate_cache_identity.py",
     "tests/test_spiral_driver_failures.py",
     "tests/test_spiral_artifacts.py",
     "tests/test_run_render_slice_guard.py",
