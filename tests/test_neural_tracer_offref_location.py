@@ -4,6 +4,7 @@ the analysis's record."""
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -77,6 +78,7 @@ def test_length_outside_the_cube_is_not_placed():
     "face, link, want",
     [
         (-0.5, -1, "outside_cube"),
+        (0.0, -1, "confidence|unlinked|edge"),  # on the face: inside the cube
         (3.0, -1, "confidence|unlinked|edge"),
         (40.0, 7, "confidence|linked|interior"),
     ],
@@ -85,6 +87,72 @@ def test_end_class(face, link, want):
     assert (
         ol.end_class({"face_distance": face, "link": link, "reason": "confidence"})
         == want
+    )
+
+
+@pytest.mark.parametrize("face", [ol.cs.EDGE - 0.5, ol.cs.EDGE, 40.0])
+@pytest.mark.parametrize("link", [-1, 0, 7])
+@pytest.mark.parametrize("reason", ["confidence", "owned_or_live"])
+def test_the_interior_unlinked_confidence_class_is_exactly_the_screen_s_ends(
+    face, link, reason
+):
+    """The report's "tails behind the screen's ends" must be the ends the stop-trim screen trims."""
+    z = np.arange(face, face + 100.0)
+    q = np.stack([z, np.full_like(z, 128.0), np.full_like(z, 128.0)], axis=1)
+    meta = ((reason, "bounds"), (link, -1))
+    first = ol.cs.stops(q, *meta, 256)[0]
+    trimmed = ol.ts.trimmed({1: q}, {1: meta}, 256, 20.0)[1] == 1
+    assert (ol.end_class(first) == "confidence|unlinked|interior") == trimmed
+
+
+def fake_scrollgt(monkeypatch, fibers: list) -> None:
+    """ScrollGT's fiber target and resampling, stood in: each reference fiber is resampled to its own points."""
+    skel = types.SimpleNamespace(
+        fibers=[
+            types.SimpleNamespace(coords=np.asarray(f, float), edges=None)
+            for f in fibers
+        ]
+    )
+    et = types.ModuleType("scrollgt.fibers.eval_trace")
+    et._resample_fiber = lambda coords, edges, step: [(p, None) for p in coords]
+    tg = types.ModuleType("scrollgt.fibers.target")
+    tg.load_fiber_target = lambda path: (skel, None, None)
+    for m in (
+        types.ModuleType("scrollgt"),
+        types.ModuleType("scrollgt.fibers"),
+        et,
+        tg,
+    ):
+        monkeypatch.setitem(sys.modules, m.__name__, m)
+
+
+def test_a_point_exactly_the_tolerance_away_is_on_and_outside_the_cube_nothing_is(
+    monkeypatch, tmp_path
+):
+    size = 16
+    fake_scrollgt(monkeypatch, [[(z, 8.0, 8.0) for z in range(size)]])
+    fibers = {
+        # 2 voxels beside the reference all along: on it at tolerance 2
+        1: np.array([(z, 8.0, 10.0) for z in range(2, 13)]),
+        # within 2 voxels of the reference only outside the cube, 5 voxels off inside
+        2: np.array(
+            [(-2, 8, 8), (-1, 8, 8), (0, 8, 13), (1, 8, 13), (2, 8, 13)], float
+        ),
+    }
+    zarr = types.ModuleType("zarr")
+    zarr.open = lambda path, mode: np.zeros((4, 4, 4))
+    monkeypatch.setitem(sys.modules, "zarr", zarr)
+    monkeypatch.setattr(ol.cs, "RUNS", {size: tmp_path})
+    monkeypatch.setattr(ol, "CT", {size: tmp_path})
+    monkeypatch.setattr(ol.al, "read_afv", lambda path: {k: (v + ol.cs.MARGIN)[:, ::-1] for k, v in fibers.items()})  # fmt: skip
+    monkeypatch.setattr(ol.cs, "read_meta", lambda run, afv: ({k: (("confidence",) * 2, (-1, -1)) for k in afv}, []))  # fmt: skip
+    out = ol.measure_cube(f"t_{size}")["2"]
+    inside = ol.point_weights(fibers[2])[2:].sum()
+    assert out["on_reference"] == pytest.approx(10.0)
+    assert out["length"] == pytest.approx(10.0 + inside)
+    assert (out["place"]["whole_off"], out["place"]["whole_off_n"]) == (
+        pytest.approx(inside),
+        1,
     )
 
 

@@ -70,3 +70,17 @@ def test_the_owners_parts_are_left_to_the_owner_and_nothing_is_signed():
 def test_the_files_it_points_to_exist():
     for rel in re.findall(r"`((?:scripts|docs|reports)/[^`]+)`", DRAFT.read_text()):
         assert (ROOT / rel).exists(), rel
+
+
+def test_the_merge_registration_and_scope_claims():
+    s = json.loads(POLY.read_text())["summary"]["held_out"]
+    f = json.loads(F105.read_text())
+    t = flat()
+    m = s["tol2"]["merges"]
+    assert m["poly"] > m["base"] and "no more merges" not in t.lower()
+    # the polylines drop overlap points, which the registration did not cover (it scored a labelling)
+    assert "the polylines below were checked afterwards, not registered" in t
+    assert f"fiber scorer (version {f['inputs']['scoring_version']})" in t
+    assert sum(c.startswith("s3_") for c in ls.HELD_OUT) == 8
+    assert "Ten cubes, eight from Scroll 3." in t
+    assert len(ls.IN_SAMPLE) == 11 and "developed on eleven other cubes" in t

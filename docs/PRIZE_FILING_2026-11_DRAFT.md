@@ -52,7 +52,7 @@ What this means here:
 
 * **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)).
   * **Done:** the rebase onto villa main `eab6108b9` (#2440 had moved the code around it) and the rewrite of its villa
-    tests for main's four-argument `ct_seed_heading`, our #360 (merged 2026-11-06). Those tests were run with the
+    tests for main's four-argument `ct_seed_heading`, our #360, merged 2026-11-06. Those tests were run with the
     native readers stubbed only.
   * **Still needed before posting:** `vc_reader` and `vc_object_store` built for villa main, villa's tests run against
     those builds, a GPU re-run of the two Scroll-5 cubes, and the owner's paragraph.
