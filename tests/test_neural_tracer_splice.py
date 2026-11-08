@@ -124,6 +124,43 @@ def test_the_arc_limit_follows_the_runs_overlap(tmp_path):
         )
 
 
+@pytest.mark.parametrize("name", ["spliced", "spliced.NPZ", "spliced.npy", "spliced.npz"])
+def test_the_actual_numpy_output_path_is_checked_before_splicing(
+    tmp_path, name, monkeypatch
+):
+    out = tmp_path / name
+    actual = out if name.endswith(".npz") else Path(str(out) + ".npz")
+    np.savez(actual, existing_result=np.array([123]))
+    before = actual.read_bytes()
+
+    # Even a missing input must not be read when the actual output already exists.
+    def unexpected_read(*args):
+        pytest.fail("existing output must be checked before reading the run")
+
+    monkeypatch.setattr(sp, "load_run", unexpected_read)
+    with pytest.raises(SystemExit, match="exists"):
+        sp.main([str(tmp_path / "missing-run"), "--write", str(out)])
+    assert actual.read_bytes() == before
+
+
+def test_omitted_npz_suffix_still_writes_the_expected_fibers(tmp_path):
+    pieces = {1: line(0, 10, 11)}
+    write_run(tmp_path / "run", pieces, {})
+    run_bytes = (tmp_path / "run/run.json").read_bytes()
+    tile = next((tmp_path / "run/tiles").glob("*.npz"))
+    tile_bytes = tile.read_bytes()
+    out = tmp_path / "spliced"
+    assert sp.main([str(tmp_path / "run"), "--write", str(out)]) == 0
+    assert not out.exists()
+    with np.load(tmp_path / "spliced.npz") as result:
+        np.testing.assert_allclose(result["points"], pieces[1])
+        assert result["offsets"].tolist() == [0, len(pieces[1])]
+        assert result["id"].tolist() == [1]
+        assert result["members"].tolist() == [1]
+    assert (tmp_path / "run/run.json").read_bytes() == run_bytes
+    assert tile.read_bytes() == tile_bytes
+
+
 def test_a_piece_written_twice_or_an_empty_run_is_refused(tmp_path):
     with pytest.raises(SystemExit, match="no finished tile"):
         (tmp_path / "e" / "tiles").mkdir(parents=True)

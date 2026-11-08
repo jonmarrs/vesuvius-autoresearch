@@ -156,6 +156,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     if args.write.exists():
         raise SystemExit(f"{args.write} exists")
+    # np.savez appends this case-sensitive suffix before opening its output.
+    # Check that actual destination too, so a shorthand cannot overwrite it.
+    if not str(args.write).endswith(".npz"):
+        args.write = Path(f"{args.write}.npz")
+        if args.write.exists():
+            raise SystemExit(f"{args.write} exists")
     pieces, meta, run = load_run(args.out)
     polys, members, summary = splice(
         pieces, meta, float(run["overlap"]) * float(run["grid_scale"])
