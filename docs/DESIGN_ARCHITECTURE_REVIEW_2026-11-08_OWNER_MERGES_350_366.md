@@ -44,9 +44,9 @@ now has a test. Each test passes as merged and fails with its guard removed.
   - The new test shrinks the source after pickling. It also makes the reopened volume empty.
 - **#366: outputs cannot be written inside the source volume group** (`test_production_artifact_plan.py`).
   - Protecting the source root, and not just its level-0 array, is what refuses output beside `0/` in the CT group.
-    Without that protection the run wrote into the group.
-- **#366: an output directory that is a file fails before the checkpoint is loaded.** Without that check the command
-  ran inference and only then failed in `makedirs`.
+    Without that protection the plan accepted those outputs.
+- **#366: an output directory that is a file fails before the checkpoint is loaded.** Without that check, the command
+  went on to load the checkpoint.
 - **#366: the recorded digest comes from the captured bytes.** The checkpoint is replaced as soon as it is captured.
   A digest recomputed from the path then describes other bytes. The existing test replaced it only during
   `torch.load`, after the digest.
@@ -54,7 +54,7 @@ now has a test. Each test passes as merged and fails with its guard removed.
   the URI again would then open an array the plan never checked.
 - **#366: a descriptor that under-reports its size is not captured truncated** (`test_text_snapshot.py`).
   - `fstat` says 4 bytes and the file has 10. Only the captured-length check refuses it.
-  - Without that check, `capture_bytes` returned 5 bytes as the whole checkpoint.
+  - Without that check, `capture_bytes` would return the first 5 bytes as the whole checkpoint.
 - **#359: an input alias made while scoring is refused before publication** (`test_detector_evaluation_inputs.py`).
   - `evaluate()` checks its inputs when it starts, and #359's document says the publisher checks them again.
   - #359's own test makes its alias during inference, before the first check, so dropping the second check failed
@@ -96,7 +96,9 @@ now has a test. Each test passes as merged and fails with its guard removed.
   - `_villa` runs `git -C villa show`, and villa is a `blob:none` partial clone. A missing blob is fetched rather than
     skipped.
   - Every other test that reads villa objects sets `GIT_NO_LAZY_FETCH=1`; this one now does too, with a test.
-  - The out-of-suite run below ran these tests before the change. Whether that fetched anything is not recorded.
+  - It did fetch during this round. My first out-of-suite run, on `e0558761` before this change, ran these tests. A
+    28 KB promisor pack appeared in villa's object store during that run. Eleven references to villa commits that the
+    doc audit could not resolve in round #152 now resolve.
 - **Records and guards bound.**
   - **#355 and #358.** Each script's `main()` now rewrites its committed record byte for byte from the recorded
     per-cube results. That binds the summaries, the gates and the settings. Of 35 mutants of the two scripts, 22
@@ -171,12 +173,32 @@ now has a test. Each test passes as merged and fails with its guard removed.
 
 ## Verification
 
-VALIDATION_PLACEHOLDER
+- **The touched modules pass on the merged branch.**
+  - The code PRs' five modules give 150 passed.
+  - Before the merge with main, the fifteen research and draft modules gave 257 passed.
+  - After it, the draft's, the upstream check's, the rebase's and finding 106's modules give 70 passed.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the 16 changed Python files, and `bash -n` passes on
+  the runner. Mypy is clean over the whole merged repository: 921 files.
+- **The standard suite.**
+  - On `e0558761` it gives round #152's 70 failing ids. The PRs' new suite modules pass.
+  - On this branch, merged with main, all 184 modules give the same 70 ids. #372 added one module.
+- **The test modules outside the suite.**
+  - On `e0558761`, the 245 modules give 2,316 passed, 82 skipped, 13 failed and 21 errors. The failing ids are round
+    #152's 34. The pass count is round #152's 2,241, less the 6 tests in the two modules #357 moved into the suite, plus
+    the 81 in the nine new research modules.
+  - On this branch, the 251 modules give 2,400 passed, with the same skips and failing ids. The 84 extra passes are the
+    62 tests this round adds there, plus #369's 22: 21 in its four new modules and one in the draft's tests.
+- **The doc audit**, run alone, adds no reference from this record.
+  - Its eight new unresolved entries are external commits named by the owner's new documents: #360's and #363's villa
+    drafts, the November draft, and #369's report and draft.
+  - The eleven it no longer lists are the villa commits fetched above.
 
 A note on this round's own work.
 - **A brief mutation in the main checkout.** I first checked the unpickling test's mutant in the main checkout, for
   about three seconds, while the standard suite was running there. I restored the file at once. That suite gave round
   #152's failing ids. Every later mutation ran in a separate worktree.
+- **The first standard suite on this branch was invalid.** I gave pytest a base temp whose parent did not exist, so
+  every test needing `tmp_path` errored. I stopped it and reran it; the figures above are from the rerun.
 - **The detector mutants had to be rerun.** A worker restart stopped their first run and left one mutant applied in
   that worktree, which I restored before rerunning.
 - **The regular-file mutant hung its test.** With #357's regular-file check removed,
