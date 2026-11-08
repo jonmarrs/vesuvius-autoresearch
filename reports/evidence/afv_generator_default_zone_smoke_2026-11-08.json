@@ -1,0 +1,117 @@
+{
+ "cube": "s3_04494_00994_01494_512",
+ "zone": 1024,
+ "block": 512,
+ "pad": 288,
+ "cut_end": 16.0,
+ "identity_problems": [],
+ "context_sha256": "fe4765760e37388af1e03d4bdb21e34d1b685f8cdbcdcd3b3143bd54d06734f5",
+ "rows": {
+  "main": {
+   "zone": {
+    "written": 651,
+    "length": 106563.5,
+    "duplicated_share": 0.1796
+   },
+   "cube": {
+    "written_inside": 651,
+    "duplicated_share": 0.1797,
+    "tol2": {
+     "scoring_version": 3,
+     "erl": 16.05,
+     "erl_merge_penalized": 13.67,
+     "erl_covered": 55.9,
+     "erl_merge_penalized_covered": 47.61,
+     "coverage": 0.287,
+     "precision": 0.731,
+     "splits": 6546,
+     "merges": 78,
+     "merged_instances": 71,
+     "n_gt_fibers": 665,
+     "n_pred_instances": 651,
+     "gt_length": 256645.2,
+     "pred_length": 127804.0,
+     "tolerance": 2.0
+    },
+    "tol4": {
+     "scoring_version": 3,
+     "erl": 53.5,
+     "erl_merge_penalized": 33.45,
+     "erl_covered": 148.88,
+     "erl_merge_penalized_covered": 93.09,
+     "coverage": 0.3594,
+     "precision": 0.9107,
+     "splits": 3554,
+     "merges": 246,
+     "merged_instances": 181,
+     "n_gt_fibers": 665,
+     "n_pred_instances": 651,
+     "gt_length": 256645.2,
+     "pred_length": 127804.0,
+     "tolerance": 4.0
+    }
+   }
+  },
+  "patched": {
+   "zone": {
+    "written": 571,
+    "length": 96522.5,
+    "duplicated_share": 0.0253
+   },
+   "cube": {
+    "written_inside": 571,
+    "duplicated_share": 0.0253,
+    "tol2": {
+     "scoring_version": 3,
+     "erl": 17.71,
+     "erl_merge_penalized": 14.91,
+     "erl_covered": 62.26,
+     "erl_merge_penalized_covered": 52.41,
+     "coverage": 0.2844,
+     "precision": 0.7331,
+     "splits": 4476,
+     "merges": 70,
+     "merged_instances": 63,
+     "n_gt_fibers": 665,
+     "n_pred_instances": 571,
+     "gt_length": 256645.2,
+     "pred_length": 123760.0,
+     "tolerance": 2.0
+    },
+    "tol4": {
+     "scoring_version": 3,
+     "erl": 62.29,
+     "erl_merge_penalized": 37.45,
+     "erl_covered": 174.67,
+     "erl_merge_penalized_covered": 105.02,
+     "coverage": 0.3566,
+     "precision": 0.9102,
+     "splits": 1175,
+     "merges": 232,
+     "merged_instances": 169,
+     "n_gt_fibers": 665,
+     "n_pred_instances": 571,
+     "gt_length": 256645.2,
+     "pred_length": 123760.0,
+     "tolerance": 4.0
+    }
+   }
+  }
+ },
+ "patched_stitch_sha256": "362b78b12b2abf1b887f173cf658a6480692bc4a37e7e20cb81ff1ca85be0a6a",
+ "timing_s": {},
+ "settings": {
+  "threshold": 60.0,
+  "margin": 32,
+  "mirror": false,
+  "extend": false,
+  "max_join_angle": 45.0,
+  "min_length": 100.0,
+  "black_distance": 16.0,
+  "model": "Qualzz20/afv_fiber_9um",
+  "revision": "e189af7507d16d85d510c372e33d798fc509bb59",
+  "pr_head": "2d8577ed",
+  "villa_main": "7e6b82164d014ed485aa027011f31070923fc0a9",
+  "device": "cpu"
+ }
+}
