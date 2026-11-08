@@ -360,7 +360,9 @@ def prepare_round(
                 "uris": [str(uri) for _, _, uri, _ in prepared],
                 "pseudo_label_dir": str(output / "labels"),
                 "use_confidence_weight": True,
-                "ignore_residual_weight": "1/255; no exact ignore mask in existing loss",
+                "ignore_residual_weight": "0 for post-augmentation 0.5/PNG-128 targets in ink BCE/Dice",
+                "ignore_scope": "post_augmentation_ink_bce_and_dice",
+                "spatial_holdout_guaranteed": False,
             },
             "volume_content_hashed": False,
         }

@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import re
+import statistics
 import subprocess
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -27,6 +28,7 @@ FINDINGS = {
     100: "neural_tracer_steep_heading",
     103: "seed_heading_confirmation",
     105: "neural_tracer_link_splice",
+    106: "afv_generator_block_seams",
 }
 
 
@@ -239,3 +241,35 @@ def test_villa_objects_are_read_without_a_lazy_fetch(monkeypatch):
     with pytest.raises(pytest.skip.Exception):
         _villa("HEAD", "README.md")
     assert seen.get("GIT_NO_LAZY_FETCH") == "1"
+
+
+def test_the_seam_trim_entry_is_finding_106s_record():
+    d = json.loads((ROOT / "reports/afv_generator_block_seams.json").read_text())
+    v = d["verdict"]
+    rows = [r["rows"] for r in d["cubes"].values()]
+    lost = [
+        sum(r[f"real/{k}"]["crossings"]["lost"] for r in rows)
+        for k in ("main", "patched")
+    ]
+    n = sum(sum(r["real/main"]["crossings"].values()) for r in rows)
+    m = v["P3_merges_tol2"]
+    section = " ".join(_section("Queued, not posted").split())
+    assert v["decision"] == "SUPPORTED" and len(rows) == 8
+    g = {t: statistics.median(r["real/patched"][t]["erl_merge_penalized"] / r["real/main"][t]["erl_merge_penalized"] - 1 for r in rows)
+         for t in ("tol2", "tol4")}  # fmt: skip
+    assert (round(g["tol4"], 4), round(g["tol2"], 4)) == (
+        v["P2_median_gain_tol4"][0],
+        v["P4_median_gain_tol2"][0],
+    )
+    assert (f"a median +{100 * g['tol4']:.1f}% at tolerance 4 and "
+            f"+{100 * g['tol2']:.1f}% at tolerance 2, with merges {m[0]} → {m[1]} at tolerance 2") in section  # fmt: skip
+    assert f"Lost face crossings rise, {lost[0]} → {lost[1]} of {n:,}." in section
+    erl = [
+        [r[f"real/{k}"][t]["erl_merge_penalized"] for k in ("main", "patched")]
+        for r in rows
+        for t in ("tol2", "tol4")
+    ]
+    assert (
+        all(b > a for a, b in erl)
+        and "trimming the cut ends raised ERLpen on every cube" in section
+    )

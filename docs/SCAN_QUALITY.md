@@ -1,0 +1,84 @@
+# Exploratory scan-quality diagnostics
+
+Inspect CT separability and texture on aligned, labeled NRRD cubes:
+
+```bash
+uv run python scripts/measure_scan_quality.py \
+  --data /path/to/cubes --out reports/scan_quality_new.json
+```
+
+The data root contains digit-prefixed cube directories, each holding
+`<cube>_volume.nrrd` and `<cube>_mask.nrrd`. CT and masks must be scalar 3D arrays
+with matching shapes and at least two voxels per axis. Masks contain
+nonnegative integer instance IDs (zero background). CT is uint8, uint16, or
+finite floating point; floating input must already be in [0,1]. Array axes use
+pynrrd's explicit `index_order="F"` for both files. Matching shapes do not verify
+registration or physical calibration.
+Declared NRRD channel/vector/time axes are rejected; absent axis-kind metadata
+still requires the operator to supply spatial cubes.
+
+`--data` is required; the former machine-specific default is retired. The CLI
+prints a `scan-quality-v2` JSON object on stdout, including each requested cube,
+source paths, shape/dtype, status/reason, population/sample counts, recipe,
+summary and per-feature correlations. Undefined values are JSON null, not NaN.
+This replaces the former bare rows list and human summary; consumers should
+check `schema`/`status` and read `cubes`/`correlations`.
+`--out` also saves the document to a new path outside the input tree. Existing
+files and symbolic links are refused before analysis. Resolved cube directories
+and declared volume/mask paths are also protected, including external aliases.
+Publication uses the
+shared staged-file helper; keep inputs stable and serialize writers. Reports
+record paths and settings, not CT content hashes or a snapshot of input bytes.
+
+The default `--max-voxels 16777216` bounds each cube to 256³ voxels, checked in
+both headers before either payload is decoded. A positive override is explicit.
+Inputs are processed one pair at a time, but feature computation still holds
+several full-size arrays. Plane-wise tensor eigensolves avoid a whole-volume
+3×3 matrix array. The voxel bound is not an RSS cap; allow roughly gigabyte-scale
+host memory for a 256³ cube and reduce the bound/use crops on constrained hosts.
+This is CPU processing and does not require the RTX 4090.
+
+## What is measured
+
+- **Separability AUC:** a two-iteration eroded sheet interior versus background
+  2–6 voxels from any sheet. Both populations need at least 1,000 voxels.
+  A seed-0 sample draws up to 200,000 voxels per class without replacement.
+  Tied intensities receive half credit through average ranks. The reported
+  value is `max(AUC, 1-AUC)`, selecting direction on the same sample. Constant
+  CT scores 0.5. Folding can bias chance samples upward; this is a descriptive
+  separation diagnostic, not fixed-direction predictive accuracy.
+- **Texture:** intensity standard deviation, nonzero-gradient median,
+  nonzero-gradient p90/p50, and mean largest structure-tensor eigenvalue divided
+  by trace. Flat voxels contribute zero to that last mean; flat cubes have null
+  gradient statistics. The full symmetric tensor, including cross terms, is
+  smoothed with sigma 2 voxels and reflect boundaries. Features use float32;
+  AUC retains source precision when ordering intensities.
+- **Encoding normalization:** uint8 is divided by 255 and uint16 by 65535 before
+  texture calculations. This removes encoding-range differences, not acquisition
+  or calibration differences. Physical spacing is not applied: derivatives,
+  smoothing and morphology are in voxel coordinates. Arbitrary resampled
+  rotations, unequal spacings and crop changes need not preserve the features.
+- **Correlations:** pairwise complete Pearson and tie-aware Spearman across
+  cubes, with at least four pairs and nonconstant predictor/outcome. Pair counts
+  are recorded; these exploratory correlations are not causal evidence or a
+  preregistered/independent validation.
+
+## Status and exits
+
+`MEASURED` / exit 0 means all selected cubes have defined outcomes and all four
+descriptive correlations are defined. It does not mean scan quality is good or
+that a predictor is useful. `INDETERMINATE` / exit 1 covers no cubes, insufficient
+populations, fewer than four pairs or undefined/constant correlations. A failed
+input gives overall `FAILED` / exit 1 and a per-cube reason; other cubes are
+still attempted. Per-cube failures and indeterminate analyses still produce
+their JSON report when the destination is valid. Invalid root/destination errors
+print a diagnostic on stderr and exit 1 without a report; invalid CLI usage
+exits 2.
+
+Hand-annotated cubes may omit unannotatable compressed regions. No threshold,
+scan-quality score, full-scroll deployment, acquisition recommendation or prize
+claim follows from this diagnostic. The old CT saturation result in
+[scan-quality reachability](../reports/scan_quality_reachability.md) needs a
+corrected dataset rerun; its numbers were not regenerated by the implementation
+tests. See the [architecture review](DESIGN_ARCHITECTURE_REVIEW_SCAN_QUALITY.md)
+for reproduced failures and validation limits.
