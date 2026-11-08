@@ -8,7 +8,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="${WORK:?a work directory}"
 VILLA="${VILLA:?a villa clone holding 7e6b82164}"
-PATCHED="${PATCHED:?the amended patch's extend/stitch.py}"
+PATCHED="${PATCHED:?the amended patch stitch.py}"
 DEVICE="${DEVICE:-cpu}"
 PY=/home/jon/openclaw-workspace/Neo-VM/spiral_out/afv_gen/venv/bin/python
 PR=/home/jon/openclaw-workspace/Neo-VM/spiral_out/afv_gen/pr1934/vesuvius/src

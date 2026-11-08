@@ -202,3 +202,12 @@ def test_the_registrations_smoke_is_its_evidence_against_finding_106s_arm_same()
             f"{s['main']['cube']['tol2']['merges']} → {s['patched']['cube']['tol2']['merges']} "
             f"({r['main']['tol2']['merges']} → {r['patched']['tol2']['merges']})") in text  # fmt: skip
     assert gain(*e4["s"]) == gain(*e4["r"])
+
+
+def test_the_launcher_parses():
+    """bash reads a script as it runs it: a quoting error would stop the run only once it reached that line."""
+    launcher = dz.ROOT / "repro/fibers/run_afv_generator_default_zone.sh"
+    assert (
+        subprocess.run(["bash", "-n", str(launcher)], capture_output=True).returncode
+        == 0
+    )
