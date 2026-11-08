@@ -152,7 +152,10 @@ its ink labels beside it (`inklabels_refined.png`, `inklabels_filled.png` or
 patches are drawn, and a `patches.json` replaces the patch catalogue. A
 `<segment>_pseudo.png` in `pseudo_label_dir` (`local_data/pseudo_labels`)
 replaces a training volume's labels, and is refused while `use_confidence_weight`
-is off ([pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md)). No maintained command in this
+is off ([pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md)). With confidence weighting enabled,
+post-augmentation PNG-128 and 0.5 targets have zero ink BCE/Dice weight;
+this does not guarantee spatial holdout exclusion through augmentation or
+auxiliary losses. No maintained command in this
 repository builds these directories. The downloaders in `scripts/archive/` are
 unmaintained and fetch raw CT, TIFF layers or label PNGs, not these zarrs; the
 `download_data.py --fragment 4` this guide used to give names a moved script,

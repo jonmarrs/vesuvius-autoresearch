@@ -58,6 +58,12 @@ from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
 from scripts.training.config import ExperimentConfig
+from scripts.training.ink_losses import (
+    CONFIDENCE_INK_RECIPE,
+    compute_dice_loss,
+    confidence_weight,
+    confidence_weighted_ink_losses,
+)
 from scripts.training.input_paths import training_label_path
 from scripts.training.promotion import (
     RESCORE_COMMAND,
@@ -1478,14 +1484,6 @@ def cutmix_data(x, y, z, alpha=1.0):
     return x, y, z, lam
 
 
-def confidence_weight(target):
-    """Per-pixel confidence weight for soft pseudo-labels: 1.0 where the label
-    is confident (0 or 1), 0.0 in the uncertain band (encoded as 0.5). Recomputed
-    from the (possibly augmented) target each step, so it survives mixup/affine
-    interpolation, and is a no-op on true binary labels."""
-    return (2.0 * (target - 0.5).abs()).clamp(0.0, 1.0)
-
-
 def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s):
     """Gated learning-curve probe: pooled pixel AUC on a FIXED random sample of
     validation patches, plus a step-tagged checkpoint and a CSV row. Wrapped so a
@@ -1530,6 +1528,9 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
                 "model_state_dict": model.state_dict(),
                 "step": step,
                 "config": asdict(config),
+                "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
+                if config.use_confidence_weight
+                else None,
             },
             f"{prefix}.step{step}.pt",
         )
@@ -1554,30 +1555,6 @@ def uamt_views(x_unlabeled, step, config):
         x_unlabeled, dummy_ink, dummy_fiber, step, None, config=config
     )
     return view, view
-
-
-def compute_dice_loss(pred_2d, target, smooth=1e-5, weight=None):
-    """
-    Standard Dice Loss for 2D ink detection. Optional per-pixel `weight`
-    down-weights pixels (e.g. uncertain pseudo-label band); weight=None is the
-    original unweighted behavior.
-    """
-    pred_2d = torch.sigmoid(pred_2d)
-
-    if target.dim() == 3:
-        target = target.unsqueeze(1)
-
-    if weight is not None:
-        if weight.dim() == 3:
-            weight = weight.unsqueeze(1)
-        pred_2d = pred_2d * weight
-        target = target * weight
-
-    intersection = (pred_2d * target).sum(dim=(-2, -1))
-    union = pred_2d.sum(dim=(-2, -1)) + target.sum(dim=(-2, -1))
-
-    dice = (2.0 * intersection + smooth) / (union + smooth)
-    return 1.0 - dice.mean()
 
 
 def compute_hard_dice(pred_2d, target, smooth=1e-5):
@@ -2427,16 +2404,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 
             # Supervised Losses
             if getattr(config, "use_confidence_weight", False):
-                # Soft pseudo-labels encode the uncertain band as 0.5; down-weight
-                # those pixels to ~0 so they contribute no gradient. No-op on true
-                # binary labels (weight == 1 everywhere).
-                conf_w = confidence_weight(target_ink_aug1)
-                bce_map = F.binary_cross_entropy_with_logits(
-                    out_ink_2d, target_ink_aug1.clamp(0, 1), reduction="none"
-                )
-                loss_ink = (bce_map * conf_w).sum() / conf_w.sum().clamp_min(1.0)
-                loss_dice = compute_dice_loss(
-                    out_ink_2d, target_ink_aug1.clamp(0, 1), weight=conf_w
+                # Excludes post-augmentation 0.5 and PNG-128 targets from these
+                # two losses. Other heads/regularizers do not use this weight.
+                loss_ink, loss_dice = confidence_weighted_ink_losses(
+                    out_ink_2d, target_ink_aug1
                 )
             elif config.label_smoothing > 0:
                 smoothed_target = (
@@ -2910,6 +2881,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "val_protocol": protocol,
         "train_sampling_seed": sampling_seed,
         "training_labels": training_labels,
+        "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
+        if config.use_confidence_weight
+        else None,
         "ap_prevalence_lift": float(ap_prevalence_lift),
         "roc_auc": float(roc_auc),
         "val_positive_rate": float(val_positive_rate),
@@ -2991,6 +2965,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "promotion_blocked": promotion_blocked,
         "train_sampling_seed": sampling_seed,
         "training_labels": training_labels,
+        "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
+        if config.use_confidence_weight
+        else None,
         "ap_prevalence_lift": float(ap_prevalence_lift),
         "roc_auc": float(roc_auc),
         "val_positive_rate": float(val_positive_rate),
