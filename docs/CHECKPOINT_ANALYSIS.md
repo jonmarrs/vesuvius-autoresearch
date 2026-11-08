@@ -51,8 +51,10 @@ single-channel PNGs, with a default image/fragment bound of 4,194,304 pixels
 optional, and omitted caches are temporary.
 
 For manual-label merging, batch publication, and separate training requirements,
-see [Pseudo-label handoff](PSEUDO_LABEL_HANDOFF.md). PNG 128 receives residual
-confidence weight 1/255 in the existing loss; it is not an exact ignore mask.
+see [Pseudo-label handoff](PSEUDO_LABEL_HANDOFF.md#training-requirements-and-ignore-encoding).
+Confidence-weighted ink BCE/Dice give post-augmentation PNG-128 and 0.5 targets
+zero weight. This does not provide a spatial holdout mask through mixing or
+exclude auxiliary losses.
 
 The AUC and pseudo-label paths retain the buffered sampling recipe: request
 checkpoint depth plus eight slices and use the central window after dropping

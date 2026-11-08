@@ -549,7 +549,12 @@ def test_real_teacher_cli_publishes_manual_preserving_training_handoff(
     assert dataset.labels[0, 0] == 0
     assert dataset.labels[0, 1] == 1
     residual = confidence_weight(torch.tensor(dataset.labels[0, 8]))
-    assert float(residual) == pytest.approx(1 / 255, abs=1e-7)
+    assert float(residual) == 0
+    assert (
+        report["training_requirements"]["ignore_scope"]
+        == "post_augmentation_ink_bce_and_dice"
+    )
+    assert report["training_requirements"]["spatial_holdout_guaranteed"] is False
 
 
 @pytest.mark.parametrize("status", ["measured", "ignore", "single_class", "malformed"])
