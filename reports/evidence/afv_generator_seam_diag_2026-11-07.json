@@ -1,0 +1,2404 @@
+{
+ "about": "Reduce scripts/afv_generator_seam_diag.py's per-cube records to the evidence finding 106 cites.",
+ "diag_script_sha256": "439aaf8b468804ef6fd0e3e9154ae3110e0b1886a862bf82d5628a4ef8569845",
+ "committed_copy_same_syntax_tree": true,
+ "record": "reports/afv_generator_block_seams.json",
+ "cubes": {
+  "s3_00994_00494_01994_512": {
+   "real": {
+    "n_crossings": 183,
+    "transitions": {
+     "broken->broken": 6,
+     "broken->lost": 7,
+     "broken->whole": 23,
+     "lost->lost": 25,
+     "lost->whole": 4,
+     "whole->broken": 9,
+     "whole->lost": 13,
+     "whole->whole": 96
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 23,
+     "at cleanup": 4
+    },
+    "worse": {
+     "at stitching": 21,
+     "at cleanup": 8
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 5,
+     "broken->lost at stitching": 2,
+     "broken->whole at cleanup": 2,
+     "broken->whole at stitching": 21,
+     "lost->whole at cleanup": 2,
+     "lost->whole at stitching": 2,
+     "whole->broken at stitching": 9,
+     "whole->lost at cleanup": 3,
+     "whole->lost at stitching": 10
+    },
+    "better_by_join": {
+     "chained only with the trim": 27
+    },
+    "worse_by_join": {
+     "chained only in main": 5,
+     "chained in neither": 21,
+     "chained in both": 2,
+     "chained only with the trim": 1
+    },
+    "reasons_chained_only_in_main": {
+     "an overlap candidate made ambiguous by another at the same end": 3,
+     "one copy lies along the other, but the catalogue keeps both": 3,
+     "a copy has less than 8 voxels beyond the overlap": 2,
+     "the ends meet at more than 15°": 2,
+     "a gap candidate, not linked": 1,
+     "the overlap is shorter than 24 voxels": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      1.0,
+      0.739
+     ],
+     [
+      1.0,
+      0.795
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      0.957,
+      0.752
+     ],
+     [
+      0.938,
+      0.77
+     ],
+     [
+      0.907,
+      0.752
+     ],
+     [
+      0.981,
+      0.752
+     ],
+     [
+      1.0,
+      0.733
+     ],
+     [
+      1.0,
+      0.87
+     ],
+     [
+      0.907,
+      0.733
+     ],
+     [
+      0.95,
+      0.776
+     ],
+     [
+      1.0,
+      0.522
+     ],
+     [
+      1.0,
+      0.863
+     ],
+     [
+      0.988,
+      0.789
+     ],
+     [
+      0.994,
+      0.764
+     ],
+     [
+      0.857,
+      0.627
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      1.0,
+      0.807
+     ],
+     [
+      0.907,
+      0.739
+     ],
+     [
+      0.981,
+      0.0
+     ],
+     [
+      0.919,
+      0.727
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 11,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched a lone copy": 1,
+     "broken->lost: main a lone copy, patched a lone copy": 6,
+     "whole->broken: main 2 fibers, patched 2 fibers": 3,
+     "whole->broken: main 3 fibers, patched 2 fibers": 1,
+     "whole->broken: main 4 fibers, patched 3 fibers": 3,
+     "whole->broken: main a lone copy, patched 2 fibers": 1,
+     "whole->broken: main a lone copy, patched a lone copy": 1,
+     "whole->lost: main 2 fibers, patched 0 fibers": 2,
+     "whole->lost: main 2 fibers, patched a lone copy": 3,
+     "whole->lost: main a lone copy, patched 0 fibers": 4,
+     "whole->lost: main a lone copy, patched a lone copy": 4
+    }
+   },
+   "same": {
+    "n_crossings": 183,
+    "transitions": {
+     "broken->broken": 2,
+     "broken->lost": 2,
+     "broken->whole": 18,
+     "lost->lost": 4,
+     "lost->whole": 3,
+     "whole->broken": 8,
+     "whole->lost": 7,
+     "whole->whole": 139
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 17,
+     "at cleanup": 4
+    },
+    "worse": {
+     "at stitching": 15,
+     "at cleanup": 2
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 1,
+     "broken->lost at stitching": 1,
+     "broken->whole at cleanup": 4,
+     "broken->whole at stitching": 14,
+     "lost->whole at stitching": 3,
+     "whole->broken at stitching": 8,
+     "whole->lost at cleanup": 1,
+     "whole->lost at stitching": 6
+    },
+    "better_by_join": {
+     "chained only with the trim": 21
+    },
+    "worse_by_join": {
+     "chained in neither": 14,
+     "chained only in main": 3
+    },
+    "reasons_chained_only_in_main": {
+     "the ends meet at more than 15°": 3
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.981,
+      0.801
+     ],
+     [
+      0.975,
+      0.758
+     ],
+     [
+      1.0,
+      0.888
+     ],
+     [
+      0.907,
+      0.739
+     ],
+     [
+      1.0,
+      0.863
+     ],
+     [
+      1.0,
+      0.789
+     ],
+     [
+      1.0,
+      0.099
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      1.0,
+      0.764
+     ],
+     [
+      0.932,
+      0.0
+     ],
+     [
+      0.988,
+      0.596
+     ],
+     [
+      1.0,
+      0.832
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 5,
+    "written_cover_of_worse": {
+     "broken->lost: main a lone copy, patched 0 fibers": 1,
+     "broken->lost: main a lone copy, patched a lone copy": 1,
+     "whole->broken: main 2 fibers, patched 2 fibers": 1,
+     "whole->broken: main 3 fibers, patched 2 fibers": 1,
+     "whole->broken: main 3 fibers, patched 3 fibers": 2,
+     "whole->broken: main 3 fibers, patched a lone copy": 1,
+     "whole->broken: main a lone copy, patched 2 fibers": 2,
+     "whole->broken: main a lone copy, patched a lone copy": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 1,
+     "whole->lost: main 3 fibers, patched a lone copy": 1,
+     "whole->lost: main a lone copy, patched 0 fibers": 4,
+     "whole->lost: main a lone copy, patched a lone copy": 1
+    }
+   }
+  },
+  "s3_00994_01994_00494_512": {
+   "real": {
+    "n_crossings": 162,
+    "transitions": {
+     "broken->broken": 7,
+     "broken->lost": 10,
+     "broken->whole": 21,
+     "lost->broken": 1,
+     "lost->lost": 24,
+     "lost->whole": 3,
+     "whole->broken": 7,
+     "whole->lost": 5,
+     "whole->whole": 84
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 20,
+     "at cleanup": 5
+    },
+    "worse": {
+     "at cleanup": 10,
+     "at stitching": 12
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 10,
+     "broken->whole at cleanup": 2,
+     "broken->whole at stitching": 19,
+     "lost->broken at cleanup": 1,
+     "lost->whole at cleanup": 2,
+     "lost->whole at stitching": 1,
+     "whole->broken at stitching": 7,
+     "whole->lost at stitching": 5
+    },
+    "better_by_join": {
+     "chained only with the trim": 24,
+     "chained only in main": 1
+    },
+    "worse_by_join": {
+     "chained in neither": 16,
+     "chained only in main": 6
+    },
+    "reasons_chained_only_in_main": {
+     "an overlap candidate made ambiguous by another at the same end": 3,
+     "the overlap is shorter than 24 voxels": 3,
+     "a copy has less than 8 voxels beyond the overlap": 1,
+     "one copy lies along the other, but the catalogue keeps both": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.901,
+      0.733
+     ],
+     [
+      0.938,
+      0.28
+     ],
+     [
+      1.0,
+      0.273
+     ],
+     [
+      1.0,
+      0.832
+     ],
+     [
+      0.944,
+      0.72
+     ],
+     [
+      0.932,
+      0.752
+     ],
+     [
+      1.0,
+      0.739
+     ],
+     [
+      1.0,
+      0.739
+     ],
+     [
+      0.894,
+      0.72
+     ],
+     [
+      0.919,
+      0.708
+     ],
+     [
+      0.894,
+      0.714
+     ],
+     [
+      0.876,
+      0.714
+     ],
+     [
+      0.957,
+      0.739
+     ],
+     [
+      0.963,
+      0.64
+     ],
+     [
+      0.894,
+      0.0
+     ],
+     [
+      0.87,
+      0.0
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 8,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched 2 fibers": 1,
+     "broken->lost: main 2 fibers, patched a lone copy": 4,
+     "broken->lost: main 4 fibers, patched 2 fibers": 1,
+     "broken->lost: main a lone copy, patched 0 fibers": 2,
+     "broken->lost: main a lone copy, patched a lone copy": 2,
+     "whole->broken: main 2 fibers, patched 2 fibers": 1,
+     "whole->broken: main 2 fibers, patched 3 fibers": 1,
+     "whole->broken: main a lone copy, patched 2 fibers": 4,
+     "whole->broken: main a lone copy, patched a lone copy": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 2,
+     "whole->lost: main a lone copy, patched a lone copy": 3
+    }
+   },
+   "same": {
+    "n_crossings": 162,
+    "transitions": {
+     "broken->broken": 2,
+     "broken->lost": 1,
+     "broken->whole": 20,
+     "lost->whole": 2,
+     "whole->broken": 3,
+     "whole->lost": 5,
+     "whole->whole": 129
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 16,
+     "at cleanup": 6
+    },
+    "worse": {
+     "at stitching": 8,
+     "at cleanup": 1
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 1,
+     "broken->whole at cleanup": 5,
+     "broken->whole at stitching": 15,
+     "lost->whole at cleanup": 1,
+     "lost->whole at stitching": 1,
+     "whole->broken at stitching": 3,
+     "whole->lost at stitching": 5
+    },
+    "better_by_join": {
+     "chained only with the trim": 21,
+     "chained in neither": 1
+    },
+    "worse_by_join": {
+     "chained only in main": 8,
+     "chained in neither": 1
+    },
+    "reasons_chained_only_in_main": {
+     "an overlap candidate made ambiguous by another at the same end": 6,
+     "one copy lies along the other, but the catalogue keeps both": 3,
+     "the ends meet at more than 15°": 1,
+     "the overlap is shorter than 24 voxels": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.919,
+      0.727
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 1,
+    "written_cover_of_worse": {
+     "broken->lost: main a lone copy, patched a lone copy": 1,
+     "whole->broken: main a lone copy, patched 2 fibers": 3,
+     "whole->lost: main 2 fibers, patched a lone copy": 2,
+     "whole->lost: main a lone copy, patched 0 fibers": 1,
+     "whole->lost: main a lone copy, patched a lone copy": 2
+    }
+   }
+  },
+  "s3_00994_02494_01494_512": {
+   "real": {
+    "n_crossings": 176,
+    "transitions": {
+     "broken->broken": 11,
+     "broken->lost": 5,
+     "broken->whole": 24,
+     "lost->lost": 15,
+     "lost->whole": 3,
+     "whole->broken": 10,
+     "whole->lost": 7,
+     "whole->whole": 101
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 24,
+     "at cleanup": 3
+    },
+    "worse": {
+     "at stitching": 16,
+     "at cleanup": 6
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 5,
+     "broken->whole at cleanup": 2,
+     "broken->whole at stitching": 22,
+     "lost->whole at cleanup": 1,
+     "lost->whole at stitching": 2,
+     "whole->broken at cleanup": 1,
+     "whole->broken at stitching": 9,
+     "whole->lost at stitching": 7
+    },
+    "better_by_join": {
+     "chained only with the trim": 27
+    },
+    "worse_by_join": {
+     "chained only in main": 8,
+     "chained in neither": 14
+    },
+    "reasons_chained_only_in_main": {
+     "the overlap is shorter than 24 voxels": 5,
+     "an overlap candidate made ambiguous by another at the same end": 3,
+     "one copy lies along the other, but the catalogue keeps both": 3,
+     "a copy has less than 8 voxels beyond the overlap": 2,
+     "the copies lie more than 3 voxels apart at an end": 1,
+     "the ends meet at more than 15°": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.932,
+      0.739
+     ],
+     [
+      0.87,
+      0.72
+     ],
+     [
+      1.0,
+      0.832
+     ],
+     [
+      1.0,
+      0.851
+     ],
+     [
+      1.0,
+      0.832
+     ],
+     [
+      1.0,
+      0.901
+     ],
+     [
+      0.988,
+      0.758
+     ],
+     [
+      1.0,
+      0.913
+     ],
+     [
+      0.894,
+      0.714
+     ],
+     [
+      1.0,
+      0.901
+     ],
+     [
+      0.969,
+      0.77
+     ],
+     [
+      0.957,
+      0.752
+     ],
+     [
+      1.0,
+      0.925
+     ],
+     [
+      0.894,
+      0.0
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 7,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched a lone copy": 2,
+     "broken->lost: main a lone copy, patched 0 fibers": 1,
+     "broken->lost: main a lone copy, patched a lone copy": 2,
+     "whole->broken: main 2 fibers, patched 2 fibers": 4,
+     "whole->broken: main 3 fibers, patched 2 fibers": 2,
+     "whole->broken: main 4 fibers, patched 3 fibers": 1,
+     "whole->broken: main a lone copy, patched 2 fibers": 1,
+     "whole->broken: main a lone copy, patched a lone copy": 2,
+     "whole->lost: main 2 fibers, patched 2 fibers": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 2,
+     "whole->lost: main a lone copy, patched a lone copy": 4
+    }
+   },
+   "same": {
+    "n_crossings": 176,
+    "transitions": {
+     "broken->broken": 1,
+     "broken->whole": 21,
+     "lost->lost": 1,
+     "lost->whole": 5,
+     "whole->broken": 2,
+     "whole->lost": 1,
+     "whole->whole": 145
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 24,
+     "at cleanup": 2
+    },
+    "worse": {
+     "at stitching": 3
+    },
+    "changed_kinds": {
+     "broken->whole at cleanup": 1,
+     "broken->whole at stitching": 20,
+     "lost->whole at cleanup": 1,
+     "lost->whole at stitching": 4,
+     "whole->broken at stitching": 2,
+     "whole->lost at stitching": 1
+    },
+    "better_by_join": {
+     "chained only with the trim": 26
+    },
+    "worse_by_join": {
+     "chained in neither": 2,
+     "chained only in main": 1
+    },
+    "reasons_chained_only_in_main": {
+     "the ends meet at more than 15°": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      1.0,
+      0.832
+     ],
+     [
+      1.0,
+      0.894
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 0,
+    "written_cover_of_worse": {
+     "whole->broken: main 3 fibers, patched 2 fibers": 2,
+     "whole->lost: main a lone copy, patched 0 fibers": 1
+    }
+   }
+  },
+  "s3_01994_01494_00994_512": {
+   "real": {
+    "n_crossings": 108,
+    "transitions": {
+     "broken->broken": 3,
+     "broken->lost": 1,
+     "broken->whole": 4,
+     "lost->lost": 18,
+     "whole->broken": 7,
+     "whole->lost": 6,
+     "whole->whole": 69
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 4
+    },
+    "worse": {
+     "at stitching": 11,
+     "at cleanup": 3
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 1,
+     "broken->whole at stitching": 4,
+     "whole->broken at cleanup": 1,
+     "whole->broken at stitching": 6,
+     "whole->lost at cleanup": 1,
+     "whole->lost at stitching": 5
+    },
+    "better_by_join": {
+     "chained only with the trim": 4
+    },
+    "worse_by_join": {
+     "chained in neither": 9,
+     "chained only in main": 5
+    },
+    "reasons_chained_only_in_main": {
+     "an overlap candidate made ambiguous by another at the same end": 4,
+     "the overlap is shorter than 24 voxels": 3,
+     "a copy has less than 8 voxels beyond the overlap": 2,
+     "one copy lies along the other, but the catalogue keeps both": 2
+    },
+    "chained_in_neither_best_share": [
+     [
+      1.0,
+      0.839
+     ],
+     [
+      0.963,
+      0.745
+     ],
+     [
+      0.994,
+      0.944
+     ],
+     [
+      1.0,
+      0.714
+     ],
+     [
+      1.0,
+      0.925
+     ],
+     [
+      1.0,
+      0.807
+     ],
+     [
+      1.0,
+      0.814
+     ],
+     [
+      0.994,
+      0.0
+     ],
+     [
+      0.944,
+      0.0
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 4,
+    "written_cover_of_worse": {
+     "broken->lost: main a lone copy, patched 0 fibers": 1,
+     "whole->broken: main 2 fibers, patched 2 fibers": 5,
+     "whole->broken: main 3 fibers, patched 3 fibers": 1,
+     "whole->broken: main 3 fibers, patched a lone copy": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 3,
+     "whole->lost: main 3 fibers, patched a lone copy": 1,
+     "whole->lost: main a lone copy, patched 0 fibers": 1,
+     "whole->lost: main a lone copy, patched a lone copy": 1
+    }
+   },
+   "same": {
+    "n_crossings": 108,
+    "transitions": {
+     "broken->broken": 1,
+     "broken->lost": 1,
+     "broken->whole": 3,
+     "lost->lost": 4,
+     "lost->whole": 2,
+     "whole->broken": 1,
+     "whole->lost": 5,
+     "whole->whole": 91
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 2,
+     "at cleanup": 3
+    },
+    "worse": {
+     "at stitching": 4,
+     "at cleanup": 3
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 1,
+     "broken->whole at cleanup": 2,
+     "broken->whole at stitching": 1,
+     "lost->whole at cleanup": 1,
+     "lost->whole at stitching": 1,
+     "whole->broken at stitching": 1,
+     "whole->lost at cleanup": 2,
+     "whole->lost at stitching": 3
+    },
+    "better_by_join": {
+     "chained only with the trim": 5
+    },
+    "worse_by_join": {
+     "chained in neither": 5,
+     "chained only in main": 2
+    },
+    "reasons_chained_only_in_main": {
+     "an overlap candidate made ambiguous by another at the same end": 2,
+     "one copy lies along the other, but the catalogue keeps both": 2
+    },
+    "chained_in_neither_best_share": [
+     [
+      1.0,
+      0.714
+     ],
+     [
+      1.0,
+      0.925
+     ],
+     [
+      0.938,
+      0.783
+     ],
+     [
+      1.0,
+      0.752
+     ],
+     [
+      1.0,
+      0.752
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 3,
+    "written_cover_of_worse": {
+     "broken->lost: main a lone copy, patched a lone copy": 1,
+     "whole->broken: main 3 fibers, patched a lone copy": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 3,
+     "whole->lost: main 3 fibers, patched a lone copy": 1,
+     "whole->lost: main a lone copy, patched a lone copy": 1
+    }
+   }
+  },
+  "s3_01994_01994_01494_512": {
+   "real": {
+    "n_crossings": 80,
+    "transitions": {
+     "broken->broken": 3,
+     "broken->lost": 4,
+     "broken->whole": 9,
+     "lost->lost": 13,
+     "lost->whole": 2,
+     "whole->broken": 2,
+     "whole->lost": 5,
+     "whole->whole": 42
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 10,
+     "at cleanup": 1
+    },
+    "worse": {
+     "at cleanup": 5,
+     "at stitching": 6
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 4,
+     "broken->whole at cleanup": 1,
+     "broken->whole at stitching": 8,
+     "lost->whole at stitching": 2,
+     "whole->broken at stitching": 2,
+     "whole->lost at cleanup": 1,
+     "whole->lost at stitching": 4
+    },
+    "better_by_join": {
+     "chained only with the trim": 11
+    },
+    "worse_by_join": {
+     "chained in neither": 9,
+     "chained only in main": 2
+    },
+    "reasons_chained_only_in_main": {
+     "the ends meet at more than 15°": 1,
+     "the overlap is shorter than 24 voxels": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.944,
+      0.789
+     ],
+     [
+      0.957,
+      0.342
+     ],
+     [
+      0.969,
+      0.72
+     ],
+     [
+      1.0,
+      0.503
+     ],
+     [
+      0.932,
+      0.28
+     ],
+     [
+      0.925,
+      0.528
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      0.975,
+      0.0
+     ],
+     [
+      0.932,
+      0.0
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 4,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched a lone copy": 2,
+     "broken->lost: main a lone copy, patched 0 fibers": 1,
+     "broken->lost: main a lone copy, patched a lone copy": 1,
+     "whole->broken: main a lone copy, patched 2 fibers": 2,
+     "whole->lost: main 2 fibers, patched a lone copy": 1,
+     "whole->lost: main 4 fibers, patched a lone copy": 2,
+     "whole->lost: main a lone copy, patched 0 fibers": 2
+    }
+   },
+   "same": {
+    "n_crossings": 80,
+    "transitions": {
+     "broken->broken": 1,
+     "broken->whole": 11,
+     "lost->lost": 5,
+     "whole->broken": 1,
+     "whole->lost": 1,
+     "whole->whole": 61
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 11
+    },
+    "worse": {
+     "at stitching": 2
+    },
+    "changed_kinds": {
+     "broken->whole at stitching": 11,
+     "whole->broken at stitching": 1,
+     "whole->lost at stitching": 1
+    },
+    "better_by_join": {
+     "chained only with the trim": 11
+    },
+    "worse_by_join": {
+     "chained in neither": 2
+    },
+    "reasons_chained_only_in_main": {},
+    "chained_in_neither_best_share": [
+     [
+      0.957,
+      0.789
+     ],
+     [
+      1.0,
+      0.0
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 1,
+    "written_cover_of_worse": {
+     "whole->broken: main 2 fibers, patched 2 fibers": 1,
+     "whole->lost: main a lone copy, patched 0 fibers": 1
+    }
+   }
+  },
+  "s3_02994_02494_01994_512": {
+   "real": {
+    "n_crossings": 274,
+    "transitions": {
+     "broken->broken": 20,
+     "broken->lost": 11,
+     "broken->whole": 42,
+     "lost->lost": 22,
+     "lost->whole": 4,
+     "whole->broken": 10,
+     "whole->lost": 9,
+     "whole->whole": 156
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 43,
+     "at cleanup": 3
+    },
+    "worse": {
+     "at stitching": 19,
+     "at cleanup": 11
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 11,
+     "broken->whole at cleanup": 2,
+     "broken->whole at stitching": 40,
+     "lost->whole at cleanup": 1,
+     "lost->whole at stitching": 3,
+     "whole->broken at stitching": 10,
+     "whole->lost at stitching": 9
+    },
+    "better_by_join": {
+     "chained only with the trim": 46
+    },
+    "worse_by_join": {
+     "chained in neither": 18,
+     "chained only in main": 10,
+     "chained only with the trim": 1,
+     "chained in both": 1
+    },
+    "reasons_chained_only_in_main": {
+     "the overlap is shorter than 24 voxels": 6,
+     "one copy lies along the other, but the catalogue keeps both": 4,
+     "the copies lie more than 3 voxels apart at an end": 4,
+     "the ends meet at more than 15°": 3,
+     "a copy has less than 8 voxels beyond the overlap": 2,
+     "an overlap candidate made ambiguous by another at the same end": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.969,
+      0.752
+     ],
+     [
+      0.95,
+      0.752
+     ],
+     [
+      0.994,
+      0.783
+     ],
+     [
+      0.925,
+      0.708
+     ],
+     [
+      0.683,
+      0.304
+     ],
+     [
+      0.969,
+      0.714
+     ],
+     [
+      1.0,
+      0.745
+     ],
+     [
+      0.894,
+      0.727
+     ],
+     [
+      0.925,
+      0.727
+     ],
+     [
+      0.876,
+      0.727
+     ],
+     [
+      0.839,
+      0.745
+     ],
+     [
+      0.882,
+      0.72
+     ],
+     [
+      0.919,
+      0.739
+     ],
+     [
+      0.584,
+      0.584
+     ],
+     [
+      0.919,
+      0.043
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      0.882,
+      0.0
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 7,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched 0 fibers": 1,
+     "broken->lost: main 2 fibers, patched 2 fibers": 2,
+     "broken->lost: main 3 fibers, patched 2 fibers": 1,
+     "broken->lost: main 3 fibers, patched a lone copy": 1,
+     "broken->lost: main 4 fibers, patched 2 fibers": 1,
+     "broken->lost: main 5 fibers, patched 2 fibers": 1,
+     "broken->lost: main a lone copy, patched 0 fibers": 1,
+     "broken->lost: main a lone copy, patched a lone copy": 3,
+     "whole->broken: main 2 fibers, patched 2 fibers": 2,
+     "whole->broken: main 4 fibers, patched 4 fibers": 1,
+     "whole->broken: main 7 fibers, patched 4 fibers": 2,
+     "whole->broken: main a lone copy, patched 2 fibers": 4,
+     "whole->broken: main a lone copy, patched a lone copy": 1,
+     "whole->lost: main 2 fibers, patched 2 fibers": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 2,
+     "whole->lost: main 3 fibers, patched a lone copy": 1,
+     "whole->lost: main a lone copy, patched 0 fibers": 4,
+     "whole->lost: main a lone copy, patched a lone copy": 1
+    }
+   },
+   "same": {
+    "n_crossings": 274,
+    "transitions": {
+     "broken->broken": 4,
+     "broken->lost": 1,
+     "broken->whole": 36,
+     "lost->lost": 3,
+     "lost->whole": 4,
+     "whole->broken": 6,
+     "whole->lost": 9,
+     "whole->whole": 211
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 36,
+     "at cleanup": 4
+    },
+    "worse": {
+     "at stitching": 12,
+     "at cleanup": 4
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 1,
+     "broken->whole at cleanup": 3,
+     "broken->whole at stitching": 33,
+     "lost->whole at cleanup": 1,
+     "lost->whole at stitching": 3,
+     "whole->broken at cleanup": 2,
+     "whole->broken at stitching": 4,
+     "whole->lost at cleanup": 1,
+     "whole->lost at stitching": 8
+    },
+    "better_by_join": {
+     "chained only with the trim": 40
+    },
+    "worse_by_join": {
+     "chained only in main": 8,
+     "chained in neither": 6,
+     "chained in both": 2
+    },
+    "reasons_chained_only_in_main": {
+     "one copy lies along the other, but the catalogue keeps both": 5,
+     "the ends meet at more than 15°": 5,
+     "an overlap candidate made ambiguous by another at the same end": 2,
+     "the copies lie more than 3 voxels apart at an end": 1,
+     "the overlap is shorter than 24 voxels": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.957,
+      0.758
+     ],
+     [
+      1.0,
+      0.745
+     ],
+     [
+      0.95,
+      0.745
+     ],
+     [
+      0.814,
+      0.764
+     ],
+     [
+      0.963,
+      0.72
+     ],
+     [
+      1.0,
+      0.727
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 2,
+    "written_cover_of_worse": {
+     "broken->lost: main a lone copy, patched a lone copy": 1,
+     "whole->broken: main 2 fibers, patched 2 fibers": 3,
+     "whole->broken: main 2 fibers, patched a lone copy": 2,
+     "whole->broken: main 4 fibers, patched 4 fibers": 1,
+     "whole->lost: main 2 fibers, patched 2 fibers": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 2,
+     "whole->lost: main a lone copy, patched 2 fibers": 3,
+     "whole->lost: main a lone copy, patched a lone copy": 3
+    }
+   }
+  },
+  "s3_03494_01494_00494_512": {
+   "real": {
+    "n_crossings": 153,
+    "transitions": {
+     "broken->broken": 11,
+     "broken->lost": 9,
+     "broken->whole": 23,
+     "lost->broken": 1,
+     "lost->lost": 10,
+     "lost->whole": 2,
+     "whole->broken": 6,
+     "whole->lost": 10,
+     "whole->whole": 81
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 24,
+     "at cleanup": 2
+    },
+    "worse": {
+     "at cleanup": 10,
+     "at stitching": 15
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 9,
+     "broken->whole at cleanup": 1,
+     "broken->whole at stitching": 22,
+     "lost->broken at cleanup": 1,
+     "lost->whole at stitching": 2,
+     "whole->broken at stitching": 6,
+     "whole->lost at cleanup": 1,
+     "whole->lost at stitching": 9
+    },
+    "better_by_join": {
+     "chained only with the trim": 26
+    },
+    "worse_by_join": {
+     "chained in neither": 16,
+     "chained only in main": 8,
+     "chained only with the trim": 1
+    },
+    "reasons_chained_only_in_main": {
+     "an overlap candidate made ambiguous by another at the same end": 4,
+     "one copy lies along the other, but the catalogue keeps both": 4,
+     "the overlap is shorter than 24 voxels": 4,
+     "a copy has less than 8 voxels beyond the overlap": 1,
+     "the ends meet at more than 15°": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      1.0,
+      0.447
+     ],
+     [
+      0.894,
+      0.72
+     ],
+     [
+      0.975,
+      0.839
+     ],
+     [
+      0.888,
+      0.733
+     ],
+     [
+      0.907,
+      0.745
+     ],
+     [
+      0.894,
+      0.727
+     ],
+     [
+      0.882,
+      0.72
+     ],
+     [
+      1.0,
+      0.727
+     ],
+     [
+      0.913,
+      0.739
+     ],
+     [
+      0.901,
+      0.708
+     ],
+     [
+      0.957,
+      0.913
+     ],
+     [
+      0.913,
+      0.727
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      0.963,
+      0.795
+     ],
+     [
+      1.0,
+      0.944
+     ],
+     [
+      0.981,
+      0.0
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 7,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched 2 fibers": 2,
+     "broken->lost: main 2 fibers, patched a lone copy": 1,
+     "broken->lost: main 3 fibers, patched 2 fibers": 1,
+     "broken->lost: main a lone copy, patched a lone copy": 5,
+     "whole->broken: main 2 fibers, patched 2 fibers": 1,
+     "whole->broken: main 2 fibers, patched 3 fibers": 2,
+     "whole->broken: main 3 fibers, patched 3 fibers": 2,
+     "whole->broken: main 4 fibers, patched 4 fibers": 1,
+     "whole->lost: main 2 fibers, patched 2 fibers": 1,
+     "whole->lost: main 3 fibers, patched 2 fibers": 1,
+     "whole->lost: main 4 fibers, patched 0 fibers": 1,
+     "whole->lost: main a lone copy, patched 0 fibers": 2,
+     "whole->lost: main a lone copy, patched a lone copy": 5
+    }
+   },
+   "same": {
+    "n_crossings": 153,
+    "transitions": {
+     "broken->whole": 24,
+     "lost->lost": 3,
+     "lost->whole": 4,
+     "whole->lost": 3,
+     "whole->whole": 119
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 25,
+     "at cleanup": 3
+    },
+    "worse": {
+     "at stitching": 3
+    },
+    "changed_kinds": {
+     "broken->whole at cleanup": 1,
+     "broken->whole at stitching": 23,
+     "lost->whole at cleanup": 2,
+     "lost->whole at stitching": 2,
+     "whole->lost at stitching": 3
+    },
+    "better_by_join": {
+     "chained only with the trim": 28
+    },
+    "worse_by_join": {
+     "chained only in main": 3
+    },
+    "reasons_chained_only_in_main": {
+     "the ends meet at more than 15°": 3
+    },
+    "chained_in_neither_best_share": [],
+    "chained_in_neither_neighbour_short": 0,
+    "written_cover_of_worse": {
+     "whole->lost: main a lone copy, patched 0 fibers": 1,
+     "whole->lost: main a lone copy, patched a lone copy": 2
+    }
+   }
+  },
+  "s3_04494_00994_01494_512": {
+   "real": {
+    "n_crossings": 168,
+    "transitions": {
+     "broken->broken": 8,
+     "broken->lost": 7,
+     "broken->whole": 10,
+     "lost->broken": 1,
+     "lost->lost": 23,
+     "lost->whole": 1,
+     "whole->broken": 19,
+     "whole->lost": 19,
+     "whole->whole": 80
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 10,
+     "at cleanup": 2
+    },
+    "worse": {
+     "at stitching": 34,
+     "at cleanup": 11
+    },
+    "changed_kinds": {
+     "broken->lost at cleanup": 7,
+     "broken->whole at cleanup": 1,
+     "broken->whole at stitching": 9,
+     "lost->broken at cleanup": 1,
+     "lost->whole at stitching": 1,
+     "whole->broken at cleanup": 1,
+     "whole->broken at stitching": 18,
+     "whole->lost at cleanup": 3,
+     "whole->lost at stitching": 16
+    },
+    "better_by_join": {
+     "chained only with the trim": 11,
+     "chained in neither": 1
+    },
+    "worse_by_join": {
+     "chained in neither": 22,
+     "chained only in main": 19,
+     "chained only with the trim": 3,
+     "chained in both": 1
+    },
+    "reasons_chained_only_in_main": {
+     "one copy lies along the other, but the catalogue keeps both": 11,
+     "an overlap candidate made ambiguous by another at the same end": 9,
+     "the overlap is shorter than 24 voxels": 6,
+     "the ends meet at more than 15°": 3,
+     "a gap candidate, not linked": 1
+    },
+    "chained_in_neither_best_share": [
+     [
+      0.994,
+      0.795
+     ],
+     [
+      1.0,
+      0.807
+     ],
+     [
+      1.0,
+      0.851
+     ],
+     [
+      0.981,
+      0.776
+     ],
+     [
+      1.0,
+      0.72
+     ],
+     [
+      1.0,
+      0.28
+     ],
+     [
+      1.0,
+      0.764
+     ],
+     [
+      1.0,
+      0.814
+     ],
+     [
+      1.0,
+      0.801
+     ],
+     [
+      0.894,
+      0.72
+     ],
+     [
+      0.975,
+      0.764
+     ],
+     [
+      0.901,
+      0.739
+     ],
+     [
+      0.938,
+      0.72
+     ],
+     [
+      0.876,
+      0.727
+     ],
+     [
+      0.981,
+      0.752
+     ],
+     [
+      0.907,
+      0.739
+     ],
+     [
+      0.963,
+      0.832
+     ],
+     [
+      0.87,
+      0.0
+     ],
+     [
+      1.0,
+      0.938
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      0.994,
+      0.814
+     ],
+     [
+      0.907,
+      0.72
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 12,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched 2 fibers": 1,
+     "broken->lost: main 2 fibers, patched a lone copy": 2,
+     "broken->lost: main a lone copy, patched 0 fibers": 1,
+     "broken->lost: main a lone copy, patched a lone copy": 3,
+     "whole->broken: main 2 fibers, patched 2 fibers": 5,
+     "whole->broken: main 2 fibers, patched a lone copy": 3,
+     "whole->broken: main 3 fibers, patched 2 fibers": 2,
+     "whole->broken: main 3 fibers, patched 3 fibers": 2,
+     "whole->broken: main 6 fibers, patched 4 fibers": 1,
+     "whole->broken: main a lone copy, patched 2 fibers": 4,
+     "whole->broken: main a lone copy, patched a lone copy": 2,
+     "whole->lost: main 2 fibers, patched 0 fibers": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 6,
+     "whole->lost: main 3 fibers, patched a lone copy": 3,
+     "whole->lost: main a lone copy, patched 0 fibers": 5,
+     "whole->lost: main a lone copy, patched a lone copy": 4
+    }
+   },
+   "same": {
+    "n_crossings": 168,
+    "transitions": {
+     "broken->broken": 4,
+     "broken->lost": 1,
+     "broken->whole": 16,
+     "lost->lost": 3,
+     "lost->whole": 4,
+     "whole->broken": 8,
+     "whole->lost": 6,
+     "whole->whole": 126
+    },
+    "reproduces_record": true,
+    "better": {
+     "at stitching": 19,
+     "at cleanup": 1
+    },
+    "worse": {
+     "at stitching": 13,
+     "at cleanup": 2
+    },
+    "changed_kinds": {
+     "broken->lost at stitching": 1,
+     "broken->whole at cleanup": 1,
+     "broken->whole at stitching": 15,
+     "lost->whole at stitching": 4,
+     "whole->broken at cleanup": 1,
+     "whole->broken at stitching": 7,
+     "whole->lost at cleanup": 1,
+     "whole->lost at stitching": 5
+    },
+    "better_by_join": {
+     "chained only with the trim": 19,
+     "chained in neither": 1
+    },
+    "worse_by_join": {
+     "chained in neither": 7,
+     "chained only in main": 8
+    },
+    "reasons_chained_only_in_main": {
+     "a copy has less than 8 voxels beyond the overlap": 4,
+     "an overlap candidate made ambiguous by another at the same end": 4,
+     "the ends meet at more than 15°": 4
+    },
+    "chained_in_neither_best_share": [
+     [
+      1.0,
+      0.795
+     ],
+     [
+      1.0,
+      0.807
+     ],
+     [
+      1.0,
+      0.851
+     ],
+     [
+      1.0,
+      0.901
+     ],
+     [
+      1.0,
+      0.857
+     ],
+     [
+      0.894,
+      0.714
+     ],
+     [
+      1.0,
+      0.739
+     ]
+    ],
+    "chained_in_neither_neighbour_short": 2,
+    "written_cover_of_worse": {
+     "broken->lost: main 2 fibers, patched a lone copy": 1,
+     "whole->broken: main 2 fibers, patched 2 fibers": 4,
+     "whole->broken: main 2 fibers, patched a lone copy": 2,
+     "whole->broken: main 3 fibers, patched 2 fibers": 1,
+     "whole->broken: main a lone copy, patched a lone copy": 1,
+     "whole->lost: main 2 fibers, patched 0 fibers": 1,
+     "whole->lost: main 2 fibers, patched a lone copy": 1,
+     "whole->lost: main a lone copy, patched 0 fibers": 1,
+     "whole->lost: main a lone copy, patched a lone copy": 3
+    }
+   }
+  }
+ },
+ "totals": {
+  "real": {
+   "n_crossings": 1304,
+   "transitions": {
+    "broken->broken": 69,
+    "broken->lost": 54,
+    "broken->whole": 156,
+    "lost->lost": 150,
+    "lost->whole": 19,
+    "whole->broken": 70,
+    "whole->lost": 74,
+    "whole->whole": 709,
+    "lost->broken": 3
+   },
+   "reproduces_record": true,
+   "better": {
+    "at stitching": 158,
+    "at cleanup": 20
+   },
+   "worse": {
+    "at stitching": 134,
+    "at cleanup": 64
+   },
+   "changed_kinds": {
+    "broken->lost at cleanup": 52,
+    "broken->lost at stitching": 2,
+    "broken->whole at cleanup": 11,
+    "broken->whole at stitching": 145,
+    "lost->whole at cleanup": 6,
+    "lost->whole at stitching": 13,
+    "whole->broken at stitching": 67,
+    "whole->lost at cleanup": 9,
+    "whole->lost at stitching": 65,
+    "lost->broken at cleanup": 3,
+    "whole->broken at cleanup": 3
+   },
+   "better_by_join": {
+    "chained only with the trim": 176,
+    "chained only in main": 1,
+    "chained in neither": 1
+   },
+   "worse_by_join": {
+    "chained only in main": 63,
+    "chained in neither": 125,
+    "chained in both": 4,
+    "chained only with the trim": 6
+   },
+   "reasons_chained_only_in_main": {
+    "an overlap candidate made ambiguous by another at the same end": 27,
+    "one copy lies along the other, but the catalogue keeps both": 28,
+    "a copy has less than 8 voxels beyond the overlap": 10,
+    "the ends meet at more than 15°": 11,
+    "a gap candidate, not linked": 2,
+    "the overlap is shorter than 24 voxels": 29,
+    "the copies lie more than 3 voxels apart at an end": 5
+   },
+   "chained_in_neither_best_share": [
+    [
+     1.0,
+     0.739
+    ],
+    [
+     1.0,
+     0.795
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     0.957,
+     0.752
+    ],
+    [
+     0.938,
+     0.77
+    ],
+    [
+     0.907,
+     0.752
+    ],
+    [
+     0.981,
+     0.752
+    ],
+    [
+     1.0,
+     0.733
+    ],
+    [
+     1.0,
+     0.87
+    ],
+    [
+     0.907,
+     0.733
+    ],
+    [
+     0.95,
+     0.776
+    ],
+    [
+     1.0,
+     0.522
+    ],
+    [
+     1.0,
+     0.863
+    ],
+    [
+     0.988,
+     0.789
+    ],
+    [
+     0.994,
+     0.764
+    ],
+    [
+     0.857,
+     0.627
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     1.0,
+     0.807
+    ],
+    [
+     0.907,
+     0.739
+    ],
+    [
+     0.981,
+     0.0
+    ],
+    [
+     0.919,
+     0.727
+    ],
+    [
+     0.901,
+     0.733
+    ],
+    [
+     0.938,
+     0.28
+    ],
+    [
+     1.0,
+     0.273
+    ],
+    [
+     1.0,
+     0.832
+    ],
+    [
+     0.944,
+     0.72
+    ],
+    [
+     0.932,
+     0.752
+    ],
+    [
+     1.0,
+     0.739
+    ],
+    [
+     1.0,
+     0.739
+    ],
+    [
+     0.894,
+     0.72
+    ],
+    [
+     0.919,
+     0.708
+    ],
+    [
+     0.894,
+     0.714
+    ],
+    [
+     0.876,
+     0.714
+    ],
+    [
+     0.957,
+     0.739
+    ],
+    [
+     0.963,
+     0.64
+    ],
+    [
+     0.894,
+     0.0
+    ],
+    [
+     0.87,
+     0.0
+    ],
+    [
+     0.932,
+     0.739
+    ],
+    [
+     0.87,
+     0.72
+    ],
+    [
+     1.0,
+     0.832
+    ],
+    [
+     1.0,
+     0.851
+    ],
+    [
+     1.0,
+     0.832
+    ],
+    [
+     1.0,
+     0.901
+    ],
+    [
+     0.988,
+     0.758
+    ],
+    [
+     1.0,
+     0.913
+    ],
+    [
+     0.894,
+     0.714
+    ],
+    [
+     1.0,
+     0.901
+    ],
+    [
+     0.969,
+     0.77
+    ],
+    [
+     0.957,
+     0.752
+    ],
+    [
+     1.0,
+     0.925
+    ],
+    [
+     0.894,
+     0.0
+    ],
+    [
+     1.0,
+     0.839
+    ],
+    [
+     0.963,
+     0.745
+    ],
+    [
+     0.994,
+     0.944
+    ],
+    [
+     1.0,
+     0.714
+    ],
+    [
+     1.0,
+     0.925
+    ],
+    [
+     1.0,
+     0.807
+    ],
+    [
+     1.0,
+     0.814
+    ],
+    [
+     0.994,
+     0.0
+    ],
+    [
+     0.944,
+     0.0
+    ],
+    [
+     0.944,
+     0.789
+    ],
+    [
+     0.957,
+     0.342
+    ],
+    [
+     0.969,
+     0.72
+    ],
+    [
+     1.0,
+     0.503
+    ],
+    [
+     0.932,
+     0.28
+    ],
+    [
+     0.925,
+     0.528
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     0.975,
+     0.0
+    ],
+    [
+     0.932,
+     0.0
+    ],
+    [
+     0.969,
+     0.752
+    ],
+    [
+     0.95,
+     0.752
+    ],
+    [
+     0.994,
+     0.783
+    ],
+    [
+     0.925,
+     0.708
+    ],
+    [
+     0.683,
+     0.304
+    ],
+    [
+     0.969,
+     0.714
+    ],
+    [
+     1.0,
+     0.745
+    ],
+    [
+     0.894,
+     0.727
+    ],
+    [
+     0.925,
+     0.727
+    ],
+    [
+     0.876,
+     0.727
+    ],
+    [
+     0.839,
+     0.745
+    ],
+    [
+     0.882,
+     0.72
+    ],
+    [
+     0.919,
+     0.739
+    ],
+    [
+     0.584,
+     0.584
+    ],
+    [
+     0.919,
+     0.043
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     0.882,
+     0.0
+    ],
+    [
+     1.0,
+     0.447
+    ],
+    [
+     0.894,
+     0.72
+    ],
+    [
+     0.975,
+     0.839
+    ],
+    [
+     0.888,
+     0.733
+    ],
+    [
+     0.907,
+     0.745
+    ],
+    [
+     0.894,
+     0.727
+    ],
+    [
+     0.882,
+     0.72
+    ],
+    [
+     1.0,
+     0.727
+    ],
+    [
+     0.913,
+     0.739
+    ],
+    [
+     0.901,
+     0.708
+    ],
+    [
+     0.957,
+     0.913
+    ],
+    [
+     0.913,
+     0.727
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     0.963,
+     0.795
+    ],
+    [
+     1.0,
+     0.944
+    ],
+    [
+     0.981,
+     0.0
+    ],
+    [
+     0.994,
+     0.795
+    ],
+    [
+     1.0,
+     0.807
+    ],
+    [
+     1.0,
+     0.851
+    ],
+    [
+     0.981,
+     0.776
+    ],
+    [
+     1.0,
+     0.72
+    ],
+    [
+     1.0,
+     0.28
+    ],
+    [
+     1.0,
+     0.764
+    ],
+    [
+     1.0,
+     0.814
+    ],
+    [
+     1.0,
+     0.801
+    ],
+    [
+     0.894,
+     0.72
+    ],
+    [
+     0.975,
+     0.764
+    ],
+    [
+     0.901,
+     0.739
+    ],
+    [
+     0.938,
+     0.72
+    ],
+    [
+     0.876,
+     0.727
+    ],
+    [
+     0.981,
+     0.752
+    ],
+    [
+     0.907,
+     0.739
+    ],
+    [
+     0.963,
+     0.832
+    ],
+    [
+     0.87,
+     0.0
+    ],
+    [
+     1.0,
+     0.938
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     0.994,
+     0.814
+    ],
+    [
+     0.907,
+     0.72
+    ]
+   ],
+   "chained_in_neither_neighbour_short": 60,
+   "written_cover_of_worse": {
+    "broken->lost: main 2 fibers, patched a lone copy": 12,
+    "broken->lost: main a lone copy, patched a lone copy": 22,
+    "whole->broken: main 2 fibers, patched 2 fibers": 21,
+    "whole->broken: main 3 fibers, patched 2 fibers": 5,
+    "whole->broken: main 4 fibers, patched 3 fibers": 4,
+    "whole->broken: main a lone copy, patched 2 fibers": 16,
+    "whole->broken: main a lone copy, patched a lone copy": 7,
+    "whole->lost: main 2 fibers, patched 0 fibers": 3,
+    "whole->lost: main 2 fibers, patched a lone copy": 19,
+    "whole->lost: main a lone copy, patched 0 fibers": 18,
+    "whole->lost: main a lone copy, patched a lone copy": 22,
+    "broken->lost: main 2 fibers, patched 2 fibers": 6,
+    "broken->lost: main 4 fibers, patched 2 fibers": 2,
+    "broken->lost: main a lone copy, patched 0 fibers": 7,
+    "whole->broken: main 2 fibers, patched 3 fibers": 3,
+    "whole->lost: main 2 fibers, patched 2 fibers": 3,
+    "whole->broken: main 3 fibers, patched 3 fibers": 5,
+    "whole->broken: main 3 fibers, patched a lone copy": 1,
+    "whole->lost: main 3 fibers, patched a lone copy": 5,
+    "whole->lost: main 4 fibers, patched a lone copy": 2,
+    "broken->lost: main 2 fibers, patched 0 fibers": 1,
+    "broken->lost: main 3 fibers, patched 2 fibers": 2,
+    "broken->lost: main 3 fibers, patched a lone copy": 1,
+    "broken->lost: main 5 fibers, patched 2 fibers": 1,
+    "whole->broken: main 4 fibers, patched 4 fibers": 2,
+    "whole->broken: main 7 fibers, patched 4 fibers": 2,
+    "whole->lost: main 3 fibers, patched 2 fibers": 1,
+    "whole->lost: main 4 fibers, patched 0 fibers": 1,
+    "whole->broken: main 2 fibers, patched a lone copy": 3,
+    "whole->broken: main 6 fibers, patched 4 fibers": 1
+   }
+  },
+  "same": {
+   "n_crossings": 1304,
+   "transitions": {
+    "broken->broken": 15,
+    "broken->lost": 6,
+    "broken->whole": 149,
+    "lost->lost": 23,
+    "lost->whole": 24,
+    "whole->broken": 29,
+    "whole->lost": 37,
+    "whole->whole": 1021
+   },
+   "reproduces_record": true,
+   "better": {
+    "at stitching": 150,
+    "at cleanup": 23
+   },
+   "worse": {
+    "at stitching": 60,
+    "at cleanup": 12
+   },
+   "changed_kinds": {
+    "broken->lost at cleanup": 4,
+    "broken->lost at stitching": 2,
+    "broken->whole at cleanup": 17,
+    "broken->whole at stitching": 132,
+    "lost->whole at stitching": 18,
+    "whole->broken at stitching": 26,
+    "whole->lost at cleanup": 5,
+    "whole->lost at stitching": 32,
+    "lost->whole at cleanup": 6,
+    "whole->broken at cleanup": 3
+   },
+   "better_by_join": {
+    "chained only with the trim": 171,
+    "chained in neither": 2
+   },
+   "worse_by_join": {
+    "chained in neither": 37,
+    "chained only in main": 33,
+    "chained in both": 2
+   },
+   "reasons_chained_only_in_main": {
+    "the ends meet at more than 15°": 17,
+    "an overlap candidate made ambiguous by another at the same end": 14,
+    "one copy lies along the other, but the catalogue keeps both": 10,
+    "the overlap is shorter than 24 voxels": 2,
+    "the copies lie more than 3 voxels apart at an end": 1,
+    "a copy has less than 8 voxels beyond the overlap": 4
+   },
+   "chained_in_neither_best_share": [
+    [
+     0.981,
+     0.801
+    ],
+    [
+     0.975,
+     0.758
+    ],
+    [
+     1.0,
+     0.888
+    ],
+    [
+     0.907,
+     0.739
+    ],
+    [
+     1.0,
+     0.863
+    ],
+    [
+     1.0,
+     0.789
+    ],
+    [
+     1.0,
+     0.099
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     1.0,
+     0.764
+    ],
+    [
+     0.932,
+     0.0
+    ],
+    [
+     0.988,
+     0.596
+    ],
+    [
+     1.0,
+     0.832
+    ],
+    [
+     0.919,
+     0.727
+    ],
+    [
+     1.0,
+     0.832
+    ],
+    [
+     1.0,
+     0.894
+    ],
+    [
+     1.0,
+     0.714
+    ],
+    [
+     1.0,
+     0.925
+    ],
+    [
+     0.938,
+     0.783
+    ],
+    [
+     1.0,
+     0.752
+    ],
+    [
+     1.0,
+     0.752
+    ],
+    [
+     0.957,
+     0.789
+    ],
+    [
+     1.0,
+     0.0
+    ],
+    [
+     0.957,
+     0.758
+    ],
+    [
+     1.0,
+     0.745
+    ],
+    [
+     0.95,
+     0.745
+    ],
+    [
+     0.814,
+     0.764
+    ],
+    [
+     0.963,
+     0.72
+    ],
+    [
+     1.0,
+     0.727
+    ],
+    [
+     1.0,
+     0.795
+    ],
+    [
+     1.0,
+     0.807
+    ],
+    [
+     1.0,
+     0.851
+    ],
+    [
+     1.0,
+     0.901
+    ],
+    [
+     1.0,
+     0.857
+    ],
+    [
+     0.894,
+     0.714
+    ],
+    [
+     1.0,
+     0.739
+    ]
+   ],
+   "chained_in_neither_neighbour_short": 14,
+   "written_cover_of_worse": {
+    "broken->lost: main a lone copy, patched 0 fibers": 1,
+    "broken->lost: main a lone copy, patched a lone copy": 4,
+    "whole->broken: main 2 fibers, patched 2 fibers": 9,
+    "whole->broken: main 3 fibers, patched 2 fibers": 4,
+    "whole->broken: main 3 fibers, patched 3 fibers": 2,
+    "whole->broken: main 3 fibers, patched a lone copy": 2,
+    "whole->broken: main a lone copy, patched 2 fibers": 5,
+    "whole->broken: main a lone copy, patched a lone copy": 2,
+    "whole->lost: main 2 fibers, patched a lone copy": 9,
+    "whole->lost: main 3 fibers, patched a lone copy": 2,
+    "whole->lost: main a lone copy, patched 0 fibers": 9,
+    "whole->lost: main a lone copy, patched a lone copy": 12,
+    "whole->broken: main 2 fibers, patched a lone copy": 4,
+    "whole->broken: main 4 fibers, patched 4 fibers": 1,
+    "whole->lost: main 2 fibers, patched 2 fibers": 1,
+    "whole->lost: main a lone copy, patched 2 fibers": 3,
+    "broken->lost: main 2 fibers, patched a lone copy": 1,
+    "whole->lost: main 2 fibers, patched 0 fibers": 1
+   }
+  }
+ }
+}
