@@ -699,6 +699,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 lbl_thresh,
             )
         )
+        if cache_path is not None:
+            # Match the validated integer in the key: narrow NumPy integers
+            # can overflow when the sampler subtracts them from grid sizes.
+            self.patch_size = int(self.patch_size)
 
         if coords_from_json:
             print(f"Loading valid coordinates from JSON patch catalog: {patches_json}")

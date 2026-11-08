@@ -78,6 +78,33 @@ def test_changed_selection_does_not_reuse_old_coordinates(
         assert warm.mask[y : y + 16, x : x + 16].sum() == 256
 
 
+@pytest.mark.parametrize("row", [63, 64, 127, 128, 159])
+def test_single_pixel_edit_across_hash_blocks_matches_fresh_selection(
+    fragment, tmp_path, row
+):
+    source, labels, mask = fragment
+    zarr.open(str(source), mode="a").resize((4, 160, 32))
+    pixels = np.zeros((160, 32), np.uint8)
+    pixels[:16, :16] = 255
+    start = row // 16 * 16
+    pixels[start : start + 16, 16:] = 255
+    Image.fromarray(pixels).save(labels)
+    Image.fromarray(np.full_like(pixels, 255)).save(mask)
+    os.utime(labels, ns=(STAMP, STAMP))
+    first = dataset(fragment, tmp_path / "shared", True, min_ink_ratio=1.0)
+    np.testing.assert_array_equal(first.valid_coords, [[0, 0], [start, 16]])
+
+    # One changed pixel removes just the distant, fully labeled patch. The
+    # first patch still qualifies, so relaxed fallback cannot hide the edit.
+    pixels[row, 16] = 0
+    Image.fromarray(pixels).save(labels)
+    os.utime(labels, ns=(STAMP, STAMP))
+    warm = dataset(fragment, tmp_path / "shared", True, min_ink_ratio=1.0)
+    fresh = dataset(fragment, tmp_path / "fresh", True, min_ink_ratio=1.0)
+    np.testing.assert_array_equal(fresh.valid_coords, [[0, 0]])
+    np.testing.assert_array_equal(warm.valid_coords, fresh.valid_coords)
+
+
 def no_search(**_):
     pytest.fail("an unchanged selection should reuse its coordinate cache")
 
@@ -235,6 +262,25 @@ def test_numpy_integer_and_real_settings_remain_supported(
     monkeypatch.setattr(patch_catalog, "find_valid_patches", no_search)
     repeated = dataset(fragment, tmp_path / "shared", True, **settings)
     np.testing.assert_array_equal(repeated.valid_coords, second.valid_coords)
+
+
+@pytest.mark.parametrize("warm", [False, True])
+def test_narrow_integer_patch_size_matches_python_integer(fragment, tmp_path, warm):
+    source, labels, mask = fragment
+    zarr.open(str(source), mode="a").resize((4, 160, 32))
+    write_selection(labels, shape=(160, 32))
+    write_selection(mask, shape=(160, 32))
+    cache = tmp_path / "shared"
+    expected = dataset(
+        fragment, cache if warm else tmp_path / "reference", True, strict_reads=True
+    )
+    # Grid height exceeds int8's range, even though the patch size fits. Both
+    # cached and fresh sampling must use the integer represented by the key.
+    actual = dataset(fragment, cache, True, patch_size=np.int8(16), strict_reads=True)
+    np.testing.assert_array_equal(actual.valid_coords, expected.valid_coords)
+    expected.jitter = actual.jitter = True
+    np.testing.assert_array_equal(actual[0][0], expected[0][0])
+    np.testing.assert_array_equal(actual[0][1], expected[0][1])
 
 
 @pytest.mark.skipif(
