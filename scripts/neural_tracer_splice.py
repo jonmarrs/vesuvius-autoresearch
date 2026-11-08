@@ -37,7 +37,11 @@ def load_run(out: Path) -> tuple[dict, dict, dict]:
     run = json.loads((out / "run.json").read_text())
     g = float(run["grid_scale"])
     pieces, meta = {}, {}
-    tiles = sorted((out / "tiles").glob("*.npz"))
+    # villa's save_tile writes TILE.partial.npz and renames it to TILE.npz when the tile is done; skip the unfinished,
+    # as villa's load_done does
+    tiles = sorted(
+        f for f in (out / "tiles").glob("*.npz") if not f.name.endswith(".partial.npz")
+    )
     if not tiles:
         raise SystemExit(f"{out}/tiles holds no finished tile")
     for f in tiles:
@@ -154,6 +158,8 @@ def main(argv=None) -> int:
         "--write", type=Path, required=True, help="the spliced fibers (.npz)"
     )
     args = ap.parse_args(argv)
+    if args.write.suffix != ".npz":  # np.savez would add it, past the check below
+        raise SystemExit(f"{args.write}: --write must end in .npz")
     if args.write.exists():
         raise SystemExit(f"{args.write} exists")
     pieces, meta, run = load_run(args.out)

@@ -4,6 +4,7 @@ report states the screen's record."""
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -92,6 +93,59 @@ def test_the_oracle_trims_each_end_back_to_its_last_on_reference_point():
     assert (
         ts.trimmed({1: q}, meta, SIZE, "oracle", lambda p: p[:, 0] < 0)[2] == 1
     )  # nothing on it: dropped
+
+
+def test_a_link_to_fiber_0_is_a_link_and_an_end_exactly_edge_from_a_face_is_a_real_stop():
+    """villa numbers written fibers from 0 (a link of -1 means none); finding 101's real stops lie at least EDGE voxels
+    from every face."""
+    meta = {1: (("confidence", "confidence"), (0, -1))}
+    out, ends, _ = ts.trimmed({1: line(50, 150)}, meta, SIZE, 20.0)
+    assert ends == 1 and (out[1][0][0], out[1][-1][0]) == (50, 130)
+    meta = {1: (("confidence", "bounds"), (-1, -1))}
+    out, ends, _ = ts.trimmed({1: line(ts.cs.EDGE, 150)}, meta, SIZE, 20.0)
+    assert ends == 1 and out[1][0][0] == pytest.approx(ts.cs.EDGE + 20)
+
+
+def test_a_piece_left_at_exactly_min_length_is_kept_and_an_untrimmed_piece_is_never_dropped():
+    meta = {1: (("confidence", "bounds"), (-1, -1))}
+    q = line(100, 100 + ts.MIN_POINTS + 19)  # 20 points over villa's --min-length
+    out, ends, dropped = ts.trimmed({1: q}, meta, SIZE, 20.0)
+    assert (len(out[1]), ends, dropped) == (ts.MIN_POINTS, 1, 0)
+    # shorter than villa writes: no trim may drop a piece it did not cut
+    short = line(100, 129)
+    for k, reasons in ((20.0, ("bounds", "owned_or_live")), (0.0, ("confidence", "confidence"))):  # fmt: skip
+        out, _, dropped = ts.trimmed({1: short}, {1: (reasons, (-1, -1))}, SIZE, k)
+        assert dropped == 0 and np.array_equal(out[1], short)
+
+
+def fake_scrollgt(monkeypatch, fibers: list) -> types.SimpleNamespace:
+    """ScrollGT's fiber target and resampling, stood in: each reference fiber is resampled to its own points."""
+    skel = types.SimpleNamespace(
+        fibers=[
+            types.SimpleNamespace(coords=np.asarray(f, float), edges=None)
+            for f in fibers
+        ]
+    )
+    et = types.ModuleType("scrollgt.fibers.eval_trace")
+    et._resample_fiber = lambda coords, edges, step: [(p, None) for p in coords]
+    tg = types.ModuleType("scrollgt.fibers.target")
+    tg.load_fiber_target = lambda path: (skel, None, None)
+    for m in (
+        types.ModuleType("scrollgt"),
+        types.ModuleType("scrollgt.fibers"),
+        et,
+        tg,
+    ):
+        monkeypatch.setitem(sys.modules, m.__name__, m)
+    return skel
+
+
+def test_the_oracle_counts_a_point_exactly_its_tolerance_from_the_reference_as_on_it(
+    monkeypatch,
+):
+    on = ts.near_reference(fake_scrollgt(monkeypatch, [line(10, 20)]))
+    p = np.array([[15, 128, 130], [15, 128, 130.4], [15, 128, 130.6], [25, 128, 128]])
+    assert ts.ORACLE_TOL == 2 and on(p).tolist() == [True, True, False, False]
 
 
 RECORD = json.loads(
