@@ -74,8 +74,8 @@ ERL is scored against the hand tracing within 2 and 4 voxels.
 Against the same cubes run as one block, eight blocks reach 0.703 to 0.923 of its merge-penalized ERL at τ = 4 on
 main, and 0.822 to 0.963 with the trim.
 
-**What it costs:** more crossings of the block faces are lost. Of 1,304 places where a hand-traced fiber crosses a
-block face, 278 are lost with the trim against 172 on main. Whole ones rise from 853 to 884, and broken ones fall from
+**What it costs:** more crossings of the block faces are lost. Of 1,304 places where a fiber written from the cube as
+one block crosses a block face, 278 are lost with the trim against 172 on main. Whole ones rise from 853 to 884, and broken ones fall from
 279 to 142. The changes run both ways, and 176 crossings are chained only with the trim. Of the 198 crossings worse with
 the trim, 63 are joins main made that the trimmed copies miss. Three reasons come up most often, in about equal
 measure (a crossing can have more than one):

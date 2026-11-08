@@ -52,8 +52,8 @@ The gain is patched ERLpen / main ERLpen − 1 on arm real.
 | s3_04494_00994_01494_512 | 13.19 → 13.72 | 32.59 → 36.20 | 85 → 72 | 0.235 → 0.086 | 118/25/25 → 91/28/49 |
 
 The duplicated share is the share of written length within 1.5 voxels of a different written fiber of the same
-family. A crossing is a place where a reference fiber crosses a mid-plane (a block face) with at least 40 voxels of
-its arclength on each side. Its window is that ±40 voxels of the reference. Written fibers of the same family, within
+family. A crossing is a place where a fiber of arm one (main) crosses a mid-plane (a block face) with at least 40
+voxels of its arclength on each side. Its window is that ±40 voxels of the fiber. Written fibers of the same family, within
 2 voxels, make the crossing:
 * **whole** when one written fiber covers 95% of the window;
 * **broken** when the written fibers together cover 80% of it;
@@ -76,8 +76,8 @@ its arclength on each side. Its window is that ±40 voxels of the reference. Wri
 ## What it costs
 
 * **Coverage, which is not a loss against one block.** The trim changes arm real's coverage at tolerance 4 by a median
-  −0.0105. Untrimmed, the eight blocks covered a median +0.0152 more of the reference than one block (+0.0041 to
-  +0.0218). That is because the two copies of a fiber come from two crops' predictions and miss the reference in
+  −0.0105. Untrimmed, the eight blocks covered a median +0.0152 more of the hand tracing than one block (+0.0041 to
+  +0.0218). That is because the two copies of a fiber come from two crops' predictions and miss the hand tracing in
   different places. With the trim, arm real lands at one block's coverage, a median +0.0002 from it (−0.0050 to
   +0.0143). In arm same the copies come from one field: untrimmed coverage already matched one block (+0.0002), and the
   trim changes it by a median −0.0004. Precision at tolerance 4 rises from a median 0.8865 to 0.8939 (one block:
