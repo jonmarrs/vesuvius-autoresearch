@@ -171,3 +171,13 @@ def test_cli_collision_has_a_concise_error_before_reading_cube_inputs(tmp_path):
     assert "Fiber benchmark failed: artifact collision" in result.stderr
     assert "Traceback" not in result.stderr
     assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("shape", [(3, 3, 9), (3, 8, 3), (1, 3, 3, 8)])
+def test_instances_must_have_the_cubes_own_shape(tmp_path, shape):
+    # A well-formed NPY for another cube is still the wrong input. Before #378,
+    # `score` refused a shape mismatch; the capture must keep refusing it.
+    source = tmp_path / "instances.npy"
+    np.save(source, np.ones((3, 3, 8), np.int32))
+    with pytest.raises(ValueError, match="must match cube shape"):
+        read_instances(source, shape)
