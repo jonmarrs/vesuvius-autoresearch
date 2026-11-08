@@ -175,7 +175,7 @@ now has a test. Each test passes as merged and fails with its guard removed.
 
 - **The touched modules pass on the merged branch.**
   - The code PRs' five modules give 150 passed.
-  - Before the merge with main, the fifteen research and draft modules gave 257 passed.
+  - Before the merge with main, the seventeen research and draft modules gave 257 passed.
   - After it, the draft's, the upstream check's, the rebase's and finding 106's modules give 70 passed.
 - **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the 16 changed Python files, and `bash -n` passes on
   the runner. Mypy is clean over the whole merged repository: 921 files.
