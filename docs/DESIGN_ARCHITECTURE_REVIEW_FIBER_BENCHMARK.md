@@ -30,6 +30,11 @@ data, published benchmark numbers or prize filings were changed.
   to the existing atomic-file helper. Trace reports identify the saved NPY's
   actual staged bytes with path, digest, size, shape and dtype, or null when
   no instance file was requested.
+- **A floor row could replace candidate scores (P2).** Published-diff review
+  found that a candidate named `floor: connected components.npy` collided with
+  the requested floor's row key. Its regression left only the floor row before
+  repair. Score reports now identify `candidate_row` explicitly and prefix a
+  conflicting candidate key, preserving both rows and their separate metrics.
 
 The three initial regressions failed before repair: source overwrite was not
 refused, a reported digest differed from the scored bytes, and data loading
@@ -73,12 +78,15 @@ Python 3.10.21 / Torch 2.9.1+cpu / NumPy 2.2.6, with Villa pinned at
   48.37s**, across 12/186 curated modules. It covers benchmark workflows, NML
   imports, capture/snapshot consumers, production inference, workspace/report
   inspection, file modes, checkout isolation and test registration.
-- Final benchmark follow-up after protecting model paths in score-only mode:
+- Benchmark follow-up after protecting model paths in score-only mode:
   **49 passed in 3.72s**. Includes capture identity despite path replacement,
   NPY versions/layouts/byte orders/large uint64 IDs, malformed/oversized/special
   inputs, aliases/late changes, whole-list preflight, cache aliases, interrupted
   trace publication, preserved permissions, trace output hashes, CLI diagnostics
   and stdlib-only capture imports.
+- After the review-found row-key collision repair, the two new modules plus
+  existing benchmark workflow contracts passed **135 tests in 11.71s**, including
+  the regression that failed before repair. Exact commands are in the PR.
 - Required smoke: **8/11 passed, 3 skipped, 0 failed in 9.1s**. Local training
   data and the optional batchgenerators transform were unavailable. Available
   model/import/augmentation checks passed, including 288/288 checkpoint tensors.

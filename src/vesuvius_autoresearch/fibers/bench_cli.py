@@ -393,7 +393,10 @@ def cmd_score(args) -> int:
     )
     s = ev.score_tracing(gt, inst, tolerance=args.tolerance)
     row = s.as_row()
-    rows = {pathlib.Path(args.instances).stem: row}
+    candidate_row = pathlib.Path(args.instances).stem
+    if args.with_floors and candidate_row == "floor: connected components":
+        candidate_row = f"candidate:{candidate_row}"
+    rows = {candidate_row: row}
     floor_provenance = None
     print(f"cube={args.cube}  gt_fibers={len(gt)}  tolerance={args.tolerance}")
     _print_rows(rows)
@@ -414,6 +417,7 @@ def cmd_score(args) -> int:
             args.json_out,
             {
                 "cube": args.cube,
+                "candidate_row": candidate_row,
                 "provenance": {
                     "scoring_version": SCORING_VERSION,
                     "skeleton_sha256": gt.source_sha256,

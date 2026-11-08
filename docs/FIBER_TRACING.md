@@ -218,6 +218,9 @@ are refused. The scored array is an immutable view of the capture. Reports keep
 `instances_sha256` and add `instances_path`, `instances_size_bytes` and
 `instances_dtype` in `provenance`. The digest identifies loaded bytes even if
 the path is replaced later; it does not promise the file remains unchanged.
+`candidate_row` identifies the candidate's key in `rows`. Normal filenames keep
+their stem as the key; a stem matching a requested floor row is prefixed with
+`candidate:` so floor insertion cannot overwrite the candidate's scores.
 
 When `trace` saves instances and a report, the report's `instances_output`
 records the published NPY path, SHA-256, size, shape and dtype; it is null when

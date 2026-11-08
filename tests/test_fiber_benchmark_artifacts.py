@@ -163,6 +163,41 @@ def test_trace_without_saved_instances_does_not_claim_a_file(bench_cube):  # noq
     assert not (bench_cube.data_dir / "instances.npy").exists()
 
 
+def test_floor_row_cannot_overwrite_a_candidate_with_the_same_filename(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "floor: connected components.npy"
+    labels = np.arange(1, 73, dtype=np.uint64).reshape(3, 3, 8)
+    np.save(source, labels)
+    monkeypatch.setattr(
+        bench_cli, "_load_cube", lambda *a: (np.zeros(labels.shape), simple_gt())
+    )
+    monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *a: np.ones(labels.shape))
+    monkeypatch.setattr(bench_cli, "_measurement_provenance", lambda *a: {"stub": True})
+    output = tmp_path / "score.json"
+    assert (
+        bench_cli.main(
+            [
+                "--data-dir",
+                str(tmp_path),
+                "score",
+                "--cube",
+                "cube",
+                "--instances",
+                str(source),
+                "--with-floors",
+                "--json-out",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    record = json.loads(output.read_text())
+    assert len(record["rows"]) == 2
+    assert record["rows"][record["candidate_row"]]["n_pred_instances"] == 72
+    assert record["rows"]["floor: connected components"]["n_pred_instances"] == 1
+
+
 def score_fixture(tmp_path, monkeypatch):
     source = tmp_path / "instances.npy"
     labels = np.ones((3, 3, 8), np.uint64) * (2**32 + 1)
