@@ -49,7 +49,8 @@ too.
 **Question.** The loop promotes on val_f1 (best F1 over thresholds 0.05–0.95, pooled over pixels) on the
 ink-containing patches of a fixed 400-patch draw. Finding 86 found the incumbent below the all-ink F1 on that
 sample. Is that the model, or can no model score well there? The test: the project's TimeSformer detector
-(`models/detector/detector_epoch=7.ckpt`, held-out pixel AUC 0.709 on the whole of Fr143), scored on the same
+(`models/detector/detector_epoch=7.ckpt`, a historical local checkpoint path whose
+weights are not included in this repository; held-out pixel AUC 0.709 on the whole of Fr143), scored on the same
 sample through the same metric.
 
 ## A. On the loop's sample, the detector is no better than calling every pixel ink
