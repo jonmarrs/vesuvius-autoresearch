@@ -33,7 +33,6 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import re
 import shutil
 import sys
 import time
@@ -262,43 +261,43 @@ def _print_rows(rows: dict[str, dict]) -> None:
 
 
 def cmd_fetch(args) -> int:
-    if args.cube and not re.fullmatch(r"s\d+_\d+_\d+_\d+_\d+", args.cube):
-        raise ValueError("cube must be a stem such as s1_00497_01497_03997_256")
+    from vesuvius_autoresearch.fibers.dataset_fetch import (
+        MAX_LISTING_BYTES,
+        FetchPlan,
+        validate_cube,
+    )
+
+    validate_cube(args.cube)
     out = pathlib.Path(args.data_dir)
-    out.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(DATA_URL + "nml/", timeout=60) as listing:
-        content = listing.read().decode()
-    nmls = [
-        n
-        for n in re.findall(
-            r'href="([^"]+)"',
-            content,
+        content = listing.read(MAX_LISTING_BYTES + 1)
+        length = (
+            listing.headers.get("Content-Length")
+            if hasattr(listing, "headers")
+            else None
         )
-        if n.endswith(".nml")
-    ]
-    matched = False
-    for nm in nmls:
-        mm = re.fullmatch(r"fibers_(s\d)a?_(\d+)z_(\d+)y_(\d+)x_(\d+)_v\d+\.nml", nm)
-        if not mm:
+    if len(content) > MAX_LISTING_BYTES:
+        raise ValueError(f"dataset listing exceeds {MAX_LISTING_BYTES} bytes")
+    if length is not None and len(content) != int(length):
+        raise ValueError("incomplete dataset listing")
+    plan = FetchPlan.create(content.decode(), out, args.cube)
+    refresh, dry_run = getattr(args, "refresh", False), getattr(args, "dry_run", False)
+    for entry in plan.downloads:
+        plan.validate()
+        p, rel = entry.destination, entry.relative_url
+        reuse = not refresh and p.exists() and p.stat().st_size > 0
+        action = "REUSE" if reuse else "REPLACE" if p.exists() else "DOWNLOAD"
+        print(f"{action} {rel} -> {p}")
+        if reuse:
+            print(
+                "  existing nonempty file; source/content unverified (use --refresh to replace)"
+            )
+        if dry_run or reuse:
             continue
-        s, z, y, x, sz = mm.groups()
-        stem = f"{s}_{z}_{y}_{x}_{sz}"
-        if args.cube and args.cube != stem:
-            continue
-        matched = True
-        for rel, dst in [
-            (f"nml/{nm}", f"{stem}.nml"),
-            (f"imagesTr/{stem}_0000.tif", f"{stem}_image.tif"),
-            (f"labelsTr/{stem}.tif", f"{stem}_semantic.tif"),
-        ]:
-            p = out / dst
-            if p.exists() and p.stat().st_size > 0:
-                continue
-            t = time.time()
-            with (
-                urllib.request.urlopen(DATA_URL + rel, timeout=60) as source,
-                atomic_file(p, "wb") as dest,
-            ):
+        t = time.time()
+        with urllib.request.urlopen(DATA_URL + rel, timeout=60) as source:
+            plan.validate()
+            with atomic_file(p, "wb") as dest:
                 shutil.copyfileobj(source, dest)
                 if dest.tell() == 0:
                     raise ValueError(f"empty download: {rel}")
@@ -309,9 +308,11 @@ def cmd_fetch(args) -> int:
                 )
                 if length is not None and dest.tell() != int(length):
                     raise ValueError(f"incomplete download: {rel}")
-            print(f"  {dst}  {p.stat().st_size / 1e6:.0f} MB  {time.time() - t:.0f}s")
-    if args.cube and not matched:
-        raise ValueError(f"cube not found in dataset: {args.cube}")
+                plan.validate()
+        print(f"  {p.name}  {p.stat().st_size / 1e6:.0f} MB  {time.time() - t:.0f}s")
+    if dry_run:
+        print("dry run: no dataset files written")
+        return 0
     print(f"data in {out}")
     return 0
 
@@ -686,6 +687,16 @@ def main(argv=None) -> int:
 
     f = sub.add_parser("fetch", help="download cube(s) from the public dataset")
     f.add_argument("--cube", help="stem, e.g. s1_00497_01497_03997_256; omit for all")
+    f.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show selected sources and reuse/replacement actions without writing dataset files",
+    )
+    f.add_argument(
+        "--refresh",
+        action="store_true",
+        help="replace existing files with the selected latest annotation, image and semantic labels",
+    )
     f.set_defaults(func=cmd_fetch)
 
     for name, fn, helptext in [

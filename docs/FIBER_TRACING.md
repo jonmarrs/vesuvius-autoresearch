@@ -270,11 +270,41 @@ may leave an array without a manifest; the next run recomputes it. Existing
 attested caches remain compatible, and scoring/inference recipe versions are
 unchanged. See the [probability-cache review](DESIGN_ARCHITECTURE_REVIEW_FIBER_CACHE.md).
 
-`fetch --cube` matches the entire scroll/cube identity. Downloads use temporary
-files, 60-second socket timeouts, and byte-count checks when the server supplies
-`Content-Length`. Failed transfers leave no new partial destination. Existing
-nonempty downloads from older versions are still reused; remove and re-fetch
-any previously interrupted file.
+`fetch --cube` matches the entire scroll/cube identity (including multi-digit
+scroll numbers). The HTML listing is captured once, capped at 2 MiB. For each
+selected cube it chooses the highest **numeric** annotation version, independently
+of link order. Duplicate identical links are harmless; different filenames tied
+for the selected version are refused as ambiguous. The dataset's `s1a` alias
+still maps to `s1`. Only recognized flat annotation filenames are eligible.
+
+Before transferring anything, fetch plans all selected NML, image and semantic
+destinations together. Aliased destinations, symlinks, special files and
+directories are refused, including a bad destination in a later cube. Plans are
+rechecked before each transfer, after opening its response and before publishing.
+Each file uses a temporary sibling, a 60-second socket timeout, and a byte-count
+check when the server supplies `Content-Length`. A failed transfer preserves the
+previous destination and removes its temporary file. This is per-file
+publication: files already completed remain updated if a later transfer fails.
+Keep paths stable and serialize writers; rechecks are not locks.
+
+Existing nonempty regular files are still reused by default, with an explicit
+`source/content unverified` message. Their contents are not claimed to match the
+selected remote version. Use `--refresh` to replace all three files for each
+selected cube, including any legacy partial download, without manually deleting
+them. Existing file permissions are retained. To inspect source URLs and
+DOWNLOAD/REUSE/REPLACE actions without downloading payloads or creating the data
+directory, use `--dry-run`; it still requests the directory listing:
+
+```bash
+python -m vesuvius_autoresearch.fibers.bench_cli fetch \
+    --cube s1_00497_01497_03997_256 --dry-run --refresh
+```
+
+Selection of an annotation version does not establish scientific correctness or
+prove that the accompanying CT/semantic labels align. Fetch does not decode TIFF
+or NML contents, provide remote checksums, or pin a historical remote snapshot.
+Existing scoring provenance continues to identify the files actually loaded.
+See the [dataset-fetch review](DESIGN_ARCHITECTURE_REVIEW_FIBER_FETCH.md).
 
 ## The semantic model
 
