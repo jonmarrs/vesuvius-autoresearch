@@ -1,7 +1,8 @@
 # Draft: villa's fiber generator writes a fiber twice where a block border bends both blocks' copies
 
 **NOT POSTED.** Prepared 2026-11-07 from [finding 106](../reports/afv_generator_block_seams.md), whose registered
-verdict is `SUPPORTED`. Whether to post, and in what form, is the owner's decision.
+verdict is `SUPPORTED`. Its case at villa's defaults is [finding 107](../reports/afv_generator_default_zone.md)
+(2026-11-09, `BITES_AT_DEFAULTS`). Whether to post, and in what form, is the owner's decision.
 
 **Recommended form: a PR.** This fixes a defect in villa's own active code (`cli.generate` → `extend.stitch`, what VC3D
 runs). villa merges fixes of that kind, and the patch is ready:
@@ -11,19 +12,19 @@ runs). villa merges fixes of that kind, and the patch is ready:
 
 1. **The owner decides,** and writes the motivation paragraph below. Never tick the verification box for them.
 2. **villa's limits:**
-   * At most three open PRs. All three slots were taken on 2026-11-06 (#2463, #2464, #2465).
+   * At most three open PRs. Two are open (#2463, #2465); the owner closed #2464 on 2026-11-08.
    * At most two code-fix PRs a week. Both were used on 2026-11-06, so not before about 11-13.
 3. **Re-check villa main of that day:**
    * `extend/stitch.py` and `cli.generate` are unchanged where the patch applies (`git apply --check`).
    * The catalogue's overlap tests (15° at the ends, a strict duplicate within 0.65 voxel) are still as measured.
    * No PR or issue already trims cut ends: search "block border", "duplicate" and "stitch".
+   * Checked 2026-11-09 at villa main `c3d9da6fe`: no commit touches the generator since `7e6b82164`, and the patch
+     applies.
    * #2434 (open, by another contributor) changes `_compare_pair` in `extend/catalog.py`, not these lines. It still
      names the module `afv_spline_generator`, which villa main now calls `fiber_spline_generator`. Its "Not changed"
      note saw the symptom on synthetic straight fibers: cite it, and say how this differs.
-4. **A real-use example at villa's own defaults** would answer "how often it bites" directly: a zone of more than one
-   512 block, main against patched. The measurement below uses blocks of 256 on 512³ cubes, because the hand-traced
-   cubes are 512³. A 1024³ zone at block 512 needs no hand tracing for the written-twice share. On the GPU it takes
-   minutes (the owner's decision); on the CPU about a day.
+4. **The real-use example at villa's own defaults is done:** finding 107, in "How often it bites" below. It ran a
+   1024³ zone at block 512 on the CPU (17 hours).
 5. **Size:** the patch is 47 lines of code and comments in two files, plus 54 lines of tests. That is above the 4–25
    lines our fixes usually are. The comment block above `CUT_END` can be cut if villa prefers.
 6. **No AI-authorship markers** in the commit or the body, including `Co-Authored-By`.
@@ -88,7 +89,15 @@ neighbouring block's copies are short or miss the fiber, that stretch is no long
 scored against the hand tracing, not at these crossings, and it rises on every cube.
 
 **How often it bites:** on every zone larger than `--block-size` along any axis (the VC3D dialog shows "N blocks to
-process"). The dialog's default zone, 512³ at block 512, is one block and is not changed.
+process"). The dialog's default zone, 512³ at block 512, is one block and is not changed. At the default block size,
+on a 1024³ zone of the Scroll-3 scan (8 blocks of 512) centred on the cube `s3_04494_00994_01494_512`:
+* **The whole zone:** 0.120 of main's written length lies beside a same-family copy. With the trim, 0.052 does.
+  Fibers written fall from 5,766 to 5,326.
+* **Inside the hand-traced cube:** merge-penalized ERL rises 16.0% at tolerance 4 and 5.6% at tolerance 2, and
+  merges at tolerance 2 fall from 92 to 82. Coverage falls 3.7% at tolerance 4.
+* **The eight cubes above, for comparison:** in blocks of 256, coverage also fell on every cube with the trim. But
+  main's blocks had covered more than the same cube run as one block, and the trimmed coverage lies within −0.005 to
+  +0.014 of one block's at tolerance 4.
 
 **Why / where this is useful:** [The owner's own words: what we were generating fibers for, and what the duplicated
 copies cost when using the output.]
@@ -103,9 +112,11 @@ copies cost when using the output.]
   `candidates`, `expander`) were checked byte-identical to villa main `7e6b82164`'s. Its `cleanup` and `splines`
   modules were not compared with main's; the head's `splines` predates #2440's switch to the native `vc_reader`. The
   measurement used the patch's first form, which keeps an end only at the volume's border. On these cubes the zone
-  is the whole volume, and there the two forms trim alike; that was checked on 1,000 random blocks.
+  is the whole volume, and there the two forms trim alike; that was checked on 1,000 random blocks. The 1024³ zone
+  ran the amended form, the patch below, with the zone's read box equal to the fetched scan.
 * **Limits:**
-  * Blocks of 256, not villa's default 512. A 512³ hand-traced cube has one inner face per axis only at 256.
+  * Blocks of 256, not villa's default 512. A 512³ hand-traced cube has one inner face per axis only at 256. The
+    1024³ zone used 512, but it is one zone and one cube.
   * 7.91 µm, finer than the model's 8.64–9.36 µm training pitch.
   * One hand tracing per cube, and eight cubes, all Scroll 3.
 * **Tests:** villa's `test_stitch.py` with the patch has three new cases:
@@ -124,4 +135,7 @@ copies cost when using the output.]
   * the script, `scripts/afv_generator_block_seams.py`;
   * the report, `reports/afv_generator_block_seams.md`;
   * the diagnosis of the lost crossings, `scripts/afv_generator_seam_diag.py`, and its summary,
-    `reports/evidence/afv_generator_seam_diag_2026-11-07.json`.
+    `reports/evidence/afv_generator_seam_diag_2026-11-07.json`;
+  * the 1024³ zone at the default block size: its registration,
+    `docs/preregistration/2026-11-08_afv_generator_default_zone.md`, script, `scripts/afv_generator_default_zone.py`,
+    and report, `reports/afv_generator_default_zone.md`.

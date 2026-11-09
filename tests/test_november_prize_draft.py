@@ -29,6 +29,7 @@ FINDINGS = {
     103: "seed_heading_confirmation",
     105: "neural_tracer_link_splice",
     106: "afv_generator_block_seams",
+    107: "afv_generator_default_zone",
 }
 
 
@@ -273,3 +274,35 @@ def test_the_seam_trim_entry_is_finding_106s_record():
         all(b > a for a, b in erl)
         and "trimming the cut ends raised ERLpen on every cube" in section
     )
+
+
+def test_the_seam_trim_case_in_practice_is_finding_107s_record():
+    d = json.loads((ROOT / f"reports/{FINDINGS[107]}.json").read_text())
+    r, section = d["result"], " ".join(_section("Queued, not posted").split())
+    m, p = r["rows"]["main"], r["rows"]["patched"]
+    assert (
+        d["verdict"]["decision"] == "BITES_AT_DEFAULTS"
+        and "(`BITES_AT_DEFAULTS`)" in section
+    )
+    assert (
+        (r["zone"], r["block"]) == (1024, 512)
+        and "1024³ zone of the Scroll-3 scan at villa's default block size of 512"
+        in section
+    )
+    assert (
+        f"**On main:** {m['zone']['duplicated_share']:.3f} of the zone's written length"
+        in section
+    )
+    assert f"**With the trim:** {p['zone']['duplicated_share']:.3f}." in section
+    g = [
+        100
+        * (
+            p["cube"][t]["erl_merge_penalized"] / m["cube"][t]["erl_merge_penalized"]
+            - 1
+        )
+        for t in ("tol4", "tol2")
+    ]
+    c = 100 * (p["cube"]["tol4"]["coverage"] / m["cube"]["tol4"]["coverage"] - 1)
+    assert (f"ERLpen rises {g[0]:+.1f}% at tolerance 4 and {g[1]:+.1f}% at tolerance 2, with merges "
+            f"{m['cube']['tol2']['merges']} → {p['cube']['tol2']['merges']} at tolerance 2 and coverage "
+            f"{c:.1f}% at tolerance 4").replace("coverage -", "coverage −") in section  # fmt: skip

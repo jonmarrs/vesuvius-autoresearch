@@ -76,8 +76,12 @@ What this means here:
     face crossings rise, 172 → 278 of 1,304.
   * **Form:** a PR, since it fixes villa's own active code. villa's limits (three open PRs, two code fixes a week)
     rule it out before about 11-13, and whether to post it is the owner's decision.
-  * **Its case in practice is still missing.** VC3D's default zone is one block, where the trim changes nothing. A
-    1024³ zone at block 512 would show how often it bites (minutes on the GPU, the owner's decision).
+  * **Its case in practice** is [finding 107](../reports/afv_generator_default_zone.md) (`BITES_AT_DEFAULTS`): one
+    1024³ zone of the Scroll-3 scan at villa's default block size of 512. VC3D's default zone is one block, where the
+    trim changes nothing.
+    * **On main:** 0.120 of the zone's written length lies beside a same-family copy.
+    * **With the trim:** 0.052. On the hand-traced cube at the zone's centre, ERLpen rises +16.0% at tolerance 4 and
+      +5.6% at tolerance 2, with merges 92 → 82 at tolerance 2 and coverage −3.7% at tolerance 4.
 
 ## Filing-day checklist
 
