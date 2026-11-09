@@ -1,5 +1,16 @@
 # Confidence predicts which ink reproduces — and thresholding on it does not help
 
+> **Implementation review, 2026-11-09:** the registered bin-level table and linked
+> confidence JSON preserve the historical version-1 analysis. That code weighted whole-cell mean probabilities
+> by ink counts, so background affected the statistic labeled ink confidence;
+> it also did not enforce the declared count gate in code. The manually recorded
+> count comparison below remains a separate historical record. Version 2 measures
+> saved ink pixels directly, enforces the gate and corrects Monte Carlo p-values.
+> The original artifacts have not been re-analysed here; these numbers and the
+> registered conclusion are not validated as version-2 evidence. See the
+> [current method and limits](../docs/CONFIDENCE_REPRODUCIBILITY.md). The later
+> thresholding and matched-density comparisons are separate follow-up analyses.
+
 **2026-09-14.** Registered in
 `docs/preregistration/2026-09-13_does_confidence_predict_reproducibility.md`; analysis committed
 before any probability map existed. `reports/confidence_vs_reproducibility.json`.

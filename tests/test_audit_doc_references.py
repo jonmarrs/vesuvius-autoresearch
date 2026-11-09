@@ -24,6 +24,10 @@ restore_cuda_env()  # do not leave the mask for other test modules
 # a run creates. Keep the exceptions exact: a count allowance could hide a new
 # broken reference.
 KNOWN_HISTORICAL_PATHS = {
+    # October 13 measurement checkpoints, explicitly identified as local historical
+    # paths whose weights are not distributed in this repository.
+    ("reports/detector_depth_ablation.md", "models/detector/detector_epoch=7.ckpt"),
+    ("reports/detector_on_loop_sample.md", "models/detector/detector_epoch=7.ckpt"),
     (
         "docs/VILLA_STRATEGY.md",
         "villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py",
