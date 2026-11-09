@@ -112,6 +112,48 @@ def test_the_padded_scan_lies_inside_scroll_3s_scan():
     assert tuple(b - a for a, b in zip(lo, hi, strict=True)) == (dz.SIDE,) * 3
 
 
+def test_the_slab_fetch_writes_the_voxels_the_whole_region_fetch_gives(tmp_path):
+    """Amendment 1: the fetch converts SLAB slices at a time into a memory-mapped .npy, from the same cache files."""
+    cc = module(dz.CONTEXT_CT, "context_ct_for_slab_test")
+    lo, hi = (5, 7, 9), (16, 20, 15)  # 11 slices: 3 slabs of 4, the last short
+    rng = np.random.default_rng(0)
+    volume = {"shape": (40, 40, 40), "url": "unused", "digits": 5}
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    for z in range(lo[0], hi[0]):
+        # the full uint16 range, so the clip at 255 and the /257 rounding are both exercised
+        win = rng.integers(
+            0, 65536, (hi[1] - lo[1], hi[2] - lo[2]), dtype=np.uint64
+        ).astype("<u2")
+        np.save(cache / f"{z}_{lo[1]}_{lo[2]}_{hi[1]}_{hi[2]}.npy", win)
+
+    def no_network(*a, **k):
+        raise AssertionError("every slice is cached")
+
+    whole = cc.to_uint8(cc.read_tiff_region(volume, lo, hi, cache, no_network))
+    calls = []
+    real = cc.read_tiff_region
+
+    def counted(v, a, b, c, get_ranges=no_network):
+        calls.append((a, b))
+        return real(v, a, b, c, no_network)
+
+    cc.read_tiff_region = counted
+    out = dz.write_uint8_scan(cc, volume, lo, hi, cache, tmp_path / "scan.npy", slab=4)
+    assert [a[0] for a, _ in calls] == [5, 9, 13] and [b[0] for _, b in calls] == [
+        9,
+        13,
+        16,
+    ]
+    del out
+    got = np.load(tmp_path / "scan.npy")
+    assert got.dtype == np.uint8 and got.shape == whole.shape
+    np.testing.assert_array_equal(got, whole)
+    assert (
+        len(np.unique(whole)) > 200
+    )  # the comparison is not trivially all zeros or all 255
+
+
 def line(a, b):
     return np.array([a, b], float)
 

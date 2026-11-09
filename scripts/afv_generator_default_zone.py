@@ -117,6 +117,27 @@ def file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+FETCH_SLAB = 16  # slices read and converted at a time (amendment 1)
+
+
+def write_uint8_scan(
+    cc, volume: dict, lo, hi, cache: Path, path: Path, slab: int = FETCH_SLAB
+) -> np.memmap:
+    """cc.to_uint8(cc.read_tiff_region(volume, lo, hi, cache)), written into the .npy file PATH SLAB slices at a time.
+
+    The same voxels as converting the whole region at once: read_tiff_region fills slice by slice from cache files named
+    by z and the fixed y, x window, and to_uint8 converts voxel by voxel. It never holds the uint16 region whole; the
+    whole-region version did, and systemd-oomd killed it on memory pressure as it converted (amendment 1)."""
+    shape = tuple(b - a for a, b in zip(lo, hi, strict=True))
+    out = np.lib.format.open_memmap(path, mode="w+", dtype=np.uint8, shape=shape)
+    for z in range(lo[0], hi[0], slab):
+        top = min(z + slab, hi[0])
+        raw = cc.read_tiff_region(volume, (z, *lo[1:]), (top, *hi[1:]), cache)
+        out[z - lo[0] : top - lo[0]] = cc.to_uint8(raw)
+    out.flush()
+    return out
+
+
 def fetch(args) -> None:
     import zarr
 
@@ -124,13 +145,18 @@ def fetch(args) -> None:
     cc = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cc)
     t = time.time()
-    padded = cc.to_uint8(cc.read_padded(CUBE, args.cache / CUBE, PAD))
+    # cc.read_padded's own dispatch, for a cube of a TIFF-slice volume
+    lo, hi = cc.padded_bounds(CUBE, PAD)
+    volume = cc.TIFF_VOLUMES[CUBE.split("_")[0]]
+    tmp = args.out.with_suffix(".part.npy")
+    padded = write_uint8_scan(cc, volume, lo, hi, args.cache / CUBE, tmp)
     own = np.asarray(zarr.open(str(bs.CT / f"{CUBE}.zarr"), mode="r")[:])
     assert padded.shape == (SIDE,) * 3, padded.shape
     if not np.array_equal(cc.core(padded, PAD), own):
         raise SystemExit("the fetched scan's core is not the cube's own CT")
-    np.save(args.out, padded)
-    print(f"wrote {args.out}: {padded.shape} uint8, the cube at [{PAD}, {PAD + SIZE}), its core equal to the cube's CT; "
+    del padded
+    tmp.rename(args.out)
+    print(f"wrote {args.out}: {(SIDE,) * 3} uint8, the cube at [{PAD}, {PAD + SIZE}), its core equal to the cube's CT; "
           f"{time.time() - t:.0f} s", flush=True)  # fmt: skip
 
 

@@ -106,3 +106,24 @@ written and their length over the zone.
   the zone puts them.
 * **7.91 µm**, finer than the model's training pitch, and the raw scan, not a masked or standardized volume.
 * **One hand tracing.**
+
+## Amendment 1: the fetch converts the scan a slab at a time (2026-11-08, 17:10 PST, before any field)
+
+**What happened.** The run started at 12:06 PST from `a1060b39`. The fetch had cached all 1,088 slices by 13:25:20.
+At 13:26:04, systemd-oomd killed the cgroup the run was launched from (a terminal scope, 11 processes, including the
+session that launched it) on memory pressure. This login's `user@1000.service` carries Ubuntu's
+`ManagedOOMMemoryPressure=kill` at a 50% limit held for 20 s, and the scope's pressure was 61% (avg10). The host was
+not out of memory: sysstat shows 18.2 GB available at 13:20, with direct reclaim at 1,897 pages/s in 13:20–13:30.
+While converting, the whole-region fetch held the uint16 region (2.58 GB), its uint8 copy (1.29 GB) and float64
+temporaries. Nothing was written: no `context.npy`, no field, no row. `setsid` had detached the run from the
+terminal's session but not from its cgroup.
+
+**What changes.** `fetch` now writes the uint8 scan into a memory-mapped `.npy`, 16 slices at a time
+(`write_uint8_scan`). It calls the same ScrollGT functions (`read_tiff_region`, then `to_uint8`) on the same cache
+files: each slice is named by its z and the fixed y, x window, and the conversion goes voxel by voxel. So the voxels
+are those of the whole-region fetch. A test compares the two on a synthetic cached region over the full uint16 range
+(three slabs, the last one short), and catches 4 seeded off-by-one and wrong-range mutants. The core check is
+unchanged, and the file is renamed into place only after it passes. The run is launched in its own systemd user unit
+(`systemd-run --user`), still at nice 19. A pressure kill elsewhere in the login then cannot take it, and its own
+kill cannot take a session. The method, gate, predictions and decision rule are unchanged. The verdict now falls
+about 16 hours after the relaunch.
