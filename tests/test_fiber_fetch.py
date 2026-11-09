@@ -268,3 +268,84 @@ def test_incomplete_listing_cannot_publish_a_partial_cube_selection(
         bench_cli.cmd_fetch(argparse.Namespace(data_dir=root, cube=None))
     assert len(calls) == 1
     assert not root.exists()
+
+
+def test_a_multi_digit_scroll_can_be_requested(tmp_path, monkeypatch):
+    cube = "s12_00497_01497_03997_256"
+    name = "fibers_s12_00497z_01497y_03997x_256_v1.nml"
+    listing_stub(monkeypatch, f"<a href='{name}'>1</a>".encode())
+    assert bench_cli.cmd_fetch(argparse.Namespace(data_dir=tmp_path, cube=cube)) == 0
+    assert (tmp_path / f"{cube}.nml").read_bytes().endswith(name.encode())
+
+
+def test_a_bare_href_is_not_a_source(tmp_path):
+    plan = FetchPlan.create(f"<a href>index</a><a href='{ANNOTATION}'>1</a>", tmp_path)
+    assert plan.downloads[0].relative_url == f"nml/{ANNOTATION}"
+
+
+def test_a_listing_over_the_cap_is_refused_even_with_a_valid_link(
+    tmp_path, monkeypatch
+):
+    # The oversized listing above has no annotation link, so it failed as an empty
+    # listing whether or not the cap was checked.
+    link = f"<a href='{ANNOTATION}'>1</a>".encode()
+    urls = listing_stub(monkeypatch, link + b" " * (MAX_LISTING_BYTES + 1 - len(link)))
+    root = tmp_path / "new"
+    with pytest.raises(ValueError, match="exceeds"):
+        bench_cli.cmd_fetch(argparse.Namespace(data_dir=root, cube=CUBE))
+    assert len(urls) == 1
+    assert not root.exists()
+
+
+def test_an_empty_download_without_a_length_is_refused(tmp_path, monkeypatch):
+    # With no Content-Length, only the empty-payload check stops a blank file.
+    listing = f"<a href='{ANNOTATION}'>1</a>".encode()
+    monkeypatch.setattr(
+        bench_cli.urllib.request,
+        "urlopen",
+        lambda url, **kwargs: io.BytesIO(listing if url.endswith("nml/") else b""),
+    )
+    with pytest.raises(ValueError, match="empty download"):
+        bench_cli.cmd_fetch(argparse.Namespace(data_dir=tmp_path, cube=CUBE))
+    assert not (tmp_path / f"{CUBE}.nml").exists()
+
+
+def test_an_existing_empty_file_is_replaced_not_reused(tmp_path, monkeypatch, capsys):
+    # An interrupted legacy download can leave an empty file; only nonempty files
+    # are reused.
+    paths = existing_cube(tmp_path)
+    paths[1].write_bytes(b"")
+    listing_stub(monkeypatch, f"<a href='{ANNOTATION}'>1</a>".encode())
+    assert bench_cli.cmd_fetch(argparse.Namespace(data_dir=tmp_path, cube=CUBE)) == 0
+    assert paths[1].read_bytes().endswith(f"imagesTr/{CUBE}_0000.tif".encode())
+    assert paths[0].read_bytes() == b"prior-0"
+    assert f"REPLACE imagesTr/{CUBE}_0000.tif" in capsys.readouterr().out
+
+
+def test_a_reused_file_swapped_after_an_earlier_transfer_is_refused(
+    tmp_path, monkeypatch
+):
+    # Once transfers have begun, the loop's recheck is the only one a reused file gets.
+    paths = existing_cube(tmp_path)
+    paths[0].write_bytes(b"")  # the NML is downloaded; the image and labels are reused
+    external = tmp_path / "external.tif"
+    external.write_bytes(b"unrelated data")
+
+    class SwapAfterPublishing(io.BytesIO):
+        def close(self):
+            if not paths[2].is_symlink():
+                paths[2].unlink()
+                paths[2].symlink_to(external)
+            super().close()
+
+    listing = f"<a href='{ANNOTATION}'>1</a>".encode()
+    monkeypatch.setattr(
+        bench_cli.urllib.request,
+        "urlopen",
+        lambda url, **kwargs: io.BytesIO(listing)
+        if url.endswith("nml/")
+        else SwapAfterPublishing(b"annotation"),
+    )
+    with pytest.raises(ValueError, match="regular file"):
+        bench_cli.cmd_fetch(argparse.Namespace(data_dir=tmp_path, cube=CUBE))
+    assert external.read_bytes() == b"unrelated data"
