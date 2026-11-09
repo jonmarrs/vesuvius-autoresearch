@@ -74,8 +74,23 @@ The eighth survivor, `isinstance(record, dict)`, is equivalent. No other JSON va
 
 ## Verification
 
-VERIFICATION
+- **The touched modules pass.** The cache module gives 38 passed (31 and 7 new). The orientation driver's module
+  gives 15 passed (14 and 1 new). Each new test fails with its guard removed, or on the old driver.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the three changed Python files. Mypy is clean over
+  the whole repository: 927 files.
+- **The standard suite.**
+  - On `c7395e15`, the 187 modules give round #153's 70 failing ids. #380 added one module.
+  - On this branch, before merging #375 (below), they give the same 70.
+- **The test modules outside the suite.** Before merging #375, the 252 modules give 2,411 passed, 82 skipped, 13 failed
+  and 21 errors. The failing ids are round #153's 34. The one extra pass over round #154's 2,410 is the driver's new
+  test.
+- **The doc audit**, run alone after merging #375, lists exactly round #154's unresolved references. It checks 2,222
+  path and 820 commit references, against 2,220 and 816 then.
 
 ## A note on this round's work
 
-NOTE
+- **The owner merged #375 at 02:21 UTC, after this round began.** It rewords finding 106's face crossings in the
+  report and the villa draft, with tests. I merged main into this branch so it stays mergeable. Finding 106's five test
+  modules, the November draft's and the suite guard give 58 passed after the merge. The next round reviews it.
+- **The baseline suite ran in the main checkout while I committed this round's changes there.** pytest had already
+  collected its modules, and that run gave the 70 ids.
