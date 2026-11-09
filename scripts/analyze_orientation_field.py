@@ -17,9 +17,9 @@ import pathlib
 
 import numpy as np
 
+from vesuvius_autoresearch.fibers.benchmark_artifacts import read_probabilities
 from vesuvius_autoresearch.fibers.detection import fiber_direction, hessian
 from vesuvius_autoresearch.fibers.field_quality import analyse_cube
-from vesuvius_autoresearch.fibers.provenance import file_sha256
 from vesuvius_autoresearch.fibers.skeleton_io import (
     origin_from_stem,
     parse_nml,
@@ -84,8 +84,10 @@ def probability(stem: str) -> tuple[np.ndarray, dict]:
     """The cube's cached fiber probability, as `bench_cli._fiber_prob` returns it
     (float64), and its provenance. Refused unless the cache record beside it attests
     these bytes, and the volume is what _fiber_prob accepts (float, finite, in
-    [0, 1]). The record makes the volume's model, patch and device visible; main()
-    refuses cubes whose volumes differ in them."""
+    [0, 1], the cube's shape). As in bench_cli, the volume and its digest come from
+    one capture of the file, so a file replaced while it is read cannot be measured
+    under the record's digest. The record makes the volume's model, patch and device
+    visible; main() refuses cubes whose volumes differ in them."""
     path = SRC / f"{stem}_fiberprob.npy"
     meta = path.with_suffix(".json")
     remedy = (
@@ -100,19 +102,19 @@ def probability(stem: str) -> tuple[np.ndarray, dict]:
         ) from None
     if not isinstance(record, dict) or not isinstance(record.get("inference"), dict):
         raise SystemExit(f"{stem}: {meta} is not a bench_cli cache record; {remedy}")
-    digest = file_sha256(path)
+    shape = (size_from_stem(stem),) * 3
+    try:
+        prob, digest = read_probabilities(path, shape)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(
+            f"{stem}: {path} is not a probability volume in [0, 1] of the expected "
+            f"shape {shape} ({exc}); {remedy}"
+        ) from None
     if record.get("probability_sha256") != digest:
         raise SystemExit(
             f"{stem}: {path} is not the volume its cache record attests "
             f"({record.get('probability_sha256')!r}, found {digest!r}); {remedy}"
         )
-    prob = np.load(path, allow_pickle=False)
-    if (
-        prob.dtype.kind != "f"
-        or not np.isfinite(prob).all()
-        or not np.all((prob >= 0) & (prob <= 1))
-    ):
-        raise SystemExit(f"{stem}: {path} is not a probability volume in [0, 1]")
     inference = record["inference"]
     identity = {
         k: inference.get(k) for k in ("version", "image", "model_files", "recipe")
