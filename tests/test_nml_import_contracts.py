@@ -51,7 +51,8 @@ def test_equivalent_xml_preserves_graph_and_connectivity_score(tmp_path, text):
     path = write_nml(tmp_path, text)
     skeleton = parse_nml(path)
     assert len(skeleton) == 1
-    assert skeleton.scale_um == (3.0, 2.0, 1.0)
+    # NML's omitted unit defaults to nanometers, not micrometers.
+    assert skeleton.scale_um == pytest.approx((0.003, 0.002, 0.001))
     fiber = skeleton.fibers[0]
     assert fiber.id == 7 and fiber.name == "fiber"
     np.testing.assert_array_equal(fiber.node_ids, [10, 20])
@@ -70,6 +71,70 @@ def test_fractional_nodes_keep_subvoxel_geometry_and_origin(tmp_path):
     skeleton = parse_nml(write_nml(tmp_path, text), origin_zyx=(3, 2, 1))
     np.testing.assert_array_equal(skeleton.fibers[0].coords[0], [0.75, 0.5, 0.25])
     assert skeleton.n_nodes == 2 and skeleton.n_edges == 1
+
+
+@pytest.mark.parametrize(
+    "unit, xyz",
+    [
+        (None, ("7910", "15820", "23730")),
+        ("nanometer", ("7910", "15820", "23730")),
+        ("nm", ("7910", "15820", "23730")),
+        ("micrometer", ("7.91", "15.82", "23.73")),
+        ("µm", ("7.91", "15.82", "23.73")),
+        ("millimeter", ("0.00791", "0.01582", "0.02373")),
+        ("mm", ("0.00791", "0.01582", "0.02373")),
+        ("centimeter", ("0.000791", "0.001582", "0.002373")),
+        ("cm", ("0.000791", "0.001582", "0.002373")),
+        ("meter", ("0.00000791", "0.00001582", "0.00002373")),
+        ("m", ("0.00000791", "0.00001582", "0.00002373")),
+        ("angstrom", ("79100", "158200", "237300")),
+        ("Å", ("79100", "158200", "237300")),
+    ],
+)
+def test_physical_scale_units_do_not_rescale_voxel_geometry(tmp_path, unit, xyz):
+    x, y, z = xyz
+    attr = "" if unit is None else f' unit="{unit}"'
+    text = NML.replace(
+        '<scale x="1" y="2" z="3"/>', f'<scale x="{x}" y="{y}" z="{z}"{attr}/>'
+    )
+    skeleton = parse_nml(write_nml(tmp_path, text))
+    assert skeleton.scale_um == pytest.approx((23.73, 15.82, 7.91))
+    np.testing.assert_array_equal(skeleton.fibers[0].coords, [[3, 2, 1], [3, 2, 6]])
+    assert skeleton.total_length() == 5.0  # still a voxel-space length
+
+
+@pytest.mark.parametrize("unit", ["", "furlong", "Nanometer", "micron"])
+def test_unrecognized_scale_units_cannot_be_mislabeled_as_micrometers(tmp_path, unit):
+    text = NML.replace('<scale x="1"', f'<scale unit="{unit}" x="1"')
+    with pytest.raises(ValueError, match="scale unit"):
+        parse_nml(write_nml(tmp_path, text))
+
+
+@pytest.mark.parametrize("unit, value", [("meter", "1e308"), ("nm", "5e-324")])
+def test_converted_scale_must_remain_finite_and_positive(tmp_path, unit, value):
+    text = NML.replace('<scale x="1"', f'<scale unit="{unit}" x="{value}"')
+    with pytest.raises(ValueError, match="scale.*finite.*positive"):
+        parse_nml(write_nml(tmp_path, text))
+
+
+def test_target_export_carries_normalized_scale_and_unchanged_voxels(tmp_path):
+    from scripts.export_fiber_targets import pack_skeleton
+
+    text = NML.replace(
+        '<scale x="1" y="2" z="3"/>',
+        '<scale x="7910" y="7910" z="7910" unit="nanometer"/>',
+    )
+    path = write_nml(tmp_path, text)
+    before = path.read_bytes()
+    skeleton = parse_nml(path, origin_zyx=(0, 0, 0))
+    packed = pack_skeleton(skeleton, (8, 8, 8))
+    target = tmp_path / "skeleton.npz"
+    np.savez_compressed(target, **packed)
+    with np.load(target, allow_pickle=False) as restored:
+        np.testing.assert_allclose(restored["scale_um"], [7.91] * 3)
+        np.testing.assert_array_equal(restored["coords"], [[3, 2, 1], [3, 2, 6]])
+        np.testing.assert_array_equal(restored["edges"], [[0, 1]])
+    assert path.read_bytes() == before
 
 
 def test_xml_entities_in_names_are_decoded(tmp_path):
