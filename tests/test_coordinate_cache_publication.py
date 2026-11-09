@@ -76,7 +76,8 @@ def test_invalid_cache_is_rebuilt_and_reused(fragment, monkeypatch, damage):
     elif damage == "partial_zip":
         path.write_bytes(b"PK\x03\x04")
     else:
-        invalid = {
+        # Annotated: mixed array dtypes in one dict otherwise infer as object.
+        invalid: np.ndarray = {
             "empty_coords": np.empty((0, 2), np.int32),
             "wrong_shape": np.array([0, 0], np.int32),
             "float_coords": np.array([[0.5, 0]], np.float32),
