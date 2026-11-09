@@ -172,7 +172,11 @@ def test_floor_row_cannot_overwrite_a_candidate_with_the_same_filename(
     monkeypatch.setattr(
         bench_cli, "_load_cube", lambda *a: (np.zeros(labels.shape), simple_gt())
     )
-    monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *a: np.ones(labels.shape))
+    monkeypatch.setattr(
+        bench_cli,
+        "_fiber_probability",
+        lambda *a: bench_cli.ProbabilityResult(np.ones(labels.shape), {}),
+    )
     monkeypatch.setattr(bench_cli, "_measurement_provenance", lambda *a: {"stub": True})
     output = tmp_path / "score.json"
     assert (
@@ -335,13 +339,13 @@ def test_all_cube_report_path_is_rechecked_after_inference(tmp_path, monkeypatch
 
     def infer(*a):
         swap_for_model_directory(reports, model)
-        return np.ones((3, 3, 8))
+        return bench_cli.ProbabilityResult(np.ones((3, 3, 8)), {})
 
     monkeypatch.setattr(bench_cli, "CUBES", ["cube"])
     monkeypatch.setattr(
         bench_cli, "_load_cube", lambda *a: (np.zeros((3, 3, 8)), simple_gt())
     )
-    monkeypatch.setattr(bench_cli, "_fiber_prob", infer)
+    monkeypatch.setattr(bench_cli, "_fiber_probability", infer)
     monkeypatch.setattr(bench_cli, "_floor_rows", lambda *a: {})
     monkeypatch.setattr(bench_cli, "_measurement_provenance", lambda *a: {"stub": True})
     with pytest.raises(ValueError, match="artifact collision"):

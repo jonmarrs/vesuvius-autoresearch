@@ -90,8 +90,8 @@ class BenchmarkArtifactPlan:
         validate_paths(self.writes, self.reads)
 
 
-def read_instances(path, shape, limit=MAX_INSTANCE_BYTES):
-    """Parse/hash one bounded NPY capture, retaining its integer IDs and layout.
+def _read_npy(path, shape, limit, kinds, name):
+    """Parse/hash one bounded numeric NPY capture, retaining its layout.
 
     The immutable array views the captured bytes; no second full array is needed.
     The header is checked before exposing any array or trusting its allocation.
@@ -104,8 +104,8 @@ def read_instances(path, shape, limit=MAX_INSTANCE_BYTES):
     if version == (1, 0):
         header = np.lib.format.read_array_header_1_0(stream)
     elif version in {(2, 0), (3, 0)}:
-        # v2/v3 share the length field. Plain integer descriptors and required
-        # keys are ASCII; Unicode structured field names are not instance IDs.
+        # v2/v3 share the length field. Numeric descriptors and required keys
+        # are ASCII; Unicode structured field names are not supported here.
         header = np.lib.format.read_array_header_2_0(stream)
     else:
         raise ValueError(f"unsupported NPY version: {version}")
@@ -115,10 +115,11 @@ def read_instances(path, shape, limit=MAX_INSTANCE_BYTES):
         or len(stored_shape) != 3
         or any(type(size) is not int or size < 1 for size in stored_shape)
     ):
-        raise ValueError(f"instances {stored_shape} must match cube shape {shape}")
-    if dtype.kind not in "ui" or dtype.itemsize > 8:
+        raise ValueError(f"{name} {stored_shape} must match cube shape {shape}")
+    if dtype.kind not in kinds or dtype.itemsize > 8:
         raise ValueError(
-            "instances must contain integer labels without objects or structured fields"
+            f"{name} must contain {'integer labels' if kinds == 'ui' else 'floating probabilities'} "
+            "without objects or structured fields"
         )
     count = math.prod(stored_shape)
     if len(data) - stream.tell() != count * dtype.itemsize:
@@ -128,11 +129,31 @@ def read_instances(path, shape, limit=MAX_INSTANCE_BYTES):
     array = np.frombuffer(data, dtype=dtype, count=count, offset=stream.tell()).reshape(
         stored_shape, order="F" if fortran else "C"
     )
-    if dtype.kind == "i" and np.any(array < 0):
-        raise ValueError("instance IDs must be nonnegative")
     return array, {
-        "instances_path": str(path),
-        "instances_sha256": hashlib.sha256(data).hexdigest(),
-        "instances_size_bytes": len(data),
-        "instances_dtype": dtype.str,
+        "path": str(path),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "size_bytes": len(data),
+        "dtype": dtype.str,
     }
+
+
+def read_instances(path, shape, limit=MAX_INSTANCE_BYTES):
+    """Read nonnegative integer IDs and identify the exact bytes parsed."""
+    array, identity = _read_npy(path, shape, limit, "ui", "instances")
+    if array.dtype.kind == "i" and np.any(array < 0):
+        raise ValueError("instance IDs must be nonnegative")
+    return array, {f"instances_{key}": value for key, value in identity.items()}
+
+
+def read_probabilities(path, shape):
+    """Capture at most one float64 cube plus the bounded NPY header.
+
+    The hash and the immutable probability view share the same captured bytes.
+    This is a file-size bound, not a process memory limit.
+    """
+    array, identity = _read_npy(
+        path, shape, math.prod(shape) * 8 + 10_012, "f", "probabilities"
+    )
+    if not np.isfinite(array).all() or np.any((array < 0) | (array > 1)):
+        raise ValueError("probabilities must be finite in [0, 1]")
+    return array, identity["sha256"]

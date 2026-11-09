@@ -241,6 +241,35 @@ legacy caches without manifests are recomputed. Refreshing all-cube floors
 preserves a prior `tracer_strict_relink` row only when its complete per-cube
 provenance matches, including skeleton, threshold, tolerance, and scoring version.
 
+Cache hits parse and hash the same captured NPY bytes. The probabilities and
+their inference record travel together through scoring, so later replacement of
+either cache file cannot change the identity in that measurement's report.
+Floating NPY arrays must match the cube and contain only finite values in
+`[0, 1]`. Capture is bounded to one float64 cube plus the NPY header; metadata
+is limited to 1 MiB. These bounds do not limit process memory or inference cost.
+Model/image identities are rechecked before accepting a hit or publishing new
+probabilities. Keep writers serialized; these checks are not locks or a snapshot
+of every benchmark input.
+
+Model-backed commands print `probability cache: HIT` or `REFRESHED` with a reason.
+Their JSON reports add `probability_cache` with `status`, `reason`, `cache_path`
+and `metadata_path` (per cube for `floors --all-cubes`; null for `score` without
+floors). These diagnostics are separate from scientific provenance. To force
+inference without manually deleting cache files, use `--refresh-cache` with
+`floors`, `trace`, or `score --with-floors`, for example:
+
+```bash
+python -m vesuvius_autoresearch.fibers.bench_cli floors \
+    --cube s1_00497_01497_03997_256 --refresh-cache --json-out floors.json
+```
+
+Inference/validation failures preserve the existing cache pair. Once publication
+starts, the old manifest is removed before the NPY is replaced, and the new
+manifest is written last with its previous permissions. A publication failure
+may leave an array without a manifest; the next run recomputes it. Existing
+attested caches remain compatible, and scoring/inference recipe versions are
+unchanged. See the [probability-cache review](DESIGN_ARCHITECTURE_REVIEW_FIBER_CACHE.md).
+
 `fetch --cube` matches the entire scroll/cube identity. Downloads use temporary
 files, 60-second socket timeouts, and byte-count checks when the server supplies
 `Content-Length`. Failed transfers leave no new partial destination. Existing

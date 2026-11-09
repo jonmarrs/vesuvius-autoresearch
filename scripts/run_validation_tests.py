@@ -80,6 +80,7 @@ VALIDATION_TESTS = [
     "tests/test_fiber_workflow_contracts.py",
     "tests/test_fiber_benchmark_artifacts.py",
     "tests/test_fiber_benchmark_inputs.py",
+    "tests/test_fiber_probability_cache.py",
     "tests/test_fiber_streaming_cli.py",
     "tests/test_fiber_streaming_storage.py",
     "tests/test_fiber_skeleton_io.py",
