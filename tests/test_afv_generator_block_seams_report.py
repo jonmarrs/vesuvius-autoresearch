@@ -187,6 +187,11 @@ def test_the_costs():
         f"a median {signed(statistics.median(over))} more of the hand tracing than one block ({signed(min(over))} to {signed(max(over))})"
         in t
     )
+    # Coverage is scored against the hand tracing; "the reference" is arm one in this report.
+    assert (
+        "the two copies of a fiber come from two crops' predictions and miss the hand tracing in different places"
+        in t
+    )
     land = cov("real", "patched", "one/main")
     assert (
         f"a median {signed(statistics.median(land))} from it ({signed(min(land))} to {signed(max(land))})"
