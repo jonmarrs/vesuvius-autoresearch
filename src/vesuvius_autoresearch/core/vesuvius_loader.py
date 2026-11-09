@@ -5,6 +5,7 @@ import os
 import sys
 from collections import defaultdict
 from numbers import Integral, Real
+from zipfile import BadZipFile
 
 import numpy as np
 import torch
@@ -23,6 +24,7 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
     if p not in sys.path:
         sys.path.append(p)
 from vesuvius_autoresearch.fibers import detect_ridges
+from vesuvius_autoresearch.fibers.provenance import atomic_file
 
 
 def frangi_vesselness_zcollapsed(ct_np, sigma=2.0):
@@ -131,6 +133,36 @@ def _coordinate_cache_path(
     return os.path.join(
         cache_dir, f"valid_coords_villa_content_v1_{digest.hexdigest()}.npy"
     )
+
+
+def _load_coordinate_cache(path, shape, patch_size):
+    """Reuse complete coordinate arrays; damaged derived caches are misses.
+
+    Do not unlink a rejected file: a concurrent writer may have replaced it.
+    Permission and other operating-system failures still propagate.
+    """
+    try:
+        coords = np.load(path, allow_pickle=False)
+    except FileNotFoundError:
+        return None
+    except (EOFError, ValueError, BadZipFile):
+        print(f"Warning: ignoring unreadable coordinate cache {path}; recomputing")
+        return None
+    if isinstance(coords, np.ndarray):
+        if (
+            coords.ndim == 2
+            and coords.shape[1] == 2
+            and len(coords) > 0
+            and coords.dtype.kind in "iu"
+            and np.all(coords >= 0)
+            and np.all(coords[:, 0] <= shape[1] - patch_size)
+            and np.all(coords[:, 1] <= shape[2] - patch_size)
+        ):
+            return coords
+    else:
+        coords.close()  # np.load can return an NPZ archive instead of an array.
+    print(f"Warning: ignoring invalid coordinate cache {path}; recomputing")
+    return None
 
 
 # A DataLoader worker's own counts end with it; share_warning_counts gives it
@@ -703,6 +735,11 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             # Match the validated integer in the key: narrow NumPy integers
             # can overflow when the sampler subtracts them from grid sizes.
             self.patch_size = int(self.patch_size)
+        cached_coords = (
+            None
+            if cache_path is None
+            else _load_coordinate_cache(cache_path, self.shape, self.patch_size)
+        )
 
         if coords_from_json:
             print(f"Loading valid coordinates from JSON patch catalog: {patches_json}")
@@ -712,8 +749,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             self.valid_coords = np.array(
                 [[p["y"], p["x"]] for p in patch_data.get("patches", [])]
             )
-        elif cache_path is not None and os.path.exists(cache_path):
-            self.valid_coords = np.load(cache_path)
+        elif cached_coords is not None:
+            self.valid_coords = cached_coords
         else:
             assert cache_path is not None
             print(
@@ -777,8 +814,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
             self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
             print(f"  Found {len(self.valid_coords)} valid patches.")
-            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-            np.save(cache_path, self.valid_coords)
+            with atomic_file(cache_path, "wb") as stream:
+                np.save(stream, self.valid_coords, allow_pickle=False)
 
         print(
             f"Initialized Dataset: Volume {self.shape}, Valid Patches {len(self.valid_coords)}, is_unlabeled={self.is_unlabeled}"
