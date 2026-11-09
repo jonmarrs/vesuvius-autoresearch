@@ -10,6 +10,7 @@ import argparse
 import json
 import math
 import sys
+import zlib
 from numbers import Integral
 from pathlib import Path
 
@@ -158,6 +159,15 @@ def correlations(rows):
     return result
 
 
+def _nrrd(read, path, **kwargs):
+    """Report pynrrd's leaked parse errors as this input's ValueError."""
+    try:
+        return read(str(path), **kwargs)
+    except (KeyError, StopIteration, zlib.error) as exc:
+        # An empty file, an unsupported type or a corrupt gzip payload.
+        raise ValueError(f"malformed NRRD {path}: {type(exc).__name__} {exc}") from exc
+
+
 def _read_pair(volume_path, mask_path, max_voxels):
     import nrrd
 
@@ -165,7 +175,7 @@ def _read_pair(volume_path, mask_path, max_voxels):
     for path in (volume_path, mask_path):
         if not path.is_file():
             raise ValueError(f"missing regular NRRD input: {path}")
-        header = nrrd.read_header(str(path))
+        header = _nrrd(nrrd.read_header, path)
         if "kinds" in header and (
             len(header["kinds"]) != 3
             or any(kind not in {"domain", "space"} for kind in header["kinds"])
@@ -174,8 +184,8 @@ def _read_pair(volume_path, mask_path, max_voxels):
         shapes.append(_shape(header.get("sizes", ()), max_voxels))
     if shapes[0] != shapes[1]:
         raise ValueError("CT and mask NRRD header shapes must match")
-    vol, _ = nrrd.read(str(volume_path), index_order="F")
-    mask, _ = nrrd.read(str(mask_path), index_order="F")
+    vol, _ = _nrrd(nrrd.read, volume_path, index_order="F")
+    mask, _ = _nrrd(nrrd.read, mask_path, index_order="F")
     if vol.shape != shapes[0] or mask.shape != shapes[1]:
         raise ValueError("NRRD data shape changed after header inspection")
     return vol, mask
@@ -189,8 +199,11 @@ def build_report(data, *, max_voxels=MAX_VOXELS):
     if not data.is_dir():
         raise ValueError(f"data must be a local cube directory: {data}")
     rows = []
+    # A dangling cube link (e.g. an unmounted external target) is a failed cube.
     for cube in sorted(
-        p for p in data.iterdir() if p.name[:1].isdigit() and p.is_dir()
+        p
+        for p in data.iterdir()
+        if p.name[:1].isdigit() and (p.is_dir() or not p.exists())
     ):
         vp, mp = cube / f"{cube.name}_volume.nrrd", cube / f"{cube.name}_mask.nrrd"
         row = {"cube": cube.name, "volume_path": str(vp), "mask_path": str(mp)}

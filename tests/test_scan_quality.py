@@ -1,5 +1,6 @@
 """Scan diagnostics must not turn quantization or orientation into signal."""
 
+import ast
 import json
 import subprocess
 import sys
@@ -336,3 +337,196 @@ def test_bad_budget_is_usage_error(tmp_path, budget):
     with pytest.raises(SystemExit) as exc:
         quality.main(["--data", str(tmp_path), "--max-voxels", budget])
     assert exc.value.code == 2
+
+
+def _paired_auc(vol, mask, n):
+    """Seed-0 balanced samples scored by counting every pair, ties half."""
+    from scipy import ndimage
+
+    interior = ndimage.binary_erosion(mask > 0, iterations=2)
+    distance = ndimage.distance_transform_edt(mask == 0)
+    gap = (distance >= 2) & (distance <= 6)
+    rng = np.random.default_rng(0)
+    a = rng.choice(vol[interior], n, replace=False)[:, None]
+    b = rng.choice(vol[gap], n, replace=False)[None, :]
+    wins = np.count_nonzero(a > b) + 0.5 * np.count_nonzero(a == b)
+    return max(wins / n**2, 1 - wins / n**2)
+
+
+@pytest.mark.parametrize("side, defined", [(14, True), (13, False)])
+def test_each_population_needs_at_least_one_thousand_voxels(side, defined):
+    # Two erosions remove two voxels per face: a 14-voxel box keeps 10**3 = 1000.
+    mask = np.zeros((30, 30, 30), np.uint8)
+    mask[8 : 8 + side, 8:22, 8:22] = 1
+    vol = np.where(mask, 200, 20).astype(np.uint8)
+    auc, interior, gap = quality.outcome_separability(vol, mask)
+    assert interior == (side - 4) * 100 and gap >= 1000
+    assert auc == 1 if defined else auc is None
+
+
+def test_samples_are_capped_per_class_and_reported(tmp_path, monkeypatch):
+    mask = slab()
+    vol = (np.indices(mask.shape).sum(axis=0) % 3).astype(np.uint8)
+    monkeypatch.setattr(quality, "MAX_SAMPLES", 1500)
+    expected = _paired_auc(vol, mask, 1500)
+    assert quality.outcome_separability(vol, mask)[0] == pytest.approx(expected)
+    _cube(tmp_path, "000", vol, mask)
+    report = quality.build_report(tmp_path)
+    assert report["recipe"]["max_samples_per_class"] == 1500
+    assert report["cubes"][0]["samples_per_class"] == 1500
+    assert report["cubes"][0]["separability_auc"] == pytest.approx(expected)
+
+
+def test_gradient_statistics_are_of_nonzero_magnitudes():
+    vol = np.random.default_rng(7).integers(0, 3, (8, 9, 10), dtype=np.uint8)
+    magnitude = np.linalg.norm(np.gradient(vol.astype(np.float32) / 255), axis=0)
+    nonzero = magnitude[magnitude > 0]
+    assert 0 < nonzero.size < magnitude.size
+    result = quality.predictors(vol)
+    assert result["grad_median"] == pytest.approx(np.median(nonzero), rel=1e-5)
+    assert result["grad_p90_over_p50"] == pytest.approx(
+        np.percentile(nonzero, 90) / np.percentile(nonzero, 50), rel=1e-5
+    )
+
+
+def _anisotropy(v):
+    """Whole-volume oracle: mean lambda_max/trace of the sigma-2 reflect tensor."""
+    from scipy import ndimage
+
+    grads = np.gradient(v.astype(np.float32))
+    tensor = np.stack(
+        [
+            np.stack(
+                [ndimage.gaussian_filter(a * b, 2.0, mode="reflect") for b in grads],
+                axis=-1,
+            )
+            for a in grads
+        ],
+        axis=-2,
+    )
+    trace = np.trace(tensor, axis1=-2, axis2=-1)
+    top = np.linalg.eigvalsh(tensor)[..., -1]
+    ratio = np.divide(top, trace, out=np.zeros_like(trace), where=trace > 0)
+    return float(np.clip(ratio, 0, 1).mean(dtype=np.float64))
+
+
+@pytest.mark.parametrize("contrast", [1.0, 1e-4])
+def test_tensor_anisotropy_matches_whole_volume_eigen_oracle(contrast):
+    # Low contrast is not flat: lambda_max/trace does not depend on scale.
+    noise = np.random.default_rng(11).random((10, 11, 12))
+    vol = (0.5 + contrast * (noise - 0.5)).astype(np.float32)
+    expected = _anisotropy(vol)
+    assert 1 / 3 < expected < 1
+    assert quality.predictors(vol)["tensor_anisotropy"] == pytest.approx(
+        expected, rel=1e-5
+    )
+
+
+def test_spearman_is_rank_correlation_and_pearson_is_linear():
+    x, y = [1, 2, 3, 4], [0.5, 0.51, 0.52, 0.99]
+    for value in quality.correlations(_rows(x, y)).values():
+        assert value["status"] == "MEASURED" and value["n"] == 4
+        assert value["spearman"] == pytest.approx(1)
+        assert value["pearson"] == pytest.approx(np.corrcoef(x, y)[0, 1])
+        assert value["pearson"] < 0.9
+
+
+def _varying_cubes(data, contrasts):
+    mask = slab()
+    for index, contrast in enumerate(contrasts):
+        rng = np.random.default_rng(index)
+        vol = np.clip(
+            rng.normal(0.4, 0.05, mask.shape) + contrast * (mask > 0), 0, 1
+        ).astype(np.float32)
+        _cube(data, f"00{index}", vol, mask)
+
+
+def test_an_insufficient_cube_keeps_a_complete_looking_report_indeterminate(
+    tmp_path, capsys
+):
+    data = tmp_path / "data"
+    _varying_cubes(data, [0.0, 0.02, 0.08, 0.2])
+    _cube(data, "004", np.zeros((6, 6, 6), np.uint8), np.zeros((6, 6, 6), np.uint8))
+    assert quality.main(["--data", str(data)]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "INDETERMINATE"
+    assert report["counts"] == {
+        "requested": 5,
+        "measured": 4,
+        "indeterminate": 1,
+        "failed": 0,
+    }
+    # Pairwise complete: the cube without an outcome joins no correlation.
+    assert all(
+        value["status"] == "MEASURED" and value["n"] == 4
+        for value in report["correlations"].values()
+    )
+    aucs = [row["separability_auc"] for row in report["cubes"][:4]]
+    assert report["auc_summary"] == {
+        "min": min(aucs),
+        "median": float(np.median(aucs)),
+        "max": max(aucs),
+    }
+
+
+def test_one_undefined_feature_correlation_keeps_the_report_indeterminate(tmp_path):
+    data = tmp_path / "data"
+    _varying_cubes(data, [0.02, 0.08, 0.2])
+    mask = slab()
+    _cube(data, "003", np.full(mask.shape, 0.4, np.float32), mask)
+    report = quality.build_report(data)
+    assert [row["status"] for row in report["cubes"]] == ["MEASURED"] * 4
+    assert report["cubes"][3]["grad_median"] is None
+    assert {
+        name: value["status"] for name, value in report["correlations"].items()
+    } == {
+        "intensity_std": "MEASURED",
+        "grad_median": "INDETERMINATE",
+        "grad_p90_over_p50": "INDETERMINATE",
+        "tensor_anisotropy": "MEASURED",
+    }
+    assert report["status"] == "INDETERMINATE"
+
+
+@pytest.mark.parametrize("budget, status", [(216, "INDETERMINATE"), (215, "FAILED")])
+def test_voxel_bound_admits_a_cube_of_exactly_that_size(tmp_path, budget, status):
+    _cube(tmp_path, "000", np.zeros((6, 6, 6), np.uint8), np.zeros((6, 6, 6), np.uint8))
+    report = quality.build_report(tmp_path, max_voxels=budget)
+    assert report["cubes"][0]["status"] == status
+
+
+@pytest.mark.parametrize("problem", ["empty", "corrupt_gzip", "unknown_type"])
+def test_malformed_nrrd_fails_its_cube_and_keeps_the_report(tmp_path, capsys, problem):
+    _cube(tmp_path, "000", np.zeros((6, 6, 6), np.uint8), np.zeros((6, 6, 6), np.uint8))
+    folder = _cube(tmp_path, "001", mask=np.zeros((6, 6, 6), np.uint8))
+    header = b"NRRD0004\ntype: %s\ndimension: 3\nsizes: 6 6 6\nencoding: %s\n\n"
+    # pynrrd raises StopIteration, zlib.error and KeyError for these.
+    (folder / "001_volume.nrrd").write_bytes(
+        {
+            "empty": b"",
+            "corrupt_gzip": header % (b"uint8", b"gzip") + b"not a gzip stream",
+            "unknown_type": header % (b"uint12", b"raw") + bytes(216),
+        }[problem]
+    )
+    assert quality.main(["--data", str(tmp_path)]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "FAILED"
+    assert [row["status"] for row in report["cubes"]] == ["INDETERMINATE", "FAILED"]
+    assert "malformed NRRD" in report["cubes"][1]["reason"]
+
+
+def test_dangling_cube_link_is_a_failed_cube_not_a_skip(tmp_path):
+    data = tmp_path / "data"
+    _cube(data, "000", np.zeros((6, 6, 6), np.uint8), np.zeros((6, 6, 6), np.uint8))
+    # For example an external cube on a drive that is not mounted.
+    (data / "001").symlink_to(tmp_path / "unmounted" / "001", target_is_directory=True)
+    report = quality.build_report(data)
+    assert report["status"] == "FAILED"
+    assert report["counts"]["requested"] == 2 and report["counts"]["failed"] == 1
+    assert "missing regular NRRD input" in report["cubes"][1]["reason"]
+
+
+def test_mask_script_does_not_restate_the_superseded_ct_saturation():
+    path = Path(quality.__file__).resolve().parent / "characterise_label_cubes.py"
+    doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8")))
+    assert "is saturated" not in doc and "superseded" in doc

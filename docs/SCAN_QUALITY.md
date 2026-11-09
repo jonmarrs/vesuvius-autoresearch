@@ -8,7 +8,8 @@ uv run python scripts/measure_scan_quality.py \
 ```
 
 The data root contains digit-prefixed cube directories, each holding
-`<cube>_volume.nrrd` and `<cube>_mask.nrrd`. CT and masks must be scalar 3D arrays
+`<cube>_volume.nrrd` and `<cube>_mask.nrrd`; a digit-prefixed link whose target
+is missing is reported as a failed cube, not skipped. CT and masks must be scalar 3D arrays
 with matching shapes and at least two voxels per axis. Masks contain
 nonnegative integer instance IDs (zero background). CT is uint8, uint16, or
 finite floating point; floating input must already be in [0,1]. Array axes use
