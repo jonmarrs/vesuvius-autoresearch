@@ -1,148 +1,228 @@
-"""Does the detector's confidence predict which ink reproduces across seeds?
+"""Test the registered confidence/bin-agreement association with validity gates.
 
-Implements `docs/preregistration/2026-09-13_does_confidence_predict_reproducibility.md`,
-and is written before any probability map exists -- the arms have not been
-re-scored yet, and cannot be while a render holds the box.
-
-About 28% of a run's ink does not survive a change of RNG seed. If the detector's
-own probability separates the reproducible part, raising the threshold is free,
-where a 3-seed consensus costs 3x the compute.
-
-The scorer discards its probabilities by default (saved masks hold exactly two
-values). `repro/spiral_render/keep_probabilities.patch` preserves them behind
-INK_METRIC_KEEP_PROB=1 as `<name>_flat_prob.npy`, float16.
-
-**The gate that matters is bin-size dependence.** Agreement fractions in this
-corpus move from 89.7% to 43.2% purely with binning, so a result at one binning
-proves nothing. The conclusion must hold at all three or it is reported as
-bin-dependent and not as a finding.
+Version 2 measures saved ink pixels directly, requires three distinct arms and
+the registered re-score count gate, and emits finite, versioned reports. This
+association does not establish ink correctness or a benefit from thresholding.
+See docs/CONFIDENCE_REPRODUCIBILITY.md for inputs, interpretation and limits.
 """
 
 import argparse
-import glob
-import json
+import re
+import stat
 import sys
 from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(ROOT), str(ROOT / "src"), str(ROOT / "scripts")]
 
-from compare_ink_in_volume import ink_per_cell, load_xyz, tile_index  # noqa: E402
+from compare_ink_in_volume import load_xyz
 
-BINNINGS = ((48, 128), (96, 256), (192, 512))  # registered; all three must agree
+from scripts.confidence_inputs import (
+    SCALE,
+    ArmData,
+    count_gate,
+    file_state,
+    mask_paths,
+    probability_path,
+    probability_sums,
+)
+from vesuvius_autoresearch.core.prediction_artifacts import validate_plan_paths
+from vesuvius_autoresearch.fibers.provenance import write_json
+
+ANALYSIS_VERSION = 2
+BINNINGS = ((48, 128), (96, 256), (192, 512))
 N_SHUFFLE = 1000
 DIFF_THRESHOLD = 0.05
 Z_RANGE = (13056.0, 18432.0)
-INK_TOLERANCE = 0.001  # re-scored total_fg_pixels must match to 0.1%
+INK_TOLERANCE = 0.001
+MIN_BINS = 30
 
 
-def load_prob(arm_dir: str, shape: tuple[int, int]) -> np.ndarray | None:
-    """Per-cell mean detector probability, downsampled to the tifxyz grid.
-
-    Written before any probability map existed, and wrong in three ways that only
-    running against the real artifact revealed:
-
-      * the patch saves ONE array for the whole strip, not one per mask tile, so
-        the tile-index sort crashed on `w120-129_flat_flat_prob.npy`;
-      * it lands in `ink_metric_prob/predictions/`, not `ink_metric/`, because
-        re-scoring in place would have deleted the published metrics;
-      * it is (4490, 89820) float16 -- 806 MB -- so it is read by memory-map and
-        reduced in column blocks rather than cast to float32 whole.
-    """
-    fs = sorted(glob.glob(f"{arm_dir}/ink_metric_prob/predictions/*_prob.npy"))
-    if not fs:
+def load_prob(arm_dir, shape):
+    """Mean probability of saved ink pixels per cell (zero in empty cells)."""
+    path = probability_path(arm_dir)
+    if path is None:
         return None
-    a = np.load(fs[0], mmap_mode="r")
-    h, w = shape
-    if a.shape != (h * 10, w * 10):
+    # Retain the old helper's absent/bad-shape sentinel for research callers.
+    a = np.load(path, mmap_mode="r", allow_pickle=False)
+    if a.shape != tuple(n * SCALE for n in shape):
         return None
-    out = np.empty((h, w), dtype=np.float32)
-    step = 512  # columns of OUTPUT per block
-    for c0 in range(0, w, step):
-        c1 = min(c0 + step, w)
-        blk = np.asarray(a[:, c0 * 10 : c1 * 10], dtype=np.float32)
-        out[:, c0:c1] = blk.reshape(h, 10, c1 - c0, 10).mean(axis=(1, 3))
-    return out
+    del a
+    ink, sums = probability_sums(path, mask_paths(path), shape)
+    return np.divide(sums, ink, out=np.zeros_like(sums), where=ink > 0)
 
 
-def binned_maps(arm_dir: str, axis, nz: int, nt: int):
-    """(ink, probability-weighted ink, cell count) per (z, theta) bin."""
-    xyz = load_xyz(arm_dir)
-    if xyz is None:
-        return None, axis
-    x, y, z = xyz
-    ink = ink_per_cell(arm_dir, x.shape)
-    prob = load_prob(arm_dir, x.shape)
-    if ink is None or prob is None:
-        return None, axis
-    m = (x > 0) & (y > 0) & np.isfinite(x) & np.isfinite(y) & np.isfinite(z)
-    if not m.any():
-        return None, axis
-    if axis is None:
-        axis = (float(x[m].mean()), float(y[m].mean()))
-    cx, cy = axis
-    th = np.arctan2(y[m] - cy, x[m] - cx)
-    rng = [list(Z_RANGE), [-np.pi, np.pi]]
-    i_sum, _, _ = np.histogram2d(
-        z[m], th, bins=[nz, nt], range=rng, weights=ink[m].astype(np.float64)
-    )
-    p_sum, _, _ = np.histogram2d(
-        z[m],
-        th,
-        bins=[nz, nt],
-        range=rng,
-        weights=(prob[m] * ink[m]).astype(np.float64),
-    )
-    return (i_sum, p_sum), axis
-
-
-def one_binning(arms: dict, nz: int, nt: int, rng: np.random.Generator) -> dict:
-    inks = np.stack([arms[t][0] for t in arms])
-    probs = np.stack([arms[t][1] for t in arms])
-    n_agree = (inks > 0).sum(axis=0)
-
-    with np.errstate(invalid="ignore", divide="ignore"):
-        mean_p = np.where(
-            inks.sum(axis=0) > 0,
-            probs.sum(axis=0) / np.maximum(inks.sum(axis=0), 1),
-            np.nan,
+def load_arm(arm_dir):
+    root = Path(arm_dir)
+    probability = probability_path(root)
+    if probability is None:
+        raise ValueError(
+            f"{root}: no probability maps; re-score with INK_METRIC_KEEP_PROB=1. A partial sample is refused."
         )
+    masks = mask_paths(probability)
+    paths = [
+        probability,
+        *masks,
+        root / "ink_metric/metrics.json",
+        root / "ink_metric_prob/metrics.json",
+        *(root / "meshes/concat/w120-129_flat" / f"{axis}.tif" for axis in "xyz"),
+    ]
+    sources = {str(path.absolute()): file_state(path) for path in paths}
+    xyz = load_xyz(str(root))
+    if xyz is None or len({a.shape for a in xyz}) != 1 or xyz[0].ndim != 2:
+        raise ValueError(f"{root}: missing or mismatched coordinate grids")
+    ink, sums = probability_sums(probability, masks, xyz[0].shape)
+    gate = count_gate(root, ink.size * SCALE**2, int(ink.sum()), INK_TOLERANCE)
+    arm = ArmData(xyz, ink, sums, gate, sources)
+    arm.verify()
+    return arm
 
-    unan = mean_p[(n_agree == len(arms)) & np.isfinite(mean_p)]
-    lone = mean_p[(n_agree == 1) & np.isfinite(mean_p)]
-    if len(unan) < 30 or len(lone) < 30:
-        return {
-            "bins": [nz, nt],
-            "n_unanimous": int(len(unan)),
-            "n_lone": int(len(lone)),
-            "diff": float("nan"),
-            "p": float("nan"),
-        }
-    obs = float(unan.mean() - lone.mean())
 
-    pool = np.concatenate([unan, lone])
-    k = len(unan)
-    null = np.array(
-        [
-            (lambda s: s[:k].mean() - s[k:].mean())(rng.permutation(pool))
-            for _ in range(N_SHUFFLE)
-        ]
+def bin_arm(arm, axis, nz, nt):
+    x, y, z = arm.xyz
+    valid = (x > 0) & (y > 0) & np.isfinite(x) & np.isfinite(y) & np.isfinite(z)
+    if not valid.any():
+        raise ValueError("coordinate grid has no valid volume locations")
+    if axis is None:
+        axis = (float(x[valid].mean()), float(y[valid].mean()))
+    if not np.isfinite(axis).all():
+        raise ValueError("shared volume axis must be finite")
+    theta = np.arctan2(y[valid] - axis[1], x[valid] - axis[0])
+    bounds = [list(Z_RANGE), [-np.pi, np.pi]]
+    ink = np.histogram2d(
+        z[valid], theta, bins=[nz, nt], range=bounds, weights=arm.ink[valid]
+    )[0]
+    probabilities = np.histogram2d(
+        z[valid], theta, bins=[nz, nt], range=bounds, weights=arm.probability_sum[valid]
+    )[0]
+    return (ink, probabilities), axis
+
+
+def binned_maps(arm_dir, axis, nz, nt):
+    """Compatibility helper; the CLI loads each arm once for all three binnings."""
+    return bin_arm(load_arm(arm_dir), axis, nz, nt)
+
+
+def one_binning(arms, nz, nt, rng):
+    if len(arms) != 3 or type(nz) is not int or type(nt) is not int or min(nz, nt) < 1:
+        raise ValueError(
+            "a binning requires three distinct arms and positive integer dimensions"
+        )
+    for ink, probability in arms.values():
+        if (
+            ink.shape != (nz, nt)
+            or probability.shape != (nz, nt)
+            or not np.isfinite(ink).all()
+            or not np.isfinite(probability).all()
+            or np.any(ink < 0)
+            or np.any(probability < 0)
+            or np.any(probability > ink + np.maximum(1, ink) * 1e-12)
+        ):
+            raise ValueError(
+                "binned ink counts/probability sums must match shape and be finite in [0, ink]"
+            )
+    inks = np.stack([value[0] for value in arms.values()])
+    probabilities = np.stack([value[1] for value in arms.values()])
+    agreement = (inks > 0).sum(axis=0)
+    total = inks.sum(axis=0)
+    means = np.divide(
+        probabilities.sum(axis=0),
+        total,
+        out=np.zeros_like(total, dtype=float),
+        where=total > 0,
     )
-    p = float((np.abs(null) >= abs(obs)).mean())
-    return {
+    unanimous, lone = means[agreement == 3], means[agreement == 1]
+    row = {
         "bins": [nz, nt],
-        "n_unanimous": int(len(unan)),
-        "n_lone": int(len(lone)),
-        "mean_unanimous": float(unan.mean()),
-        "mean_lone": float(lone.mean()),
-        "diff": obs,
-        "p": p,
+        "n_unanimous": int(unanimous.size),
+        "n_lone": int(lone.size),
+        "status": "INDETERMINATE",
+        "reason": None,
+        "mean_unanimous": None,
+        "mean_lone": None,
+        "diff": None,
+        "p": None,
     }
+    if min(unanimous.size, lone.size) < MIN_BINS:
+        row["reason"] = (
+            f"need at least {MIN_BINS} unanimous and {MIN_BINS} lone-arm bins"
+        )
+        return row
+    observed = float(unanimous.mean() - lone.mean())
+    pool = np.concatenate([unanimous, lone])
+    k = unanimous.size
+    exceedances = 0
+    for _ in range(N_SHUFFLE):
+        shuffled = rng.permutation(pool)
+        null = float(shuffled[:k].mean() - shuffled[k:].mean())
+        exceedances += abs(null) >= abs(observed) - 1e-14
+    row.update(
+        status="MEASURED",
+        mean_unanimous=float(unanimous.mean()),
+        mean_lone=float(lone.mean()),
+        diff=observed,
+        p=(int(exceedances) + 1) / (N_SHUFFLE + 1),
+    )
+    return row
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
+def decide(results):
+    if (
+        len(results) != len(BINNINGS)
+        or [row.get("bins") for row in results] != [list(b) for b in BINNINGS]
+        or any(
+            row.get("status") != "MEASURED"
+            or any(
+                type(row.get(key)) not in (int, float) or not np.isfinite(row[key])
+                for key in ("diff", "p")
+            )
+            for row in results
+        )
+        or any(not 0 < row["p"] <= 1 or abs(row["diff"]) > 1 for row in results)
+    ):
+        return (
+            "INDETERMINATE",
+            "All three registered binnings need complete, finite comparisons.",
+        )
+    positive = [row["p"] < 0.05 and row["diff"] > DIFF_THRESHOLD for row in results]
+    negative = [row["p"] < 0.05 and row["diff"] < 0 for row in results]
+    if all(positive):
+        return (
+            "CONFIDENCE ASSOCIATES WITH BIN AGREEMENT",
+            "A bin-level association was detected at all three binnings; thresholding efficacy and ink correctness were not tested.",
+        )
+    if all(negative):
+        return (
+            "OPPOSITE ASSOCIATION",
+            "Unanimous bins were less confident at all three binnings.",
+        )
+    if any(positive) or any(negative):
+        return (
+            "BIN-DEPENDENT",
+            "The association does not hold in one direction at all three registered binnings.",
+        )
+    return (
+        "NO REGISTERED EFFECT DETECTED",
+        "The registered effect rule was not met; this does not establish absence of an effect.",
+    )
+
+
+def _report_output(path, roots, inputs=()):
+    if path is None:
+        return
+    path = Path(path)
+    validate_plan_paths(
+        [(path, "confidence report")],
+        [(p, "analysis input") for p in [*roots, *inputs]],
+    )
+    if path.is_symlink() or path.exists() and not stat.S_ISREG(path.stat().st_mode):
+        raise ValueError("report must be a nonsymlink regular file")
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--spiral-out", default="/home/jon/openclaw-workspace/Neo-VM/spiral_out"
     )
@@ -150,90 +230,69 @@ def main() -> int:
         "--arms", nargs="+", default=["curbase_s1", "curbase_s2", "curbase_s3"]
     )
     ap.add_argument("--json", default=None)
-    args = ap.parse_args()
-
-    rng = np.random.default_rng(0)
-    results, axis = [], None
-    missing = []
-    for nz, nt in BINNINGS:
-        arms, axis_b = {}, axis
-        for tag in args.arms:
-            maps, axis_b = binned_maps(f"{args.spiral_out}/outer_{tag}", axis_b, nz, nt)
-            if maps is None:
-                missing.append(tag)
-                continue
-            arms[tag] = maps
-        axis = axis_b
-        if len(arms) < len(args.arms):
-            break
-        results.append(one_binning(arms, nz, nt, rng))
-
-    if missing:
-        raise SystemExit(
-            f"no probability maps for: {', '.join(sorted(set(missing)))}. Re-score with "
-            "INK_METRIC_KEEP_PROB=1 after applying keep_probabilities.patch. "
-            "A partial sample is refused, not reported."
+    args = ap.parse_args(argv)
+    if (
+        len(args.arms) != 3
+        or len(set(args.arms)) != 3
+        or any(
+            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", tag) for tag in args.arms
         )
-
-    print("mean detector probability of ink, unanimous bins vs bins only one arm found")
-    print(
-        f"{'binning':>12}{'unanimous':>11}{'lone':>9}{'diff':>9}{'p':>8}{'n_u':>8}{'n_l':>7}"
-    )
-    for r in results:
-        label = f"{r['bins'][0]}x{r['bins'][1]}"
-        print(
-            f"{label:>12}{r['mean_unanimous']:>11.4f}{r['mean_lone']:>9.4f}"
-            f"{r['diff']:>+9.4f}{r['p']:>8.3f}{r['n_unanimous']:>8,}{r['n_lone']:>7,}"
-        )
-
-    sig = [r for r in results if r["p"] < 0.05 and r["diff"] > DIFF_THRESHOLD]
-    neg = [r for r in results if r["p"] < 0.05 and r["diff"] < 0]
-    if len(sig) == len(results):
-        verdict, why = (
-            "CONFIDENCE PREDICTS REPRODUCIBILITY",
-            (
-                "a higher threshold would preferentially discard the irreproducible ink; "
-                "the trade against lost recall is now worth measuring."
-            ),
-        )
-    elif neg:
-        verdict, why = (
-            "OPPOSITE (surprise)",
-            ("reproducible ink is LESS confident, which no account predicts."),
-        )
-    elif sig:
-        verdict, why = (
-            "BIN-DEPENDENT",
-            (
-                f"significant at {len(sig)} of {len(results)} binnings. The registration "
-                "requires all three; reported as bin-dependent, NOT as a finding."
-            ),
-        )
-    else:
-        verdict, why = (
-            "CONFIDENCE DOES NOT PREDICT IT",
-            (
-                "the irreproducible ink is not distinguishable by confidence, so "
-                "thresholding cannot separate it and averaging remains the only lever."
-            ),
-        )
-    print(f"\nVERDICT: {verdict}\n  {why}")
-
-    if args.json:
-        Path(args.json).write_text(
-            json.dumps(
-                {
-                    "binnings": [list(b) for b in BINNINGS],
-                    "threshold": DIFF_THRESHOLD,
-                    "results": results,
-                    "verdict": verdict,
-                },
-                indent=1,
+    ):
+        ap.error("--arms requires exactly three distinct arm names")
+    roots = [Path(args.spiral_out) / f"outer_{tag}" for tag in args.arms]
+    if len({root.resolve() for root in roots}) != 3:
+        ap.error("--arms must refer to three distinct directories")
+    try:
+        _report_output(args.json, roots)
+        data = {tag: load_arm(root) for tag, root in zip(args.arms, roots, strict=True)}
+        inputs = [path for arm in data.values() for path in arm.sources]
+        _report_output(args.json, roots, inputs)
+        axis = None
+        results = []
+        rng = np.random.default_rng(0)
+        for nz, nt in BINNINGS:
+            maps = {}
+            for tag, arm in data.items():
+                maps[tag], axis = bin_arm(arm, axis, nz, nt)
+            results.append(one_binning(maps, nz, nt, rng))
+        verdict, reason = decide(results)
+        status = "INDETERMINATE" if verdict == "INDETERMINATE" else "MEASURED"
+        report = {
+            "analysis_version": ANALYSIS_VERSION,
+            "status": status,
+            "statistic_kind": "ink_pixel_probability_sum_over_ink_count_per_bin",
+            "binnings": [list(b) for b in BINNINGS],
+            "threshold": DIFF_THRESHOLD,
+            "n_shuffle": N_SHUFFLE,
+            "p_method": "two_sided_shuffle_plus_one",
+            "arms": args.arms,
+            "shared_axis": list(axis),
+            "z_range": list(Z_RANGE),
+            "validity_gate": {tag: arm.gate for tag, arm in data.items()},
+            "input_file_states": {tag: arm.sources for tag, arm in data.items()},
+            "results": results,
+            "verdict": verdict,
+            "reason": reason,
+            "ink_correctness_tested": False,
+            "thresholding_benefit_tested": False,
+        }
+        for arm in data.values():
+            arm.verify()
+        if args.json:
+            _report_output(args.json, roots, inputs)
+            write_json(args.json, report)
+    except (OSError, ValueError) as exc:
+        ap.exit(1, f"confidence analysis: {exc}\n")
+    print("mean probability of saved ink pixels: unanimous vs lone-arm bins")
+    for row in results:
+        if row["status"] == "MEASURED":
+            print(
+                f"{row['bins']}: diff={row['diff']:+.4f} p={row['p']:.4f} n_u={row['n_unanimous']} n_l={row['n_lone']}"
             )
-            + "\n"
-        )
-        print(f"wrote {args.json}")
-    return 0
+        else:
+            print(f"{row['bins']}: INDETERMINATE — {row['reason']}")
+    print(f"VERDICT: {verdict}\n  {reason}")
+    return 0 if status == "MEASURED" else 1
 
 
 if __name__ == "__main__":

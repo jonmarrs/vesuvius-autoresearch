@@ -186,6 +186,70 @@ def test_tied_scores_keep_evaluated_catalog_order():
     np.testing.assert_array_equal(coords, loader.dataset.valid_coords[:3])
 
 
+class TailUncertain(Model):
+    def forward(self, x):
+        # The final catalog patch is the most uncertain; dropping it changes
+        # the best review suggestion rather than merely shortening the queue.
+        return (0.3 - x[:, :, 0]) * 100
+
+
+@pytest.mark.parametrize("mode", ["drop_last", "batch_sampler", "short_iterator"])
+def test_incomplete_catalog_scoring_is_rejected(mode):
+    dataset = Patches()
+    if mode == "batch_sampler":
+        batches = torch.utils.data.BatchSampler(
+            torch.utils.data.SequentialSampler(dataset), batch_size=3, drop_last=True
+        )
+        loader = torch.utils.data.DataLoader(dataset, batch_sampler=batches)
+    else:
+        loader = torch.utils.data.DataLoader(
+            dataset, batch_size=3, drop_last=mode == "drop_last"
+        )
+        if mode == "short_iterator":
+
+            class ShortIterator:
+                def __init__(self, original):
+                    self.dataset = original.dataset
+                    self.original = original
+
+                def __iter__(self):
+                    yield next(iter(self.original))
+
+            loader = ShortIterator(loader)
+    with pytest.raises(ValueError, match="scored 3 of 4.*catalog"):
+        active.ActiveLearningSampler(TailUncertain(), "cpu").sample_uncertain_regions(
+            loader, n_samples=1
+        )
+
+
+@pytest.mark.parametrize("batch_size,drop_last", [(3, False), (2, True)])
+def test_complete_catalog_scoring_includes_most_uncertain_tail(batch_size, drop_last):
+    loader = torch.utils.data.DataLoader(
+        Patches(), batch_size=batch_size, drop_last=drop_last
+    )
+    coords, scores = active.ActiveLearningSampler(
+        TailUncertain(), "cpu"
+    ).sample_uncertain_regions(loader, n_samples=1)
+    np.testing.assert_array_equal(coords, [[0, 40]])
+    assert scores[0] == pytest.approx(math.log(2), abs=1e-6)
+
+
+def test_incomplete_scoring_never_publishes_review_queue(command, monkeypatch):
+    root, checkpoint, _, labels, _, _, _, run = command
+    before = {p: p.read_bytes() for p in (checkpoint, labels)}
+    constructor = active.DataLoader
+
+    def shortened(dataset, **kwargs):
+        return constructor(dataset, batch_size=3, shuffle=False, drop_last=True)
+
+    monkeypatch.setattr(active, "DataLoader", shortened)
+    with pytest.raises(ValueError, match="scored 3 of 4.*catalog"):
+        run("--output", "queue.json")
+    assert not (root / "queue.json").exists()
+    assert not list(root.glob(".queue-*"))
+    assert all(path.read_bytes() == content for path, content in before.items())
+
+
 @pytest.mark.parametrize("distance", [-1, float("nan"), float("inf"), True])
 def test_invalid_spacing_is_rejected(distance):
     loader = torch.utils.data.DataLoader(Patches(), batch_size=3)

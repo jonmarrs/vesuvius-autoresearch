@@ -59,17 +59,18 @@ def test_no_gap_is_not_called_significant():
     assert not (r["p"] < 0.05 and r["diff"] > mod.DIFF_THRESHOLD)
 
 
-def test_too_few_bins_yields_nan_rather_than_a_number():
+def test_too_few_bins_is_indeterminate():
     rng = np.random.default_rng(4)
     r = mod.one_binning(_fake(4, 4, 0.2, rng), 4, 4, np.random.default_rng(5))
-    assert np.isnan(r["diff"])
+    assert r["status"] == "INDETERMINATE"
+    assert r["diff"] is None
 
 
-def test_missing_probability_maps_are_refused_not_skipped(tmp_path):
-    sys.argv = ["x", "--spiral-out", str(tmp_path)]
+def test_missing_probability_maps_are_refused_not_skipped(tmp_path, capsys):
     with pytest.raises(SystemExit) as e:
-        mod.main()
-    msg = str(e.value)
+        mod.main(["--spiral-out", str(tmp_path)])
+    assert e.value.code == 1
+    msg = capsys.readouterr().err
     assert "INK_METRIC_KEEP_PROB" in msg
     assert "refused" in msg
 
@@ -92,6 +93,11 @@ def test_load_prob_reads_one_whole_strip_not_tiles(tmp_path):
     full = np.zeros((h * 10, w * 10), dtype=np.float16)
     full[:, : 10 * (w // 2)] = 0.8  # left half high, right half zero
     np.save(d / "w120-129_flat_flat_prob.npy", full)
+    from PIL import Image
+
+    Image.fromarray(np.full(full.shape, 255, np.uint8)).save(
+        d / "w120-129_flat_mask.png"
+    )
     got = mod.load_prob(str(tmp_path), (h, w))
     assert got is not None and got.shape == (h, w)
     assert got[:, : w // 2] == pytest.approx(0.8, abs=1e-3)

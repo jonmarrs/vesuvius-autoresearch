@@ -5,7 +5,8 @@ ran. CPU, one thread, lowest priority, beside the running loop. Script `scripts/
 `f9d892b0`; output `reports/detector_depth_ablation.json`.
 
 **Question.** Finding 87 left one depth difference untested: the TimeSformer detector
-(`models/detector/detector_epoch=7.ckpt`) reads 26 slices, zarr 1–26 (layers 17–42), and the loop's model reads
+(`models/detector/detector_epoch=7.ckpt`, a historical local checkpoint path;
+the weights are not included in this repository) reads 26 slices, zarr 1–26 (layers 17–42), and the loop's model reads
 16. With `depth_band` [1, 27], `num_layers` 16 and a 4-slice margin, the loop reads 24 slices starting at zarr 0–7
 and keeps the middle 16. In the detector's channel numbering (channel c is zarr slice c+1), that window starts at
 channel **3** at the lowest and **10** at the highest. Does the detector use slices outside such a window?
