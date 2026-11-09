@@ -386,3 +386,98 @@ def test_score_without_floors_remains_model_free(tmp_path, monkeypatch):
     report = json.loads(output.read_text())
     assert report["probability_cache"] is None
     assert report["floor_provenance"] is None
+
+
+def test_a_manifest_over_one_mebibyte_is_refused_even_when_it_parses(
+    tmp_path, monkeypatch
+):
+    model, img, calls, _, metadata = cached_cube(tmp_path, monkeypatch)
+    # Trailing whitespace keeps the manifest valid JSON, so only its size refuses it.
+    metadata.write_text(metadata.read_text() + " " * 1024**2)
+    result = bench_cli._fiber_probability(tmp_path, "cube", img, model, 4, "cpu")
+    assert result.cache["status"] == "REFRESHED"
+    assert result.cache["reason"] == "invalid_manifest"
+    assert len(calls) == 2
+
+
+def test_a_manifest_without_a_probability_digest_is_invalid(tmp_path, monkeypatch):
+    model, img, calls, _, metadata = cached_cube(tmp_path, monkeypatch)
+    record = json.loads(metadata.read_text())
+    del record["probability_sha256"]
+    metadata.write_text(json.dumps(record))
+    result = bench_cli._fiber_probability(tmp_path, "cube", img, model, 4, "cpu")
+    assert result.cache["reason"] == "invalid_manifest"
+    assert len(calls) == 2
+
+
+def test_refresh_keeps_the_manifest_s_own_mode(tmp_path, monkeypatch):
+    model, img, _, _, metadata = cached_cube(tmp_path, monkeypatch)
+    # No usual umask gives 0o604, so the mode can only have come from the old manifest.
+    metadata.chmod(0o604)
+    bench_cli._fiber_probability(tmp_path, "cube", img, model, 4, "cpu", True)
+    assert metadata.stat().st_mode & 0o777 == 0o604
+
+
+def test_freshly_computed_probabilities_are_read_only_too(tmp_path, monkeypatch):
+    model, img, _, _, _ = cached_cube(tmp_path, monkeypatch)
+    result = bench_cli._fiber_probability(tmp_path, "cube", img, model, 4, "cpu", True)
+    assert result.cache["status"] == "REFRESHED"
+    assert not result.probability.flags.writeable
+    # The research-script interface still hands out its own writable copy.
+    assert bench_cli._fiber_prob(tmp_path, "cube", img, model, 4, "cpu").flags.writeable
+
+
+def test_model_backed_commands_print_the_cache_outcome(tmp_path, monkeypatch, capsys):
+    model, img, _, _, _ = cached_cube(tmp_path, monkeypatch)
+    monkeypatch.setattr(bench_cli, "_load_cube", lambda *a: (img, simple_gt()))
+    flags = ["--data-dir", str(tmp_path), "floors", "--cube", "cube"]
+    flags += ["--model", str(model), "--patch", "4", "--device", "cpu"]
+    assert bench_cli.main(flags) == 0
+    assert "probability cache: HIT\n" in capsys.readouterr().out
+    assert bench_cli.main([*flags, "--refresh-cache"]) == 0
+    assert (
+        "probability cache: REFRESHED (explicit_refresh)\n" in capsys.readouterr().out
+    )
+
+
+def test_a_hit_reports_the_manifest_it_validated(tmp_path, monkeypatch):
+    model, img, calls, _, metadata = cached_cube(tmp_path, monkeypatch)
+    expected = json.loads(metadata.read_text())
+    capture = bench_cli.capture_bytes
+
+    def replace_after_capture(path, limit):
+        # Reading the manifest again after validating it would report this one.
+        captured = capture(path, limit)
+        if Path(path) == metadata:
+            other = {"inference": {"other": True}, "probability_sha256": "other"}
+            metadata.write_text(json.dumps(other))
+        return captured
+
+    monkeypatch.setattr(bench_cli, "capture_bytes", replace_after_capture)
+    result = bench_cli._fiber_probability(tmp_path, "cube", img, model, 4, "cpu")
+    assert result.cache["status"] == "HIT"
+    assert result.record == expected
+    assert len(calls) == 1
+
+
+def test_a_float64_cache_past_the_header_allowance_still_hits(tmp_path, monkeypatch):
+    # 16**3 float64 values are 32 KiB, well past the 10,012 header bytes, so only a
+    # bound of eight bytes a voxel admits them.
+    model = tmp_path / "model"
+    prepare_model_files(model)
+    img = np.zeros((16, 16, 16), np.uint8)
+    monkeypatch.setattr(semantic, "load_model", lambda *a, **k: object())
+    monkeypatch.setattr(
+        semantic,
+        "predict_volume",
+        lambda model, image, **k: np.full((4, *image.shape), 0.25, np.float32),
+    )
+    bench_cli._fiber_prob(tmp_path, "cube", img, model, 4, "cpu")
+    cache, metadata = tmp_path / "cube_fiberprob.npy", tmp_path / "cube_fiberprob.json"
+    np.save(cache, np.full(img.shape, 0.375, np.float64))
+    record = json.loads(metadata.read_text())
+    record["probability_sha256"] = file_sha256(cache)
+    metadata.write_text(json.dumps(record))
+    result = bench_cli._fiber_probability(tmp_path, "cube", img, model, 4, "cpu")
+    assert result.cache["status"] == "HIT"
+    np.testing.assert_array_equal(result.probability, 0.375)
