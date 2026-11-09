@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -163,3 +164,124 @@ def test_the_held_out_cubes_decide_and_the_record_is_written_once(tmp_path):
     out.write_text("{}")
     with pytest.raises(SystemExit, match="written once"):
         ls.main(["--out", str(out)])
+
+
+P_TO_Q = {
+    1: (("bounds", "owned_or_live"), (-1, 2)),
+    2: (("bounds", "bounds"), (-1, -1)),
+}
+
+
+def test_within_32_voxels_includes_32_and_ties_take_the_first_point():
+    # a point every voxel: x = 72 is 32.0 voxels of arclength from Q's start
+    q = line(40, 140, n=101, y=0.5)
+    cands = ls.splice_candidates({1: line(0, 72, n=73), 2: q}, P_TO_Q)[0]
+    assert [c[1:] for c in cands] == [(1, 1, 2, 0)]
+    # P's end at x = 72.5 is 0.5 from Q's points at x = 72 (32 voxels in) and 73 (33): the first decides
+    q = line(40, 140, n=101)
+    cands = ls.splice_candidates({1: line(0, 72.5, n=146), 2: q}, P_TO_Q)[0]
+    assert [c[1:] for c in cands] == [(1, 1, 2, 0)] and cands[0][0] == 0.5
+
+
+def test_the_heading_spans_the_ends_last_four_steps():
+    # P's last five x: 48, 52, 52.5, 52.2, 50. Over four steps it heads +x, into Q; over one, two or three, it does not
+    p = np.concatenate([line(0, 48, n=49), line(52, 52, n=1), line(52.5, 52.5, n=1), line(52.2, 52.2, n=1),
+                        line(50, 50, n=1)])  # fmt: skip
+    q = line(40, 140, n=41, y=0.5)
+    assert [c[1:] for c in ls.splice_candidates({1: p, 2: q}, P_TO_Q)[0]] == [
+        (1, 1, 2, 0)
+    ]
+
+
+def test_arriving_square_to_the_fiber_is_not_heading_into_it():
+    # P runs along y and ends 0.5 from Q's point at x = 50, 10 voxels in: the dot product is 0, not positive
+    y = np.linspace(-20.0, 0.0, 21)
+    p = np.stack([np.zeros_like(y), y, np.full_like(y, 50.0)], axis=1)
+    q = line(40, 140, n=41, y=0.5)
+    assert ls.splice_candidates({1: p, 2: q}, P_TO_Q)[0] == []
+
+
+def test_equally_near_candidates_go_by_p_then_its_end_q_and_qs_end():
+    assert ls.choose_splices([(0.5, 4, 1, 2, 0), (0.5, 3, 1, 2, 0)]) == [(3, 1, 2, 0)]
+
+
+def test_a_gate_failure_on_an_in_sample_cube_also_withholds_the_verdict():
+    per = {c: cube(0.5, 0.5) for c in ls.HELD_OUT}
+    gate = {c: [] for c in ls.HELD_OUT + ls.IN_SAMPLE}
+    gate[ls.IN_SAMPLE[0]] = ["ends"]
+    assert ls.verdict(per, gate)["status"] == "GATE_FAILED"
+
+
+def test_p3_holds_at_exactly_the_bar():
+    v = verdict_of(0.05, 0.10)
+    assert v["predictions"]["P3"] and v["decision"] == "SUPPORTED_AT_TOL4_ONLY"
+
+
+def test_measure_cube_joins_the_spliced_pieces_labels(tmp_path, monkeypatch):
+    """measure_cube on a 16-voxel cube, with stand-ins for ScrollGT: a splice joins exactly its two pieces' labels
+    (label = 1 + the rank of the fiber id, piece ids from 0), and gate 5 catches a score whose coverage moves."""
+    c, size, m = "t_00000_00000_00000_16", 16, ls.cs.MARGIN
+
+    def xyz(x0, x1, y):
+        """Cube-local x0..x1 at (y, z = 8), as the .afv's padded-frame xyz."""
+        x = np.arange(x0, x1 + 1.0)
+        return np.stack([x, np.full_like(x, y), np.full_like(x, 8.0)], axis=1) + m
+
+    # 3's end lies 2 voxels into 0; 7 lies apart. Labels: 0 -> 1, 3 -> 2, 7 -> 3
+    afv = {0: xyz(6, 15, 8), 3: xyz(0, 8, 8), 7: xyz(0, 3, 2)}
+    meta = {0: ((), (-1, -1)), 3: ((), (-1, 0)), 7: ((), (-1, -1))}
+    monkeypatch.setitem(ls.cs.RUNS, size, tmp_path)
+    monkeypatch.setattr(ls.afv_to_labels, "read_afv", lambda path: afv)
+    monkeypatch.setattr(ls.cs, "read_meta", lambda run, a: (meta, []))
+    gt = SimpleNamespace(
+        fibers=[[(8, 8, x) for x in range(16)], [(8, 2, x) for x in range(16)]]
+    )
+
+    def fiber_runs(fiber, grown, step, flag):
+        labs = sorted({int(grown[v]) for v in fiber} - {0})
+        return [(lab, 1.0) for lab in labs], None, None, None
+
+    def scorer(coverage_is_labels=False):
+        def row(vol):
+            labs, n = np.unique(vol[vol > 0], return_counts=True)
+            out = dict.fromkeys(ls.FIELDS + ls.cs.GATE_FIELDS, 0.0)
+            out.update(erl_merge_penalized=float(n.max()), merges=len(labs),
+                       coverage=float(len(labs) if coverage_is_labels else n.sum()))  # fmt: skip
+            return out
+
+        return row, lambda gt, vol, tol: SimpleNamespace(as_row=lambda: row(vol))
+
+    row, score = scorer()
+    lab = ls.ctx.labels_of_fibers(afv, m, size)
+    recorded = {t: row(lab) for t in ls.TOLS}
+    out, problems = ls.measure_cube(
+        c,
+        score,
+        lambda lab, tol: lab.copy(),
+        fiber_runs,
+        lambda p: (gt, 0, 0),
+        recorded,
+    )
+    assert problems == []
+    assert {k: out[k] for k in ("pieces", "links", "missing_targets", "candidates", "splices")} == \
+        {"pieces": 3, "links": 1, "missing_targets": 0, "candidates": 1, "splices": 1}  # fmt: skip
+    for t in ("tol2", "tol4"):
+        # 0 wins the voxels it shares with 3 (ties go to the lower label): 10 voxels; joined, x 0..15
+        assert out[t]["base"]["erl_merge_penalized"] == 10
+        assert out[t]["splice"]["erl_merge_penalized"] == 16
+        assert out[t]["splice"]["gain"] == pytest.approx(0.6)
+        assert out[t]["splice"]["coverage"] == out[t]["base"]["coverage"] == 16 + 4
+        assert out[t]["kinds"]["splice"] == {"same": 1, "different": 0, "unknown": 0}
+    row, score = scorer(coverage_is_labels=True)
+    recorded = {t: row(lab) for t in ls.TOLS}
+    _, problems = ls.measure_cube(
+        c,
+        score,
+        lambda lab, tol: lab.copy(),
+        fiber_runs,
+        lambda p: (gt, 0, 0),
+        recorded,
+    )
+    assert problems == [
+        f"{t}:{n}:coverage" for t in ("tol2", "tol4") for n in ("splice", "all")
+    ]

@@ -107,16 +107,40 @@ this explicit merge necessary. Fragment sampling masks, validation data, spatial
 separation, teacher lineage, and the rest of the experiment config remain the
 operator's responsibility. No full training config is generated or executed.
 
-The existing loader normalizes PNG 128 to **128/255**, not exactly 0.5. Existing
-confidence weighting therefore gives these pixels residual weight **1/255**,
-not zero. Without confidence weighting they would be ordinary soft labels, so
+The loader normalizes PNG 128 to **128/255**, not exactly 0.5. The
+confidence-weighted ink BCE/Dice branch explicitly gives both encodings zero
+weight after augmentation (with a small tolerance for float32 PNG decoding).
+Before the [confidence-loss repair](DESIGN_ARCHITECTURE_REVIEW_CONFIDENCE_LOSSES.md),
+PNG 128 retained weight 1/255. Normalizing by total weight could cancel that
+small factor: an all-ignored 32×32 patch still produced BCE loss 1.123 at
+logits 2.0. Future confidence-weighted runs use the repaired recipe;
+historical checkpoints and handoff reports were not rewritten.
+
+Fractional weights now enter Dice's intersection and denominator once; the
+intersection previously squared them. Samples with no supervised weight are
+excluded from the weighted Dice mean. An entirely ignored batch has zero BCE
+and Dice loss and gradient to its ink logits. Binary labels retain unit weight;
+the default unweighted training branch is unchanged. The checkpoint and
+`run_result.json` record `confidence_ink_recipe` when this mode is enabled
+(`confidence-ink-v2-png128-linear-dice`), including periodic probe checkpoints.
+
+Without confidence weighting these pixels would be ordinary soft labels, so
 training refuses a `<segment>_pseudo.png` from `pseudo_label_dir` unless
 `use_confidence_weight` is set (`train.training_label_path`, 2026-10-14). A
-pseudo-label installed as a fragment's own label file is not checked. Exact
-ignore-mask enforcement is not implemented in the existing loss, and these
-artifacts cannot promise that held-out pixels receive no training gradient.
-Training loss, normalization, buffered sampling, model math, and evaluation
-formulas are unchanged. Do not use confidence-filtered labels as ground truth.
+pseudo-label installed as a fragment's own label file is not checked.
+
+The confidence weight is recomputed from the **augmented target**, not carried
+as a separate spatial mask. Mixup and interpolating augmentations can turn an
+ignored target into another soft value with nonzero confidence. Topology losses,
+auxiliary heads, hallucination penalties, consistency losses, parameter sharing
+and optimizer weight decay are not masked by this branch. Thus it guarantees
+zero direct BCE/Dice gradient only at post-augmentation ignored targets; it
+cannot promise spatial holdout exclusion or unchanged parameters. The handoff
+records `ignore_scope: post_augmentation_ink_bce_and_dice` and
+`spatial_holdout_guaranteed: false`. Use independently separated validation data.
+No training or accuracy claim follows from preparation. Do not use
+confidence-filtered labels as ground truth. Source normalization, sampling,
+model architecture and evaluation formulas are unchanged by the loss repair.
 
 For local directory merging through `combine_labels`, put `<segment>.png` and
 `<segment>_mask.png` in the manual directory and `<segment>_pseudo.png` in the

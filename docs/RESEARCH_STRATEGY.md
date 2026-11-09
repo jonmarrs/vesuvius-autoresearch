@@ -92,6 +92,14 @@ team contribution, not a realistic solo promise on the current evidence.
   ends touch, but nothing joins them. Splicing each piece to the fiber whose end it overlaps raised held-out ERLpen on
   all ten cubes, by a median 30% at tolerance 4 and 6.3% at tolerance 2 (under the 0.10 bar there), with summed merges
   +1.2%. The polyline tool and its VC3D export are untested, and any villa proposal is the owner's decision.
+- [Finding 106](../reports/afv_generator_block_seams.md) (2026-11-07, registered) measured villa's automated fiber
+  generator (#1934, VC3D's **Generate automated fibers…**) across block borders. Where a block's border cuts a fiber,
+  the block's spline bends, and both blocks' copies fail the stitcher's tests and are written. Trimming 16 voxels at
+  each cut end raised held-out ERLpen on all eight Scroll-3 cubes, by a median 13% at tolerance 4 and 7.1% at
+  tolerance 2, with summed merges at tolerance 2 −12.1%. More crossings at the block faces are lost (172 to 278 of
+  1,304). A diagnosis after the verdict found that 176 of the 178 crossings the trim improves gain a join, and 63 of
+  the 198 it worsens lose one. At 125 more of those, never chained, a trimmed copy stops 16 voxels sooner past the
+  face. VC3D's default zone is one block, where the trim changes nothing, and any villa PR is the owner's decision.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013

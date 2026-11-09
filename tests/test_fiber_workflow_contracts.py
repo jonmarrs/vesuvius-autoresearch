@@ -470,7 +470,11 @@ def test_floor_refresh_carries_tracer_only_with_matching_provenance(
     monkeypatch.setattr(
         bench_cli, "_load_cube", lambda *a: (np.zeros((3, 3, 8)), simple_gt())
     )
-    monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *a: np.ones((3, 3, 8)))
+    monkeypatch.setattr(
+        bench_cli,
+        "_fiber_probability",
+        lambda *a: bench_cli.ProbabilityResult(np.ones((3, 3, 8)), {}),
+    )
     monkeypatch.setattr(bench_cli, "_measurement_provenance", lambda *a: context)
     bench_cli.main(["floors", "--all-cubes", "--json-out", str(output)])
     result = json.loads(output.read_text())["cubes"]["cube"]
@@ -538,7 +542,11 @@ def test_score_report_keeps_requested_floor_and_source_identity(tmp_path, monkey
     np.save(source, inst)
     (tmp_path / "cube.nml").write_text("ground truth")
     monkeypatch.setattr(bench_cli, "_load_cube", lambda *a: (img, simple_gt()))
-    monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *a: np.ones(img.shape))
+    monkeypatch.setattr(
+        bench_cli,
+        "_fiber_probability",
+        lambda *a: bench_cli.ProbabilityResult(np.ones(img.shape), {}),
+    )
     monkeypatch.setattr(
         bench_cli,
         "_measurement_provenance",
@@ -705,7 +713,13 @@ def bench_cube(tmp_path, monkeypatch):
         json.dumps({"inference": {"model": "m"}, "probability_sha256": "ab"})
     )
     monkeypatch.setattr(bench_cli, "_load_cube", lambda *a: (img, gt))
-    monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *a: fp.copy())
+    monkeypatch.setattr(
+        bench_cli,
+        "_fiber_probability",
+        lambda *a: bench_cli.ProbabilityResult(
+            fp.copy(), {"inference": {"model": "m"}, "probability_sha256": "ab"}
+        ),
+    )
     calls = defaultdict(list)
 
     def spy(module, name, keep_result=False):
@@ -767,6 +781,22 @@ def test_trace_defaults_are_the_published_configuration(bench_cube):
 def test_trace_report_records_the_destination_policy_version(bench_cube):
     record, _, _ = bench_cube()
     assert record["tracing_recipe"]["walk_version"] == 2
+
+
+def test_trace_report_retains_loaded_probability_identity(bench_cube, monkeypatch):
+    trace = fiber_trace.trace_fibers
+
+    def replace_metadata(*args, **kwargs):
+        result = trace(*args, **kwargs)
+        (bench_cube.data_dir / "cube_fiberprob.json").write_text(
+            json.dumps({"inference": {"other": True}, "probability_sha256": "other"})
+        )
+        return result
+
+    monkeypatch.setattr(fiber_trace, "trace_fibers", replace_metadata)
+    record, _, _ = bench_cube()
+    assert record["provenance"]["inference"] == {"model": "m"}
+    assert record["provenance"]["probability_sha256"] == "ab"
 
 
 def test_trace_runs_and_records_every_parameter_it_is_given(bench_cube):

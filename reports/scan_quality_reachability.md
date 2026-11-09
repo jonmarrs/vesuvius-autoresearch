@@ -1,5 +1,19 @@
 # Scan-quality metric: is the target reachable? Yes, with one correction to the design
 
+> **CT-statistics correction (2026-11-08): rerun required.** The CT AUC and
+> correlation results below used a superseded implementation. It ranked equal
+> intensities differently by class, scoring constant CT as perfectly separable;
+> Spearman ranks also mishandled ties, and the tensor feature used only diagonal
+> terms. The reported near-perfect separability, its correlations and the
+> conclusion that these cubes contain no bad-quality examples are therefore
+> **not validated evidence**. The original narrative/numbers are retained as a
+> historical record; no corrected dataset run has been made here. The earlier
+> mask-only population characterization and raw dtype observation are separate
+> from these CT calculations. Annotatability selection remains a limitation to
+> test, not a demonstrated explanation for an invalid statistic. See the
+> [review and repair](../docs/DESIGN_ARCHITECTURE_REVIEW_SCAN_QUALITY.md) and
+> [corrected workflow](../docs/SCAN_QUALITY.md).
+
 **2026-08-30.** The check run *before* building anything, which is the lesson from the sheet-switch
 detector: that study pre-registered how to validate a detector and never asked whether the condition
 it detects is reachable.
@@ -78,7 +92,10 @@ against a CT-only predictor on the 12 cubes already fetched.
 
 ---
 
-# RESULT, same day: the outcome is saturated. This design cannot work on this data.
+# Historical CT result (superseded; corrected rerun required)
+
+The claims in this section describe the original interpretation and must not
+be used as current findings; see the correction above.
 
 Ran on the 12 fetched cubes. Two findings, one fatal.
 
