@@ -202,14 +202,15 @@ that passes as merged and fails with its guard removed.
   - Each new defect test fails on the merged code: 5 for #372 and 3 for #369. Each new #378 test fails with its guard
     removed.
 - **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the 10 changed Python files. Mypy is clean over the
-  whole repository: MYPY_FILES files.
+  whole repository: 926 files.
 - **The standard suite.**
   - At the start of the round, with only new tests on top of `31e050e5`, it gave round #153's 70 failing ids.
   - On the finished branch, all 186 modules give the same 70 ids.
 - **The test modules outside the suite.** On this branch the 252 modules give 2,410 passed, 82 skipped, 13 failed and
   21 errors. The failing ids are round #153's 34. The pass count is round #153's 2,400 plus the 10 tests this round adds
   to #369's modules: 3, 1 and 2 in its existing modules, and 4 in the new summary module.
-- **The doc audit**, run alone, AUDIT_RESULT
+- **The doc audit**, run alone, lists exactly round #153's unresolved references. It checks 2,220 path and 816 commit
+  references, against 2,212 and 812 then.
 
 ## A note on this round's work
 
