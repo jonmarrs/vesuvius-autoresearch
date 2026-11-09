@@ -5,6 +5,11 @@
 `repro/fibers/villa_fiber_generator_cross_block_duplicates_c3d9da6fe.patch`. It sits on top of the seam trim (findings
 106 and 107) and applies to villa main `c3d9da6fe`, whose generator equals `7e6b82164`'s.
 
+**Pushed at 13:58:32 PST (241b0c86). Run 13:58:46 to 15:38:00 PST on 11-09: finding 108,
+`reports/afv_generator_cross_block_duplicates.md`. The gate passed on all eight cubes and the zone, and P1, P2, P3 and
+P4 held (ERLpen at τ = 4 up on 8 of 8, median +5.7%; merges at τ = 2 386 → 384; median duplicated share 0.104 → 0.032):
+`SUPPORTED`.**
+
 ## The question
 
 With the seam trim, finding 107's 1024³ zone at villa's default block size still writes 0.052 of its fiber length

@@ -105,6 +105,14 @@ team contribution, not a realistic solo promise on the current evidence.
   0.120 of the zone's written length lies beside a same-family copy, and 0.052 with the trim. In the cube, ERLpen rose
   16.0% at tolerance 4 and 5.6% at tolerance 2, with merges at tolerance 2 92 → 82 and coverage −3.7% at tolerance 4.
   Decision `BITES_AT_DEFAULTS`: the villa PR's real-use example, whose posting is the owner's decision.
+- [Finding 108](../reports/afv_generator_cross_block_duplicates.md) (2026-11-09, registered) found the rest of the seam
+  defect. With the trim, copies of a fiber fitted by two neighbouring blocks still lay along each other, and the
+  catalogue kept both: its own `compare()` calls them duplicates, but only the sub-voxel strict test could suppress
+  them. Suppressing such a copy, only between sources of different blocks, scored on finding 106's held-out cubes from
+  their cached fields (ERLpen at τ = 4 up on 8 of 8, median +5.7%; merges at τ = 2 386 → 384; median duplicated share
+  0.104 → 0.032): `SUPPORTED`. With both changes, eight blocks reach 0.905 to 1.026 of one block's ERLpen at
+  tolerance 4 (main: 0.703 to 0.923). The change adds 18 lines to villa's `catalog.py` and removes 2; any villa PR is
+  the owner's decision.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013
