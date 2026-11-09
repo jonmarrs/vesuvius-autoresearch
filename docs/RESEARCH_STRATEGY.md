@@ -100,6 +100,11 @@ team contribution, not a realistic solo promise on the current evidence.
   1,304). A diagnosis after the verdict found that 176 of the 178 crossings the trim improves gain a join, and 63 of
   the 198 it worsens lose one. At 125 more of those, never chained, a trimmed copy stops 16 voxels sooner past the
   face. VC3D's default zone is one block, where the trim changes nothing, and any villa PR is the owner's decision.
+- [Finding 107](../reports/afv_generator_default_zone.md) (2026-11-09, registered) ran finding 106's trim at villa's
+  default block size: one 1024³ zone of the Scroll-3 scan in 8 blocks of 512, centred on a held-out cube. On main,
+  0.120 of the zone's written length lies beside a same-family copy, and 0.052 with the trim. In the cube, ERLpen rose
+  16.0% at tolerance 4 and 5.6% at tolerance 2, with merges at tolerance 2 92 → 82 and coverage −3.7% at tolerance 4.
+  Decision `BITES_AT_DEFAULTS`: the villa PR's real-use example, whose posting is the owner's decision.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013
