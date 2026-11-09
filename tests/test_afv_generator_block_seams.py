@@ -3,6 +3,7 @@ registered decision rule."""
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -180,3 +181,78 @@ def test_the_decision_rule():
     assert bs.verdict({c: up[c] for c in bs.HELD_OUT[:-1]})["decision"] == "NO_VERDICT"
     bad = dict(up, **{bs.HELD_OUT[3]: result(30.0, 34.0, problems=["x"])})
     assert bs.verdict(bad)["decision"] == "NO_VERDICT"
+
+
+def test_a_crossing_s_kind_at_the_documented_bounds():
+    """Whole: one fiber within 2 voxels of 95% of the window; broken: 80% covered together; 40 voxels on both sides."""
+    ref = [along_x(20, 236)]
+    xs = bs.crossings(ref, [0], 256)  # the window is x 87.5..167.5
+
+    def kind(fiber):
+        return max(bs.crossing_kinds(xs, [fiber], [0]).items(), key=lambda kv: kv[1])[0]
+
+    assert kind(along_x(20, 162)) == "whole"  # 95.7% of the window
+    assert kind(along_x(20, 160)) == "broken"  # 93.2%
+    assert kind(along_x(20, 150)) == "broken"  # 80.7%
+    assert kind(along_x(20, 145)) == "lost"  # 74.5%
+    assert kind(along_x(20, 236, y=49.9)) == "whole"  # 1.9 voxels off
+    assert (
+        bs.crossings([along_x(60, 150)], [0], 256) == []
+    )  # 68 voxels before the plane, 22 after
+
+
+def test_the_decision_rule_at_its_registered_bounds():
+    def verdict(per_cube):
+        return bs.verdict(dict(zip(bs.HELD_OUT, per_cube, strict=True)))
+
+    # P1: positive on at least 6 of 8 cubes, and a gain of exactly zero is not positive
+    six = verdict([result(30.0, 36.0 if i < 6 else 29.0) for i in range(8)])
+    assert six["P1_gain_tol4_cubes_up"] == [6, True] and six["decision"] == "SUPPORTED"
+    assert verdict([result(30.0, 36.0 if i < 5 else 30.0) for i in range(8)])[
+        "P1_gain_tol4_cubes_up"
+    ] == [5, False]
+    # P2: a median gain of at least 0.10 at tol 4
+    assert verdict([result(20.0, 22.1)] * 8)["decision"] == "SUPPORTED"  # 0.105
+    assert verdict([result(20.0, 21.9)] * 8)["decision"] == "NOT_SUPPORTED"  # 0.095
+    # P3: summed merges at tol 2 rise by at most 5%, whatever tol 4's do
+    main = [12] * 4 + [13] * 4  # 100
+
+    def merges(fix):
+        return verdict(
+            [
+                result(30.0, 34.0, merges_main=m, merges_fix=f)
+                for m, f in zip(main, fix, strict=True)
+            ]
+        )
+
+    at5 = merges([13] * 7 + [14])
+    assert at5["P3_merges_tol2"] == [100, 105, True] and at5["decision"] == "SUPPORTED"
+    assert merges([13] * 6 + [14] * 2)["decision"] == "COSTS_MERGES"  # +6%
+    tol4 = [result(30.0, 34.0) for _ in range(8)]
+    for r in tol4:
+        r["rows"]["real/patched"]["tol4"]["merges"] = 20
+    assert verdict(tol4)["decision"] == "SUPPORTED"
+    # P4 (0.05 at tol 2) is reported and does not decide
+    p4 = verdict([result(30.0, 34.0, erl2_main=20.0, erl2_fix=20.9)] * 8)  # 0.045
+    assert p4["P4_median_gain_tol2"][1] is False and p4["decision"] == "SUPPORTED"
+
+
+def test_the_verdict_reads_only_the_held_out_cubes_and_is_written_once(
+    tmp_path, monkeypatch
+):
+    work, out = tmp_path / "work", tmp_path / "record.json"
+    for c in [
+        *bs.HELD_OUT,
+        "s1_00497_01497_03997_256",
+    ]:  # the in-sample cube beside them is not read
+        (work / c).mkdir(parents=True)
+        (work / c / "result.json").write_text(json.dumps(result(30.0, 34.0)))
+    argv = ["x", "verdict", "--work", str(work), "--out", str(out)]
+    monkeypatch.setattr(sys, "argv", argv)
+    bs.main()
+    first = out.read_bytes()
+    assert json.loads(first)["verdict"]["decision"] == "SUPPORTED"
+    (work / bs.HELD_OUT[0] / "result.json").write_text(json.dumps(result(30.0, 29.0)))
+    with pytest.raises(SystemExit, match="written once"):
+        bs.main()
+    assert out.read_bytes() == first

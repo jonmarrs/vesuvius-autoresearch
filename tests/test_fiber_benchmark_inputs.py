@@ -3,6 +3,7 @@
 import hashlib
 import io
 import os
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -171,3 +172,63 @@ def test_cli_collision_has_a_concise_error_before_reading_cube_inputs(tmp_path):
     assert "Fiber benchmark failed: artifact collision" in result.stderr
     assert "Traceback" not in result.stderr
     assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("shape", [(3, 3, 9), (3, 8, 3), (1, 3, 3, 8)])
+def test_instances_must_have_the_cubes_own_shape(tmp_path, shape):
+    # A well-formed NPY for another cube is still the wrong input. Before #378,
+    # `score` refused a shape mismatch; the capture must keep refusing it.
+    source = tmp_path / "instances.npy"
+    np.save(source, np.ones((3, 3, 8), np.int32))
+    with pytest.raises(ValueError, match="must match cube shape"):
+        read_instances(source, shape)
+
+
+def test_the_instance_digest_is_computed_from_the_captured_bytes(tmp_path, monkeypatch):
+    # Replace the file as soon as it is captured: a digest read again from the path
+    # would describe bytes that were never parsed or scored.
+    from vesuvius_autoresearch.fibers import benchmark_artifacts
+
+    source = tmp_path / "instances.npy"
+    np.save(source, np.ones((3, 3, 8), np.int32))
+    original = source.read_bytes()
+    capture = benchmark_artifacts.capture_bytes
+
+    def replace_after_capture(*args):
+        captured = capture(*args)
+        np.save(source, np.full((3, 3, 8), 2, np.int32))
+        return captured
+
+    monkeypatch.setattr(benchmark_artifacts, "capture_bytes", replace_after_capture)
+    array, identity = read_instances(source, (3, 3, 8))
+    assert identity["instances_sha256"] == hashlib.sha256(original).hexdigest()
+    assert int(array.max()) == 1
+
+
+def _npy_with_header(array, header_size, version):
+    header = repr(
+        {
+            "descr": np.lib.format.dtype_to_descr(array.dtype),
+            "fortran_order": False,
+            "shape": array.shape,
+        }
+    )
+    header = header.ljust(header_size - 1).encode("latin1") + b"\n"
+    length = struct.pack("<H" if version == (1, 0) else "<I", len(header))
+    return np.lib.format.magic(*version) + length + header + array.tobytes()
+
+
+@pytest.mark.parametrize("version", [(1, 0), (2, 0)])
+def test_capture_reads_every_header_numpy_reads(tmp_path, version):
+    # np.load accepts padded headers up to 10,000 bytes, not only the 128-byte
+    # ones NumPy writes; the capture's header prefix must reach that cap.
+    labels = np.arange(72, dtype=np.int32).reshape(3, 3, 8)
+    source = tmp_path / "instances.npy"
+    source.write_bytes(_npy_with_header(labels, 10_000, version))
+    array, _ = read_instances(source, labels.shape)
+    np.testing.assert_array_equal(array, np.load(source))
+    np.testing.assert_array_equal(array, labels)
+    source.write_bytes(_npy_with_header(labels, 10_001, version))
+    for read in (np.load, lambda path: read_instances(path, labels.shape)):
+        with pytest.raises(ValueError):
+            read(source)
