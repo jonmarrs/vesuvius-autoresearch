@@ -18,6 +18,7 @@ DRAFT = ROOT / "docs/VILLA_DRAFT_afv_generator_seam_trim.md"
 RECORD = ROOT / "reports/afv_generator_block_seams.json"
 PATCH = ROOT / "repro/fibers/villa_fiber_generator_trim_cut_ends_zone_7e6b82164.patch"
 EVIDENCE = ROOT / "reports/evidence/afv_generator_seam_diag_2026-11-07.json"
+REGISTRATION = ROOT / "docs/preregistration/2026-11-06_afv_generator_block_seams.md"
 
 
 def flat() -> str:
@@ -117,10 +118,49 @@ def test_what_it_costs_is_the_diagnosis():
     )
     assert all(f"{v} ({r[k]})" in t for k, v in named.items())
     assert f"In {neither}, the copies were never chained" in t
-    assert (
-        f"{e['better_by_join']['chained only with the trim']} crossings are chained only with the trim"
-        in t
+    # Crossings the trim worsens can be chained only with it too: the count is of the better ones.
+    better = sum(e["better"].values())
+    assert (f"The changes run both ways: of the {better} crossings better with the trim, "
+            f"{e['better_by_join']['chained only with the trim']} are chained only with it.") in t  # fmt: skip
+
+
+def test_the_bent_end_figures_are_the_registration_s_screen():
+    """The registration's in-sample screen measured the bent ends (its scratch was not committed); the draft quotes it."""
+    reg, t = " ".join(REGISTRATION.read_text().split()), flat()
+    for draft, registered in (
+        ("a median 1.6 voxels from the spline fitted to the same field in one block, and 0.33 voxels at 2–4 voxels",
+         "a median 1.6 voxels from the one-block spline of the same field, 0.33 at 2–4 voxels"),
+        ("True overlaps (median 0.15–0.27 voxels apart) then measure 15.3–19.5° at their ends, and the overlap test "
+         "allows 15°", "15° endpoint test for overlaps (true overlaps of median 0.15–0.27 voxels measured 15.3–19.5°"),
+        ("fail the strict duplicate test (0.65 voxel)", "fail its strict duplicate test (at most 0.65 voxel)"),
+    ):  # fmt: skip
+        assert draft in t and registered in reg, draft
+
+
+def test_what_ran_names_villa_main_only_for_the_modules_the_gate_compared():
+    """The run imported the #1934 head's package; identity() compared only bs.IDENTICAL with villa main, per cube."""
+    d, t = json.loads(RECORD.read_text()), flat()
+    assert all(r["identity_problems"] == [] for r in d["cubes"].values())
+    ran = t.split("**What ran:**", 1)[1].split("**Limits:**", 1)[0]
+    used = re.findall(r"`(\w+)\.(\w+)`", ran.split(")", 1)[0])
+    assert {a for a, _ in used} == {"predict", "splines", "extend", "cleanup"}
+    unchecked = sorted(
+        {
+            a
+            for a, b in used
+            if f"{a}.py" not in bs.IDENTICAL and f"{a}/{b}.py" not in bs.IDENTICAL
+        }
     )
+    extend = [Path(m).stem for m in bs.IDENTICAL if m.startswith("extend/")]
+    main = {r["settings"]["villa_main"][:9] for r in d["cubes"].values()}
+    assert (
+        # A bare script name here would read to the suite guard as scripts/inference/predict.py.
+        "predict" in {Path(m).stem for m in bs.IDENTICAL if "/" not in m}
+        and unchecked == ["cleanup", "splines"]
+        and len(main) == 1
+    )
+    assert (f"its `predict` and `extend` modules ({', '.join(f'`{m}`' for m in extend)}) were checked byte-identical "
+            f"to villa main `{main.pop()}`'s. Its `cleanup` and `splines` modules were not compared with main's") in ran  # fmt: skip
 
 
 def test_the_change_is_the_amended_patch():

@@ -187,6 +187,36 @@ def test_external_ome_level_cannot_alias_an_output_array(tmp_path, monkeypatch):
     assert not model.batches
 
 
+def test_outputs_cannot_be_written_inside_the_source_volume_group(
+    tmp_path, monkeypatch
+):
+    # The outputs miss the selected level-0 array but would still be written
+    # into the CT group, so only the source root's own protection refuses them.
+    _, argv, model = production_fixture(tmp_path, monkeypatch)
+    source = tmp_path / "ome.zarr"
+    _ome_volume(source)
+    _set(argv, "--uri", source)
+    _set(argv, "--out-dir", source)
+    monkeypatch.setattr(torch, "load", lambda *a, **k: pytest.fail("checkpoint load"))
+    before = _tree(tmp_path)
+    with pytest.raises(ValueError, match="overlaps CT source"):
+        production.production_predict()
+    assert _tree(tmp_path) == before
+    assert not model.batches
+
+
+def test_an_output_directory_that_is_a_file_fails_before_checkpoint_load(
+    tmp_path, monkeypatch
+):
+    out, argv, model = production_fixture(tmp_path, monkeypatch)
+    out.write_bytes(b"not a directory")
+    monkeypatch.setattr(torch, "load", lambda *a, **k: pytest.fail("checkpoint load"))
+    with pytest.raises(ValueError, match="output directory must be"):
+        production.production_predict()
+    assert out.read_bytes() == b"not a directory"
+    assert not model.batches
+
+
 @pytest.mark.parametrize(
     "target,kind",
     [
@@ -275,6 +305,50 @@ def test_metadata_hash_describes_captured_checkpoint_despite_later_replacement(
     metadata = json.loads((out / f"{BASE}_meta.json").read_text())
     assert metadata["checkpoint_sha256"] == hashlib.sha256(original).hexdigest()
     assert metadata["checkpoint_size_bytes"] == len(original)
+
+
+def test_the_recorded_digest_is_computed_from_the_captured_bytes(tmp_path, monkeypatch):
+    # Replace the checkpoint as soon as it is captured: a digest recomputed from
+    # the path, rather than from the captured bytes, would describe other bytes.
+    _, argv, _ = production_fixture(tmp_path, monkeypatch)
+    checkpoint = Path(argv[argv.index("--checkpoint") + 1])
+    original = checkpoint.read_bytes()
+    capture = production.capture_bytes
+
+    def replace_after_capture(*args):
+        captured = capture(*args)
+        checkpoint.write_bytes(b"later checkpoint bytes")
+        return captured
+
+    monkeypatch.setattr(production, "capture_bytes", replace_after_capture)
+    result = production.production_predict([*argv[1:], "--dry-run"])
+    assert result["checkpoint_sha256"] == hashlib.sha256(original).hexdigest()
+    assert result["checkpoint_size_bytes"] == len(original)
+
+
+def test_the_run_reads_the_array_its_plan_protected(tmp_path, monkeypatch):
+    # The plan protects the resolved level-0 array. Repointing the group's level
+    # link after planning must not redirect the read to an array it never checked.
+    _, argv, _ = production_fixture(tmp_path, monkeypatch)
+    planned, other = tmp_path / "planned.zarr", tmp_path / "other.zarr"
+    zarr.open(str(planned), mode="w", shape=(5, 20, 24), dtype="u1")
+    zarr.open(str(other), mode="w", shape=(5, 20, 32), dtype="u1")
+    group = tmp_path / "ome.zarr"
+    group.mkdir()
+    (group / "0").symlink_to(planned, target_is_directory=True)
+    _set(argv, "--uri", group)
+    capture = production.capture_bytes
+
+    def repoint_after_planning(*args):
+        captured = capture(*args)
+        (group / "0").unlink()
+        (group / "0").symlink_to(other, target_is_directory=True)
+        return captured
+
+    monkeypatch.setattr(production, "capture_bytes", repoint_after_planning)
+    result = production.production_predict([*argv[1:], "--dry-run"])
+    assert result["source_array_path"] == str(planned.resolve())
+    assert result["source_shape_zyx"] == [5, 20, 24]
 
 
 @pytest.mark.parametrize("kind", ["oversize", "fifo"])

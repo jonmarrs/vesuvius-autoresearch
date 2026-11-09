@@ -5,8 +5,9 @@ CT, so the whole 80-cube population costs less than two cubes of volume. A
 12-cube sample put the contact-fraction maximum at 1.10%; the population maximum
 is 3.166%.
 
-Spread here is spread in GEOMETRY, not scan quality: the CT-level outcome that
-was the actual target is saturated at ~0.999 in every cube.
+Spread here is spread in GEOMETRY, not scan quality. The CT-level outcome that
+was the actual target was reported at ~0.999 in every cube by a superseded
+calculation; that report's correction note says it awaits a corrected rerun.
 """
 
 import json

@@ -42,6 +42,13 @@ from dataclasses import asdict
 
 import numpy as np
 
+from vesuvius_autoresearch.core.file_modes import replacement_mode
+from vesuvius_autoresearch.fibers.benchmark_artifacts import (
+    MAX_INSTANCE_BYTES,
+    BenchmarkArtifactPlan,
+    read_instances,
+    validate_cache,
+)
 from vesuvius_autoresearch.fibers.provenance import (
     SCORING_VERSION,
     atomic_file,
@@ -99,6 +106,7 @@ def _fiber_prob(
     data_dir: pathlib.Path, cube: str, img, model_dir, patch: int, device="auto"
 ):
     """Cached `fiber_hz_vt` probability for a cube."""
+    validate_cache(data_dir, cube, model_dir)
     from vesuvius_autoresearch.fibers.semantic import (
         fiber_probability,
         load_model,
@@ -145,6 +153,7 @@ def _fiber_prob(
         raise ValueError("fiber probabilities must match the source cube")
     if inference_identity(img, model_dir, int(patch), device) != identity:
         raise ValueError("model or image changed during fiber inference")
+    validate_cache(data_dir, cube, model_dir)
     with atomic_file(cache, "w+b") as f:
         np.save(f, fp, allow_pickle=False)
         f.flush()
@@ -278,6 +287,7 @@ def _floors_all_cubes(args) -> int:
     than recomputed here, since this command only owns the floors."""
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
+    plan = BenchmarkArtifactPlan.create(args, "floors", CUBES)
     data_dir = pathlib.Path(args.data_dir)
     out_path = pathlib.Path(args.json_out) if args.json_out else None
     prior_cubes: dict = {}
@@ -329,6 +339,7 @@ def _floors_all_cubes(args) -> int:
         }
 
     if out_path:
+        plan.validate()
         write_json(out_path, report)
         print(f"report -> {out_path}")
     return 0
@@ -343,6 +354,7 @@ def cmd_floors(args) -> int:
 
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
+    plan = BenchmarkArtifactPlan.create(args, "floors", [args.cube])
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
     fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
@@ -356,6 +368,7 @@ def cmd_floors(args) -> int:
         "mask, not the labelling. Rank on ERL and merges."
     )
     if args.json_out:
+        plan.validate()
         write_json(
             args.json_out,
             {
@@ -370,15 +383,20 @@ def cmd_floors(args) -> int:
 def cmd_score(args) -> int:
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
+    plan = BenchmarkArtifactPlan.create(args, "score", [args.cube])
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
-    inst = np.load(args.instances, allow_pickle=False)
-    if inst.shape != img.shape:
-        print(f"ERROR: instances {inst.shape} != cube {img.shape}", file=sys.stderr)
-        return 2
+    inst, instance_identity = read_instances(
+        args.instances,
+        img.shape,
+        getattr(args, "max_instance_bytes", MAX_INSTANCE_BYTES),
+    )
     s = ev.score_tracing(gt, inst, tolerance=args.tolerance)
     row = s.as_row()
-    rows = {pathlib.Path(args.instances).stem: row}
+    candidate_row = pathlib.Path(args.instances).stem
+    if args.with_floors and candidate_row == "floor: connected components":
+        candidate_row = f"candidate:{candidate_row}"
+    rows = {candidate_row: row}
     floor_provenance = None
     print(f"cube={args.cube}  gt_fibers={len(gt)}  tolerance={args.tolerance}")
     _print_rows(rows)
@@ -394,15 +412,17 @@ def cmd_score(args) -> int:
         rows.update(floor_rows)
         floor_provenance = _measurement_provenance(data_dir, args.cube, args, gt)
     if args.json_out:
+        plan.validate()
         write_json(
             args.json_out,
             {
                 "cube": args.cube,
+                "candidate_row": candidate_row,
                 "provenance": {
                     "scoring_version": SCORING_VERSION,
                     "skeleton_sha256": gt.source_sha256,
                     "skeleton_parser": _skeleton_parser_provenance(args),
-                    "instances_sha256": file_sha256(args.instances),
+                    **instance_identity,
                     "tolerance": args.tolerance,
                     "step": 0.5,
                     "restrict_to_bounds": True,
@@ -417,6 +437,7 @@ def cmd_score(args) -> int:
 
 
 def cmd_trace(args) -> int:
+    plan = BenchmarkArtifactPlan.create(args, "trace", [args.cube])
     from vesuvius_autoresearch.fibers import eval_trace as ev
     from vesuvius_autoresearch.fibers.detection import (
         detect_vesselness,
@@ -501,16 +522,36 @@ def cmd_trace(args) -> int:
         f"trace={dt:.0f}s  stops={res.stop_counts}"
     )
     _print_rows(rows)
+    plan.validate()
+    instances_output = None
+    report_permissions = replacement_mode(args.json_out) if args.json_out else None
     if args.save_instances:
-        with atomic_file(args.save_instances, "wb") as f:
+        # A partial publication must not leave an older report describing the
+        # newly replaced instance array. There is no multi-file transaction.
+        if args.json_out:
+            pathlib.Path(args.json_out).unlink(missing_ok=True)
+        with atomic_file(args.save_instances, "w+b") as f:
             np.save(f, inst, allow_pickle=False)
+            if args.json_out:
+                size = f.tell()
+                f.flush()
+                f.seek(0)
+                instances_output = {
+                    "path": str(pathlib.Path(args.save_instances).resolve()),
+                    "sha256": stream_sha256(f),
+                    "size_bytes": size,
+                    "shape": list(inst.shape),
+                    "dtype": inst.dtype.str,
+                }
         print(f"instances -> {args.save_instances}")
     if args.json_out:
+        plan.validate()
         write_json(
             args.json_out,
             {
                 "cube": args.cube,
                 "provenance": _measurement_provenance(data_dir, args.cube, args, gt),
+                "instances_output": instances_output,
                 "trace_parameters": asdict(trace_params),
                 "relink_parameters": asdict(relink_params)
                 if relink_params is not None
@@ -534,6 +575,7 @@ def cmd_trace(args) -> int:
                 "stop_counts": res.stop_counts,
                 "rows": rows,
             },
+            permissions=report_permissions,
         )
     return 0
 
@@ -577,6 +619,12 @@ def main(argv=None) -> int:
             )
         if name == "score":
             p.add_argument("--instances", required=True, help=".npy int labels")
+            p.add_argument(
+                "--max-instance-bytes",
+                type=int,
+                default=MAX_INSTANCE_BYTES,
+                help="maximum captured NPY file bytes (default: 2 GiB; not an RSS cap)",
+            )
             p.add_argument("--with-floors", action="store_true")
         if name == "trace":
             p.add_argument("--seed-percentile", type=float, default=85.0)
@@ -626,6 +674,10 @@ def main(argv=None) -> int:
             )
 
     args = ap.parse_args(argv)
+    if args.cmd == "score" and not 1 <= args.max_instance_bytes < sys.maxsize:
+        ap.error(
+            "--max-instance-bytes must be positive and below the system read limit"
+        )
     if args.cmd != "fetch":
         if not np.isfinite(args.tolerance) or args.tolerance < 0:
             ap.error("--tolerance must be finite and nonnegative")
@@ -666,4 +718,9 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        status = main()
+    except (OSError, ValueError) as exc:
+        print(f"Fiber benchmark failed: {exc}", file=sys.stderr)
+        status = 1
+    raise SystemExit(status)

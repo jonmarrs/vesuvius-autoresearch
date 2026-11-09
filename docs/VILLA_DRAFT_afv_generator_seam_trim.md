@@ -75,17 +75,17 @@ Against the same cubes run as one block, eight blocks reach 0.703 to 0.923 of it
 main, and 0.822 to 0.963 with the trim.
 
 **What it costs:** more crossings of the block faces are lost. Of 1,304 places where a fiber written from the cube as
-one block crosses a block face, 278 are lost with the trim against 172 on main. Whole ones rise from 853 to 884, and broken ones fall from
-279 to 142. The changes run both ways, and 176 crossings are chained only with the trim. Of the 198 crossings worse with
-the trim, 63 are joins main made that the trimmed copies miss. Three reasons come up most often, in about equal
-measure (a crossing can have more than one):
+one block crosses a block face, 278 are lost with the trim against 172 on main. Whole ones rise from 853 to 884, and
+broken ones fall from 279 to 142. The changes run both ways: of the 178 crossings better with the trim, 176 are chained
+only with it. Of the 198 crossings worse with the trim, 63 are joins main made that the trimmed copies miss. Three
+reasons come up most often, in about equal measure (a crossing can have more than one):
 * the trimmed overlap is shorter than `MIN_OVERLAP` (29);
 * one copy lies along the other but fails the strict duplicate test, so both stay unlinked (28);
 * another overlap at the same end makes the candidate ambiguous (27).
 
 In 125, the copies were never chained. A trimmed copy reaches 16 voxels past the face instead of 32. Where the
-neighbouring block's copies are short or miss the fiber, that stretch is no longer covered. Merge-penalized ERL counts
-both, and it rises on every cube.
+neighbouring block's copies are short or miss the fiber, that stretch is no longer covered. Merge-penalized ERL is
+scored against the hand tracing, not at these crossings, and it rises on every cube.
 
 **How often it bites:** on every zone larger than `--block-size` along any axis (the VC3D dialog shows "N blocks to
 process"). The dialog's default zone, 512³ at block 512, is one block and is not changed.
@@ -97,11 +97,13 @@ copies cost when using the output.]
 
 ## Details
 
-* **What ran:** the generator's own modules at villa main `7e6b82164` (`predict.predict_fibers`,
-  `splines.extract_splines`, `extend.stitch`, `cleanup.ExteriorBlack` and `cleanup.clean`), called block by block as
-  `cli.generate` calls them, not `cli.generate` itself. The measurement used the patch's first form, which keeps an
-  end only at the volume's border. On these cubes the zone is the whole volume, and there the two forms trim alike;
-  that was checked on 1,000 random blocks.
+* **What ran:** the #1934 head's pure-Python generator modules (`predict.predict_fibers`, `splines.extract_splines`,
+  `extend.stitch`, `cleanup.ExteriorBlack` and `cleanup.clean`), called block by block as `cli.generate` calls them,
+  not `cli.generate` itself. On every cube its `predict` and `extend` modules (`stitch`, `catalog`, `overlap`,
+  `candidates`, `expander`) were checked byte-identical to villa main `7e6b82164`'s. Its `cleanup` and `splines`
+  modules were not compared with main's; the head's `splines` predates #2440's switch to the native `vc_reader`. The
+  measurement used the patch's first form, which keeps an end only at the volume's border. On these cubes the zone
+  is the whole volume, and there the two forms trim alike; that was checked on 1,000 random blocks.
 * **Limits:**
   * Blocks of 256, not villa's default 512. A 512³ hand-traced cube has one inner face per axis only at 256.
   * 7.91 µm, finer than the model's 8.64–9.36 µm training pitch.

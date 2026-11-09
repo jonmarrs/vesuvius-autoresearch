@@ -45,3 +45,15 @@ run() {  # side, test files
   done
 } > "$OUT"
 echo "wrote $OUT"
+# run() keeps going whatever pytest does, so fail closed here: every side ran, and the patched side's new tests all pass.
+section() { awk -v t="== $1" '/^== /{on = ($0 == t); next} on' "$OUT"; }
+for side in before after; do
+  for part in "the new tests" "villa's other volume tests"; do
+    grep -qE '^[0-9]+ (passed|failed)' <<<"$(section "$side: $part")" || { echo "no pytest counts: $side: $part" >&2; exit 1; }
+  done
+done
+s="$(section "after: the new tests")"
+if ! grep -qE '^[0-9]+ passed' <<<"$s" || grep -qiE 'fail|error|skip' <<<"$s"; then
+  echo "the patched side's new tests did not all pass" >&2
+  exit 1
+fi

@@ -196,8 +196,42 @@ a working CUDA device.
 `--json-out` writes a report with `cube`, `provenance`, and `rows`; consumers of
 the former single-cube bare row dictionaries should now read `rows`. All-cube
 reports retain `cubes`, and add provenance to each cube. Trace reports also record
-the requested tracer parameters. Reports reject nonfinite JSON values and are
-replaced atomically after successful computation.
+the requested tracer parameters. Reports reject nonfinite JSON values. Each file
+is published atomically; a trace array and its report are not one transaction.
+
+Benchmark outputs are checked against CT, NML, semantic labels, model files,
+probability caches and scored instances before data/model work and again before
+publication. Reports and saved instances must have distinct paths; resolved
+aliases and existing inode identities cannot hide collisions. Output symlinks,
+directories and special files are refused. Existing safe report/instance files
+can still be refreshed. Keep input paths stable and serialize writers; these
+checks are not locks, cross-file snapshots or a rollback mechanism.
+
+`score` captures one regular NPY file, then parses and hashes those same bytes.
+The default capture limit is 2 GiB, including the header; use
+`--max-instance-bytes N` for a positive override below the system read limit.
+It is not an RSS/VRAM estimate: CT, semantic inference and scoring have their own
+memory costs. NPY versions 1–3, C/Fortran order, byte order and uint64 IDs are
+preserved. Only a complete nonnegative integer array matching the cube is
+accepted; object/structured arrays, NPZ, trailing bytes and malformed shapes
+are refused. The scored array is an immutable view of the capture. Reports keep
+`instances_sha256` and add `instances_path`, `instances_size_bytes` and
+`instances_dtype` in `provenance`. The digest identifies loaded bytes even if
+the path is replaced later; it does not promise the file remains unchanged.
+`candidate_row` identifies the candidate's key in `rows`. Normal filenames keep
+their stem as the key; a stem matching a requested floor row is prefixed with
+`candidate:` so floor insertion cannot overwrite the candidate's scores.
+
+When `trace` saves instances and a report, the report's `instances_output`
+records the published NPY path, SHA-256, size, shape and dtype; it is null when
+no NPY was requested. The selected old report is invalidated before replacing
+instances and written last, preserving its prior file permissions. An interrupted
+publication can leave instances without a report. Other unrequested report files
+are not managed. CLI data/path errors exit 1 with a concise diagnostic; invalid
+usage exits 2. Scoring version, tracer settings and metric definitions are unchanged.
+See the [artifact architecture review](DESIGN_ARCHITECTURE_REVIEW_FIBER_BENCHMARK.md)
+for reproductions and test scope. This change does not snapshot CT, NML, model
+and probability-cache contents together or establish scientific validity.
 
 Probability caches now require a sibling `<cube>_fiberprob.json` manifest. It
 records SHA-256 hashes of the image, `plans.json`, `dataset.json`, and checkpoint,

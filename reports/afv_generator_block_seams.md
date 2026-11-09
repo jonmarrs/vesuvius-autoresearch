@@ -105,7 +105,7 @@ voxels of its arclength on each side. Its window is that ±40 voxels of the fibe
   Whole crossings fall on two cubes, s3_01994_01494_00994_512 (82 to 73) and s3_04494_00994_01494_512 (118 to 91). On
   s3_04494_00994_01494_512, 19 crossings lose a join, the most of any cube, and 11 gain one. On
   s3_01994_01494_00994_512, 5 lose one and 4 gain one. On the other six cubes, 11 to 46 gain a join and 2 to 10 lose
-  one. ERLpen, which counts both, rises on all eight.
+  one. ERLpen, scored against the hand tracing and not at these crossings, rises on all eight.
 
 ## What it changes
 

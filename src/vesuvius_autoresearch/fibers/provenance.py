@@ -64,12 +64,13 @@ def inference_identity(img, model_dir, patch, device="cuda"):
 
 
 @contextmanager
-def atomic_file(path, mode="w"):
+def atomic_file(path, mode="w", *, permissions=None):
     """Write to a sibling temporary file, renamed over ``path`` once complete. The file keeps the mode of the one
-    it replaces, or a new one gets the umask's, not mkstemp's 0600."""
+    it replaces, or a new one gets the umask's, not mkstemp's 0600. An explicit
+    permissions value can retain a sidecar's mode after deliberate invalidation."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    permissions = replacement_mode(path)
+    permissions = replacement_mode(path) if permissions is None else permissions
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(fd, mode) as f:
@@ -81,7 +82,7 @@ def atomic_file(path, mode="w"):
             os.unlink(tmp)
 
 
-def write_json(path, value):
-    with atomic_file(path) as f:
+def write_json(path, value, *, permissions=None):
+    with atomic_file(path, permissions=permissions) as f:
         json.dump(value, f, indent=1, allow_nan=False)
         f.write("\n")

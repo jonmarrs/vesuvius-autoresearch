@@ -27,7 +27,7 @@ offers the tool. A PR follows only if a maintainer wants it.
 
 **In one sentence:** `tracing.volume` cuts a trace where it runs along a fiber already written, keeps `--overlap` points
 "for joining", and records which fibers each piece's ends touch, but nothing in villa joins the pieces. Splicing
-them by those links makes the traced fibers markedly longer, with no more merges.
+them by those links makes the traced fibers markedly longer, with barely more merges.
 
 **What happens now:** each written piece stays a separate fiber in the tiles, the fiber JSONs and `fibers.vcobj`. The
 module docstring says the overlaps are kept for joining, and `links` lets "overlapping pieces of one fiber ... be
@@ -43,8 +43,9 @@ joined later". No villa code reads `links` to do that.
 It uses only what the tracer already writes.
 
 **Measurement:** villa `ccb431818`'s volume tracer, `scrollprize/fiber_single_small` at its defaults, on ScrollGT's
-fiber cubes. Scores are ScrollGT's fiber scorer (version 3), against each cube's hand-traced fibers. The rule was
-registered before the ten cubes below were scored. Merge-penalized ERL, before → after:
+fiber cubes. Scores are ScrollGT's fiber scorer (version 3), against each cube's hand-traced fibers. The splice
+choice (the first two points) was registered before these ten cubes were scored; the polylines below were checked
+afterwards, not registered. Merge-penalized ERL, before → after:
 
 | cube | splices | ERLpen τ = 4 | ERLpen τ = 2 | merges τ = 2 | coverage τ = 2 |
 |---|---|---|---|---|---|

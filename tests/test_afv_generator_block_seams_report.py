@@ -231,6 +231,12 @@ def test_the_crossings_are_where_the_one_block_runs_fibers_cross():
         in draft
     )
     assert "hand-traced fiber crosses" not in flat(REPORT) + draft
+    # ERLpen is scored on the hand tracing; it does not count the crossings' outcomes (#373 caught "counts both")
+    assert "counts both" not in flat(REPORT) + draft
+    assert (
+        "Merge-penalized ERL is scored against the hand tracing, not at these crossings, and it rises on every cube."
+        in draft
+    )
 
 
 def test_the_lost_crossings_diagnosis():
@@ -324,7 +330,8 @@ def test_the_lost_crossings_diagnosis():
     )
     assert (
         all(x > 0 for x in gains(d, "real", "tol4"))
-        and "ERLpen, which counts both, rises on all eight." in t
+        and "ERLpen, scored against the hand tracing and not at these crossings, rises on all eight."
+        in t
     )
 
 
@@ -363,6 +370,7 @@ def test_the_title_registration_line_and_strategy_entry():
     n = sum(sum(r["real/main"]["crossings"].values()) for r in rows(d))
     assert f"lost ({lost[0]} to {lost[1]} of {n:,})" in strat
     e = json.loads(EVIDENCE.read_text())["totals"]["real"]
-    assert (f"the trim gains a join at {e['better_by_join']['chained only with the trim']} crossings and loses one at "
-            f"{e['worse_by_join']['chained only in main']}. At {e['worse_by_join']['chained in neither']} more, never "
-            "chained") in strat  # fmt: skip
+    better, worse = sum(e["better"].values()), sum(e["worse"].values())
+    assert (f"found that {e['better_by_join']['chained only with the trim']} of the {better} crossings the trim "
+            f"improves gain a join, and {e['worse_by_join']['chained only in main']} of the {worse} it worsens lose "
+            f"one. At {e['worse_by_join']['chained in neither']} more of those, never chained") in strat  # fmt: skip

@@ -185,3 +185,68 @@ def test_the_registrations_already_seen_figures_are_the_in_sample_records():
         f"{k['different']} of {known:,} ({100 * k['different'] / known:.1f}%) join two different reference fibers"
         in reg
     )
+
+
+def test_the_merge_claims_follow_from_the_merges():
+    """Summed held-out merges rose at tolerance 2 and fell at tolerance 4: the title says by how much at 2, nothing
+    says "no more merges", and "no rise in merges" is said of tolerance 4."""
+    d = record()
+    m2, rows = d["verdict"]["merges_tol2"], held(d)
+    m4 = {k: sum(r["tol4"][k]["merges"] for r in rows) for k in ("base", "splice")}
+    assert m2["splice"] > m2["base"] and m4["splice"] <= m4["base"]
+    title = REPORT.read_text().splitlines()[0]
+    assert (
+        f"with {100 * (m2['splice'] / m2['base'] - 1):.1f}% more merges at tolerance 2"
+        in title
+    )
+    t = flat(REPORT)
+    assert "no more merges" not in t.lower()
+    assert "no more wrong connections" not in t.lower()
+    pct4 = round(100 * d["verdict"]["median_gain"]["tol4"])
+    assert f"rises by {pct4}% at tolerance 4, with no rise in merges" in t
+
+
+def test_the_rule_and_the_borrowed_share():
+    d, t = record(), flat(REPORT)
+    assert f"within {d['settings']['splice_arc']:.0f} voxels of arclength" in t
+    off = json.loads(
+        (
+            ROOT / "reports/evidence/neural_tracer_offref_location_2026-11-05.json"
+        ).read_text()
+    )
+    share = off["summary"]["tol2"]["shares"]["gap_same"]
+    assert (
+        f"put {round(100 * share)}% of the tracer's tolerance-2 off-reference length there"
+        in t
+    )
+
+
+def test_the_registrations_link_counts_and_join_all_screen():
+    """The counts the registration says were taken on all 21 cubes, and its join-every-link screen (unrounded ERLpen,
+    as the splice figures above)."""
+    d, reg = record(), flat(REGISTRATION)
+    pc = d["per_cube"]
+    ends, linked = (
+        2 * sum(r["pieces"] for r in pc.values()),
+        sum(r["links"] for r in pc.values()),
+    )
+    assert f"{ends:,} piece ends in the 21 runs, {linked:,} of them linked" in reg
+    s3 = [pc[c]["pieces"] for c in ls.HELD_OUT if c.startswith("s3_")]
+    assert len(s3) == 8 and f"({min(s3):,} to {max(s3):,} pieces each)" in reg
+    rows = [pc[c] for c in ls.IN_SAMPLE]
+    g2 = [r["tol2"]["all"]["gain"] + 1 for r in rows]
+    g4 = [r["tol4"]["all"]["gain"] + 1 for r in rows]
+    m = re.search(r"median ERLpen ×([0-9.]+) at τ = 2 \(×([0-9.]+)–×([0-9.]+)\) and ×([0-9.]+) at\s+τ = 4 "
+                  r"\(×([0-9.]+)–×([0-9.]+)\)", reg)  # fmt: skip
+    assert m, "the registration's join-every-link sentence"
+    now = [
+        statistics.median(g2),
+        min(g2),
+        max(g2),
+        statistics.median(g4),
+        min(g4),
+        max(g4),
+    ]
+    assert all(
+        abs(float(a) - b) <= 0.0015 for a, b in zip(m.groups(), now, strict=True)
+    )

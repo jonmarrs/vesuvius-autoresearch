@@ -76,3 +76,10 @@ def test_the_table_and_precision():
         and b["median_gain_poly"] < b["median_gain_labelling"]
     )
     assert statistics.median([a["median_gain_poly"], b["median_gain_poly"]]) > 0
+
+
+def test_the_polylines_keep_most_of_the_gain():
+    s = json.loads(RECORD.read_text())["summary"]["held_out"]
+    assert "The polylines keep most of the gain." in section()
+    for t in ("tol2", "tol4"):
+        assert s[t]["median_gain_poly"] > 0.5 * s[t]["median_gain_labelling"]
