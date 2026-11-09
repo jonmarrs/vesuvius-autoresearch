@@ -201,3 +201,55 @@ def test_the_files_it_points_to_exist():
         r"`((?:scripts|docs|reports|repro)/[^`]+)`", DRAFT.read_text()
     ):
         assert (ROOT / rel).exists(), rel
+
+
+ZONE_RECORD = ROOT / "reports/afv_generator_default_zone.json"
+
+
+def test_how_often_it_bites_is_finding_107s_record():
+    """The default-block-size case: finding 107's 1024³ zone at block 512, and finding 106's coverage beside it."""
+    d, t = json.loads(ZONE_RECORD.read_text()), flat()
+    assert (
+        d["verdict"]["decision"] == "BITES_AT_DEFAULTS" and "`BITES_AT_DEFAULTS`" in t
+    )
+    r = d["result"]
+    m, p = r["rows"]["main"], r["rows"]["patched"]
+    assert (r["zone"], r["block"]) == (
+        1024,
+        512,
+    ) and f"centred on the cube `{r['cube']}`" in t
+    bites = t.split("**How often it bites:**", 1)[1].split(
+        "**Why / where this is useful:**", 1
+    )[0]
+    assert (f"{m['zone']['duplicated_share']:.3f} of main's written length lies beside a same-family copy. With the "
+            f"trim, {p['zone']['duplicated_share']:.3f} does. Fibers written fall from {m['zone']['written']:,} to "
+            f"{p['zone']['written']:,}.") in bites  # fmt: skip
+    g = [
+        100
+        * (
+            p["cube"][k]["erl_merge_penalized"] / m["cube"][k]["erl_merge_penalized"]
+            - 1
+        )
+        for k in ("tol4", "tol2")
+    ]
+    assert f"rises {g[0]:.1f}% at tolerance 4 and {g[1]:.1f}% at tolerance 2" in bites
+    assert (
+        f"fall from {m['cube']['tol2']['merges']} to {p['cube']['tol2']['merges']}"
+        in bites
+    )
+    c = 100 * (1 - p["cube"]["tol4"]["coverage"] / m["cube"]["tol4"]["coverage"])
+    assert f"Coverage falls {c:.1f}% at tolerance 4" in bites
+    R = rows()
+    assert all(
+        r6["real/patched"]["tol4"]["coverage"] < r6["real/main"]["tol4"]["coverage"]
+        and r6["real/main"]["tol4"]["coverage"] > r6["one/main"]["tol4"]["coverage"]
+        for r6 in R
+    )
+    back = [
+        r6["real/patched"]["tol4"]["coverage"] - r6["one/main"]["tol4"]["coverage"]
+        for r6 in R
+    ]
+    assert (
+        f"within {min(back):.3f} to +{max(back):.3f} of one block's".replace("-", "−")
+        in bites
+    )

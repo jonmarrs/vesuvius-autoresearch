@@ -15,6 +15,11 @@ from chains touching the cube's outer faces, which were the volume's edge in fin
 rejects a spline that leaves the array. The other 2 lie in the crop's last voxel plane, where a spline's end rounds
 5.7e-14 past the edge in one frame and onto it in the other (checked for one).
 
+**Pushed at 11:57 PST (904419d5) and amended at 17:45 PST (1f0f632a: the fetch converts the scan a slab at a time;
+nothing had been predicted). Run 18:21 PST on 11-08 to 11:48 PST on 11-09: finding 107,
+`reports/afv_generator_default_zone.md`. The gate passed, and P1, P2, P3 and P4 held (zone duplicated share 0.1203,
+0.4347 of it with the trim; ERLpen +16.0% at τ = 4; merges at τ = 2 92 → 82): `BITES_AT_DEFAULTS`.**
+
 ## The question
 
 Finding 106 measured the trim in blocks of 256 on 512³ cubes, because a hand-traced cube allows no smaller face count.
