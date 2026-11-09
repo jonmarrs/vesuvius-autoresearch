@@ -76,7 +76,8 @@ def test_invalid_cache_is_rebuilt_and_reused(fragment, monkeypatch, damage):
     elif damage == "partial_zip":
         path.write_bytes(b"PK\x03\x04")
     else:
-        invalid = {
+        # Annotated: mixed array dtypes in one dict otherwise infer as object.
+        invalid: np.ndarray = {
             "empty_coords": np.empty((0, 2), np.int32),
             "wrong_shape": np.array([0, 0], np.int32),
             "float_coords": np.array([[0.5, 0]], np.float32),
@@ -173,3 +174,25 @@ def test_cache_permission_error_is_not_hidden(fragment, monkeypatch):
     monkeypatch.setattr(np, "load", denied)
     with pytest.raises(PermissionError, match="injected read denial"):
         build()
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        # Two-dimensional, so only the column count refuses it; __getitem__
+        # would otherwise fail on the first sample rather than here.
+        np.array([[0, 0, 0]], np.int32),
+        np.array([[0, 17]], np.int32),  # x past the last patch start, y in range
+    ],
+    ids=["three_columns", "x_beyond_grid"],
+)
+def test_a_cache_of_the_wrong_width_or_x_range_is_rebuilt(fragment, invalid):
+    build, cache = fragment
+    expected = build()
+    path = next(cache.glob("valid_coords_*.npy"))
+    np.save(path, invalid, allow_pickle=False)
+    repaired = build()
+    np.testing.assert_array_equal(repaired.valid_coords, expected.valid_coords)
+    np.testing.assert_array_equal(
+        np.load(path, allow_pickle=False), expected.valid_coords
+    )

@@ -227,7 +227,9 @@ def parse_nml(path, origin_zyx=None, *, strict_edges=False) -> Skeleton:
         )
         scale = tuple(value * _SCALE_TO_UM[unit] for value in (sz, sy, sx))
         if not all(math.isfinite(value) and value > 0 for value in scale):
-            raise ValueError(f"{path}: scale in micrometers must be finite and positive")
+            raise ValueError(
+                f"{path}: scale in micrometers must be finite and positive"
+            )
 
     fibers: list[Fiber] = []
     thing_ids = set()

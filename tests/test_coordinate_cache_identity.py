@@ -302,3 +302,30 @@ def test_higher_precision_threshold_does_not_alias_a_float_cache(fragment, tmp_p
     for cache in [tmp_path / "shared", tmp_path / "fresh"]:
         with pytest.raises(ValueError, match="coverage"):
             dataset(fragment, cache, True, min_mask_ratio=0.0, min_ink_ratio=precise)
+
+
+@pytest.mark.parametrize(
+    "settings", [{"min_mask_ratio": True}, {"min_ink_ratio": False}]
+)
+def test_boolean_ratios_are_refused_like_a_boolean_patch_size(
+    fragment, tmp_path, settings
+):
+    # bool is a numbers.Real, so only the explicit check keeps True from meaning 1.
+    with pytest.raises(ValueError, match="coordinate-cache"):
+        dataset(fragment, tmp_path / "cache", True, **settings)
+
+
+def test_the_target_dtype_is_part_of_the_selection_identity(tmp_path):
+    from vesuvius_autoresearch.core.vesuvius_loader import _coordinate_cache_path
+
+    # The same bytes mean 255 as uint8 and -1 as int8, which a threshold can treat
+    # differently, so the two must not share coordinates.
+    unsigned = np.full((32, 32), 255, np.uint8)
+
+    def key(target):
+        return _coordinate_cache_path(
+            str(tmp_path), "ct.zarr", (4, 32, 32), 16, target, 0.5, 0.5
+        )
+
+    assert key(unsigned) != key(unsigned.view(np.int8))
+    assert key(unsigned) == key(unsigned.copy())
