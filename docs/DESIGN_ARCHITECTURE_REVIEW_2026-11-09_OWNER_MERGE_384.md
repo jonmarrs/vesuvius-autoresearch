@@ -66,7 +66,15 @@ The other three survivors need no test:
 
 ## Verification
 
-VERIFICATION
+- **The touched module passes.** `tests/test_fiber_fetch.py` gives 29 passed: 23 of #384's and 6 new. Each new test
+  fails with its guard removed.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed test file. Mypy is clean over the whole
+  repository: 931 files.
+- **The standard suite.** The 192 modules give round #153's 70 failing ids. #384 added one module.
+- **The test modules outside the suite.** The 250 modules give 2,366 passed, 82 skipped, 13 failed and 21 errors, as
+  in round #157. The failing ids are round #153's 34.
+- **The doc audit**, run alone, lists exactly round #157's unresolved references. It checks 2,226 path and 825 commit
+  references, against 2,225 and 822 then.
 
 ## A note on this round's work
 
