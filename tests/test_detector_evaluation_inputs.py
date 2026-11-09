@@ -389,3 +389,49 @@ def test_measurement_releases_target_arrays_before_loading_the_next_target(
     )
     assert all("error" not in row for row in rows.values()), rows
     assert all(ref() is None for ref in references)
+
+
+def test_an_input_alias_created_while_scoring_is_refused_before_publication(
+    fragment, monkeypatch
+):
+    # evaluate() checks its inputs when it starts; publication checks them again.
+    # An alias made after that first check, while scoring, is left to the second.
+    cfg, root, _ = fragment
+    evaluation = importlib.import_module("vesuvius_autoresearch.detector.eval")
+    score = evaluation.score_prediction
+
+    def alias(*args, **kwargs):
+        card = score(*args, **kwargs)
+        reports = Path(cfg.reports_dir)
+        reports.mkdir(exist_ok=True)
+        (reports / "frag_pred_thumb.png").hardlink_to(root / "frag_inklabels.png")
+        return card
+
+    monkeypatch.setattr(evaluation, "score_prediction", alias)
+    before = (root / "frag_inklabels.png").read_bytes()
+    with (
+        pytest.warns(RuntimeWarning),
+        pytest.raises(ValueError, match="artifact collision"),
+    ):
+        _score(cfg, "eval")
+    assert (root / "frag_inklabels.png").read_bytes() == before
+
+
+def test_the_measurement_table_shows_each_rows_coverage_counts(fragment):
+    cfg, _, _ = fragment
+    with pytest.warns(RuntimeWarning, match="uncovered"):
+        row = _score(cfg, "measure")
+    lines = (Path(cfg.reports_dir) / "cross_scroll_measurement.md").read_text()
+    lines = lines.splitlines()
+
+    def cells(line):
+        return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+    header = cells(next(line for line in lines if line.startswith("| fragment |")))
+    frag = cells(next(line for line in lines if line.startswith("| frag |")))
+    table = dict(zip(header, frag, strict=True))
+    coverage = row["prediction_coverage"]
+    assert (table["predicted_pixels"], table["uncovered_pixels"]) == (
+        str(coverage["predicted_pixels"]),
+        str(coverage["uncovered_pixels"]),
+    )

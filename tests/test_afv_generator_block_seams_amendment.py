@@ -6,12 +6,23 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
+import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
 
-FIBERS = Path(__file__).resolve().parents[1] / "repro/fibers"
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import afv_generator_block_seams as bs  # noqa: E402
+
+FIBERS = ROOT / "repro/fibers"
+AMENDMENT = (
+    ROOT / "docs/preregistration/2026-11-06_afv_generator_block_seams_amendment.md"
+)
+RECORD = ROOT / "reports/afv_generator_block_seams.json"
 REGISTERED = FIBERS / "villa_fiber_generator_trim_cut_ends_7e6b82164.patch"
 AMENDED = FIBERS / "villa_fiber_generator_trim_cut_ends_zone_7e6b82164.patch"
 STITCH = "vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py"
@@ -100,3 +111,12 @@ def test_a_one_block_zone_inside_the_volume_is_trimmed_only_by_the_registered_pa
         assert same(amended(traces, low, high, low, high), untrimmed)
         differ += not same(registered(traces, low, high, shape), untrimmed)
     assert differ > 150
+
+
+def test_what_the_amendment_had_seen_is_the_first_held_out_cube_s_one_block_row():
+    """The chain runs bs.HELD_OUT in order; the amendment quotes the one row its first cube had written."""
+    text, c = " ".join(AMENDMENT.read_text().split()), bs.HELD_OUT[0]
+    one = json.loads(RECORD.read_text())["cubes"][c]["rows"]["one/main"]
+    assert (f"`{c}`, had finished (main: {one['written']} fibers written; ERLpen "
+            f"{one['tol2']['erl_merge_penalized']:.2f} at τ = 2 and {one['tol4']['erl_merge_penalized']:.2f} at τ = 4)"
+            ) in text  # fmt: skip

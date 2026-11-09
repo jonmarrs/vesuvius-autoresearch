@@ -33,19 +33,26 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import re
 import shutil
 import sys
 import time
 import urllib.request
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 
 import numpy as np
 
+from vesuvius_autoresearch.core.file_capture import capture_bytes
+from vesuvius_autoresearch.core.file_modes import replacement_mode
+from vesuvius_autoresearch.fibers.benchmark_artifacts import (
+    MAX_INSTANCE_BYTES,
+    BenchmarkArtifactPlan,
+    read_instances,
+    read_probabilities,
+    validate_cache,
+)
 from vesuvius_autoresearch.fibers.provenance import (
     SCORING_VERSION,
     atomic_file,
-    file_sha256,
     inference_identity,
     stream_sha256,
     write_json,
@@ -95,10 +102,26 @@ def _load_cube(data_dir: pathlib.Path, cube: str, strict_nml=False):
     return img, gt
 
 
-def _fiber_prob(
-    data_dir: pathlib.Path, cube: str, img, model_dir, patch: int, device="auto"
+@dataclass(frozen=True)
+class ProbabilityResult:
+    """Probabilities and the captured inference record used for this measurement."""
+
+    probability: np.ndarray
+    record: dict
+    cache: dict = field(default_factory=dict)
+
+
+def _fiber_probability(
+    data_dir: pathlib.Path,
+    cube: str,
+    img,
+    model_dir,
+    patch: int,
+    device="auto",
+    refresh=False,
 ):
-    """Cached `fiber_hz_vt` probability for a cube."""
+    """Load or compute probabilities with their bound record and cache outcome."""
+    validate_cache(data_dir, cube, model_dir)
     from vesuvius_autoresearch.fibers.semantic import (
         fiber_probability,
         load_model,
@@ -120,22 +143,41 @@ def _fiber_prob(
     identity = inference_identity(img, model_dir, int(patch), device)
     cache = data_dir / f"{cube}_fiberprob.npy"
     meta = cache.with_suffix(".json")
-    if cache.exists() and meta.exists():
+    diagnostics: dict[str, str | None] = {
+        "status": "REFRESHED",
+        "reason": "explicit_refresh" if refresh else "missing_probability",
+        "cache_path": str(cache.resolve()),
+        "metadata_path": str(meta.resolve()),
+    }
+    if not refresh and cache.exists() and meta.exists():
         try:
-            record = json.loads(meta.read_text())
-            if record.get("inference") == identity and record.get(
-                "probability_sha256"
-            ) == file_sha256(cache):
-                fp = np.load(cache, allow_pickle=False)
-                if (
-                    fp.shape == img.shape
-                    and fp.dtype.kind == "f"
-                    and np.isfinite(fp).all()
-                    and np.all((fp >= 0) & (fp <= 1))
-                ):
-                    return fp.astype(float)
+            diagnostics["reason"] = "invalid_manifest"
+            _, captured = capture_bytes(meta, 1024**2)
+            record = json.loads(captured)
+            if not isinstance(record, dict) or not isinstance(
+                record.get("probability_sha256"), str
+            ):
+                raise ValueError("invalid probability manifest")
+            if record.get("inference") != identity:
+                diagnostics["reason"] = "inference_changed"
+            else:
+                diagnostics["reason"] = "invalid_probability"
+                fp, digest = read_probabilities(cache, img.shape)
+                diagnostics["reason"] = "digest_mismatch"
+                if record["probability_sha256"] == digest:
+                    diagnostics.update(status="HIT", reason=None)
         except (OSError, ValueError, TypeError, AttributeError):
             pass  # A corrupt/unattested cache must be recomputed, never trusted.
+        if diagnostics["status"] == "HIT":
+            if inference_identity(img, model_dir, int(patch), device) != identity:
+                raise ValueError("model or image changed during cache validation")
+            fp = fp.astype(float)
+            fp.setflags(write=False)
+            return ProbabilityResult(
+                fp, {"inference": identity, "probability_sha256": digest}, diagnostics
+            )
+    elif not refresh and cache.exists():
+        diagnostics["reason"] = "missing_metadata"
     model = load_model(model_dir, device=device)
     prob = predict_volume(
         model, img, patch_size=(patch, patch, patch), amp=device == "cuda"
@@ -145,19 +187,42 @@ def _fiber_prob(
         raise ValueError("fiber probabilities must match the source cube")
     if inference_identity(img, model_dir, int(patch), device) != identity:
         raise ValueError("model or image changed during fiber inference")
+    validate_cache(data_dir, cube, model_dir)
+    # A failed two-file publication must not leave an older manifest beside a
+    # replaced array. Inference failures above still preserve the prior pair.
+    permissions = replacement_mode(meta)
+    meta.unlink(missing_ok=True)
     with atomic_file(cache, "w+b") as f:
         np.save(f, fp, allow_pickle=False)
         f.flush()
         f.seek(0)
         digest = stream_sha256(f)
-    write_json(meta, {"inference": identity, "probability_sha256": digest})
-    return fp.astype(float)
+    record = {"inference": identity, "probability_sha256": digest}
+    write_json(meta, record, permissions=permissions)
+    fp = fp.astype(float)
+    fp.setflags(write=False)
+    return ProbabilityResult(fp, record, diagnostics)
 
 
-def _measurement_provenance(data_dir, cube, args, gt):
+def _fiber_prob(data_dir, cube, img, model_dir, patch, device="auto"):
+    """Compatibility API for research scripts expecting a writable float array."""
+    fp = _fiber_probability(data_dir, cube, img, model_dir, patch, device).probability
+    fp.setflags(write=True)
+    return fp
+
+
+def _print_probability_cache(result):
+    if result.cache:
+        reason = result.cache["reason"]
+        print(
+            f"probability cache: {result.cache['status']}"
+            + (f" ({reason})" if reason else "")
+        )
+
+
+def _measurement_provenance(args, gt, record):
     from vesuvius_autoresearch.fibers.detection import EIGENSOLVER_VERSION
 
-    record = json.loads((data_dir / f"{cube}_fiberprob.json").read_text())
     return {
         "scoring_version": SCORING_VERSION,
         "hessian_eigensolver_version": EIGENSOLVER_VERSION,
@@ -196,43 +261,43 @@ def _print_rows(rows: dict[str, dict]) -> None:
 
 
 def cmd_fetch(args) -> int:
-    if args.cube and not re.fullmatch(r"s\d+_\d+_\d+_\d+_\d+", args.cube):
-        raise ValueError("cube must be a stem such as s1_00497_01497_03997_256")
+    from vesuvius_autoresearch.fibers.dataset_fetch import (
+        MAX_LISTING_BYTES,
+        FetchPlan,
+        validate_cube,
+    )
+
+    validate_cube(args.cube)
     out = pathlib.Path(args.data_dir)
-    out.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(DATA_URL + "nml/", timeout=60) as listing:
-        content = listing.read().decode()
-    nmls = [
-        n
-        for n in re.findall(
-            r'href="([^"]+)"',
-            content,
+        content = listing.read(MAX_LISTING_BYTES + 1)
+        length = (
+            listing.headers.get("Content-Length")
+            if hasattr(listing, "headers")
+            else None
         )
-        if n.endswith(".nml")
-    ]
-    matched = False
-    for nm in nmls:
-        mm = re.fullmatch(r"fibers_(s\d)a?_(\d+)z_(\d+)y_(\d+)x_(\d+)_v\d+\.nml", nm)
-        if not mm:
+    if len(content) > MAX_LISTING_BYTES:
+        raise ValueError(f"dataset listing exceeds {MAX_LISTING_BYTES} bytes")
+    if length is not None and len(content) != int(length):
+        raise ValueError("incomplete dataset listing")
+    plan = FetchPlan.create(content.decode(), out, args.cube)
+    refresh, dry_run = getattr(args, "refresh", False), getattr(args, "dry_run", False)
+    for entry in plan.downloads:
+        plan.validate()
+        p, rel = entry.destination, entry.relative_url
+        reuse = not refresh and p.exists() and p.stat().st_size > 0
+        action = "REUSE" if reuse else "REPLACE" if p.exists() else "DOWNLOAD"
+        print(f"{action} {rel} -> {p}")
+        if reuse:
+            print(
+                "  existing nonempty file; source/content unverified (use --refresh to replace)"
+            )
+        if dry_run or reuse:
             continue
-        s, z, y, x, sz = mm.groups()
-        stem = f"{s}_{z}_{y}_{x}_{sz}"
-        if args.cube and args.cube != stem:
-            continue
-        matched = True
-        for rel, dst in [
-            (f"nml/{nm}", f"{stem}.nml"),
-            (f"imagesTr/{stem}_0000.tif", f"{stem}_image.tif"),
-            (f"labelsTr/{stem}.tif", f"{stem}_semantic.tif"),
-        ]:
-            p = out / dst
-            if p.exists() and p.stat().st_size > 0:
-                continue
-            t = time.time()
-            with (
-                urllib.request.urlopen(DATA_URL + rel, timeout=60) as source,
-                atomic_file(p, "wb") as dest,
-            ):
+        t = time.time()
+        with urllib.request.urlopen(DATA_URL + rel, timeout=60) as source:
+            plan.validate()
+            with atomic_file(p, "wb") as dest:
                 shutil.copyfileobj(source, dest)
                 if dest.tell() == 0:
                     raise ValueError(f"empty download: {rel}")
@@ -243,9 +308,11 @@ def cmd_fetch(args) -> int:
                 )
                 if length is not None and dest.tell() != int(length):
                     raise ValueError(f"incomplete download: {rel}")
-            print(f"  {dst}  {p.stat().st_size / 1e6:.0f} MB  {time.time() - t:.0f}s")
-    if args.cube and not matched:
-        raise ValueError(f"cube not found in dataset: {args.cube}")
+                plan.validate()
+        print(f"  {p.name}  {p.stat().st_size / 1e6:.0f} MB  {time.time() - t:.0f}s")
+    if dry_run:
+        print("dry run: no dataset files written")
+        return 0
     print(f"data in {out}")
     return 0
 
@@ -278,6 +345,7 @@ def _floors_all_cubes(args) -> int:
     than recomputed here, since this command only owns the floors."""
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
+    plan = BenchmarkArtifactPlan.create(args, "floors", CUBES)
     data_dir = pathlib.Path(args.data_dir)
     out_path = pathlib.Path(args.json_out) if args.json_out else None
     prior_cubes: dict = {}
@@ -299,12 +367,16 @@ def _floors_all_cubes(args) -> int:
     for cube in CUBES:
         t0 = time.time()
         img, gt = _load_cube(data_dir, cube, strict)
-        fp = _fiber_prob(data_dir, cube, img, args.model, args.patch, args.device)
+        probability = _fiber_probability(
+            data_dir, cube, img, args.model, args.patch, args.device, args.refresh_cache
+        )
+        _print_probability_cache(probability)
+        fp = probability.probability
         infer_s = round(time.time() - t0, 1)
         mask = fp >= args.mask_threshold
 
         rows = _floor_rows(ev, gt, img, mask, args.tolerance)
-        provenance = _measurement_provenance(data_dir, cube, args, gt)
+        provenance = _measurement_provenance(args, gt, probability.record)
         prior = prior_cubes.get(cube, {})
         prior_rows = prior.get("rows", {})
         if (
@@ -326,9 +398,11 @@ def _floors_all_cubes(args) -> int:
             "infer_s": infer_s,
             "rows": rows,
             "provenance": provenance,
+            "probability_cache": probability.cache,
         }
 
     if out_path:
+        plan.validate()
         write_json(out_path, report)
         print(f"report -> {out_path}")
     return 0
@@ -343,9 +417,20 @@ def cmd_floors(args) -> int:
 
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
+    plan = BenchmarkArtifactPlan.create(args, "floors", [args.cube])
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
-    fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
+    probability = _fiber_probability(
+        data_dir,
+        args.cube,
+        img,
+        args.model,
+        args.patch,
+        args.device,
+        args.refresh_cache,
+    )
+    _print_probability_cache(probability)
+    fp = probability.probability
     mask = fp >= args.mask_threshold
 
     rows = _floor_rows(ev, gt, img, mask, args.tolerance)
@@ -356,11 +441,13 @@ def cmd_floors(args) -> int:
         "mask, not the labelling. Rank on ERL and merges."
     )
     if args.json_out:
+        plan.validate()
         write_json(
             args.json_out,
             {
                 "cube": args.cube,
-                "provenance": _measurement_provenance(data_dir, args.cube, args, gt),
+                "provenance": _measurement_provenance(args, gt, probability.record),
+                "probability_cache": probability.cache,
                 "rows": rows,
             },
         )
@@ -370,20 +457,36 @@ def cmd_floors(args) -> int:
 def cmd_score(args) -> int:
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
+    plan = BenchmarkArtifactPlan.create(args, "score", [args.cube])
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
-    inst = np.load(args.instances, allow_pickle=False)
-    if inst.shape != img.shape:
-        print(f"ERROR: instances {inst.shape} != cube {img.shape}", file=sys.stderr)
-        return 2
+    inst, instance_identity = read_instances(
+        args.instances,
+        img.shape,
+        getattr(args, "max_instance_bytes", MAX_INSTANCE_BYTES),
+    )
     s = ev.score_tracing(gt, inst, tolerance=args.tolerance)
     row = s.as_row()
-    rows = {pathlib.Path(args.instances).stem: row}
+    candidate_row = pathlib.Path(args.instances).stem
+    if args.with_floors and candidate_row == "floor: connected components":
+        candidate_row = f"candidate:{candidate_row}"
+    rows = {candidate_row: row}
     floor_provenance = None
+    probability_cache = None
     print(f"cube={args.cube}  gt_fibers={len(gt)}  tolerance={args.tolerance}")
     _print_rows(rows)
     if args.with_floors:
-        fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
+        probability = _fiber_probability(
+            data_dir,
+            args.cube,
+            img,
+            args.model,
+            args.patch,
+            args.device,
+            args.refresh_cache,
+        )
+        _print_probability_cache(probability)
+        fp = probability.probability
         mask = fp >= args.mask_threshold
         floor_rows = {
             "floor: connected components": ev.score_tracing(
@@ -392,17 +495,20 @@ def cmd_score(args) -> int:
         }
         _print_rows(floor_rows)
         rows.update(floor_rows)
-        floor_provenance = _measurement_provenance(data_dir, args.cube, args, gt)
+        floor_provenance = _measurement_provenance(args, gt, probability.record)
+        probability_cache = probability.cache
     if args.json_out:
+        plan.validate()
         write_json(
             args.json_out,
             {
                 "cube": args.cube,
+                "candidate_row": candidate_row,
                 "provenance": {
                     "scoring_version": SCORING_VERSION,
                     "skeleton_sha256": gt.source_sha256,
                     "skeleton_parser": _skeleton_parser_provenance(args),
-                    "instances_sha256": file_sha256(args.instances),
+                    **instance_identity,
                     "tolerance": args.tolerance,
                     "step": 0.5,
                     "restrict_to_bounds": True,
@@ -410,6 +516,7 @@ def cmd_score(args) -> int:
                     "length_unit": "voxel",
                 },
                 "floor_provenance": floor_provenance,
+                "probability_cache": probability_cache,
                 "rows": rows,
             },
         )
@@ -417,6 +524,7 @@ def cmd_score(args) -> int:
 
 
 def cmd_trace(args) -> int:
+    plan = BenchmarkArtifactPlan.create(args, "trace", [args.cube])
     from vesuvius_autoresearch.fibers import eval_trace as ev
     from vesuvius_autoresearch.fibers.detection import (
         detect_vesselness,
@@ -435,7 +543,17 @@ def cmd_trace(args) -> int:
 
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube, getattr(args, "strict_nml", False))
-    fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
+    probability = _fiber_probability(
+        data_dir,
+        args.cube,
+        img,
+        args.model,
+        args.patch,
+        args.device,
+        args.refresh_cache,
+    )
+    _print_probability_cache(probability)
+    fp = probability.probability
 
     # Orientation from the probability field, not raw CT: measured 5x coverage.
     if args.detect_block:
@@ -501,16 +619,37 @@ def cmd_trace(args) -> int:
         f"trace={dt:.0f}s  stops={res.stop_counts}"
     )
     _print_rows(rows)
+    plan.validate()
+    instances_output = None
+    report_permissions = replacement_mode(args.json_out) if args.json_out else None
     if args.save_instances:
-        with atomic_file(args.save_instances, "wb") as f:
+        # A partial publication must not leave an older report describing the
+        # newly replaced instance array. There is no multi-file transaction.
+        if args.json_out:
+            pathlib.Path(args.json_out).unlink(missing_ok=True)
+        with atomic_file(args.save_instances, "w+b") as f:
             np.save(f, inst, allow_pickle=False)
+            if args.json_out:
+                size = f.tell()
+                f.flush()
+                f.seek(0)
+                instances_output = {
+                    "path": str(pathlib.Path(args.save_instances).resolve()),
+                    "sha256": stream_sha256(f),
+                    "size_bytes": size,
+                    "shape": list(inst.shape),
+                    "dtype": inst.dtype.str,
+                }
         print(f"instances -> {args.save_instances}")
     if args.json_out:
+        plan.validate()
         write_json(
             args.json_out,
             {
                 "cube": args.cube,
-                "provenance": _measurement_provenance(data_dir, args.cube, args, gt),
+                "provenance": _measurement_provenance(args, gt, probability.record),
+                "probability_cache": probability.cache,
+                "instances_output": instances_output,
                 "trace_parameters": asdict(trace_params),
                 "relink_parameters": asdict(relink_params)
                 if relink_params is not None
@@ -534,6 +673,7 @@ def cmd_trace(args) -> int:
                 "stop_counts": res.stop_counts,
                 "rows": rows,
             },
+            permissions=report_permissions,
         )
     return 0
 
@@ -547,6 +687,16 @@ def main(argv=None) -> int:
 
     f = sub.add_parser("fetch", help="download cube(s) from the public dataset")
     f.add_argument("--cube", help="stem, e.g. s1_00497_01497_03997_256; omit for all")
+    f.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show selected sources and reuse/replacement actions without writing dataset files",
+    )
+    f.add_argument(
+        "--refresh",
+        action="store_true",
+        help="replace existing files with the selected latest annotation, image and semantic labels",
+    )
     f.set_defaults(func=cmd_fetch)
 
     for name, fn, helptext in [
@@ -560,6 +710,11 @@ def main(argv=None) -> int:
         p.add_argument("--model", default="local_data/models/fiber_hz_vt")
         p.add_argument("--patch", type=int, default=128)
         p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+        p.add_argument(
+            "--refresh-cache",
+            action="store_true",
+            help="recompute fiber probabilities even when the cache matches (score requires --with-floors)",
+        )
         p.add_argument("--mask-threshold", type=float, default=0.5)
         p.add_argument("--json-out")
         p.add_argument(
@@ -577,6 +732,12 @@ def main(argv=None) -> int:
             )
         if name == "score":
             p.add_argument("--instances", required=True, help=".npy int labels")
+            p.add_argument(
+                "--max-instance-bytes",
+                type=int,
+                default=MAX_INSTANCE_BYTES,
+                help="maximum captured NPY file bytes (default: 2 GiB; not an RSS cap)",
+            )
             p.add_argument("--with-floors", action="store_true")
         if name == "trace":
             p.add_argument("--seed-percentile", type=float, default=85.0)
@@ -626,6 +787,12 @@ def main(argv=None) -> int:
             )
 
     args = ap.parse_args(argv)
+    if args.cmd == "score" and args.refresh_cache and not args.with_floors:
+        ap.error("--refresh-cache requires --with-floors for score")
+    if args.cmd == "score" and not 1 <= args.max_instance_bytes < sys.maxsize:
+        ap.error(
+            "--max-instance-bytes must be positive and below the system read limit"
+        )
     if args.cmd != "fetch":
         if not np.isfinite(args.tolerance) or args.tolerance < 0:
             ap.error("--tolerance must be finite and nonnegative")
@@ -666,4 +833,9 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        status = main()
+    except (OSError, ValueError) as exc:
+        print(f"Fiber benchmark failed: {exc}", file=sys.stderr)
+        status = 1
+    raise SystemExit(status)

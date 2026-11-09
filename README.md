@@ -314,6 +314,11 @@ successful requested ridge features. They fail on preprocessing errors instead
 of exporting zero-feature substitutes; a working CPU ridge fallback is allowed.
 See [read failures and preprocessing](docs/VOLUME_INFERENCE.md#read-failures-and-preprocessing).
 
+For CPU-only exploratory measurements on labeled NRRD cubes, see
+[Scan-quality diagnostics](docs/SCAN_QUALITY.md). It reports tie-aware CT
+separability, normalized texture features, correlations and explicit missing-data
+statuses; it does not establish a validated scan-quality score.
+
 For generic weighted tensor means and the status of the legacy First Title
 launcher, see [Ensemble voting](docs/ENSEMBLE_VOTING.md). Voting checks numerical
 compatibility; it does not establish accuracy or eliminate hallucinations.

@@ -155,3 +155,22 @@ def test_changed_descriptor_is_rejected_even_below_the_budget(
     with pytest.raises(ValueError, match="changed while capturing"):
         capture_bytes(path, 128)
     assert len(inspections) == 2
+
+
+def test_a_descriptor_that_under_reports_its_size_is_not_captured_truncated(
+    tmp_path, monkeypatch
+):
+    # Both inspections agree on a size smaller than the file. Only the captured
+    # length can show the difference; otherwise a truncated read would be kept.
+    path = tmp_path / "weights.pt"
+    path.write_bytes(b"0123456789")
+    fstat = os.fstat
+
+    def under_reported(descriptor):
+        info = list(fstat(descriptor))
+        info[stat.ST_SIZE] = 4
+        return os.stat_result(info)
+
+    monkeypatch.setattr(os, "fstat", under_reported)
+    with pytest.raises(ValueError, match="changed while capturing"):
+        capture_bytes(path, 128)

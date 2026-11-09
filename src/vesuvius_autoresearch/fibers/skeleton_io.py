@@ -9,6 +9,10 @@ connectivity metrics such as expected run length.
 Coordinate conventions, verified empirically against the shipped semantic labels
 (see `reports/fiber_tracing_step0_gt_survey.md`):
 
+- Physical `<scale>` values are normalized to micrometers, independently of
+  the voxel coordinates. An omitted unit means nanometers, per WebKnossos.
+  Common metric units (nm, µm, mm, cm, m, Å and their full names) are supported;
+  other units fail rather than being silently mislabeled.
 - The published NML `<node x= y= z=>` use integer voxel coordinates in
   **absolute scroll space**, matching the older 7.91 um scan frame. The reader
   also preserves finite fractional coordinates from other NML exports.
@@ -36,8 +40,23 @@ from pathlib import Path
 import numpy as np
 
 # Version 1 used attribute-order-sensitive regexes and integer coordinates.
+# Version 2 preserved graphs but treated every physical scale as micrometers.
 # Keep this separate from SCORING_VERSION: the metric formulas have not changed.
-NML_PARSER_VERSION = 2
+NML_PARSER_VERSION = 3
+_SCALE_TO_UM = {
+    "nanometer": 1e-3,
+    "nm": 1e-3,
+    "micrometer": 1.0,
+    "µm": 1.0,
+    "millimeter": 1e3,
+    "mm": 1e3,
+    "centimeter": 1e4,
+    "cm": 1e4,
+    "meter": 1e6,
+    "m": 1e6,
+    "angstrom": 1e-4,
+    "Å": 1e-4,
+}
 _STEM_RE = re.compile(
     r"^(?P<scroll>[a-z0-9]+)_(?P<z>\d+)_(?P<y>\d+)_(?P<x>\d+)_(?P<size>\d+)"
 )
@@ -198,10 +217,19 @@ def parse_nml(path, origin_zyx=None, *, strict_edges=False) -> Skeleton:
     if len(scales) > 1:
         raise ValueError(f"{path}: multiple scale elements are ambiguous")
     if scales:
+        # NML scale.unit defaults to nanometers; node positions remain voxels.
+        # https://docs.webknossos.org/webknossos/data/concepts.html#nml-files
+        unit = scales[0].get("unit", "nanometer")
+        if unit not in _SCALE_TO_UM:
+            raise ValueError(f"{path}: unsupported NML scale unit {unit!r}")
         sx, sy, sz = (
             _coordinate(scales[0], axis, path, "scale", positive=True) for axis in "xyz"
         )
-        scale = (sz, sy, sx)
+        scale = tuple(value * _SCALE_TO_UM[unit] for value in (sz, sy, sx))
+        if not all(math.isfinite(value) and value > 0 for value in scale):
+            raise ValueError(
+                f"{path}: scale in micrometers must be finite and positive"
+            )
 
     fibers: list[Fiber] = []
     thing_ids = set()

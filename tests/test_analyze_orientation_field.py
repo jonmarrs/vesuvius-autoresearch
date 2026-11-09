@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import analyze_orientation_field as aof  # noqa: E402
 
+from vesuvius_autoresearch.fibers import benchmark_artifacts  # noqa: E402
 from vesuvius_autoresearch.fibers.provenance import file_sha256  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("error::RuntimeWarning")
@@ -144,6 +145,35 @@ def test_a_volume_of_another_size_is_refused(src):
     (src / f"{STEM}_fiberprob.json").write_text(json.dumps(record))
     with pytest.raises(SystemExit, match="expected"):
         aof.run(STEM)
+
+
+def test_the_volume_and_its_digest_come_from_one_read(src, monkeypatch):
+    # Replace the cache file once it has been read. Measuring the replacement under
+    # the digest of the attested file would be measuring a volume nobody attested.
+    record = _cube(src)
+    path = src / f"{STEM}_fiberprob.npy"
+    attested = np.load(path).astype(float)
+
+    def replace():
+        np.save(path, np.zeros((SIZE,) * 3, np.float32))
+
+    load, capture = np.load, benchmark_artifacts.capture_bytes
+
+    def load_after_replacing(file, *args, **kwargs):
+        if Path(file) == path:
+            replace()
+        return load(file, *args, **kwargs)
+
+    def capture_then_replace(*args):
+        captured = capture(*args)
+        replace()
+        return captured
+
+    monkeypatch.setattr(np, "load", load_after_replacing)
+    monkeypatch.setattr(benchmark_artifacts, "capture_bytes", capture_then_replace)
+    prob, provenance = aof.probability(STEM)
+    np.testing.assert_array_equal(prob, attested)
+    assert provenance["probability_sha256"] == record["probability_sha256"]
 
 
 def _main(src, monkeypatch):
