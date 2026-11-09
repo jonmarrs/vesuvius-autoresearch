@@ -180,9 +180,10 @@ that passes as merged and fails with its guard removed.
 - **#369's villa patches.** Neither patch's villa tests ran here, and the amended patch's test helper could not be
   checked against villa's.
 - **#372: the direction of the old tie bias.** The old ranking put sheet samples first and broke ties by position, so
-  it deflated the AUC when sheets were the brighter class and inflated it when they were dimmer. On the same fixture, sheet brighter: old 0.686, new 0.739; sheet dimmer: old
-  0.782, new 0.729. If the papyrus is brighter in the 12 cubes, the historical 0.9946–0.9997 are lower bounds, and
-  "saturated" might survive the rerun. "Not validated" stays fair; the dated record is unchanged.
+  it deflated the AUC when sheets were the brighter class and inflated it when they were dimmer. On the same
+  fixture, sheet brighter: old 0.686, new 0.739; sheet dimmer: old 0.782, new 0.729. If the papyrus is brighter in the
+  12 cubes, the historical 0.9946–0.9997 are lower bounds, and "saturated" might survive the rerun. "Not validated"
+  stays fair; the dated record is unchanged.
 - **#372: the intensity standard deviation's `ddof`** is not stated or tested. At 256³ the difference is about
   3 × 10⁻⁸ relative. The recipe could say "population (ddof = 0)".
 - **#372: a MEASURED cube can have undefined features.** A flat CT cube scores AUC 0.5 with null gradient statistics,
