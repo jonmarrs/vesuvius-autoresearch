@@ -52,3 +52,14 @@ def test_hooks_never_sync_the_shared_environment():
     for entry in entries:
         if entry.startswith("uv run"):
             assert entry.startswith("uv run --no-sync"), entry
+
+
+def test_the_mypy_hook_checks_against_the_shared_environment():
+    # mypy is not locked; a user-installed one reads its own Python's packages
+    # (another numpy's stubs) unless pointed at the venv the code runs in.
+    import yaml
+
+    config = yaml.safe_load((REPO / ".pre-commit-config.yaml").read_text())
+    (mypy,) = [h for r in config["repos"] for h in r["hooks"] if h["id"] == "mypy"]
+    args = mypy["entry"].split()
+    assert args[args.index("--python-executable") + 1] == "./.venv/bin/python"

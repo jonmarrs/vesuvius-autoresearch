@@ -40,7 +40,11 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run --no-sync mypy . --explicit-package-bases --namespace-packages
+        # --python-executable: type-check against the locked packages in .venv. mypy is in
+        # neither pyproject.toml nor uv.lock, so `mypy` can be a user install under another
+        # Python; it then reads that Python's numpy (2.4.4 here, not the locked 2.2.6) and
+        # passed a np.save overload error that the venv's stubs report (fixed in #383).
+        entry: uv run --no-sync mypy . --explicit-package-bases --namespace-packages --python-executable ./.venv/bin/python
         language: system
         types: [python]
         pass_filenames: false
