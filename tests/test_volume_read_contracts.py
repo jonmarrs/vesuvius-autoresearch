@@ -271,6 +271,26 @@ def test_strict_policy_survives_pickling_and_legacy_states_remain_permissive(
     assert torch.all(legacy[0:4, 0:8, 0:8][1] == 0)
 
 
+def test_unpickled_strict_volume_checks_the_source_it_reopens(tmp_path, monkeypatch):
+    # A DataLoader worker unpickles the volume and reopens its source. A strict
+    # volume must check that reopened source, not trust the pickled shape.
+    pickled = pickle.dumps(_volume(tmp_path))
+    smaller = zarr.open(
+        str(tmp_path / "ct.zarr"), mode="w", shape=(2, 8, 8), chunks=(2, 4, 4)
+    )
+    smaller[:] = 128
+    reopened = pickle.loads(pickled)
+    assert reopened.shape == (2, 8, 8)
+    with pytest.raises(ValueError, match="within volume shape"):
+        reopened.read_ct(0, 0, 0, 4, 8, 8)
+
+    monkeypatch.setattr(
+        loader, "FastLocalVolume", lambda *args: SimpleNamespace(shape=(0, 8, 8))
+    )
+    with pytest.raises(ValueError, match="nonempty Z/Y/X volume"):
+        pickle.loads(pickled)
+
+
 @pytest.mark.parametrize("strict", [False, True])
 def test_unlabeled_read_errors_obey_the_selected_policy(tmp_path, monkeypatch, strict):
     volume = _volume(tmp_path)

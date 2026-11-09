@@ -250,7 +250,7 @@ def test_floor_refresh_only_preserves_rows_with_matching_import_provenance(
     record = {"inference": {"fixture": "toy"}, "probability_sha256": "toy"}
     (root / f"{stem}_fiberprob.json").write_text(json.dumps(record))
     args = argparse.Namespace(tolerance=0.0, mask_threshold=0.5, strict_nml=False)
-    provenance = bench_cli._measurement_provenance(root, stem, args, gt)
+    provenance = bench_cli._measurement_provenance(args, gt, record)
     if prior_policy == "legacy":
         provenance.pop("skeleton_parser")
     elif prior_policy == "old_parser":
@@ -276,7 +276,11 @@ def test_floor_refresh_only_preserves_rows_with_matching_import_provenance(
         )
     )
     monkeypatch.setattr(bench_cli, "CUBES", [stem])
-    monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *args: np.ones((8, 8, 8)))
+    monkeypatch.setattr(
+        bench_cli,
+        "_fiber_probability",
+        lambda *args: bench_cli.ProbabilityResult(np.ones((8, 8, 8)), record),
+    )
     assert (
         bench_cli.main(
             [
@@ -356,7 +360,7 @@ def test_strict_all_cubes_refuses_a_later_bad_graph_before_any_inference(
         return np.ones((8, 8, 8))
 
     monkeypatch.setattr(bench_cli, "CUBES", [stem, bad])
-    monkeypatch.setattr(bench_cli, "_fiber_prob", infer)
+    monkeypatch.setattr(bench_cli, "_fiber_probability", infer)
     output = root / "all.json"
     previous = json.dumps({"cubes": {}}).encode()
     output.write_bytes(previous)

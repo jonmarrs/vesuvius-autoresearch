@@ -44,7 +44,8 @@ def training_label_path(uri: str, config: ExperimentConfig) -> str:
 
     A `<segment>_pseudo.png` in pseudo_label_dir takes precedence over the
     volume's own labels (docs/PSEUDO_LABEL_HANDOFF.md). Its uncertain band (PNG
-    128) is a target like any other unless use_confidence_weight down-weights it,
+    128) is a target like any other unless use_confidence_weight excludes it
+    from the post-augmentation ink BCE/Dice losses,
     so a pseudo-label from pseudo_label_dir without it is refused rather than
     trained as ink 128/255.
     """

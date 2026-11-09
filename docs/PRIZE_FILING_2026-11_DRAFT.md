@@ -52,7 +52,7 @@ What this means here:
 
 * **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)).
   * **Done:** the rebase onto villa main `eab6108b9` (#2440 had moved the code around it) and the rewrite of its villa
-    tests for main's four-argument `ct_seed_heading`, our #360 (merged 2026-11-06). Those tests were run with the
+    tests for main's four-argument `ct_seed_heading`, our #360, merged 2026-11-06. Those tests were run with the
     native readers stubbed only.
   * **Still needed before posting:** `vc_reader` and `vc_object_store` built for villa main, villa's tests run against
     those builds, a GPU re-run of the two Scroll-5 cubes, and the owner's paragraph.
@@ -68,6 +68,16 @@ What this means here:
     and the owner writes its paragraph.
   * **A PR would also need** a run on an open-data volume, so villa's `fibers.vcobj` export can carry the spliced
     fibers.
+* **The seam trim** ([draft](VILLA_DRAFT_afv_generator_seam_trim.md), from
+  [finding 106](../reports/afv_generator_block_seams.md)). Where a block's border cuts a fiber, villa's automated fiber
+  generator (VC3D's **Generate automated fibers…**) writes both blocks' bent copies.
+  * **The measurement:** on eight held-out Scroll-3 cubes run in 8 blocks, trimming the cut ends raised ERLpen on
+    every cube, a median +12.8% at tolerance 4 and +7.1% at tolerance 2, with merges 439 → 386 at tolerance 2. Lost
+    face crossings rise, 172 → 278 of 1,304.
+  * **Form:** a PR, since it fixes villa's own active code. villa's limits (three open PRs, two code fixes a week)
+    rule it out before about 11-13, and whether to post it is the owner's decision.
+  * **Its case in practice is still missing.** VC3D's default zone is one block, where the trim changes nothing. A
+    1024³ zone at block 512 would show how often it bites (minutes on the GPU, the owner's decision).
 
 ## Filing-day checklist
 

@@ -1,4 +1,4 @@
-Finding 105: splicing villa's neural-tracer pieces where they overlap raises held-out ERLpen by a median 30% at tolerance 4 and 6.3% at tolerance 2, with no more merges (2026-11-05)
+Finding 105: splicing villa's neural-tracer pieces where they overlap raises held-out ERLpen by a median 30% at tolerance 4 and 6.3% at tolerance 2, with 1.2% more merges at tolerance 2 (2026-11-05)
 
 The result of `docs/preregistration/2026-11-05_neural_tracer_link_splice.md`, registered at a70e71ae (pushed
 18:45 PST) before any held-out cube's spliced labelling was scored. Run 18:45–19:49 PST on the CPU at nice 19, from the
@@ -37,7 +37,7 @@ labelling. Gains divide ScrollGT's rows, which give ERLpen to two decimals.
 * **At tolerance 4, ERLpen rises on all ten cubes,** by a median 0.302 (0.096 to 0.506). P3 held.
 * **At tolerance 2 it also rises on all ten,** but by a median 0.063 (0.030 to 0.198), under the 0.10 bar. P1, which
   decided at this tolerance, missed.
-* **No more wrong connections.** Summed merges went from 1,740 to 1,761 at tolerance 2 (+1.2%; P2 allowed 5%) and from
+* **Few more wrong connections.** Summed merges went from 1,740 to 1,761 at tolerance 2 (+1.2%; P2 allowed 5%) and from
   3,678 to 3,624 at tolerance 4. Of the 4,577 splices whose two pieces both touch the reference, 76 (1.7%) join two
   different reference fibers (P4 held). Another 927 splices join a piece that touches no reference fiber.
 * **The rule's restraint is what works.** Joining every link instead, chains or not, lowered the median held-out
