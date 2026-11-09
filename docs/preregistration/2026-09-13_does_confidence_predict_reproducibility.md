@@ -60,3 +60,13 @@ arm found.** Null by shuffling the agreement labels across bins, 1,000 times.
 ## Prediction
 
 **None registered.**
+
+## Implementation correction recorded 2026-11-09
+
+The original implementation approximated ink confidence with whole-cell mean
+probabilities weighted by ink counts, and did not enforce the count gate in
+code. Analysis version 2 measures saved ink pixels directly and enforces the
+registered count and three-binning gates. It also reports finite indeterminate
+results and plus-one Monte Carlo p-values. The original registration above is
+preserved; this records implementation corrections, not a new outcome or a
+re-run of the historical study. See [the current CLI/method](../CONFIDENCE_REPRODUCIBILITY.md).
