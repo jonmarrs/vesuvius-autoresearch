@@ -29,6 +29,12 @@ The other three are equivalent:
 - the fallback thresholds are a constant in the recipe;
 - an unclosed NPZ archive is collected anyway.
 
+### #368: mypy is clean again (`tests/test_coordinate_cache_publication.py`)
+
+#368's invalid-cache fixture picks an array from a dict of int32, float32 and uint64 arrays. mypy infers the dict's
+values as `object`, so `np.save` has no matching overload. With #368 merged, whole-repository mypy reported one error,
+where round #156 found none. An annotation (`invalid: np.ndarray`) fixes it; the module's tests are unchanged.
+
 ### #376: `skeleton_io.py` passes `ruff format` again
 
 The file was formatted before #376. Its new error line was too long, so committing it would fail the repository's
@@ -75,7 +81,21 @@ pre-commit `ruff-format` hook. It is now formatted; the change is layout only.
 
 ## Verification
 
-VERIFICATION
+- **The touched modules pass.**
+  - The two coordinate-cache modules give 65 passed, 5 of them new (three test functions).
+  - The NML modules give 79 passed and 4 skipped.
+  - Each new test fails with its guard removed.
+- **Ruff and mypy.**
+  - Ruff 0.9.10 `check` and `format` are clean on the three changed Python files.
+  - Mypy is clean over the whole repository: 929 files. Before the annotation it reported #368's one error.
+- **The standard suite.**
+  - On `ca3e61cd`, the 191 modules give round #153's 70 failing ids. #367 and #368 added four modules.
+  - On this branch they give the same 70.
+- **The test modules outside the suite.**
+  - The 250 modules give 2,366 passed, 82 skipped, 13 failed and 21 errors. The failing ids are round #153's 34.
+  - The pass count is round #156's 2,412 less the 46 tests in the two modules #368 moved into the suite.
+- **The doc audit**, run alone, lists exactly round #156's unresolved references. It checks 2,225 path and 822 commit
+  references, against 2,223 and 821 then.
 
 ## A note on this round's work
 
