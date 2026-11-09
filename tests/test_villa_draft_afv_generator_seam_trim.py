@@ -253,3 +253,14 @@ def test_how_often_it_bites_is_finding_107s_record():
         f"within {min(back):.3f} to +{max(back):.3f} of one block's".replace("-", "−")
         in bites
     )
+
+
+def test_the_default_zone_is_finding_107s_zone_and_block():
+    r, t = json.loads(ZONE_RECORD.read_text())["result"], flat()
+    zone, block = r["zone"], r["block"]
+    n = (zone // block) ** 3
+    assert (
+        f"on a {zone}³ zone of the Scroll-3 scan ({n} blocks of {block}) centred" in t
+    )
+    assert f"It ran a {zone}³ zone at block {block} on the CPU" in t
+    assert f"The {zone}³ zone used {block}, but it is one zone and one cube" in t
