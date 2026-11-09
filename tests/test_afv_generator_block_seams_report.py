@@ -3,6 +3,7 @@ record the chain's verdict step wrote once."""
 
 from __future__ import annotations
 
+import inspect
 import json
 import statistics
 import sys
@@ -183,7 +184,7 @@ def test_the_costs():
     )
     over = cov("real", "main", "one/main")
     assert (
-        f"a median {signed(statistics.median(over))} more of the reference than one block ({signed(min(over))} to {signed(max(over))})"
+        f"a median {signed(statistics.median(over))} more of the hand tracing than one block ({signed(min(over))} to {signed(max(over))})"
         in t
     )
     land = cov("real", "patched", "one/main")
@@ -206,6 +207,35 @@ def test_the_costs():
     assert (
         f"rises from a median {prec[0]:.4f} to {prec[1]:.4f} (one block: {prec[2]:.4f})"
         in t
+    )
+
+
+def test_the_crossings_are_where_the_one_block_runs_fibers_cross():
+    """run() takes the crossings from arm one's main fibers, not from the hand tracing; the report and the villa draft
+    say so."""
+    src = " ".join(inspect.getsource(bs.run).split())
+    assert (
+        'if arm == "one" and variant == "main": reference = (fibers, families)' in src
+    )
+    assert (
+        src.count("crossings(") == 1
+        and "crossings(reference[0], reference[1], n)" in src
+    )
+    draft = flat(ROOT / "docs/VILLA_DRAFT_afv_generator_seam_trim.md")
+    assert (
+        "A crossing is a place where a fiber of arm one (main) crosses a mid-plane"
+        in flat(REPORT)
+    )
+    assert (
+        "places where a fiber written from the cube as one block crosses a block face"
+        in draft
+    )
+    assert "hand-traced fiber crosses" not in flat(REPORT) + draft
+    # ERLpen is scored on the hand tracing; it does not count the crossings' outcomes (#373 caught "counts both")
+    assert "counts both" not in flat(REPORT) + draft
+    assert (
+        "Merge-penalized ERL is scored against the hand tracing, not at these crossings, and it rises on every cube."
+        in draft
     )
 
 
@@ -300,7 +330,8 @@ def test_the_lost_crossings_diagnosis():
     )
     assert (
         all(x > 0 for x in gains(d, "real", "tol4"))
-        and "ERLpen, which counts both, rises on all eight." in t
+        and "ERLpen, scored against the hand tracing and not at these crossings, rises on all eight."
+        in t
     )
 
 

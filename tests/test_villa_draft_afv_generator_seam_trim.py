@@ -95,7 +95,7 @@ def test_what_it_costs_is_the_diagnosis():
     }
     n = sum(x["main"].values())
     assert (
-        f"Of {n:,} places where a hand-traced fiber crosses a block face, {x['patched']['lost']} are lost with the "
+        f"Of {n:,} places where a fiber written from the cube as one block crosses a block face, {x['patched']['lost']} are lost with the "
         f"trim against {x['main']['lost']} on main. Whole ones rise from {x['main']['whole']} to "
         f"{x['patched']['whole']}, and broken ones fall from {x['main']['broken']} to {x['patched']['broken']}."
     ) in t
