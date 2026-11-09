@@ -42,7 +42,15 @@ what merge-penalized ERL is scored against.
 
 ## Verification
 
-VERIFICATION
+- **The touched module passes.** The report's tests give 9 passed. The added assertion fails on the text before #375.
+- **Ruff and mypy.** Ruff 0.9.10 `check` and `format` are clean on the changed test file. Mypy is clean over the whole
+  repository: 927 files.
+- **The standard suite.** The 187 modules give round #153's 70 failing ids.
+- **The test modules outside the suite.**
+  - The 252 modules give 2,412 passed, 82 skipped, 13 failed and 21 errors. The failing ids are round #153's 34.
+  - The one extra pass over round #155's 2,411 is #375's new test, since round #155 measured before merging #375.
+- **The doc audit**, run alone, lists exactly round #155's unresolved references. It checks 2,223 path and 821 commit
+  references, against 2,222 and 820 then.
 
 ## A note on this round's work
 
