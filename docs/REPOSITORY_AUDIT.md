@@ -97,6 +97,45 @@ item. This is an upstream change included in the follow-up, not a newly measured
 research result. Historical scientific artifacts and frozen Villa files were
 kept unchanged.
 
+## Labeling and registration follow-up
+
+This pass continues from `41f55bf7`, on the same audit branch.
+
+- **Prediction-to-label handoff:** inference writes `REGION_meta.json` beside
+  `REGION_ink.zarr`, but the label generator looked only for
+  `REGION_ink_meta.json`. Real producer fixtures reproduced acceptance of partial
+  prediction records and failure to record complete ones. The generator now
+  checks the canonical and legacy sidecars plus any explicitly selected record.
+  Contradictory or broken sidecars fail; recognized producer outputs require a
+  run sidecar, including after interrupted publication. Bare external map names
+  retain their documented caller-declared contract. Valid local file URIs are
+  normalized for source comparison, and all checked records are retained in label
+  provenance. These checks do not attest pixel contents or physical registration.
+- **Prediction input preflight:** incorrect shape or unsupported dtype could be
+  discovered after loading CT and the prediction. Metadata-only fixtures with
+  100,000-by-100,000 prediction planes now reject before either payload is read.
+  The labeling algorithm and intensity gates for supported inputs are unchanged.
+- **Skeleton work outside the cube:** edges wholly outside any cube axis are
+  skipped before recursive interpolation. Crossing and boundary-touching fixtures
+  retain the existing voxelization. One synthetic 1,000-pixel disjoint edge on a
+  3-by-4-by-5 cube allocated 2,571,721 traced Python bytes before culling and 4,073
+  afterward, both producing no labeled voxels. This is not a real-data throughput
+  or GPU measurement; long crossing edges still need a sampling budget.
+- **Placement gates:** the standalone tool could return zero offset with a NaN
+  score when every evaluation crop lacked foreground, and could report a reduced
+  search boundary as an interior peak. Both implementations now reject nonfinite
+  inputs and peaks pinned to requested/refinement bounds. The standalone tool
+  also enforces coarse/crop checks already present in the registration gate, and
+  uses the gate's nearest-neighbor resize lattice for odd dimensions. The gate's
+  existing OpenCV sampling is retained. Unsupported search geometry is named;
+  the standalone CLI returns status 2 without a score when placement is unknown.
+  The gate's deliberate `strict=False` diagnostic boundary behavior remains.
+  Existing historical placements were not remeasured.
+- **Portable regression coverage:** the retirement inverse test now uses a
+  sentinel fetch instead of slow live requests for a nonexistent segment. The
+  handoff, standalone placement, implementation-parity and synthetic registration
+  modules are included in the curated registry, which now contains 206 modules.
+
 ## Items for owner review
 
 The priority below is the suggested work order, not a claim that each item has
@@ -110,10 +149,12 @@ caused a measured scientific failure.
 | High | **Training-data onboarding is incomplete.** The [quick start](../README.md) expects fragment CT Zarrs and aligned labels, but explicitly states that no maintained command builds those directories. Archived downloaders fetch different inputs. | Choose a supported source/format and add a pinned download/conversion manifest plus one small verified example. Do not revive placeholder-producing archival downloaders as though they prepared the training recipe. |
 | High | **A clean checkout cannot run every research test successfully.** Some probe tests require the original private spiral corpus; render-equivalence and preserved-source tests require old Villa commit objects absent from a shallow pinned checkout. See [real-patch tests](../tests/test_probe_real_patch_scatter.py), [render-equivalence tests](../tests/test_check_render_equivalence.py) and [preserved-source tests](../tests/test_villa_preserved.py). | Decide which tests are portable unit tests and which are corpus/history integration checks. Add explicit fixtures/markers and a documented provision step without weakening their scientific assertions. Missing real data is not evidence that the underlying claims pass. |
 | Medium | **Regional GPU memory still scales with the whole region.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) allocate full-region GPU accumulators and keep ensemble members resident together. CPU tile enumeration is now lazy, but skipping uncertainty still skips that export's size budget. | Select a RAM/VRAM planning contract or accumulator-streaming design, then profile on the 4090. The [production path](../scripts/production_predict.py) is a batched alternative; no full-scroll peak-memory or throughput result was measured here. |
+| Medium | **Long crossing skeleton edges still have no interpolation budget.** The [label generator](../scripts/labeling/generate_fiber_labels.py) now culls disjoint edges, but a very long edge crossing the cube still recursively samples its entire extent. | Design clipping or bounded sampling with tests preserving the voxelization convention before replacing this path. The new culling fixture is not a bound for all annotation geometry. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Four historical JSON artifacts contain 30 nonfinite tokens.** [old queue](../reports/active_learning_queue.json) has 20 NaN uncertainty scores; [old detector card](../reports/detector/PHercParis2Fr143_scorecard.json), [interpolation result](../reports/interp_vs_labels.json) and [tracking-gap result](../reports/scorer_tracking_gap_descriptive.json) contain the others. | Keep these as historical evidence with explicit status, or regenerate into new versioned artifacts from retained inputs. Do not turn missing/undefined measurements into zeros or rewrite the old scores to make JSON valid. The old queue is not a usable ranking. |
-| Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
+| Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The root demo/evidence generators still use direct GPU imports and fixed output locations. | Inventory supported commands before splitting CPU/GPU/research extras. Decide whether to retain, port or archive the two root generators. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+| Lower | **Standalone frame diagnostics have unresolved numeric edge cases.** [scroll_frames](../tools/scroll_frames/scroll_frames.py) can parse an excessively large voxel-size string as infinity, and its bbox diagonal helper can retain NaN. This path was inspected but not repaired in this pass. | Specify finite numeric output/error handling, add malformed-metadata fixtures and carry the change through the standalone tool's publication workflow. The placement-check subtree changes in this PR also need upstream synchronization/release review. |
 | Lower | **No checked-in CI workflow enforces the checks.** `.github/` contains review/report templates but no workflow. | Choose a bounded CPU CI job and a separate opt-in data/GPU integration job. Set runtime/storage budgets before enabling broad historical tests on every push. |
 
 ## Verification record
@@ -231,3 +272,42 @@ The audit command returned status 1 because advisory records remain; this is
 not a passing security check.
 The GPU, missing data/history, GUI, wheel and real-data limitations above
 still apply.
+
+## Labeling and registration verification
+
+The final curated selection covers ten of the 206 registered modules and passed
+`320 passed, 10 skipped` in 19.12 seconds. The skips are the optional WebKnossos
+checks in the base review environment. A separate SDK run using WebKnossos 3.4.1
+and lock-constrained dependencies passed the entire fiber-label module:
+`67 passed` in 11.67 seconds, including those ten checks. An additional isolated
+retirement regression run passed `4 passed` in 0.91 seconds. These overlapping
+counts are not additive.
+
+The SDK dependencies were installed in a separate temporary directory. Combining
+that directory with the base review environment's newer Pydantic caused an
+import-time typing-extensions conflict, so the base and SDK checks were run
+separately. This does not constitute validation of a complete GPU lock install.
+
+Configured Mypy passed on 953 source files; Ruff check and format passed on all
+ten Python files changed in this pass. Smoke passed
+`9/11 passed, 2 skipped, 0 failed` in 13.0 seconds. Its skips still require local
+CT/ink labels. The full curated suite was not repeated for this pass. GPU,
+real-data placement remeasurement and standalone upstream publication remain
+outside the verified scope.
+
+The final documentation guards passed `138 passed, 1 skipped` in 30.80 seconds
+(the skip requires the original spiral corpus). File-mode guards passed
+`11 passed` in 3.45 seconds. Ruff check and format also passed across all 36
+Python files in the cumulative PR.
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py --match '*volumetric_label_contracts*' --match '*pseudo_label_prediction_handoff*' --match '*fiber_label_generation*' --match '*label_edit_proposals*' --match '*placement*' --match '*sota_register.py' --match '*sota_registration_gates*' --match '*sota_gt_register*' --match '*validation_runner*' -- --tb=short -o faulthandler_timeout=90
+
+env PYTHONPATH=src:/tmp/vesuvius-review-sdk OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_fiber_label_generation.py -q -rs --tb=short
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /workspace/.vesuvius-review-env/bin/python -m pytest tools/placement_check/test_placement_check.py tests/test_placement_impl_parity.py tests/test_sota_register.py tests/test_sota_registration_gates.py tests/test_sota_gt_register.py tests/test_retirement_shared.py -q --tb=short
+```
+
+The last command passed `92 passed` in 18.81 seconds. All scientific fixtures in
+these new regression checks are synthetic; no eligible scroll imagery or
+research measurement was produced or published.

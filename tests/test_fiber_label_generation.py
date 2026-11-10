@@ -339,6 +339,47 @@ def test_negative_fractional_skeleton_coordinates_do_not_leak_into_zero(generato
     assert not result.any()
 
 
+@pytest.mark.parametrize("axis", [0, 1, 2])
+@pytest.mark.parametrize("side", ["below", "above"])
+def test_skeleton_edges_outside_the_cube_are_culled_before_interpolation(
+    generator, monkeypatch, axis, side
+):
+    origin = np.array((10, 20, 30))
+    start, stop = origin + 1.0, origin + 2.0
+    start[axis] = origin[axis] - 1e9 if side == "below" else origin[axis] + 1e9
+    stop[axis] = start[axis] + 1
+    monkeypatch.setattr(
+        generator,
+        "_interpolate_adaptive",
+        lambda *a, **kw: pytest.fail("interpolated a disjoint annotation edge"),
+    )
+    result = generator._fill_volume_for_tree(tree(start, stop), (3, 4, 5), origin)
+    assert not result.any()
+
+
+@pytest.mark.parametrize(
+    ("start", "stop"),
+    [
+        ((-1, 1, 1), (6, 1, 1)),
+        ((0, 0, 0), (0, -1, 0)),
+        ((5, 0, 0), (5, 2, 2)),
+        ((0, -0.1, 1), (4, 3.1, 1)),
+    ],
+)
+def test_edge_culling_preserves_the_existing_voxelization(generator, start, stop):
+    origin = np.array((10, 20, 30))
+    shape = (3, 4, 5)
+    start, stop = np.array(start) + origin, np.array(stop) + origin
+    expected = np.zeros(shape, np.uint8)
+    for point in generator._interpolate_adaptive(start, stop):
+        local = point - origin
+        if np.all((local >= 0) & (local < np.array(shape[::-1]))):
+            x, y, z = local.astype(int)
+            expected[z, y, x] = 1
+    result = generator._fill_volume_for_tree(tree(start, stop), shape, origin)
+    np.testing.assert_array_equal(result, expected)
+
+
 def test_empty_skeleton_does_not_generate_corner_fibers(generator):
     result = generator._expand_and_vesselness(np.zeros((9, 10, 11), np.uint8), 2)
     assert not result.any()

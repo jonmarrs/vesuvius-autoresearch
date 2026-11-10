@@ -5,6 +5,7 @@ ICP with Umeyama updates. No dependence on undocumented scan-frame conventions."
 
 import json
 import os
+from numbers import Integral
 
 import cv2
 import numpy as np
@@ -399,8 +400,30 @@ def placement_peak(label, reference, max_shift=256, coarse=4, refine=8, strict=T
     Probes that map placement over many tiles pass ``strict=False`` and read the clamp.
     """
 
+    for name, value, minimum in (
+        ("max_shift", max_shift, 1),
+        ("coarse", coarse, None),
+        ("refine", refine, 0),
+    ):
+        if (
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, Integral)
+            or (minimum is not None and value < minimum)
+        ):
+            raise ValueError(f"placement_peak: invalid integer {name}: {value!r}")
+    max_shift, coarse, refine = int(max_shift), int(coarse), int(refine)
+
     def _binarise(x, what):
         x = np.asarray(x)
+        if (
+            x.ndim != 2
+            or not x.size
+            or x.dtype.kind not in "buif"
+            or not np.isfinite(x).all()
+        ):
+            raise ValueError(
+                f"placement_peak: {what} must be a nonempty finite real 2-D image"
+            )
         # Accept bool masks as-is. Thresholding a bool array at >127 yields all-False,
         # which would make every comparison degenerate and return a PERFECT (0, 0) --
         # a gate silently passing on garbage input. Guard it explicitly.
@@ -442,6 +465,8 @@ def placement_peak(label, reference, max_shift=256, coarse=4, refine=8, strict=T
     ds = max(int(coarse), 1)
     if ds > 1:
         small = (a.shape[0] // ds, a.shape[1] // ds)
+        if min(small) < 1:
+            raise ValueError("placement_peak: coarse exceeds the image dimensions")
         a_s = (
             cv2.resize(a.astype(np.uint8), small[::-1], interpolation=cv2.INTER_NEAREST)
             > 0
@@ -473,6 +498,10 @@ def placement_peak(label, reference, max_shift=256, coarse=4, refine=8, strict=T
     margin = max_shift + refine + 2
     if min(a.shape) <= 2 * margin + 2:
         margin = max(min(a.shape) // 4, 1)
+    if refine > margin:
+        raise ValueError(
+            "placement_peak: image is too small for refine; reduce refine/coarse"
+        )
     clipped = (
         int(np.clip(cy, -margin + refine, margin - refine)),
         int(np.clip(cx, -margin + refine, margin - refine)),
@@ -490,6 +519,14 @@ def placement_peak(label, reference, max_shift=256, coarse=4, refine=8, strict=T
         raise PlacementNotLocated(
             "placement_peak: no shift agrees at all at full resolution; the placement is "
             "unknown"
+        )
+    refinement_boundary = refine > 0 and (
+        abs(by - cy) == refine or abs(bx - cx) == refine
+    )
+    if strict and (max(abs(by), abs(bx)) >= max_shift or refinement_boundary):
+        raise PlacementNotLocated(
+            f"placement_peak: peak reached a search boundary at ({by}, {bx}); "
+            "increase max_shift/refine or use a larger image; the placement is unknown"
         )
 
     h, w = a.shape

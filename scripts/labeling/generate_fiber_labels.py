@@ -90,6 +90,13 @@ def _fill_volume_for_tree(tree, output_shape, origins=(0, 0, 0)):
         node2_pos = np.array([node2.position.x, node2.position.y, node2.position.z])
         if not np.isfinite([node1_pos, node2_pos]).all():
             raise ValueError("skeleton coordinates must be finite")
+        # An entire edge outside any cube axis cannot contribute a voxel.
+        # Cull before recursively allocating samples in surrounding annotation
+        # context; keep the existing interpolation for intersecting bounds.
+        if np.any(np.maximum(node1_pos, node2_pos) < origins) or np.any(
+            np.minimum(node1_pos, node2_pos) >= origins + bounds_xyz
+        ):
+            continue
         for point in _interpolate_adaptive(node1_pos, node2_pos):
             local = point - origins
             if np.all((local >= 0) & (local < bounds_xyz)):

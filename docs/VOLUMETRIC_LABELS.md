@@ -41,14 +41,25 @@ origin translation. The existing evidence validator checks its dimensions,
 scale, axes, and translation. Other OME compositions or OME predictions missing
 producer metadata fail; no mapping from an unfamiliar frame is guessed.
 
-The conventional sibling `PRED_STEM_meta.json` is checked when present. Use
-`--prediction-metadata /data/custom-run.json` for a custom run-metadata location.
+For a producer artifact `REGION_ink.zarr`, the canonical run sidecar is
+`REGION_meta.json`. A matching run sidecar is required for this producer layout;
+an interrupted export without one is not assumed complete. Use
+`--prediction-metadata /data/custom-run.json` for a custom location.
+The older array-stem spelling `REGION_ink_meta.json` is also recognized.
+Every existing conventional sidecar is checked alongside an explicit one, so
+selecting another file cannot hide a contradictory or partial record. Broken
+sidecar links fail rather than count as absent. Other bare-map names retain the
+caller-declared coverage contract when no run metadata exists.
 Run metadata must identify the same source, prediction artifact, bbox origin,
 and dimensions, and explicitly record `prediction_complete=true` and
 `coverage_fraction=1`. Inference shards and contradictory metadata fail before
 publication. Metadata checking is a provenance check, not a rescan of model
 inference or a content attestation. Source paths should be recorded as absolute
 paths; relocated artifacts need corrected, verified provenance.
+Local `file://` source URIs are normalized when comparing producer metadata with
+the CT source. Prediction shape and dtype are checked before prediction pixels
+or the CT bbox are read; a wrong full-scroll map is not loaded to discover a
+bbox mismatch.
 
 The initial mask is the intersection of the 2D probability gate and CT gate:
 
