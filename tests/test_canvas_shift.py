@@ -444,3 +444,142 @@ def test_cli_help_exits_zero():
     with pytest.raises(SystemExit) as help_exit:
         main(["--help"])
     assert help_exit.value.code == 0
+
+
+def test_window_centre_is_the_mean_of_its_pixel_indices():
+    """y + height/2 is half a pixel past the last included pixel when height is even."""
+    image = _texture(80, 80, seed=13)
+    found = measure_shift(image, image, (10, 12, 20, 8), max_shift=8)
+    assert found["y"] == pytest.approx(10 + (20 - 1) / 2.0)
+    assert found["x"] == pytest.approx(12 + (8 - 1) / 2.0)
+
+
+def test_a_dropped_cross_term_is_refit_into_the_intercept():
+    """Zeroing cy and keeping the joint intercept would leave its 0.1 px mean out."""
+
+    def _dy(y, x):
+        return 5.0 + 0.01 * y + 0.00001 * x
+
+    points = [(0.0, 0.0), (0.0, 10000.0), (1000.0, 0.0), (1000.0, 10000.0)]
+    fitted = fit_shift(
+        [{"y": y, "x": x, "dy": _dy(y, x), "dx": 1.0} for y, x in points]
+    )
+    assert fitted["model"] == "linear"
+    assert fitted["cy"] == 0.0
+    assert fitted["sy"] == pytest.approx(0.01)
+    assert fitted["ay"] == pytest.approx(5.05)
+    assert fitted["ax"] == pytest.approx(1.0)
+    assert fitted["sx"] == 0.0 and fitted["cx"] == 0.0
+
+
+def test_nonzero_cross_terms_round_trip_through_the_remap():
+    """A label pixel and a float texture both come back with cy and cx set."""
+    canvas = np.zeros((64, 64), np.uint8)
+    canvas[10, 20] = 255
+    with pytest.warns(UserWarning, match="nearest"):
+        out = resample_to_tifxyz(
+            canvas, ay=1.0, sy=0.0, ax=2.0, sx=0.0, cy=0.05, cx=0.1
+        )
+    assert out[12, 23] == 255
+    assert int(out.sum()) == 255
+
+    texture = _texture(80, 80, seed=14)
+    ay, sy, cy = 1.5, 0.01, 0.004
+    ax, sx, cx = -1.0, -0.008, 0.003
+    surface = _independent_surface(texture, ay, sy, ax, sx, cy=cy, cx=cx)
+    warped = resample_to_tifxyz(texture, ay, sy, ax, sx, cy=cy, cx=cx)
+    interior = np.s_[8:72, 8:72]
+    residual = np.abs(warped[interior] - surface[interior])
+    assert float(np.percentile(residual, 95)) < 0.15
+
+
+def test_a_large_correction_leaves_only_the_held_out_subpixel():
+    """Held-out w01's second search was -1.31 level-0 px, which is 0.33 px at level 2.
+
+    A synthetic sheet with a large constant shift must come back inside that
+    leftover. The second peak is not another undiscovered offset.
+    """
+    canvas = _texture(140, 140, seed=15)
+    surface = _independent_surface(canvas, ay=28, sy=0, ax=-16, sx=0)
+    window = (36, 36, 40, 40)
+    found = measure_shift(surface, canvas, window, max_shift=32, px_scale=4)
+    assert found["dy"] == pytest.approx(28, abs=0.35)
+    assert found["dx"] == pytest.approx(-16, abs=0.35)
+    corrected = resample_to_tifxyz(
+        canvas, ay=float(found["dy"]), sy=0.0, ax=float(found["dx"]), sx=0.0
+    )
+    again = measure_shift(surface, corrected, window, max_shift=32, px_scale=4)
+    assert abs(float(again["dy0"])) < 1.5
+    assert abs(float(again["dx0"])) < 1.5
+    assert again["ncc"] > 0.9
+
+
+def test_an_integer_label_stays_binary_unless_linear_is_requested():
+    label = np.zeros((32, 32), np.uint8)
+    label[:, 16:] = 255
+    with pytest.warns(UserWarning, match="nearest"):
+        kept = resample_to_tifxyz(label, ay=0.0, sy=0.0, ax=0.5, sx=0.0)
+    assert set(np.unique(kept)).issubset({0, 255})
+    blended = resample_to_tifxyz(label, ay=0.0, sy=0.0, ax=0.5, sx=0.0, nearest=False)
+    assert not set(np.unique(blended)).issubset({0, 255})
+
+
+def test_cli_labels_the_image_space_fit_beside_level0_centres(tmp_path, capsys):
+    image = _texture(96, 96, seed=16)
+    path = tmp_path / "image.npy"
+    np.save(path, image)
+    code = main(
+        [
+            str(path),
+            str(path),
+            "--window",
+            "20",
+            "24",
+            "32",
+            "32",
+            "--max-shift",
+            "8",
+            "--px-scale",
+            "4",
+            "--origin",
+            "1000",
+            "2000",
+        ]
+    )
+    assert code == 0
+    text = capsys.readouterr().out
+    assert "in image pixels" in text
+    assert "not the level-0 centres" in text
+    assert "image center (35.50, 39.50)" in text
+    assert "level-0 center (1142.0, 2158.0)" in text
+
+
+def test_cli_resamples_an_integer_label_with_nearest(tmp_path):
+    label = np.clip(_texture(96, 96, seed=17) * 40 + 128, 0, 255).astype(np.uint8)
+    surface = resample_to_tifxyz(label.astype(np.float32), ay=4, sy=0, ax=-3, sx=0)
+    surface_path = tmp_path / "surface.npy"
+    label_path = tmp_path / "label.npy"
+    out_path = tmp_path / "out.npy"
+    np.save(surface_path, surface)
+    np.save(label_path, label)
+    with pytest.warns(UserWarning, match="nearest"):
+        code = main(
+            [
+                str(surface_path),
+                str(label_path),
+                "--window",
+                "20",
+                "20",
+                "40",
+                "40",
+                "--max-shift",
+                "12",
+                "--out",
+                str(out_path),
+            ]
+        )
+    assert code == 1
+    saved = np.load(out_path)
+    # Nearest keeps label values whole. The border fill is 0. Bilinear would
+    # put fractional gray on the half-pixel edges of this shift.
+    assert np.all(np.mod(saved, 1) == 0)

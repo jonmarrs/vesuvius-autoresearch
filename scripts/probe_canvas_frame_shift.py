@@ -12,6 +12,10 @@ tifxyz cells, and the shift is reported in level-0 pixels. The search is
 
 Nothing here is fetched from upstream Villa. The bytes come from the public
 Hugging Face ink bucket and the public CT zarr used in that issue.
+
+The shift itself comes from ``canvas_shift``. That high-pass is a masked box
+mean, not the published Gaussian of sigma 4 with a local standard deviation
+and a supervision-mask. See that module's docstring.
 """
 
 from __future__ import annotations
@@ -407,13 +411,23 @@ W01_WINDOWS = (
 W01_HELDOUT = ("heldout", 46016 - 256, 27008 - 256, 256)
 
 
-def _report(name: str, row: dict, expected: tuple[float, float] | None) -> dict:
+def _report(
+    name: str,
+    row: dict,
+    expected: tuple[float, float] | None,
+    *,
+    expected_note: str | None = None,
+) -> dict:
+    suffix = ""
+    if expected is not None:
+        suffix = f" expected ({expected[0]:.2f}, {expected[1]:.2f})"
+        if expected_note:
+            suffix += f" [{expected_note}]"
     print(
         f"{name} centre ({row['centre'][0]:.1f}, {row['centre'][1]:.1f}) "
         f"measured ({row['dy0']:.2f}, {row['dx0']:.2f}) ncc {row['ncc']:.3f} "
         f"after ({row['after_dy0']:.2f}, {row['after_dx0']:.2f}) ncc {row['after_ncc']:.3f} "
-        f"finite {row['finite']:.3f}"
-        + (f" expected ({expected[0]:.2f}, {expected[1]:.2f})" if expected else ""),
+        f"finite {row['finite']:.3f}" + suffix,
         flush=True,
     )
     return {
@@ -428,6 +442,7 @@ def _report(name: str, row: dict, expected: tuple[float, float] | None) -> dict:
         "after_ncc": row["after_ncc"],
         "expected_dy": None if expected is None else expected[0],
         "expected_dx": None if expected is None else expected[1],
+        "expected_note": expected_note,
     }
 
 
@@ -492,7 +507,20 @@ def main(argv: list[str] | None = None) -> int:
     if which in ("w01-heldout", "all"):
         name, y0, x0, margin = W01_HELDOUT
         row = measure_window(W01, y0, x0, 512, margin)
-        rows.append(_report("w01 held-out", row, (207.68, -92.86)))
+        # 207.68 / -92.86 is the readme's printed prediction at the integer
+        # index (46016, 27008), not the formula at this window's pixel centre.
+        at_centre = _published_w01(*row["centre"])
+        rows.append(
+            _report(
+                "w01 held-out",
+                row,
+                at_centre,
+                expected_note=(
+                    "published formula at this centre; "
+                    "readme at integer index (46016, 27008) is (207.68, -92.86)"
+                ),
+            )
+        )
         _overlay(row, artifact / "w01_heldout_before_after.png")
     if which not in ("w018", "w01", "w01-heldout", "all"):
         print(

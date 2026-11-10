@@ -14,6 +14,16 @@ that for the source pixel. ``px_scale`` turns a coarser lattice into level-0
 pixels (4 for a level-2 pair). Non-finite samples are tifxyz holes and are
 left out of the correlation.
 
+This is not the published measurer's filter. That one subtracts a masked
+Gaussian mean (sigma 4 level-2 pixels), divides by the local standard
+deviation, and scores NCC on an explicit supervision mask. This one subtracts
+a masked box mean (default width 31, holes left as NaN so they do not darken
+a neighbour) and does not divide by the local standard deviation. The NCC
+mask is "finite", not the supervision zarr. A window with fewer than 100
+finite pixels can still be scored here; the published map requires 100.
+Integer labels are resampled with nearest neighbor so 0/255 stays 0/255.
+A float label is blended unless the caller passes ``nearest=True``.
+
 ``sample_tifxyz`` and ``sample_volume_trilinear`` build the surface the
 correlation compares against the canvas: CT sampled at the tifxyz cells.
 Fetching the bytes is the caller's job.
@@ -32,6 +42,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import warnings
 from collections.abc import Sequence
 from numbers import Integral
 from pathlib import Path
@@ -369,8 +380,11 @@ def measure_shift(
         float(response[row, col - 1]), peak, float(response[row, col + 1])
     )
     scale = float(px_scale)
-    center_y = y + height / 2.0
-    center_x = x + width / 2.0
+    # Mean of the integer pixel coordinates inside the window. y + height/2
+    # sits half a pixel past that, on the far edge of the last included pixel
+    # when the height is even.
+    center_y = y + (height - 1) / 2.0
+    center_x = x + (width - 1) / 2.0
     return {
         "y": center_y,
         "x": center_x,
@@ -414,37 +428,55 @@ def _separable_slope(positions: np.ndarray, shifts: np.ndarray) -> tuple[float, 
 def _affine_terms(
     ys: np.ndarray, xs: np.ndarray, shifts: np.ndarray
 ) -> tuple[float, float, float]:
-    """``shift = a + b*y + c*x``. Cross terms stay once the axis actually drifts.
+    """``shift = a + b*y + c*x``. A dropped term is removed and the rest are refit.
 
     Two points cannot identify both slopes, so the caller uses the separable
     fit there. Three or more points use this fit. If the fitted values only
-    wander by under a pixel, the whole axis collapses to their mean. Otherwise
-    every identified coefficient is kept, including a cross term whose own
-    share is a fraction of a pixel.
+    wander by under a pixel, the whole axis collapses to their mean. A
+    coefficient whose own change across the span is under ``COEF_FLOOR_PX``
+    is dropped. Zeroing it and keeping the joint intercept would leave that
+    term's mean in the intercept, about a tenth of a pixel, so the remaining
+    terms are fit again.
     """
-    columns = [np.ones(len(ys))]
-    used = ["a"]
+    names: list[str] = []
+    columns: list[np.ndarray] = []
     if _span(ys) > 0.0:
+        names.append("y")
         columns.append(ys)
-        used.append("y")
     if _span(xs) > 0.0:
+        names.append("x")
         columns.append(xs)
-        used.append("x")
-    if len(used) == 1 or len(ys) < len(used):
+    if not names or len(ys) < 1 + len(names):
         intercept, slope = _separable_slope(ys, shifts)
         return intercept, slope, 0.0
-    coef = np.linalg.lstsq(np.column_stack(columns), shifts, rcond=None)[0]
-    terms = {name: float(value) for name, value in zip(used, coef, strict=True)}
-    intercept = terms.get("a", 0.0)
-    by = terms.get("y", 0.0)
-    bx = terms.get("x", 0.0)
-    fitted = intercept + by * ys + bx * xs
+    full = np.column_stack([np.ones(len(ys)), *columns])
+    coef = np.linalg.lstsq(full, shifts, rcond=None)[0]
+    slopes = {name: float(value) for name, value in zip(names, coef[1:], strict=True)}
+    by = slopes.get("y", 0.0)
+    bx = slopes.get("x", 0.0)
+    fitted = float(coef[0]) + by * ys + bx * xs
     if _span(fitted) < DRIFT_PX:
         return float(shifts.mean()), 0.0, 0.0
-    if abs(by) * _span(ys) < COEF_FLOOR_PX:
-        by = 0.0
-    if abs(bx) * _span(xs) < COEF_FLOOR_PX:
-        bx = 0.0
+    keep: list[str] = []
+    if "y" in slopes and abs(by) * _span(ys) >= COEF_FLOOR_PX:
+        keep.append("y")
+    if "x" in slopes and abs(bx) * _span(xs) >= COEF_FLOOR_PX:
+        keep.append("x")
+    if not keep:
+        return float(shifts.mean()), 0.0, 0.0
+    if len(keep) != len(names):
+        reduced = [np.ones(len(ys))]
+        for name in keep:
+            reduced.append(ys if name == "y" else xs)
+        coef = np.linalg.lstsq(np.column_stack(reduced), shifts, rcond=None)[0]
+    intercept = float(coef[0])
+    by = 0.0
+    bx = 0.0
+    for name, value in zip(keep, coef[1:], strict=True):
+        if name == "y":
+            by = float(value)
+        else:
+            bx = float(value)
     for name, slope in (("y", by), ("x", bx)):
         if abs(slope) >= MAX_SLOPE:
             raise ValueError(
@@ -460,11 +492,14 @@ def fit_shift(regions: Sequence[dict[str, float]]) -> dict[str, float | str]:
     Fewer than three points fit each axis on its own and leave the cross terms
     at zero, so two readings of one constant stay a constant. Three or more
     points fit the full model. A coefficient whose own change across the
-    measured span is under ``COEF_FLOOR_PX`` is dropped, and an axis whose
-    fitted peak-to-peak is under one pixel collapses to the mean. ``y`` and
-    ``x`` are the window centers from ``measure_shift``. Pass the level-0
-    centers and shifts (``y0``, ``x0``, ``dy0``, ``dx0``) when the slope should
-    be in level-0 pixels.
+    measured span is under ``COEF_FLOOR_PX`` is dropped and the remaining
+    terms are fit again. An axis whose fitted peak-to-peak is under one pixel
+    collapses to the mean.
+
+    The only keys read are ``y``, ``x``, ``dy``, and ``dx``. ``measure_shift``
+    also returns ``y0``, ``x0``, ``dy0``, and ``dx0``; those names are not
+    consulted. To fit in level-0 pixels, put the level-0 centres and shifts
+    in ``y``, ``x``, ``dy``, and ``dx``.
     """
     if (
         not isinstance(regions, Sequence)
@@ -519,7 +554,7 @@ def resample_to_tifxyz(
     *,
     cy: float = 0.0,
     cx: float = 0.0,
-    nearest: bool = False,
+    nearest: bool | None = None,
 ) -> np.ndarray:
     """Read the canvas onto the tifxyz frame.
 
@@ -528,9 +563,23 @@ def resample_to_tifxyz(
     ``x_t = ax + cx*y + (1+sx)*x``. With the cross terms at zero that is
     ``((y_t - ay) / (1 + sy), (x_t - ax) / (1 + sx))``. ``out_shape`` is the
     tifxyz grid, which is not the canvas shape when the two sizes differ.
-    ``nearest`` is the label path: thresholded ink stays intact.
+
+    ``nearest=None`` uses nearest neighbor for an integer canvas and bilinear
+    for a float. An integer label stays on its values. Pass ``nearest=False``
+    to blend those values, or ``nearest=True`` to keep a float label intact.
     """
     image = _plane(canvas, "canvas")
+    if nearest is None:
+        nearest = bool(np.issubdtype(image.dtype, np.integer))
+        if nearest:
+            warnings.warn(
+                "integer label resampled with nearest neighbor so values stay "
+                "intact; pass nearest=False to blend them",
+                UserWarning,
+                stacklevel=2,
+            )
+    elif not isinstance(nearest, bool):
+        raise ValueError("nearest must be True, False, or None")
     image = np.where(np.isfinite(image), image, 0).astype(np.float32)
     for name, slope in (("sy", sy), ("sx", sx), ("cy", cy), ("cx", cx)):
         if (
@@ -583,7 +632,7 @@ def correct_canvas(
     windows: Sequence[Sequence[int]],
     max_shift: int = 64,
     *,
-    nearest: bool = False,
+    nearest: bool | None = None,
     aligned_tolerance: float = 1.0,
     out_shape: tuple[int, int] | None = None,
     px_scale: float = 1.0,
@@ -593,7 +642,8 @@ def correct_canvas(
 
     ``out_shape`` is the tifxyz grid. It defaults to the canvas shape, which
     is right for a patch that already shares the tifxyz lattice and wrong for
-    a full segment whose tifxyz size differs from the canvas.
+    a full segment whose tifxyz size differs from the canvas. An integer
+    canvas is resampled with nearest neighbor unless ``nearest`` is passed.
     """
     if (
         not isinstance(windows, Sequence)
@@ -677,8 +727,8 @@ def _parser() -> argparse.ArgumentParser:
         type=float,
         metavar=("Y", "X"),
         default=(0.0, 0.0),
-        help="level-0 coordinate of image pixel (0, 0)'s centre is not this; "
-        "this is added after multiplying the image centre by --px-scale",
+        help="level-0 coordinate of image pixel 0 (the centre of that pixel). "
+        "A reported level-0 centre is origin + image_centre * --px-scale",
     )
     parser.add_argument(
         "--out-shape",
@@ -691,10 +741,16 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--out", type=Path, help="write the canvas resampled onto the tifxyz frame"
     )
-    parser.add_argument(
+    resample = parser.add_mutually_exclusive_group()
+    resample.add_argument(
         "--nearest",
         action="store_true",
-        help="nearest-neighbor resample, for a binary or indexed label",
+        help="nearest-neighbor resample. This is the default for an integer label",
+    )
+    resample.add_argument(
+        "--linear",
+        action="store_true",
+        help="bilinear resample even for an integer label, which blends 0/255",
     )
     return parser
 
@@ -704,12 +760,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         surface = _load_array(args.surface)
         canvas = _load_array(args.canvas)
+        if args.linear:
+            nearest: bool | None = False
+        elif args.nearest:
+            nearest = True
+        else:
+            nearest = None
         result = correct_canvas(
             surface,
             canvas,
             args.window,
             args.max_shift,
-            nearest=args.nearest,
+            nearest=nearest,
             out_shape=tuple(args.out_shape) if args.out_shape else None,
             px_scale=args.px_scale,
             origin=(args.origin[0], args.origin[1]),
@@ -737,7 +799,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         fit = result["fit"]
         assert isinstance(fit, dict)
         print(
-            f"model {fit['model']}: "
+            "model "
+            f"{fit['model']} in image pixels "
+            "(y and x are image-pixel window centres, not the level-0 centres below): "
             f"dy = {fit['ay']:.3f} + {fit['sy']:.6g} * y + {fit['cy']:.6g} * x, "
             f"dx = {fit['ax']:.3f} + {fit['cx']:.6g} * y + {fit['sx']:.6g} * x"
         )
@@ -746,9 +810,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         assert isinstance(regions, list)
         for region in regions:
             print(
-                f"  center ({region['y0']:.1f}, {region['x0']:.1f}) level-0 "
+                f"  image center ({region['y']:.2f}, {region['x']:.2f}) "
+                f"shift ({region['dy']:.2f}, {region['dx']:.2f}); "
+                f"level-0 center ({region['y0']:.1f}, {region['x0']:.1f}) "
                 f"shift ({region['dy0']:.2f}, {region['dx0']:.2f}) "
-                f"image shift ({region['dy']:.2f}, {region['dx']:.2f}) "
                 f"ncc {region['ncc']:.3f}"
             )
     return 0 if result["aligned_before"] else 1
