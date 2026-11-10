@@ -17,8 +17,8 @@ The three distinct arm names resolve to `outer_<name>` directories. Each needs:
 - `meshes/concat/w120-129_flat/{x,y,z}.tif`: matching 2D coordinate grids;
 - `ink_metric/metrics.json`: the original complete single-strip score;
 - `ink_metric_prob/metrics.json`: the complete re-score with probabilities kept;
-- `ink_metric_prob/predictions/*_flat_prob.npy`: exactly one whole-strip map,
-  saved with `INK_METRIC_KEEP_PROB=1`;
+- `ink_metric_prob/predictions/*_flat_prob.npy`: the whole-strip map, saved with
+  `INK_METRIC_KEEP_PROB=1`, and the only `*_prob.npy` file in that directory;
 - the re-score's matching `<strip>_mask.png`, or contiguous
   `<strip>_mask.000.png`, `.001.png`, ... tiles in the same predictions directory.
 
@@ -37,7 +37,8 @@ Each arm is loaded once and reused at all binnings. The shared volume axis comes
 from the first requested arm's valid coordinates, as before.
 
 Both metrics files must contain integer summary counts consistent with their
-single strip, and total pixels must match the paired artifacts. The re-score's
+single strip, and total pixels must match the paired artifacts. Each is read
+whole and refused above 1 MiB. The re-score's
 foreground count must equal its saved masks. Its difference from the original
 foreground count must be at most **0.1% of the original**, including the boundary;
 zero original ink passes only with zero re-scored ink. A failed gate or missing
@@ -87,5 +88,8 @@ Version 1 multiplied the **whole-cell** mean probability by the cell's ink
 count, so background affected the quantity labeled mean ink confidence. Its
 historical JSON and numbers remain preserved. Version 2 corrects that aggregation,
 enforces the declared count gate and changes p-value handling and verdict text.
+It also counts ink from the re-score's saved masks in
+`ink_metric_prob/predictions`, where version 1 counted it from the published
+`ink_metric/predictions` masks.
 The old experiment must be re-run on its original artifacts before its numbers
 or conclusion can be presented as version-2 evidence. No such re-run is claimed.

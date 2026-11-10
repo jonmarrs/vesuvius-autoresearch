@@ -8,6 +8,7 @@ declares z-scale 4). These tests do not fetch those volumes.
 import json
 from pathlib import Path
 
+import numcodecs
 import numpy as np
 import pytest
 import zarr
@@ -16,6 +17,7 @@ from repro.sota_data.pyramid_depth import (
     assess_levels,
     content_agreement,
     main,
+    pooling_factor,
     successive_half_depth,
 )
 
@@ -45,9 +47,10 @@ def test_successive_halving_of_a_65_slice_render():
 
 
 def test_unchanged_z_scale_with_the_short_depths_is_truncated():
-    rows = [("0", [65, 8, 8], [1, 1, 1])]
+    rows = [("0", [65, 64, 64], [1, 1, 1])]
     for step, depth in enumerate((33, 17, 9, 5, 3), start=1):
-        rows.append((str(step), [depth, 8, 8], [1, 2**step, 2**step]))
+        side = 64 // 2**step
+        rows.append((str(step), [depth, side, side], [1, 2**step, 2**step]))
     records = {record["path"]: record for record in assess_levels(_levels(*rows))}
     assert records["0"]["status"] == "full_depth"
     for path in ("1", "2", "3", "4", "5"):
@@ -503,3 +506,440 @@ def test_help_exits_cleanly():
     with pytest.raises(SystemExit) as caught:
         main(["--help"])
     assert caught.value.code == 0
+
+
+@pytest.mark.parametrize(
+    "depth, steps", [(0, 1), (65, -1), (True, 1), (65, True), (6.5, 1)]
+)
+def test_successive_halving_rejects_unusable_counts(depth, steps):
+    with pytest.raises(ValueError):
+        successive_half_depth(depth, steps)
+
+
+@pytest.mark.parametrize(
+    "xy_ratio, message",
+    [((4.0, 2.0), "disagree"), ((2.5, 2.5), "not an integer"), ((0.4, 0.4), "not")],
+)
+def test_pooling_factor_refuses_unequal_or_fractional_ratios(xy_ratio, message):
+    with pytest.raises(ValueError, match=message):
+        pooling_factor(xy_ratio)
+
+
+def test_level_0_is_the_reference_wherever_it_is_listed():
+    records = assess_levels(
+        _levels(
+            ("2", [17, 2, 2], [1, 4, 4]),
+            ("0", [65, 8, 8], [1, 1, 1]),
+        )
+    )
+    assert [record["path"] for record in records] == ["0", "2"]
+    assert [record["status"] for record in records] == ["full_depth", "truncated"]
+
+
+def test_a_truncated_reason_names_halving_only_when_the_depth_matches_it():
+    records = assess_levels(
+        _levels(
+            ("0", [65, 8, 8], [1, 1, 1]),
+            ("1", [64, 4, 4], [1, 2, 2]),
+        )
+    )
+    assert records[1]["status"] == "truncated"
+    assert "successive" not in records[1]["reason"]
+
+
+@pytest.mark.parametrize(
+    "reference_depth, z_scale, depth, status",
+    [
+        (32, 4, 9, "depth_pooled"),  # exactly one voxel off 8
+        (200, 4, 53, "depth_pooled"),  # three voxels off 50, inside 8%
+        (200, 4, 58, "inconsistent"),  # 16% off 50
+        (65, 1.1, 59, "depth_pooled"),  # a z step of 1.1 is not unchanged
+    ],
+)
+def test_depth_pool_tolerance_is_one_voxel_or_eight_percent(
+    reference_depth, z_scale, depth, status
+):
+    records = assess_levels(
+        _levels(
+            ("0", [reference_depth, 8, 8], [1, 1, 1]),
+            ("1", [depth, 2, 2], [z_scale, 4, 4]),
+        )
+    )
+    assert records[1]["status"] == status
+
+
+def test_a_z_scale_rounded_through_float32_is_still_unchanged():
+    rounded = float(np.float32(4.681))
+    assert rounded != 4.681
+    records = assess_levels(
+        _levels(
+            ("0", [65, 16, 16], [4.681, 4.681, 4.681]),
+            ("2", [17, 4, 4], [rounded, 18.724, 18.724]),
+        )
+    )
+    assert records[1]["status"] == "truncated"
+
+
+@pytest.mark.parametrize(
+    "level0, coarse, message",
+    [
+        (np.zeros((6, 6)), np.zeros((3, 3)), "depth, height, width"),
+        (np.zeros((4, 8, 6)), np.zeros((2, 4, 2)), "pooling factor"),
+    ],
+)
+def test_content_agreement_rejects_flat_or_narrow_windows(level0, coarse, message):
+    with pytest.raises(ValueError, match=message):
+        content_agreement(level0, coarse, 2)
+
+
+def test_a_middling_slice_correlation_is_not_a_verdict():
+    level0 = _pattern(16, 32, 32)
+    copied = _xy_pool(level0[:4], 4)
+    noise = np.random.default_rng(0).normal(0, 2 * copied.std(), copied.shape)
+    report = content_agreement(level0, copied + noise, 4)
+    assert 0.4 < report["median_r_slice_indexed"] < 0.7
+    assert report["median_r_depth_pooled"] < 0.4
+    assert report["verdict"] == "ambiguous"
+
+
+def test_two_high_correlations_are_not_a_verdict():
+    plane = _pattern(1, 16, 16)
+    noise = np.random.default_rng(1).normal(0, 0.5 * plane.std(), (8, 16, 16))
+    level0 = np.repeat(plane, 8, axis=0) + noise
+    report = content_agreement(level0, _xy_pool(level0, 2)[:4], 2)
+    assert 0.7 < report["median_r_depth_pooled"] < 0.99
+    assert report["verdict"] == "ambiguous"
+
+
+def _edit_json(path: Path, edit):
+    data = json.loads(path.read_text(encoding="utf-8"))
+    edit(data)
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _two_scales(attrs):
+    dataset = attrs["multiscales"][0]["datasets"][1]
+    dataset["coordinateTransformations"].append({"type": "scale", "scale": [4, 4, 4]})
+
+
+def _two_multiscales(attrs):
+    attrs["multiscales"].append(attrs["multiscales"][0])
+
+
+def _level_2_z_scale(value):
+    def edit(attrs):
+        attrs["multiscales"][0]["datasets"][1]["coordinateTransformations"][0]["scale"][
+            0
+        ] = value
+
+    return edit
+
+
+SHAPE_ERROR = "2 shape must be three positive integers"
+
+
+@pytest.mark.parametrize(
+    "target, edit, message",
+    [
+        (".zattrs", _two_scales, "exactly one scale"),
+        (".zattrs", _two_multiscales, "exactly one OME-Zarr multiscales"),
+        (".zattrs", _level_2_z_scale(float("nan")), "finite"),
+        (".zattrs", _level_2_z_scale(True), "finite"),
+        ("2/.zarray", lambda meta: meta.update(zarr_format=3), "not a Zarr v2"),
+        ("2/.zarray", lambda meta: meta.update(shape=[1, 17, 2, 2]), SHAPE_ERROR),
+        ("2/.zarray", lambda meta: meta.update(shape=[0, 2, 2]), SHAPE_ERROR),
+    ],
+)
+def test_cli_refuses_malformed_headers(tmp_path, capsys, target, edit, message):
+    root = tmp_path / "malformed.zarr"
+    _write_headers(
+        root,
+        [("0", [65, 8, 8], [1, 1, 1]), ("2", [17, 2, 2], [4, 4, 4])],
+    )
+    assert main([str(root)]) == 0
+    capsys.readouterr()
+    _edit_json(root / target, edit)
+    assert main([str(root)]) == 2
+    assert message in capsys.readouterr().err
+
+
+def test_cli_fails_an_inconsistent_level(tmp_path, capsys):
+    root = tmp_path / "deeper.zarr"
+    _write_headers(root, [("0", [65, 8, 8], [1, 1, 1]), ("1", [66, 4, 4], [1, 2, 2])])
+    assert main([str(root), "--json"]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["levels"][1]["status"] == "inconsistent"
+    assert report["usable_levels"] == ["0"]
+
+
+def test_cli_text_report_explains_a_truncated_level(tmp_path, capsys):
+    root = tmp_path / "truncated.zarr"
+    _write_headers(root, [("0", [65, 8, 8], [1, 1, 1]), ("2", [17, 2, 2], [1, 4, 4])])
+    assert main([str(root)]) == 1
+    text = capsys.readouterr().out
+    assert "level 2: shape [17,2,2] z-scale 1 truncated" in text
+    assert "successive ceil-half XY-only downsampling" in text
+
+
+def _full_depth_pyramid(root: Path, level0):
+    _write_arrays(
+        root,
+        [
+            ("0", level0.astype(np.float32), [1, 1, 1]),
+            ("1", _xy_pool(level0, 2).astype(np.float32), [1, 2, 2]),
+        ],
+    )
+
+
+def test_cli_compares_a_window_away_from_the_origin(tmp_path, capsys):
+    root = tmp_path / "full.zarr"
+    _full_depth_pyramid(root, _pattern(8, 32, 32))
+    window = ["--compare", "1", "--origin", "8", "16", "--size", "16", "16"]
+    assert main([str(root), "--json", *window]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["content"]["verdict"] == "slice_indexed"
+    assert report["content"]["median_r_slice_indexed"] > 0.99
+
+
+def test_cli_compares_levels_whose_scales_are_physical_units(tmp_path, capsys):
+    level0 = _pattern(8, 16, 16).astype(np.float32)
+    root = tmp_path / "micrometres.zarr"
+    _write_arrays(
+        root,
+        [
+            ("0", level0, [7.91, 7.91, 7.91]),
+            ("1", _xy_pool(level0, 2).astype(np.float32), [7.91, 15.82, 15.82]),
+        ],
+    )
+    window = ["--compare", "1", "--origin", "0", "0", "--size", "16", "16"]
+    assert main([str(root), "--json", *window]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["levels"][1]["xy_scale_ratio"] == [2.0, 2.0]
+    assert report["content"]["factor"] == 2
+
+
+def test_a_coarse_window_deeper_than_level_0_is_scored_on_shared_slices():
+    level0 = _pattern(4, 8, 8)
+    deeper = _xy_pool(_pattern(6, 8, 8), 2)
+    report = content_agreement(level0, deeper, 2)
+    assert report["slices_scored_slice_indexed"] == 4
+    assert report["median_r_slice_indexed"] > 0.99
+
+
+def test_cli_fails_a_full_depth_level_whose_pixels_are_ambiguous(tmp_path, capsys):
+    root = tmp_path / "flat.zarr"
+    _full_depth_pyramid(root, np.repeat(_pattern(1, 16, 16), 8, axis=0))
+    assert main([str(root)]) == 0
+    capsys.readouterr()
+    window = ["--compare", "1", "--origin", "0", "0", "--size", "16", "16"]
+    assert main([str(root), "--json", *window]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["levels"][1]["status"] == "full_depth"
+    assert report["content"]["verdict"] == "ambiguous"
+    assert report["content"]["agrees_with_metadata"] is False
+
+
+@pytest.mark.parametrize(
+    "arguments, message",
+    [
+        (["--compare", "0", "--origin", "0", "0", "--size", "8", "8"], "itself"),
+        (["--compare", "7", "--origin", "0", "0", "--size", "8", "8"], "no level"),
+        (["--compare", "1", "--origin", "1", "0", "--size", "8", "8"], "aligned"),
+        (["--origin", "0", "0", "--size", "8", "8"], "used together"),
+        (["--max-voxels", "0"], "positive"),
+        (
+            # 8 x 8 x 8 level-0 voxels plus 8 x 4 x 4 coarse ones is 640.
+            ["--compare", "1", "--origin", "0", "0", "--size", "8", "8"]
+            + ["--max-voxels", "600"],
+            "cap",
+        ),
+    ],
+)
+def test_cli_refuses_a_compare_it_cannot_honour(tmp_path, capsys, arguments, message):
+    root = tmp_path / "full.zarr"
+    _full_depth_pyramid(root, _pattern(8, 16, 16))
+    assert main([str(root), *arguments]) == 2
+    assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "compressor, kept",
+    [
+        # Blosc decodes a cut-short copy of a stored (uncompressed) chunk.
+        (numcodecs.Blosc(), 0),
+        (numcodecs.Zstd(), 0.5),
+        (numcodecs.Zlib(), 0.5),
+        # GZip decodes an empty file to no bytes, which is refused as a short read.
+        (numcodecs.GZip(), 0.5),
+        (numcodecs.LZMA(), 0.5),
+    ],
+    ids=["blosc", "zstd", "zlib", "gzip", "lzma"],
+)
+def test_cli_refuses_a_chunk_that_does_not_decode(tmp_path, capsys, compressor, kept):
+    level0 = _pattern(8, 16, 16).astype(np.float32)
+    root = tmp_path / "damaged.zarr"
+    group = zarr.open_group(str(root), mode="w")
+    datasets = []
+    for path, array, scale in (
+        ("0", level0, [1.0, 1.0, 1.0]),
+        ("1", _xy_pool(level0, 2).astype(np.float32), [1.0, 2.0, 2.0]),
+    ):
+        group.create_dataset(path, data=array, chunks=(4, 8, 8), compressor=compressor)
+        datasets.append(
+            {
+                "path": path,
+                "coordinateTransformations": [{"type": "scale", "scale": scale}],
+            }
+        )
+    group.attrs["multiscales"] = [{"axes": AXES, "datasets": datasets}]
+    window = ["--compare", "1", "--origin", "0", "0", "--size", "16", "16"]
+    assert main([str(root), *window]) == 0
+    capsys.readouterr()
+    # An interrupted download leaves the chunk file in place, empty or cut short.
+    chunk = root / "0" / "0.0.0"
+    chunk.write_bytes(chunk.read_bytes()[: int(chunk.stat().st_size * kept)])
+    assert main([str(root), *window]) == 2
+    error = capsys.readouterr().err
+    assert error.startswith("error: 0 has a chunk in this window that does not decode")
+
+
+def _depth_then_xy_pool(volume, depth_factor, factor):
+    depth = volume.shape[0] // depth_factor
+    return np.stack(
+        [
+            _xy_pool(
+                volume[index * depth_factor : (index + 1) * depth_factor], factor
+            ).mean(axis=0)
+            for index in range(depth)
+        ]
+    )
+
+
+def test_content_agreement_pools_depth_by_its_own_factor():
+    """A level pooled 2 in depth and 4 in XY reads as a depth pool only at width 2."""
+    level0 = _pattern(16, 32, 32)
+    coarse = _depth_then_xy_pool(level0, 2, 4)
+    isotropic = content_agreement(level0, coarse, 4)
+    assert isotropic["depth_factor"] == 4
+    assert isotropic["verdict"] != "depth_pooled"
+    report = content_agreement(level0, coarse, 4, depth_factor=2)
+    assert report["depth_factor"] == 2
+    assert report["verdict"] == "depth_pooled"
+    assert report["median_r_depth_pooled"] > 0.99
+
+
+@pytest.mark.parametrize("depth_factor", [0, True, 1.5])
+def test_content_agreement_refuses_an_unusable_depth_factor(depth_factor):
+    level0 = _pattern(4, 8, 8)
+    with pytest.raises(ValueError, match="depth factor must be a positive integer"):
+        content_agreement(level0, _xy_pool(level0, 2), 2, depth_factor=depth_factor)
+
+
+def test_cli_accepts_a_depth_pool_coarser_in_xy_than_in_z(tmp_path, capsys):
+    """Level 2 at scale [2, 4, 4] is pooled 2 in depth, so --compare pools level 0 by 2."""
+    level0 = _pattern(16, 32, 32)
+    root = tmp_path / "anisotropic.zarr"
+    _write_arrays(
+        root,
+        [
+            ("0", level0.astype(np.float32), [1, 1, 1]),
+            ("2", _depth_then_xy_pool(level0, 2, 4).astype(np.float32), [2, 4, 4]),
+        ],
+    )
+    window = ["--compare", "2", "--origin", "0", "0", "--size", "32", "32"]
+    assert main([str(root), "--json", *window]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["levels"][1]["status"] == "depth_pooled"
+    assert (report["content"]["factor"], report["content"]["depth_factor"]) == (4, 2)
+    assert report["content"]["verdict"] == "depth_pooled"
+    assert report["content"]["agrees_with_metadata"] is True
+
+
+def test_cli_tests_a_z_unchanged_level_against_an_isotropic_pool(tmp_path, capsys):
+    """A level that says z is unchanged but was pooled 4 in depth is caught by its pixels."""
+    level0 = _pattern(16, 32, 32)
+    root = tmp_path / "mislabelled.zarr"
+    _write_arrays(
+        root,
+        [
+            ("0", level0.astype(np.float32), [1, 1, 1]),
+            ("2", _depth_then_xy_pool(level0, 4, 4).astype(np.float32), [1, 4, 4]),
+        ],
+    )
+    window = ["--compare", "2", "--origin", "0", "0", "--size", "32", "32"]
+    assert main([str(root), "--json", *window]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["levels"][1]["status"] == "truncated"
+    assert report["content"]["depth_factor"] == 4
+    assert report["content"]["verdict"] == "depth_pooled"
+
+
+def test_cli_refuses_to_pool_depth_by_a_fractional_z_ratio(tmp_path, capsys):
+    level0 = _pattern(20, 16, 16)
+    root = tmp_path / "fractional.zarr"
+    _write_arrays(
+        root,
+        [
+            ("0", level0.astype(np.float32), [1, 1, 1]),
+            ("1", _xy_pool(level0[:8], 2).astype(np.float32), [2.5, 2, 2]),
+        ],
+    )
+    window = ["--compare", "1", "--origin", "0", "0", "--size", "16", "16"]
+    assert main([str(root), *window]) == 2
+    assert "z scale ratio 2.5 is not an integer depth pool" in capsys.readouterr().err
+
+
+def test_a_scale_written_in_xyz_order_is_inconsistent(tmp_path, capsys):
+    """The 17-of-65 level with its scale written x, y, z reads as z 4, y 4, x 1."""
+    records = assess_levels(
+        _levels(
+            ("0", [65, 15872, 18944], [1, 1, 1]),
+            ("2", [17, 3968, 4736], [4, 4, 1]),
+        )
+    )
+    assert records[1]["status"] == "inconsistent"
+    assert records[1]["xy_matches_declared_scale"] is False
+    assert records[1]["reason"] == "x extent does not match the declared x scale"
+    root = tmp_path / "xyz.zarr"
+    _write_headers(root, [("0", [65, 8, 8], [1, 1, 1]), ("2", [17, 2, 2], [4, 4, 1])])
+    assert main([str(root), "--json"]) == 1
+    assert json.loads(capsys.readouterr().out)["usable_levels"] == ["0"]
+
+
+@pytest.mark.parametrize(
+    "shape, axes",
+    [([65, 8, 4], "y"), ([65, 4, 8], "x"), ([65, 8, 8], "y and x")],
+)
+def test_each_xy_extent_is_held_to_its_declared_scale(shape, axes):
+    records = assess_levels(
+        _levels(("0", [65, 8, 8], [1, 1, 1]), ("1", shape, [1, 2, 2]))
+    )
+    assert records[1]["status"] == "inconsistent"
+    assert (
+        records[1]["reason"]
+        == f"{axes} extent does not match the declared {axes} scale"
+    )
+
+
+def test_ceil_halved_xy_extents_match_their_scale():
+    records = assess_levels(
+        _levels(
+            ("0", [65, 15, 17], [1, 1, 1]),
+            ("1", [65, 8, 9], [1, 2, 2]),
+            ("2", [17, 4, 5], [4, 4, 4]),
+        )
+    )
+    assert [record["status"] for record in records] == [
+        "full_depth",
+        "full_depth",
+        "depth_pooled",
+    ]
+    assert all(record["xy_matches_declared_scale"] for record in records)
+
+
+def test_a_level_finer_in_z_than_level_0_is_inconsistent():
+    """depth_pooled needs a z scale above 1, as assess_levels documents."""
+    records = assess_levels(
+        _levels(("0", [65, 8, 8], [1, 1, 1]), ("1", [130, 4, 4], [0.5, 2, 2]))
+    )
+    assert records[1]["status"] == "inconsistent"
