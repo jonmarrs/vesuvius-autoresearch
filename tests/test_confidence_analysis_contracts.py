@@ -658,3 +658,38 @@ def test_shuffle_test_is_two_sided():
     result = mod.one_binning(arms, size, 1, np.random.default_rng(1))
     assert result["diff"] == pytest.approx(-0.3)
     assert result["p"] == 1 / 1001
+
+
+def _guide_text():
+    guide = (
+        Path(mod.__file__).resolve().parents[1] / "docs/CONFIDENCE_REPRODUCIBILITY.md"
+    )
+    return " ".join(guide.read_text().split())
+
+
+def test_the_guide_says_which_masks_each_version_counts_ink_from():
+    """Version 2 reads the re-score's masks; version 1 read the published ones."""
+    assert (
+        "It also counts ink from the re-score's saved masks in "
+        "`ink_metric_prob/predictions`, where version 1 counted it from the published "
+        "`ink_metric/predictions` masks."
+    ) in _guide_text()
+
+
+def test_the_guide_counts_every_prob_map_as_the_code_does(tmp_path):
+    predictions = tmp_path / "arm/ink_metric_prob/predictions"
+    predictions.mkdir(parents=True)
+    np.save(predictions / "w_flat_prob.npy", np.zeros((10, 10), np.float16))
+    np.save(predictions / "w_other_prob.npy", np.zeros((10, 10), np.float16))
+    with pytest.raises(ValueError, match="expected exactly one probability map"):
+        inputs.probability_path(tmp_path / "arm")
+    assert "the only `*_prob.npy` file in that directory" in _guide_text()
+
+
+def test_a_metrics_file_over_one_mebibyte_is_refused_as_the_guide_says(tmp_path):
+    path = tmp_path / "metrics.json"
+    record = json.dumps({"summary": {}})
+    path.write_text(record + " " * (1024**2 + 1 - len(record)))
+    with pytest.raises(ValueError, match="exceeds 1048576 bytes"):
+        inputs.metrics_counts(path)
+    assert "Each is read whole and refused above 1 MiB." in _guide_text()
