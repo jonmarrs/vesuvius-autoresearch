@@ -201,10 +201,277 @@ def result(main_dup, patched_dup, erl4, merges2, problems=()):
         (result(0.20, 0.08, (40.0, 45.0), (50, 53)), "COSTS_AT_DEFAULTS"),
         (result(0.20, 0.13, (40.0, 45.0), (50, 50)), "PARTIAL"),
         (result(0.20, 0.12, (40.0, 41.0), (40, 42)), "BITES_AT_DEFAULTS"),
+        # P1 is "at least 0.05": a share of exactly 0.05 holds
+        (result(0.05, 0.02, (40.0, 45.0), (50, 50)), "BITES_AT_DEFAULTS"),
+        # the table's rows in order: a P3 miss outranks a P2 miss, a P1 miss outranks both, a gate failure all
+        (result(0.20, 0.13, (40.0, 40.0), (50, 50)), "COSTS_AT_DEFAULTS"),
+        (result(0.04, 0.03, (40.0, 39.0), (50, 60)), "NO_DOUBLING_AT_DEFAULTS"),
+        (
+            result(0.04, 0.03, (40.0, 39.0), (50, 60), ["a module differs"]),
+            "NO_VERDICT",
+        ),
     ],
 )
 def test_the_decision_rule(r, decision):
     assert dz.verdict(r)["decision"] == decision
+
+
+def test_the_verdict_step_writes_the_record_once(tmp_path, monkeypatch):
+    work, out = tmp_path / "work", tmp_path / "record.json"
+    work.mkdir()
+    r = result(0.20, 0.08, (40.0, 45.0), (50, 52))
+    (work / "result.json").write_text(json.dumps(r))
+    argv = ["afv_generator_default_zone.py", "verdict", "--work", str(work), "--out", str(out)]  # fmt: skip
+    monkeypatch.setattr(sys, "argv", argv)
+    dz.main()
+    first = out.read_text()
+    assert first == json.dumps({"verdict": dz.verdict(r), "result": r}, indent=1) + "\n"
+    (work / "result.json").write_text(json.dumps(result(0.04, 0.01, (40.0, 45.0), (50, 50))))  # fmt: skip
+    with pytest.raises(SystemExit, match="written once"):
+        dz.main()
+    assert out.read_text() == first
+
+
+def test_the_cube_share_counts_a_neighbour_outside_the_cube():
+    """A sample inside counts as duplicated when its same-family neighbour lies outside [lo, hi)."""
+    a, b = line([0, 0, 0], [100, 0, 0]), line([40, 1, 0], [100, 1, 0])
+    # x < 40: a's 80 samples; those at x 39.0 and 39.5 lie within 1.5 voxels of b's first samples, all at x >= 40
+    assert dz.duplicated_share_in([a, b], [0, 0], [0, -5, -5], [40, 5, 5]) == pytest.approx(2 / 80)  # fmt: skip
+
+
+def uint8_standin(raw):
+    """A voxel-by-voxel uint16 -> uint8 conversion standing in for ScrollGT's to_uint8."""
+    return np.clip(np.rint(raw / 257.0), 0, 255).astype(np.uint8)
+
+
+def test_the_slab_fetch_reads_16_slices_at_a_time_without_scrollgt(tmp_path):
+    """Amendment 1's write_uint8_scan, with a stand-in for ScrollGT's context_ct (the test above needs ScrollGT)."""
+    data = np.random.default_rng(1).integers(0, 65536, (40, 9, 11), dtype=np.uint64).astype("<u2")  # fmt: skip
+    lo, hi = (3, 1, 2), (36, 6, 9)  # 33 slices: two slabs of 16 and one of 1
+    calls = []
+
+    def read_tiff_region(volume, a, b, cache):
+        calls.append((tuple(a), tuple(b)))
+        return volume["data"][a[0] : b[0], a[1] : b[1], a[2] : b[2]]
+
+    cc = types.SimpleNamespace(read_tiff_region=read_tiff_region, to_uint8=uint8_standin)  # fmt: skip
+    out = dz.write_uint8_scan(
+        cc, {"data": data}, lo, hi, tmp_path, tmp_path / "scan.npy"
+    )
+    del out
+    assert calls == [((3, 1, 2), (19, 6, 9)), ((19, 1, 2), (35, 6, 9)), ((35, 1, 2), (36, 6, 9))]  # fmt: skip
+    np.testing.assert_array_equal(np.load(tmp_path / "scan.npy"), uint8_standin(data[3:36, 1:6, 2:9]))  # fmt: skip
+
+
+CONTEXT_STANDIN = """
+import numpy as np
+
+DATA = np.load({data!r})
+TIFF_VOLUMES = {{"s3": {{"shape": DATA.shape}}}}
+
+
+def padded_bounds(cube, pad):
+    return (1, 2, 3), (1 + {side}, 2 + {side}, 3 + {side})
+
+
+def read_tiff_region(volume, lo, hi, cache):
+    return DATA[lo[0] : hi[0], lo[1] : hi[1], lo[2] : hi[2]]
+
+
+def to_uint8(raw):
+    return np.clip(np.rint(raw / 257.0), 0, 255).astype(np.uint8)
+
+
+def core(a, pad):
+    return a[pad:-pad, pad:-pad, pad:-pad]
+"""
+
+
+@pytest.mark.parametrize("core_matches", [True, False])
+def test_the_fetch_renames_the_scan_into_place_only_once_its_core_is_the_cubes(
+    tmp_path, monkeypatch, core_matches
+):
+    """Amendment 1: "the file is renamed into place only after it passes" the core check."""
+    size, pad = 4, 3
+    side = size + 2 * pad
+    data = np.random.default_rng(2).integers(0, 65536, (16, 16, 16), dtype=np.uint64).astype("<u2")  # fmt: skip
+    np.save(tmp_path / "data.npy", data)
+    standin = tmp_path / "context_ct.py"
+    standin.write_text(
+        CONTEXT_STANDIN.format(data=str(tmp_path / "data.npy"), side=side)
+    )
+    padded = uint8_standin(data[1 : 1 + side, 2 : 2 + side, 3 : 3 + side])
+    own = padded[pad:-pad, pad:-pad, pad:-pad].copy()
+    if not core_matches:
+        own[0, 0, 0] ^= 1
+    monkeypatch.setitem(sys.modules, "zarr", types.SimpleNamespace(open=lambda path, mode: own))  # fmt: skip
+    for name, value in (("SIZE", size), ("PAD", pad), ("SIDE", side), ("CONTEXT_CT", standin)):  # fmt: skip
+        monkeypatch.setattr(dz, name, value)
+    out = tmp_path / "context.npy"
+    args = types.SimpleNamespace(out=out, cache=tmp_path / "cache")
+    if core_matches:
+        dz.fetch(args)
+        np.testing.assert_array_equal(np.load(out), padded)
+        assert not (tmp_path / "context.part.npy").exists()
+    else:
+        with pytest.raises(SystemExit, match="core is not the cube's own CT"):
+            dz.fetch(args)
+        assert not out.exists()
+
+
+# run() with stand-ins for torch, zarr, ScrollGT and the generator, on a zone shrunk to SIZE 8, ZONE 16, BLOCK 8, MARGIN 2
+SMALL = {"SIZE": 8, "ZONE": 16, "BLOCK": 8, "MARGIN": 2, "PAD": 6, "SIDE": 20}
+FIBERS_XYZ = {  # block 0's splines, absolute x, y, z; the cube is [6, 14) on each axis
+    "inside": ("V", line([7, 8, 8], [13, 8, 8])),
+    # 1 voxel beside "inside": the trim stand-in drops it
+    "copy": ("V", line([7, 9, 8], [13, 9, 8])),
+    "below": ("H", line([0.5, 1, 1], [5.5, 1, 1])),
+    "beyond": ("H", line([15, 8, 12], [19, 8, 12])),  # inside the cube in y and z only
+}
+
+
+def run_small(tmp_path, monkeypatch, seen, fail=None):
+    """dz.run on the shrunk zone, the stand-ins recording into SEEN; FAIL names a gate check to break."""
+    for name, value in SMALL.items():
+        monkeypatch.setattr(dz, name, value)
+    s, p = SMALL["SIZE"], SMALL["PAD"]
+    ctx = np.random.default_rng(3).integers(0, 256, (SMALL["SIDE"],) * 3).astype(np.uint8)  # fmt: skip
+    own = ctx[p : p + s, p : p + s, p : p + s].copy()
+    if fail == "core":
+        own[0, 0, 0] ^= 1
+    np.save(tmp_path / "context.npy", ctx)
+    stitch = tmp_path / "stitch.py"
+    stitch.write_text("# the patched stitch.py\n")
+    sha = hashlib.sha256(stitch.read_bytes()).hexdigest()
+    monkeypatch.setattr(dz, "PATCHED_STITCH_SHA256", "0" * 64 if fail == "sha" else sha)
+
+    def trim(traces, low, high, reach_low, reach_high):
+        seen.trim.append([tuple(int(v) for v in x) for x in (low, high, reach_low, reach_high)])  # fmt: skip
+        return [(f, q) for f, q in traces if not np.allclose(q[:, 1], 9)]
+
+    monkeypatch.setattr(bs, "load", lambda pr, patched: (trim, 16.0))
+    monkeypatch.setattr(bs, "identity", lambda *a: ["a module differs"] if fail == "identity" else [])  # fmt: skip
+    calls = iter(range(1000))
+
+    def extract_splines(prob, threshold):
+        if next(calls) % 8:
+            return []
+        # block 0 reads from 0, so its local z, y, x are absolute
+        return [(f, q[:, ::-1].copy()) for f, q in FIBERS_XYZ.values()]
+
+    class Stitcher:
+        def __init__(self, scratch):
+            self.fibers = []
+
+        def add_block(self, name, low_xyz, size_xyz, traces, core):
+            self.fibers += [{"points": q[:, ::-1] + low_xyz, "family": "VH".index(f)} for f, q in traces]  # fmt: skip
+
+        def stitched(self):
+            return self.fibers
+
+        def close(self):
+            pass
+
+    class ExteriorBlack:
+        def __init__(self, low, high):
+            seen.black.append((tuple(int(v) for v in low), tuple(int(v) for v in high)))
+
+        def add(self, ct, low):
+            pass
+
+    def score_tracing(skel, labels, tolerance):
+        seen.labels.append(labels.copy())
+        seen.tolerances.append(tolerance)
+        return types.SimpleNamespace(as_row=lambda: {"erl_merge_penalized": 1.0, "merges": 0})  # fmt: skip
+
+    def zone_blocks(origin, size, block):  # the #1934 head's, as the smoke copies it
+        axes = [[(o + a, min(block, n - a)) for a in range(0, n, block)] for o, n in zip(origin, size, strict=True)]  # fmt: skip
+        blocks = [([x, y, z], [sx, sy, sz]) for z, sz in axes[2] for y, sy in axes[1] for x, sx in axes[0]]  # fmt: skip
+        return blocks[:7] if fail == "crops" else blocks
+
+    revision = "0" * 40 if fail == "revision" else bs.REVISION
+    cli = types.SimpleNamespace(
+        zone_blocks=zone_blocks, BLOCK_MARGIN=SMALL["MARGIN"], DEFAULT_MODEL="model",
+        resolve_model=lambda model: ("folder", {"revision": revision}),
+        load_network=lambda folder, device: seen.networks.append(folder) or ("network", 64),
+    )  # fmt: skip
+
+    def predict_fibers(network, ct, patch, device, mirror):
+        seen.predicted.append(ct.shape)
+        return np.zeros(ct.shape, np.uint8)
+
+    modules = {
+        "torch": types.SimpleNamespace(device=lambda d: d),
+        "zarr": types.SimpleNamespace(open=lambda path, mode: own),
+        "scrollgt": types.ModuleType("scrollgt"),
+        "scrollgt.fibers": types.ModuleType("scrollgt.fibers"),
+        "scrollgt.fibers.eval_trace": types.SimpleNamespace(score_tracing=score_tracing),
+        "scrollgt.fibers.target": types.SimpleNamespace(load_fiber_target=lambda path: ("skeleton", None, None)),
+        "vesuvius": types.ModuleType("vesuvius"),
+        "vesuvius.afv_spline_generator": types.SimpleNamespace(cli=cli),
+        "vesuvius.afv_spline_generator.cli": cli,
+        "vesuvius.afv_spline_generator.cleanup": types.SimpleNamespace(
+            ExteriorBlack=ExteriorBlack, clean=lambda traces, *a: traces),
+        "vesuvius.afv_spline_generator.extend": types.ModuleType("vesuvius.afv_spline_generator.extend"),
+        "vesuvius.afv_spline_generator.extend.stitch": types.SimpleNamespace(Stitcher=Stitcher),
+        "vesuvius.afv_spline_generator.predict": types.SimpleNamespace(predict_fibers=predict_fibers),
+        "vesuvius.afv_spline_generator.splines": types.SimpleNamespace(
+            extract_splines=extract_splines, threshold_to_u8=lambda t: t),
+    }  # fmt: skip
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    args = types.SimpleNamespace(context=tmp_path / "context.npy", work=tmp_path / "work", pr=tmp_path,
+                                 villa=tmp_path, main="7e6b82164", patched_stitch=stitch, device="cpu")  # fmt: skip
+    dz.run(args)
+    return json.loads((args.work / "result.json").read_text())
+
+
+def watched():
+    return types.SimpleNamespace(trim=[], black=[], predicted=[], networks=[], labels=[], tolerances=[])  # fmt: skip
+
+
+@pytest.mark.parametrize("fail", ["identity", "sha", "core", "crops", "revision"])
+def test_a_failed_gate_check_stops_the_run_before_any_field_is_predicted(
+    tmp_path, monkeypatch, fail
+):
+    """The registration: run "checks all three before it predicts a field, and stops if one fails"."""
+    seen = watched()
+    with pytest.raises(SystemExit, match="gate failed"):
+        run_small(tmp_path, monkeypatch, seen, fail)
+    assert seen.networks == [] and seen.predicted == []
+    assert not list((tmp_path / "work").glob("prob_block_*"))
+    assert not (tmp_path / "work" / "result.json").exists()
+
+
+def test_the_run_scores_main_and_the_trim_as_registered(tmp_path, monkeypatch):
+    """The trim runs on `patched` only, with the zone's read box; the zone's share counts every sample and the cube's
+    only the samples inside the cube; the written fibers are scored in the cube's frame."""
+    seen = watched()
+    out = run_small(tmp_path, monkeypatch, seen)
+    assert out["identity_problems"] == [] and len(seen.predicted) == 8
+    assert all(shape == (12, 12, 12) for shape in seen.predicted)  # BLOCK + 2 MARGIN
+    # one trim call per block, in the patched variant only, the read box the whole array (zone ± margin)
+    assert len(seen.trim) == 8 and seen.black == [((0, 0, 0), (20, 20, 20))] * 2
+    assert all(t[2:] == [(0, 0, 0), (20, 20, 20)] for t in seen.trim)
+    assert seen.trim[0][:2] == [(0, 0, 0), (12, 12, 12)]  # block 0's crop, z, y, x
+    m, p = out["rows"]["main"], out["rows"]["patched"]
+    every = [q for _, q in FIBERS_XYZ.values()]
+    families = ["VH".index(f) for f, _ in FIBERS_XYZ.values()]
+    assert m["zone"] == {
+        "written": 4,
+        "length": 21.0,
+        "duplicated_share": round(26 / 46, 4),
+    }
+    assert bs.duplicated_share(every, families) == pytest.approx(26 / 46)
+    assert p["zone"] == {"written": 3, "length": 15.0, "duplicated_share": 0.0}
+    # inside the cube: "inside" and "copy", 13 samples each, all beside each other; "below" and "beyond" are outside
+    assert (m["cube"]["written_inside"], m["cube"]["duplicated_share"]) == (2, 1.0)
+    assert (p["cube"]["written_inside"], p["cube"]["duplicated_share"]) == (1, 0.0)
+    assert seen.tolerances == [2.0, 4.0, 2.0, 4.0]
+    main_labels = seen.labels[0]
+    assert main_labels.shape == (8, 8, 8) and np.count_nonzero(main_labels) == 14
+    # "inside" and "copy" at cube-local z 2, y 2 and 3, x 1 to 7
+    assert np.all(main_labels[2, 2:4, 1:8] > 0)
 
 
 def test_the_patched_stitch_is_the_amended_patch_on_villa_7e6b82164():
