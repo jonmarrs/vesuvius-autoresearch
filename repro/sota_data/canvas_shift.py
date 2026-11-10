@@ -3,17 +3,20 @@
 Some released training segments ship a canvas whose shape matches the tifxyz
 grid, so a shape check accepts it, while the ink itself sits on the wrong
 pixels. A constant offset covers the one-cell and integer shifts. Paris-4-style
-segments also change that offset across the sheet: ``dy = ay + sy * y`` and
-the same in x, with the slope the residual of a canvas that is not the same
-size as the grid.
+segments also change that offset across the sheet. With three or more windows
+the fit keeps the cross terms, ``dy = ay + sy * y + cy * x`` and
+``dx = ax + cx * y + sx * x``. Dropping those terms leaves up to about half a
+pixel on the published segments.
 
 Measurement convention, locked by tests: canvas pixel ``(y, x)`` corresponds
-to tifxyz cell ``(y + dy, x + dx)``. Resampling into the tifxyz frame therefore
-reads the canvas at ``((y - ay) / (1 + sy), (x - ax) / (1 + sx))``.
+to tifxyz cell ``(y + dy, x + dx)``. Resampling into the tifxyz frame solves
+that for the source pixel. ``px_scale`` turns a coarser lattice into level-0
+pixels (4 for a level-2 pair). Non-finite samples are tifxyz holes and are
+left out of the correlation.
 
-The inputs are two same-shaped images you already have: the surface sampled on
-the tifxyz grid, and the canvas (or a label painted on it). This module does
-not fetch scroll volumes.
+``sample_tifxyz`` and ``sample_volume_trilinear`` build the surface the
+correlation compares against the canvas: CT sampled at the tifxyz cells.
+Fetching the bytes is the caller's job.
 
 One window::
 
@@ -38,6 +41,10 @@ import numpy as np
 
 MIN_NCC = 0.5
 DRIFT_PX = 1.0
+# A coefficient whose own change across the measured span is below this is
+# numerical dust. The published shorter model loses up to 0.47 px by dropping
+# a real cross term, so the floor sits under that and above fit noise.
+COEF_FLOOR_PX = 0.25
 MAX_SLOPE = 0.5
 
 
@@ -46,26 +53,158 @@ class CanvasShiftNotLocated(ValueError):
 
 
 def _plane(image: np.ndarray, what: str) -> np.ndarray:
+    """Return a 2D array. Non-finite values are holes, not data, and are kept."""
     array = np.asarray(image)
     if array.ndim == 3 and array.shape[-1] in (1, 3, 4):
         array = array[..., 0]
     if array.ndim != 2:
         raise ValueError(f"{what} must be a 2D image, got shape {array.shape}")
-    if array.size == 0 or not np.isfinite(array.astype(np.float64, copy=False)).all():
-        raise ValueError(f"{what} must be a nonempty finite image")
+    if array.size == 0 or not np.isfinite(array).any():
+        raise ValueError(f"{what} must contain at least one finite sample")
+    if np.isinf(array).any():
+        raise ValueError(f"{what} must not contain infinite values")
     return np.ascontiguousarray(array)
 
 
 def highpass(image: np.ndarray, size: int = 31) -> np.ndarray:
-    """Remove a locally linear background. A pure ramp becomes ~0 inside the image."""
+    """Remove a locally linear background. A pure ramp becomes ~0 inside the image.
+
+    The local mean ignores non-finite holes, so a tifxyz ``-1`` that the caller
+    has marked as NaN does not darken the neighbourhood.
+    """
     if isinstance(size, bool) or not isinstance(size, Integral) or int(size) < 1:
         raise ValueError("high-pass size must be a positive integer")
     size = (
         int(size) | 1
     )  # box filters use an odd window; an even size would shift the phase
     plane = _plane(image, "image").astype(np.float32)
-    blurred = cv2.blur(plane, (size, size))
-    return plane - blurred
+    mask = np.isfinite(plane)
+    filled = np.where(mask, plane, 0).astype(np.float32)
+    weight = cv2.blur(mask.astype(np.float32), (size, size))
+    mean = cv2.blur(filled, (size, size)) / np.maximum(weight, 1e-3)
+    return np.where(mask, plane - mean, np.nan).astype(np.float32)
+
+
+def level0_centers(indices: np.ndarray, stride: int) -> np.ndarray:
+    """Level-0 coordinate of each pixel centre on a ``stride`` lattice.
+
+    A level-2 pixel ``i`` (stride 4) is centred at ``4*i + 1.5``.
+    """
+    if isinstance(stride, bool) or not isinstance(stride, Integral) or int(stride) < 1:
+        raise ValueError("stride must be a positive integer")
+    return int(stride) * np.asarray(indices, np.float64) + (int(stride) - 1) / 2.0
+
+
+def sample_tifxyz(
+    z_plane: np.ndarray,
+    y_plane: np.ndarray,
+    x_plane: np.ndarray,
+    rows: np.ndarray,
+    cols: np.ndarray,
+    scale_y: float,
+    scale_x: float,
+) -> np.ndarray:
+    """Bilinear ZYX at full-res tifxyz cells ``rows``, ``cols``.
+
+    Stored coordinate is ``full_res * scale`` (villa's half=0 convention).
+    A corner stored as ``-1``, a non-finite corner, or ``z <= 0`` makes that
+    sample NaN. The result has shape ``(len(rows), len(cols), 3)`` in Z, Y, X
+    order, which is the order the CT volume is indexed in.
+    """
+    planes = [np.asarray(plane, np.float64) for plane in (z_plane, y_plane, x_plane)]
+    if any(plane.ndim != 2 or plane.shape != planes[0].shape for plane in planes):
+        raise ValueError("tifxyz planes must be 2D and the same shape")
+    height, width = planes[0].shape
+    stored_row = np.asarray(rows, np.float64) * float(scale_y)
+    stored_col = np.asarray(cols, np.float64) * float(scale_x)
+    row0 = np.floor(stored_row).astype(np.int64)
+    col0 = np.floor(stored_col).astype(np.int64)
+    row_frac = (stored_row - row0)[:, None]
+    col_frac = (stored_col - col0)[None, :]
+
+    def _at(plane: np.ndarray, row: np.ndarray, col: np.ndarray) -> np.ndarray:
+        ok = (row >= 0) & (row < height) & (col >= 0) & (col < width)
+        gathered = plane[np.clip(row, 0, height - 1), np.clip(col, 0, width - 1)]
+        return np.where(ok, gathered, np.nan)
+
+    out = np.empty((len(stored_row), len(stored_col), 3), np.float64)
+    valid = np.ones((len(stored_row), len(stored_col)), dtype=bool)
+    for index, plane in enumerate(planes):
+        corners = [
+            _at(plane, row0[:, None], col0[None, :]),
+            _at(plane, row0[:, None] + 1, col0[None, :]),
+            _at(plane, row0[:, None], col0[None, :] + 1),
+            _at(plane, row0[:, None] + 1, col0[None, :] + 1),
+        ]
+        out[..., index] = (
+            corners[0] * (1.0 - row_frac) * (1.0 - col_frac)
+            + corners[1] * row_frac * (1.0 - col_frac)
+            + corners[2] * (1.0 - row_frac) * col_frac
+            + corners[3] * row_frac * col_frac
+        )
+        finite = np.ones_like(valid)
+        for corner in corners:
+            finite &= np.isfinite(corner) & (corner != -1)
+        if index == 0:
+            finite &= corners[0] > 0
+            finite &= corners[1] > 0
+            finite &= corners[2] > 0
+            finite &= corners[3] > 0
+        valid &= finite
+    out[~valid] = np.nan
+    return out
+
+
+def sample_volume_trilinear(
+    volume: np.ndarray, zyx0: np.ndarray, level: int = 0
+) -> np.ndarray:
+    """Trilinear sample of one pyramid level at level-0 ZYX points.
+
+    ``volume`` is already that level. Level ``k`` voxel ``i`` covers level-0
+    ``[2^k * i, 2^k * i + 2^k - 1]``, so its centre is
+    ``(p0 - (2^k - 1) / 2) / 2^k``. Points outside the volume are NaN.
+    """
+    array = np.asarray(volume)
+    if array.ndim != 3:
+        raise ValueError(f"volume must be 3D ZYX, got shape {array.shape}")
+    if isinstance(level, bool) or not isinstance(level, Integral) or int(level) < 0:
+        raise ValueError("level must be a non-negative integer")
+    points = np.asarray(zyx0, np.float64)
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError("zyx0 must have shape (N, 3)")
+    factor = 2 ** int(level)
+    continuous = (points - (factor - 1) / 2.0) / factor
+    base = np.floor(continuous)
+    frac = continuous - base
+    base_i = base.astype(np.int64)
+    depth, height, width = array.shape
+    inside = np.all(np.isfinite(points), axis=1)
+    value = np.zeros(len(points), np.float64)
+    for z_off, y_off, x_off in (
+        (a, b, c) for a in (0, 1) for b in (0, 1) for c in (0, 1)
+    ):
+        zz = base_i[:, 0] + z_off
+        yy = base_i[:, 1] + y_off
+        xx = base_i[:, 2] + x_off
+        here = (
+            inside
+            & (zz >= 0)
+            & (yy >= 0)
+            & (xx >= 0)
+            & (zz < depth)
+            & (yy < height)
+            & (xx < width)
+        )
+        inside &= here
+        weight = (
+            (frac[:, 0] if z_off else 1.0 - frac[:, 0])
+            * (frac[:, 1] if y_off else 1.0 - frac[:, 1])
+            * (frac[:, 2] if x_off else 1.0 - frac[:, 2])
+        )
+        value[here] += weight[here] * array[zz[here], yy[here], xx[here]]
+    out = np.full(len(points), np.nan, np.float32)
+    out[inside] = value[inside]
+    return out
 
 
 def _parabola(left: float, center: float, right: float) -> float:
@@ -78,6 +217,45 @@ def _parabola(left: float, center: float, right: float) -> float:
     return float(np.clip(delta, -1.0, 1.0))
 
 
+def _masked_ncc(
+    canvas_window: np.ndarray,
+    surface_search: np.ndarray,
+    max_shift: int,
+    *,
+    min_frac: float = 0.5,
+) -> np.ndarray:
+    """NCC of canvas[y, x] with surface[max_shift + y + dy, max_shift + x + dx].
+
+    Non-finite samples on either image are holes and do not enter the sum.
+    The result is NaN where the overlap of finite samples is under half the
+    canvas window's finite area.
+    """
+    height, width = canvas_window.shape
+    response = np.full((2 * max_shift + 1, 2 * max_shift + 1), np.nan, np.float64)
+    canvas_ok = np.isfinite(canvas_window)
+    needed = max(100, int(min_frac * int(canvas_ok.sum())))
+    if int(canvas_ok.sum()) < 100 and int(canvas_ok.sum()) < needed:
+        needed = max(1, int(min_frac * int(canvas_ok.sum())))
+    for dy in range(-max_shift, max_shift + 1):
+        y0 = max_shift + dy
+        for dx in range(-max_shift, max_shift + 1):
+            x0 = max_shift + dx
+            patch = surface_search[y0 : y0 + height, x0 : x0 + width]
+            overlap = canvas_ok & np.isfinite(patch)
+            count = int(overlap.sum())
+            if count < needed:
+                continue
+            left = canvas_window[overlap].astype(np.float64)
+            right = patch[overlap].astype(np.float64)
+            left -= left.mean()
+            right -= right.mean()
+            denom = float(np.sqrt((left * left).sum() * (right * right).sum()))
+            if denom == 0.0:
+                continue
+            response[dy + max_shift, dx + max_shift] = (left * right).sum() / denom
+    return response
+
+
 def measure_shift(
     surface: np.ndarray,
     canvas: np.ndarray,
@@ -86,13 +264,16 @@ def measure_shift(
     *,
     highpass_size: int = 31,
     min_ncc: float = MIN_NCC,
-) -> dict[str, float | int]:
+    px_scale: float = 1.0,
+    origin: tuple[float, float] = (0.0, 0.0),
+) -> dict[str, float]:
     """Shift that places this canvas window onto the tifxyz-frame surface.
 
-    ``window`` is ``(y, x, height, width)`` in the shared index space. The
-    window must sit at least ``max_shift`` pixels inside both images. The
-    returned ``dy, dx`` are subpixel: canvas ``(y, x)`` matches surface
-    ``(y + dy, x + dx)``.
+    ``window`` is ``(y, x, height, width)`` in the image's own pixels. The
+    window must sit at least ``max_shift`` pixels inside both images. ``dy``
+    and ``dx`` are in those pixels: canvas ``(y, x)`` matches surface
+    ``(y + dy, x + dx)``. ``dy0`` and ``dx0`` are the same shift in level-0
+    pixels, ``px_scale`` times the image shift. A level-2 pair uses 4.
     """
     surface_image = _plane(surface, "surface")
     canvas_image = _plane(canvas, "canvas")
@@ -120,6 +301,20 @@ def measure_shift(
     max_shift = int(max_shift)
     if min(height, width) < 2:
         raise ValueError("window must be at least 2 pixels on each side")
+    if (
+        isinstance(px_scale, bool)
+        or not isinstance(px_scale, (int, float))
+        or not np.isfinite(px_scale)
+        or float(px_scale) <= 0
+    ):
+        raise ValueError("px_scale must be a positive finite number")
+    if len(origin) != 2 or any(
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not np.isfinite(value)
+        for value in origin
+    ):
+        raise ValueError("origin must be two finite level-0 coordinates")
     limit_y, limit_x = surface_image.shape
     if (
         y < max_shift
@@ -134,25 +329,26 @@ def measure_shift(
     if highpass_size:
         surface_image = highpass(surface_image, highpass_size)
         canvas_image = highpass(canvas_image, highpass_size)
-    template = np.ascontiguousarray(
-        canvas_image[y : y + height, x : x + width], dtype=np.float32
-    )
-    search = np.ascontiguousarray(
+    template = np.asarray(canvas_image[y : y + height, x : x + width], dtype=np.float32)
+    search = np.asarray(
         surface_image[
             y - max_shift : y + height + max_shift,
             x - max_shift : x + width + max_shift,
         ],
         dtype=np.float32,
     )
-    if float(np.std(template)) == 0.0 or float(np.std(search)) == 0.0:
+    if not np.isfinite(template).any() or float(np.nanstd(template)) == 0.0:
         raise CanvasShiftNotLocated(
-            "canvas window or surface patch has no contrast after high-pass; the shift is unknown"
+            "canvas window has no contrast after high-pass; the shift is unknown"
         )
-    response = cv2.matchTemplate(search, template, cv2.TM_CCOEFF_NORMED)
-    if response.shape != (2 * max_shift + 1, 2 * max_shift + 1):
+    if not np.isfinite(search).any() or float(np.nanstd(search)) == 0.0:
         raise CanvasShiftNotLocated(
-            f"correlation search returned shape {response.shape}, expected "
-            f"{(2 * max_shift + 1, 2 * max_shift + 1)}"
+            "surface patch has no contrast after high-pass; the shift is unknown"
+        )
+    response = _masked_ncc(template, search, max_shift)
+    if not np.isfinite(response).any():
+        raise CanvasShiftNotLocated(
+            "no shift had enough finite overlap to score; the shift is not located"
         )
     peak_index = np.unravel_index(int(np.nanargmax(response)), response.shape)
     peak = float(response[peak_index])
@@ -172,12 +368,20 @@ def measure_shift(
     dx = (col - max_shift) + _parabola(
         float(response[row, col - 1]), peak, float(response[row, col + 1])
     )
+    scale = float(px_scale)
+    center_y = y + height / 2.0
+    center_x = x + width / 2.0
     return {
-        "y": y + height / 2.0,
-        "x": x + width / 2.0,
+        "y": center_y,
+        "x": center_x,
         "dy": float(dy),
         "dx": float(dx),
+        "y0": float(origin[0]) + center_y * scale,
+        "x0": float(origin[1]) + center_x * scale,
+        "dy0": float(dy) * scale,
+        "dx0": float(dx) * scale,
         "ncc": peak,
+        "px_scale": scale,
     }
 
 
@@ -187,12 +391,80 @@ def _drift(slope: float, positions: Sequence[float]) -> float:
     return abs(slope) * (max(positions) - min(positions))
 
 
-def fit_shift(regions: Sequence[dict[str, float]]) -> dict[str, float | str]:
-    """Fit ``dy = ay + sy * y`` and ``dx = ax + sx * x`` to measured regions.
+def _span(values: np.ndarray) -> float:
+    return float(np.max(values) - np.min(values))
 
-    A slope is kept only when the offset changes by at least one pixel across
-    the observed positions. Two noisy readings of one constant therefore stay
-    a constant. ``y`` and ``x`` are the window centers from ``measure_shift``.
+
+def _separable_slope(positions: np.ndarray, shifts: np.ndarray) -> tuple[float, float]:
+    """Intercept and one slope. A drift under one pixel stays a constant."""
+    if len(positions) == 1 or _span(positions) == 0.0:
+        return float(shifts.mean()), 0.0
+    design = np.column_stack([np.ones(len(positions)), positions])
+    intercept, slope = np.linalg.lstsq(design, shifts, rcond=None)[0]
+    if _drift(float(slope), positions.tolist()) < DRIFT_PX:
+        return float(shifts.mean()), 0.0
+    if abs(float(slope)) >= MAX_SLOPE:
+        raise ValueError(
+            f"fitted slope {float(slope):.4g} is outside +/-{MAX_SLOPE}; "
+            "this is not a canvas-size residual"
+        )
+    return float(intercept), float(slope)
+
+
+def _affine_terms(
+    ys: np.ndarray, xs: np.ndarray, shifts: np.ndarray
+) -> tuple[float, float, float]:
+    """``shift = a + b*y + c*x``. Cross terms stay once the axis actually drifts.
+
+    Two points cannot identify both slopes, so the caller uses the separable
+    fit there. Three or more points use this fit. If the fitted values only
+    wander by under a pixel, the whole axis collapses to their mean. Otherwise
+    every identified coefficient is kept, including a cross term whose own
+    share is a fraction of a pixel.
+    """
+    columns = [np.ones(len(ys))]
+    used = ["a"]
+    if _span(ys) > 0.0:
+        columns.append(ys)
+        used.append("y")
+    if _span(xs) > 0.0:
+        columns.append(xs)
+        used.append("x")
+    if len(used) == 1 or len(ys) < len(used):
+        intercept, slope = _separable_slope(ys, shifts)
+        return intercept, slope, 0.0
+    coef = np.linalg.lstsq(np.column_stack(columns), shifts, rcond=None)[0]
+    terms = {name: float(value) for name, value in zip(used, coef, strict=True)}
+    intercept = terms.get("a", 0.0)
+    by = terms.get("y", 0.0)
+    bx = terms.get("x", 0.0)
+    fitted = intercept + by * ys + bx * xs
+    if _span(fitted) < DRIFT_PX:
+        return float(shifts.mean()), 0.0, 0.0
+    if abs(by) * _span(ys) < COEF_FLOOR_PX:
+        by = 0.0
+    if abs(bx) * _span(xs) < COEF_FLOOR_PX:
+        bx = 0.0
+    for name, slope in (("y", by), ("x", bx)):
+        if abs(slope) >= MAX_SLOPE:
+            raise ValueError(
+                f"fitted {name} slope {slope:.4g} is outside +/-{MAX_SLOPE}; "
+                "this is not a canvas-size residual"
+            )
+    return intercept, by, bx
+
+
+def fit_shift(regions: Sequence[dict[str, float]]) -> dict[str, float | str]:
+    """Fit ``dy = ay + sy*y + cy*x`` and ``dx = ax + cx*y + sx*x``.
+
+    Fewer than three points fit each axis on its own and leave the cross terms
+    at zero, so two readings of one constant stay a constant. Three or more
+    points fit the full model. A coefficient whose own change across the
+    measured span is under ``COEF_FLOOR_PX`` is dropped, and an axis whose
+    fitted peak-to-peak is under one pixel collapses to the mean. ``y`` and
+    ``x`` are the window centers from ``measure_shift``. Pass the level-0
+    centers and shifts (``y0``, ``x0``, ``dy0``, ``dx0``) when the slope should
+    be in level-0 pixels.
     """
     if (
         not isinstance(regions, Sequence)
@@ -214,24 +486,27 @@ def fit_shift(regions: Sequence[dict[str, float]]) -> dict[str, float | str]:
     if not np.isfinite(np.concatenate([ys, xs, dys, dxs])).all():
         raise ValueError("region coordinates and shifts must be finite")
 
-    def _axis(positions: np.ndarray, shifts: np.ndarray) -> tuple[float, float]:
-        if len(positions) == 1 or float(np.ptp(positions)) == 0.0:
-            return float(shifts.mean()), 0.0
-        design = np.column_stack([np.ones(len(positions)), positions])
-        intercept, slope = np.linalg.lstsq(design, shifts, rcond=None)[0]
-        if _drift(float(slope), positions.tolist()) < DRIFT_PX:
-            return float(shifts.mean()), 0.0
-        if abs(float(slope)) >= MAX_SLOPE:
-            raise ValueError(
-                f"fitted slope {float(slope):.4g} is outside +/-{MAX_SLOPE}; "
-                "this is not a canvas-size residual"
-            )
-        return float(intercept), float(slope)
-
-    ay, sy = _axis(ys, dys)
-    ax, sx = _axis(xs, dxs)
-    model = "linear" if sy != 0.0 or sx != 0.0 else "constant"
-    return {"model": model, "ay": ay, "sy": sy, "ax": ax, "sx": sx}
+    if len(rows) < 3:
+        ay, sy = _separable_slope(ys, dys)
+        ax, sx = _separable_slope(xs, dxs)
+        cy, cx = 0.0, 0.0
+    else:
+        ay, sy, cy = _affine_terms(ys, xs, dys)
+        ax, cx, sx = _affine_terms(ys, xs, dxs)
+    slopes = (sy, cy, cx, sx)
+    if any(slope != 0.0 for slope in slopes):
+        model = "affine" if cy != 0.0 or cx != 0.0 else "linear"
+    else:
+        model = "constant"
+    return {
+        "model": model,
+        "ay": ay,
+        "sy": sy,
+        "cy": cy,
+        "ax": ax,
+        "cx": cx,
+        "sx": sx,
+    }
 
 
 def resample_to_tifxyz(
@@ -242,16 +517,22 @@ def resample_to_tifxyz(
     sx: float,
     out_shape: tuple[int, int] | None = None,
     *,
+    cy: float = 0.0,
+    cx: float = 0.0,
     nearest: bool = False,
 ) -> np.ndarray:
     """Read the canvas onto the tifxyz frame.
 
-    Output pixel ``(y, x)`` comes from canvas
-    ``((y - ay) / (1 + sy), (x - ax) / (1 + sx))``. ``nearest`` is the label
-    path: thresholded ink stays intact.
+    Output pixel ``(y_t, x_t)`` comes from the canvas pixel ``(y, x)`` that
+    satisfies ``y_t = ay + (1+sy)*y + cy*x`` and
+    ``x_t = ax + cx*y + (1+sx)*x``. With the cross terms at zero that is
+    ``((y_t - ay) / (1 + sy), (x_t - ax) / (1 + sx))``. ``out_shape`` is the
+    tifxyz grid, which is not the canvas shape when the two sizes differ.
+    ``nearest`` is the label path: thresholded ink stays intact.
     """
     image = _plane(canvas, "canvas")
-    for name, slope in (("sy", sy), ("sx", sx)):
+    image = np.where(np.isfinite(image), image, 0).astype(np.float32)
+    for name, slope in (("sy", sy), ("sx", sx), ("cy", cy), ("cx", cx)):
         if (
             isinstance(slope, bool)
             or not isinstance(slope, (int, float))
@@ -278,17 +559,18 @@ def resample_to_tifxyz(
         out_h, out_w = int(out_shape[0]), int(out_shape[1])
     y_scale = 1.0 + float(sy)
     x_scale = 1.0 + float(sx)
-    if abs(y_scale) < 1e-6 or abs(x_scale) < 1e-6:
+    det = y_scale * x_scale - float(cy) * float(cx)
+    if abs(det) < 1e-6:
         raise ValueError("canvas scale must not collapse an axis")
-    rows = (np.arange(out_h, dtype=np.float32) - np.float32(ay)) / np.float32(y_scale)
-    cols = (np.arange(out_w, dtype=np.float32) - np.float32(ax)) / np.float32(x_scale)
-    map_y = np.broadcast_to(rows[:, None], (out_h, out_w)).copy()
-    map_x = np.broadcast_to(cols[None, :], (out_h, out_w)).copy()
+    yy = np.arange(out_h, dtype=np.float64)[:, None]
+    xx = np.arange(out_w, dtype=np.float64)[None, :]
+    map_y = (x_scale * (yy - float(ay)) - float(cy) * (xx - float(ax))) / det
+    map_x = (y_scale * (xx - float(ax)) - float(cx) * (yy - float(ay))) / det
     interpolation = cv2.INTER_NEAREST if nearest else cv2.INTER_LINEAR
     return cv2.remap(
         image,
-        map_x,
-        map_y,
+        np.ascontiguousarray(map_x, dtype=np.float32),
+        np.ascontiguousarray(map_y, dtype=np.float32),
         interpolation,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0,
@@ -303,15 +585,28 @@ def correct_canvas(
     *,
     nearest: bool = False,
     aligned_tolerance: float = 1.0,
+    out_shape: tuple[int, int] | None = None,
+    px_scale: float = 1.0,
+    origin: tuple[float, float] = (0.0, 0.0),
 ) -> dict[str, object]:
-    """Measure each window, fit the shift, and resample the canvas."""
+    """Measure each window, fit the shift, and resample onto ``out_shape``.
+
+    ``out_shape`` is the tifxyz grid. It defaults to the canvas shape, which
+    is right for a patch that already shares the tifxyz lattice and wrong for
+    a full segment whose tifxyz size differs from the canvas.
+    """
     if (
         not isinstance(windows, Sequence)
         or isinstance(windows, (str, bytes))
         or not windows
     ):
         raise ValueError("at least one window is required")
-    regions = [measure_shift(surface, canvas, window, max_shift) for window in windows]
+    regions = [
+        measure_shift(
+            surface, canvas, window, max_shift, px_scale=px_scale, origin=origin
+        )
+        for window in windows
+    ]
     fitted = fit_shift(regions)
     corrected = resample_to_tifxyz(
         canvas,
@@ -319,6 +614,9 @@ def correct_canvas(
         float(fitted["sy"]),
         float(fitted["ax"]),
         float(fitted["sx"]),
+        out_shape,
+        cy=float(fitted["cy"]),
+        cx=float(fitted["cx"]),
         nearest=nearest,
     )
     aligned = all(
@@ -367,6 +665,28 @@ def _parser() -> argparse.ArgumentParser:
         help="window in the shared index space; repeat for a linear fit",
     )
     parser.add_argument("--max-shift", type=int, default=64)
+    parser.add_argument(
+        "--px-scale",
+        type=float,
+        default=1.0,
+        help="level-0 pixels per image pixel; 4 when the pair is level 2",
+    )
+    parser.add_argument(
+        "--origin",
+        nargs=2,
+        type=float,
+        metavar=("Y", "X"),
+        default=(0.0, 0.0),
+        help="level-0 coordinate of image pixel (0, 0)'s centre is not this; "
+        "this is added after multiplying the image centre by --px-scale",
+    )
+    parser.add_argument(
+        "--out-shape",
+        nargs=2,
+        type=int,
+        metavar=("H", "W"),
+        help="tifxyz grid the resampled canvas is written on",
+    )
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
         "--out", type=Path, help="write the canvas resampled onto the tifxyz frame"
@@ -390,6 +710,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.window,
             args.max_shift,
             nearest=args.nearest,
+            out_shape=tuple(args.out_shape) if args.out_shape else None,
+            px_scale=args.px_scale,
+            origin=(args.origin[0], args.origin[1]),
         )
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -414,16 +737,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         fit = result["fit"]
         assert isinstance(fit, dict)
         print(
-            f"model {fit['model']}: dy = {fit['ay']:.3f} + {fit['sy']:.6g} * y, "
-            f"dx = {fit['ax']:.3f} + {fit['sx']:.6g} * x"
+            f"model {fit['model']}: "
+            f"dy = {fit['ay']:.3f} + {fit['sy']:.6g} * y + {fit['cy']:.6g} * x, "
+            f"dx = {fit['ax']:.3f} + {fit['cx']:.6g} * y + {fit['sx']:.6g} * x"
         )
         print(f"aligned_before: {result['aligned_before']}")
         regions = result["regions"]
         assert isinstance(regions, list)
         for region in regions:
             print(
-                f"  center ({region['y']:.1f}, {region['x']:.1f}) "
-                f"shift ({region['dy']:.2f}, {region['dx']:.2f}) ncc {region['ncc']:.3f}"
+                f"  center ({region['y0']:.1f}, {region['x0']:.1f}) level-0 "
+                f"shift ({region['dy0']:.2f}, {region['dx0']:.2f}) "
+                f"image shift ({region['dy']:.2f}, {region['dx']:.2f}) "
+                f"ncc {region['ncc']:.3f}"
             )
     return 0 if result["aligned_before"] else 1
 

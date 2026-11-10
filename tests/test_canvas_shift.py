@@ -20,10 +20,38 @@ from repro.sota_data.canvas_shift import (
     CanvasShiftNotLocated,
     correct_canvas,
     fit_shift,
+    level0_centers,
     main,
     measure_shift,
     resample_to_tifxyz,
+    sample_tifxyz,
+    sample_volume_trilinear,
 )
+
+
+def _independent_surface(canvas, ay, sy, ax, sx, cy=0.0, cx=0.0):
+    """Bilinear read of the same map, not going through cv2.remap."""
+    height, width = canvas.shape
+    det = (1.0 + sy) * (1.0 + sx) - cy * cx
+    yy, xx = np.mgrid[0:height, 0:width].astype(np.float64)
+    src_y = ((1.0 + sx) * (yy - ay) - cy * (xx - ax)) / det
+    src_x = ((1.0 + sy) * (xx - ax) - cx * (yy - ay)) / det
+    y0 = np.floor(src_y).astype(np.int64)
+    x0 = np.floor(src_x).astype(np.int64)
+    fy = src_y - y0
+    fx = src_x - x0
+
+    def _at(row, col):
+        ok = (row >= 0) & (row < height) & (col >= 0) & (col < width)
+        gathered = canvas[np.clip(row, 0, height - 1), np.clip(col, 0, width - 1)]
+        return np.where(ok, gathered, 0.0)
+
+    return (
+        _at(y0, x0) * (1.0 - fy) * (1.0 - fx)
+        + _at(y0 + 1, x0) * fy * (1.0 - fx)
+        + _at(y0, x0 + 1) * (1.0 - fy) * fx
+        + _at(y0 + 1, x0 + 1) * fy * fx
+    ).astype(np.float32)
 
 
 def _texture(height: int, width: int, seed: int = 0) -> np.ndarray:
@@ -147,11 +175,20 @@ def test_a_twelve_pixel_drift_across_the_span_is_a_line():
     assert fitted["ay"] == pytest.approx(2.0)
     assert fitted["sx"] == pytest.approx(-0.018)
     assert fitted["ax"] == pytest.approx(-1.88, abs=1e-9)
+    assert fitted["cy"] == 0.0 and fitted["cx"] == 0.0
 
 
 def test_one_region_is_only_a_constant():
     fitted = fit_shift([{"y": 80.0, "x": 90.0, "dy": 4.5, "dx": -1.25}])
-    assert fitted == {"model": "constant", "ay": 4.5, "sy": 0.0, "ax": -1.25, "sx": 0.0}
+    assert fitted == {
+        "model": "constant",
+        "ay": 4.5,
+        "sy": 0.0,
+        "cy": 0.0,
+        "ax": -1.25,
+        "cx": 0.0,
+        "sx": 0.0,
+    }
 
 
 def test_a_slope_past_a_half_is_not_a_canvas_size_residual():
@@ -165,10 +202,10 @@ def test_a_slope_past_a_half_is_not_a_canvas_size_residual():
 
 
 def test_linear_drift_is_measured_fitted_and_put_back():
-    """Three windows on a known map. The corrected canvas must land on the surface."""
+    """Three windows on a known map. The surface is built without cv2.remap."""
     canvas = _texture(220, 220, seed=4)
     ay, sy, ax, sx = 3.0, 0.02, -2.0, -0.015
-    surface = resample_to_tifxyz(canvas, ay, sy, ax, sx)
+    surface = _independent_surface(canvas, ay, sy, ax, sx)
     windows = [
         (32, 32, 32, 32),
         (32, 150, 32, 32),
@@ -188,6 +225,103 @@ def test_linear_drift_is_measured_fitted_and_put_back():
     interior = np.s_[48:172, 48:172]
     residual = np.abs(corrected[interior] - surface[interior])
     assert float(np.percentile(residual, 95)) < 0.15
+
+
+def test_three_regions_keep_a_subpixel_cross_term():
+    """The term that is under a pixel on its own is still part of the fit.
+
+    Dropping it is the half-pixel miss on the published w00 segments. Two
+    points never get a cross term; this needs a third region.
+    """
+
+    def _dy(y, x):
+        return 1.5 + 0.01 * y + 0.00002 * x
+
+    def _dx(y, x):
+        return -3.0 + 0.00047 * y - 0.008 * x
+
+    points = [(100.0, 200.0), (1100.0, 200.0), (100.0, 20200.0), (1100.0, 20200.0)]
+    fitted = fit_shift(
+        [{"y": y, "x": x, "dy": _dy(y, x), "dx": _dx(y, x)} for y, x in points]
+    )
+    assert fitted["model"] == "affine"
+    assert fitted["sy"] == pytest.approx(0.01)
+    assert fitted["cy"] == pytest.approx(0.00002)
+    assert fitted["cx"] == pytest.approx(0.00047)
+    assert fitted["sx"] == pytest.approx(-0.008)
+    assert fitted["ay"] == pytest.approx(1.5, abs=1e-9)
+    assert fitted["ax"] == pytest.approx(-3.0, abs=1e-6)
+
+
+def test_a_level2_shift_is_reported_in_level0_pixels():
+    canvas = _texture(96, 96, seed=9)
+    surface = _independent_surface(canvas, ay=3, sy=0, ax=-2, sx=0)
+    found = measure_shift(
+        surface,
+        canvas,
+        (16, 16, 48, 48),
+        max_shift=12,
+        px_scale=4,
+        origin=(1000.0, 2000.0),
+    )
+    assert found["dy"] == pytest.approx(3, abs=0.2)
+    assert found["dx"] == pytest.approx(-2, abs=0.2)
+    assert found["dy0"] == pytest.approx(found["dy"] * 4)
+    assert found["dx0"] == pytest.approx(found["dx"] * 4)
+    assert found["y0"] == pytest.approx(1000.0 + found["y"] * 4)
+    assert found["x0"] == pytest.approx(2000.0 + found["x"] * 4)
+
+
+def test_a_tifxyz_hole_does_not_pull_the_shift():
+    canvas = _texture(120, 120, seed=10)
+    surface = _independent_surface(canvas, ay=5, sy=0, ax=-4, sx=0)
+    surface = surface.copy()
+    surface[30:70, 30:80] = np.nan
+    found = measure_shift(
+        surface, canvas, (20, 20, 64, 64), max_shift=16, highpass_size=0
+    )
+    assert found["dy"] == pytest.approx(5, abs=0.25)
+    assert found["dx"] == pytest.approx(-4, abs=0.25)
+
+
+def test_correct_canvas_writes_the_tifxyz_shape():
+    canvas = _texture(80, 90, seed=11)
+    surface = _independent_surface(canvas, ay=4, sy=0, ax=-3, sx=0)
+    # The tifxyz grid is a different shape from the canvas.
+    wider = np.pad(surface, ((0, 10), (0, 0)))
+    result = correct_canvas(
+        wider[:80, :],
+        canvas,
+        [(16, 16, 40, 40)],
+        max_shift=12,
+        out_shape=(90, 90),
+    )
+    corrected = result["corrected"]
+    assert isinstance(corrected, np.ndarray)
+    assert corrected.shape == (90, 90)
+
+
+def test_ct_sampled_at_a_tifxyz_cell_reads_that_voxel():
+    """Level-2 voxel i is centred on level-0 coordinate 4*i + 1.5."""
+    assert level0_centers(np.array([0, 10]), 4).tolist() == [1.5, 41.5]
+    volume = np.zeros((6, 6, 6), np.float32)
+    volume[2, 2, 2] = 7
+    # stored grid is the full-res grid at scale 1; cell (9.5, 9.5) would be
+    # outside this tiny plane, so the plane stores the level-0 point directly.
+    plane = np.full((4, 4), -1.0)
+    plane[1, 1] = 9.5
+    plane[1, 2] = 9.5
+    plane[2, 1] = 9.5
+    plane[2, 2] = 9.5
+    zyx = sample_tifxyz(plane, plane, plane, np.array([1.0]), np.array([1.0]), 1.0, 1.0)
+    assert zyx[0, 0].tolist() == pytest.approx([9.5, 9.5, 9.5])
+    sampled = sample_volume_trilinear(volume, zyx.reshape(-1, 3), level=2)
+    assert sampled[0] == pytest.approx(7.0)
+    plane[2, 2] = -1
+    holed = sample_tifxyz(
+        plane, plane, plane, np.array([1.0]), np.array([1.0]), 1.0, 1.0
+    )
+    assert np.isnan(holed[0, 0]).all()
 
 
 def test_a_shift_on_the_search_boundary_is_not_reported():
