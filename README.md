@@ -5,8 +5,9 @@
 Start with the [current research plan](docs/research_plan.md) for work that fits
 one RTX 4090 (24 GB), the [research strategy](docs/RESEARCH_STRATEGY.md) for
 evidence and stop criteria, and the [October filing plan](docs/PRIZE_PLAN_2026-10_FINAL_WEEK.md)
-for completed contributions. The priorities are useful upstream engineering,
-fiber-tracing improvements and controlled evaluation. New research claims need
+for completed contributions. The priorities are a First Letters campaign on
+unread scrolls with a published recipe, landing measured fiber fixes upstream,
+and fixing the tool defects that campaign hits. New research claims need
 measurements; internal tooling and merged PR counts alone do not establish impact.
 
 **October Progress Prize: engineering entry filed.** The

@@ -10,12 +10,12 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
-# Direct launchers are also used from evidence directories outside the checkout. "src" too: the shared .venv's
-# editable install may point at another checkout (run_ranked_inference launches this file by path).
-if not __package__:
-    root = Path(__file__).resolve().parents[2]
-    sys.path[:0] = [str(root), str(root / "src")]
+# Both direct and -m launches must use this checkout's src; the shared editable
+# installation may currently point at a different worktree.
+root = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(root), str(root / "src")]
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,6 +23,7 @@ import torch
 from matplotlib.patches import Rectangle
 from tap import Tap
 
+from scripts.uncertainty_artifacts import mask_shape, validate_destination
 from vesuvius_autoresearch.core.inference import (
     depth_band_for,
     hann2d,
@@ -38,7 +39,10 @@ from vesuvius_autoresearch.core.inference import (
     validate_region,
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
-from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+from vesuvius_autoresearch.core.prediction_artifacts import (
+    prediction_paths,
+    prediction_stem,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -254,6 +258,7 @@ def write_prediction_metadata(
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
         "fiber_coherence": fiber_coherence,
+        "uncertainty_export": getattr(args, "uncertainty_export", None),
         "num_parts": getattr(args, "num_parts", 1),
         "part_id": getattr(args, "part_id", 0),
         "prediction_complete": getattr(args, "num_parts", 1) == 1,
@@ -271,6 +276,36 @@ def write_prediction_metadata(
     encoded = json.dumps(metadata, indent=2, allow_nan=False)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(encoded + "\n")
+
+
+def _prediction_output(args):
+    base = prediction_stem(
+        f"pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
+        getattr(args, "artifact_stem", None),
+    )
+    if args.num_parts > 1:
+        base += f"_part{args.part_id}of{args.num_parts}"
+    image = args.output_img or f"predictions/{base}.png"
+    return base, image, os.path.dirname(image) or "."
+
+
+def _uncertainty_sources(args, base, directory, image):
+    target = Path(directory) / f"{base}_uncertain"
+    sources = [
+        args.checkpoint,
+        image,
+        *(p for p in prediction_paths(directory, base) if p != target),
+    ]
+    if args.metadata_out:
+        sources.append(args.metadata_out)
+    uri = urlsplit(args.uri)
+    if os.path.exists(args.uri) or not uri.scheme:
+        sources.append(args.uri)
+    elif uri.scheme == "file":
+        if uri.netloc not in {"", "localhost"}:
+            raise ValueError("file URI must refer to the local host")
+        sources.append(unquote(uri.path))
+    return target, sources
 
 
 class PredictionArgs(Tap):
@@ -371,6 +406,28 @@ def predict():
             centre = depth
         args.z = min(max(0, (centre - num_layers) // 2), max(0, depth - num_layers))
     validate_region(args, patch_size, num_layers)
+    base_name, out_path, output_dir = _prediction_output(args)
+    uncertainty_path, uncertainty_sources = _uncertainty_sources(
+        args, base_name, output_dir, out_path
+    )
+    args.uncertainty_export = {
+        "status": "SKIPPED",
+        "path": None,
+        "reason": "--skip_active_learning requested",
+    }
+    if not args.skip_active_learning:
+        if args.num_parts > 1:
+            args.uncertainty_export = {
+                "status": "INCOMPLETE",
+                "path": None,
+                "reason": "combine inference parts before proofreading",
+            }
+        else:
+            mask_shape((1, args.height, args.width))
+            validate_destination(
+                uncertainty_path, overwrite=True, sources=uncertainty_sources
+            )
+            args.uncertainty_export = {"status": "PLANNED", "path": None}
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
@@ -453,14 +510,10 @@ def predict():
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
 
-    base_name = prediction_stem(
-        f"pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}",
-        getattr(args, "artifact_stem", None),
-    )
-    if args.num_parts > 1:
-        base_name += f"_part{args.part_id}of{args.num_parts}"
-    out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
-    output_dir = os.path.dirname(out_path) or "."
+    if args.uncertainty_export["status"] == "PLANNED":
+        validate_destination(
+            uncertainty_path, overwrite=True, sources=uncertainty_sources
+        )
     os.makedirs(output_dir, exist_ok=True)
     metadata_path = invalidate_prediction_metadata(
         output_dir, base_name, args.metadata_out
@@ -506,7 +559,7 @@ def predict():
 
     # Active Learning: optional proofreader export. Prize evidence generation
     # should not fail if this auxiliary tool is not available.
-    if not args.skip_active_learning:
+    if args.uncertainty_export["status"] == "PLANNED":
         try:
             from scripts.active_learning_sampler import (
                 export_for_proofreader,
@@ -514,12 +567,31 @@ def predict():
             )
 
             uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
-            if uncertain_mask.sum() > 0:
-                export_for_proofreader(
-                    uncertain_mask.unsqueeze(0),
-                    os.path.join(output_dir, f"{base_name}_uncertain"),
-                )
+            args.uncertainty_export = export_for_proofreader(
+                uncertain_mask,
+                uncertainty_path,
+                overwrite=True,
+                sources=uncertainty_sources,
+                metadata={
+                    "source_uri": args.uri,
+                    "position_xyz": [args.x, args.y, args.z],
+                    "voxel_size_um": args.voxel_size_um,
+                    "model_num_layers": num_layers,
+                    "artifact_stem": base_name,
+                    "checkpoint_sha256": args.checkpoint_sha256,
+                    "normalized_entropy_threshold": 0.2,
+                    "score_kind": "normalized_binary_entropy",
+                    "inference_recipe": args.inference_recipe,
+                    "coverage_fraction": args.coverage_fraction,
+                },
+            )
+            args.uncertainty_export["normalized_entropy_threshold"] = 0.2
         except ImportError as exc:
+            args.uncertainty_export = {
+                "status": "UNAVAILABLE",
+                "path": None,
+                "reason": str(exc),
+            }
             print(f"Warning: skipping active-learning export: {exc}")
 
     # Generate Visualization (using center CT slice of the whole region)

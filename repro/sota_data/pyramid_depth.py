@@ -16,11 +16,19 @@ Header check::
 
     python -m repro.sota_data.pyramid_depth /path/to/segment.zarr
 
-Pixel check of level 2 over a level-0 window (H and W divisible by that
-level's XY scale)::
+Pixel check of level 2 over a level-0 window (Y, X, H and W divisible by
+that level's XY scale)::
 
     python -m repro.sota_data.pyramid_depth /path/to/segment.zarr \\
         --compare 2 --origin Y X --size H W
+
+The pixel check pools level 0 in depth by the level's declared Z scale. A
+level that declares Z unchanged is tested against a pool as deep as its XY
+scale, the layout of an isotropic downsample whose Z scale was not updated.
+
+Exit status: 0 when every level is usable and any compared pixels agree with
+the header, 1 when a level is truncated or inconsistent or the pixels disagree
+or are ambiguous, and 2 when the input is refused.
 
 A header check of the volumes whose level 2 keeps 17 of 65 slices needs
 those groups on disk, or at least the group ``.zattrs`` and each level's
@@ -31,8 +39,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import lzma
 import math
 import sys
+import zlib
 from collections.abc import Mapping, Sequence
 from numbers import Integral
 from pathlib import Path
@@ -94,6 +104,7 @@ def _near_one(ratio: float) -> bool:
 
 
 def _depth_matches(depth: int, reference_depth: int, ratio: float) -> bool:
+    """Whether an extent is the reference extent over ``ratio``, within tolerance."""
     expected = reference_depth / ratio
     return abs(depth - expected) <= max(
         POOL_VOXEL_TOLERANCE, POOL_RELATIVE_TOLERANCE * expected
@@ -145,7 +156,10 @@ def assess_levels(levels: Sequence[Mapping[str, object]]) -> list[dict[str, obje
     has a Z scale above 1 and a depth within one voxel, or 8%, of
     ``reference_depth / z_scale``. ``truncated`` has an unchanged Z scale and
     a shorter depth: the silent missing-slice layout. Anything else is
-    ``inconsistent``.
+    ``inconsistent``, and so is a level whose height or width is not level
+    0's over its declared Y or X scale, within the same tolerance: its scale
+    cannot be trusted to say what happened to depth either (for example a
+    scale written in x, y, z order).
     """
     if not isinstance(levels, Sequence) or isinstance(levels, (str, bytes)):
         raise ValueError("levels must be a sequence of pyramid levels")
@@ -197,10 +211,27 @@ def assess_levels(levels: Sequence[Mapping[str, object]]) -> list[dict[str, obje
                 None if halved is None else depth == halved
             ),
         }
-        if _near_one(ratio) and depth == reference_shape[0]:
+        xy_mismatch = [
+            axis
+            for axis, extent, reference_extent, axis_ratio in (
+                ("y", height, reference_shape[1], xy_ratio[0]),
+                ("x", width, reference_shape[2], xy_ratio[1]),
+            )
+            if not _depth_matches(extent, reference_extent, axis_ratio)
+        ]
+        record["xy_matches_declared_scale"] = not xy_mismatch
+        if xy_mismatch:
+            record["status"] = "inconsistent"
+            record["reason"] = (
+                f"{' and '.join(xy_mismatch)} extent does not match the declared "
+                f"{' and '.join(xy_mismatch)} scale"
+            )
+        elif _near_one(ratio) and depth == reference_shape[0]:
             record["status"] = "full_depth"
             record["reason"] = "z scale is unchanged and every depth slice is present"
-        elif not _near_one(ratio) and _depth_matches(depth, reference_shape[0], ratio):
+        elif ratio > 1.0 + SCALE_TOLERANCE and _depth_matches(
+            depth, reference_shape[0], ratio
+        ):
             record["status"] = "depth_pooled"
             record["reason"] = "depth matches the declared z scale"
         elif _near_one(ratio) and depth < reference_shape[0]:
@@ -262,15 +293,20 @@ def _median(values: Sequence[float]) -> float | None:
 
 
 def content_agreement(
-    level0: np.ndarray, coarse: np.ndarray, factor: int
+    level0: np.ndarray,
+    coarse: np.ndarray,
+    factor: int,
+    *,
+    depth_factor: int | None = None,
 ) -> dict[str, object]:
     """Compare one coarse window with the two ways it could have been built.
 
     ``slice_indexed`` means coarse slice ``i`` matches the XY pool of level-0
     slice ``i`` (the copied-prefix layout, and also a full-depth XY
-    downsample). ``depth_pooled`` means it matches the mean of ``factor``
-    consecutive level-0 slices. A window whose slices do not vary along depth
-    cannot separate the two and is ``ambiguous``.
+    downsample). ``depth_pooled`` means it matches the mean of
+    ``depth_factor`` consecutive level-0 slices (``factor`` when not given,
+    an isotropic pool). A window whose slices do not vary along depth cannot
+    separate the two and is ``ambiguous``.
     """
     level0 = np.asarray(level0)
     coarse = np.asarray(coarse)
@@ -279,6 +315,15 @@ def content_agreement(
     if isinstance(factor, bool) or not isinstance(factor, Integral) or int(factor) < 1:
         raise ValueError("factor must be a positive integer")
     factor = int(factor)
+    if depth_factor is None:
+        depth_factor = factor
+    if (
+        isinstance(depth_factor, bool)
+        or not isinstance(depth_factor, Integral)
+        or int(depth_factor) < 1
+    ):
+        raise ValueError("depth factor must be a positive integer")
+    depth_factor = int(depth_factor)
     if (
         coarse.shape[1] * factor != level0.shape[1]
         or coarse.shape[2] * factor != level0.shape[2]
@@ -295,8 +340,8 @@ def content_agreement(
             score = _correlation(coarse[index], _xy_pool(level0[index], factor))
             if score is not None:
                 slice_scores.append(score)
-        start = index * factor
-        stop = start + factor
+        start = index * depth_factor
+        stop = start + depth_factor
         if stop <= fine_depth:
             pooled = np.mean(
                 [_xy_pool(level0[depth], factor) for depth in range(start, stop)],
@@ -324,6 +369,7 @@ def content_agreement(
         verdict = "depth_pooled"
     return {
         "factor": factor,
+        "depth_factor": depth_factor,
         "slices_scored_slice_indexed": len(slice_scores),
         "slices_scored_depth_pooled": len(pool_scores),
         "median_r_slice_indexed": slice_median,
@@ -478,7 +524,13 @@ def _read_window(
     array = zarr.open(str(directory), mode="r")
     z0, y0, x0 = origin
     depth, height, width = size
-    data = np.asarray(array[z0 : z0 + depth, y0 : y0 + height, x0 : x0 + width])
+    try:
+        data = np.asarray(array[z0 : z0 + depth, y0 : y0 + height, x0 : x0 + width])
+    except (RuntimeError, EOFError, zlib.error, lzma.LZMAError) as exc:
+        # Codec errors from a damaged chunk, such as an interrupted download.
+        raise ValueError(
+            f"{level} has a chunk in this window that does not decode: {exc}"
+        ) from exc
     if data.shape != (depth, height, width):
         raise ValueError(
             f"{level} read returned shape {data.shape}, expected {(depth, height, width)}"
@@ -508,6 +560,17 @@ def _compare_window(
     if not isinstance(xy_ratio, list):
         raise ValueError(f"{level} is missing an xy scale ratio")
     factor = pooling_factor(xy_ratio)
+    z_ratio = chosen["z_scale_ratio"]
+    if isinstance(z_ratio, bool) or not isinstance(z_ratio, (int, float)):
+        raise ValueError(f"{level} is missing a z scale ratio")
+    if _near_one(float(z_ratio)):
+        depth_factor = factor
+    else:
+        depth_factor = int(round(float(z_ratio)))
+        if depth_factor < 2 or abs(float(z_ratio) - depth_factor) > SCALE_TOLERANCE:
+            raise ValueError(
+                f"z scale ratio {float(z_ratio):.6g} is not an integer depth pool"
+            )
     for name, value in (
         ("origin y", origin_y),
         ("origin x", origin_x),
@@ -551,7 +614,7 @@ def _compare_window(
         (0, coarse_origin_y, coarse_origin_x),
         (coarse_depth, coarse_height, coarse_width),
     )
-    agreement = content_agreement(fine, coarse, factor)
+    agreement = content_agreement(fine, coarse, factor, depth_factor=depth_factor)
     status = str(chosen["status"])
     agreement["level"] = level
     agreement["agrees_with_metadata"] = _content_agrees(
