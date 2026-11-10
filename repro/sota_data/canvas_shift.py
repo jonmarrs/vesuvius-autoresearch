@@ -670,11 +670,12 @@ def resample_to_tifxyz(
     ``((y_t - ay) / (1 + sy), (x_t - ax) / (1 + sx))``. ``out_shape`` is the
     tifxyz grid, which is not the canvas shape when the two sizes differ.
 
-    ``nearest=None`` uses nearest neighbor for an integer canvas and bilinear
-    for a float. An integer label stays on its values and comes back in its
-    own dtype. Pass ``nearest=False`` to blend those values (the result is
-    then float32, as it is for a float canvas), or ``nearest=True`` to keep a
-    float label intact.
+    ``nearest=None`` uses nearest neighbor for an integer or bool canvas and
+    bilinear for a float. ``np.issubdtype(np.bool_, np.integer)`` is false, so
+    a mask is matched on its dtype explicitly and is not blended. An integer
+    label stays on its values and comes back in its own dtype. Pass
+    ``nearest=False`` to blend those values (the result is then float32, as
+    it is for a float canvas), or ``nearest=True`` to keep a float label intact.
     """
     source = _plane(canvas, "canvas")
     integer = bool(np.issubdtype(source.dtype, np.integer) or source.dtype == np.bool_)

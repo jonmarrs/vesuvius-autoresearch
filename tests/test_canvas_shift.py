@@ -563,6 +563,22 @@ def test_an_integer_label_stays_binary_unless_linear_is_requested():
     assert not set(np.unique(blended)).issubset({0, 255})
 
 
+def test_a_boolean_mask_defaults_to_nearest():
+    """np.issubdtype(bool, np.integer) is false, so a mask needs its own check."""
+    mask = np.zeros((32, 32), dtype=bool)
+    mask[:, 16:] = True
+    with pytest.warns(UserWarning, match="nearest"):
+        kept = resample_to_tifxyz(mask, ay=0.0, sy=0.0, ax=0.5, sx=0.0)
+    assert kept.dtype == np.bool_
+    assert set(np.unique(kept)).issubset({False, True})
+    blended = resample_to_tifxyz(mask, ay=0.0, sy=0.0, ax=0.5, sx=0.0, nearest=False)
+    assert blended.dtype == np.float32
+    assert np.any((blended > 0) & (blended < 1))
+    resized = resize_grayscale(mask, (32, 20))
+    assert resized.dtype == np.bool_
+    assert set(np.unique(resized)).issubset({False, True})
+
+
 def test_cli_labels_the_image_space_fit_beside_level0_centres(tmp_path, capsys):
     image = _texture(96, 96, seed=16)
     path = tmp_path / "image.npy"
