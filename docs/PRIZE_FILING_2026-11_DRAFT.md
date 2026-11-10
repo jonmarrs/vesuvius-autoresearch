@@ -82,6 +82,11 @@ What this means here:
     * **On main:** 0.120 of the zone's written length lies beside a same-family copy.
     * **With the trim:** 0.052. On the hand-traced cube at the zone's centre, ERLpen rises +16.0% at tolerance 4 and
       +5.6% at tolerance 2, with merges 92 → 82 at tolerance 2 and coverage −3.7% at tolerance 4.
+  * **The rest of the defect** is [finding 108](../reports/afv_generator_cross_block_duplicates.md) (`SUPPORTED`).
+    With the trim, two blocks' copies of a fiber can still lie along each other, and the catalogue keeps both.
+    Suppressing such a copy (`catalog.py` +18/−2) raised ERLpen over the trim alone on every cube, a median +5.7% at
+    tolerance 4 and +5.4% at tolerance 2, with merges 386 → 384 at tolerance 2. With both changes, eight blocks reach
+    0.905 to 1.026 of one block's ERLpen at tolerance 4. Bundling it into the seam-trim PR is the owner's decision.
 
 ## Filing-day checklist
 

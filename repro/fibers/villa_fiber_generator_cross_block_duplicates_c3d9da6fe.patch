@@ -1,0 +1,91 @@
+diff --git a/vesuvius/src/vesuvius/fiber_spline_generator/extend/catalog.py b/vesuvius/src/vesuvius/fiber_spline_generator/extend/catalog.py
+index c9fbbbb20..c85b4389e 100644
+--- a/vesuvius/src/vesuvius/fiber_spline_generator/extend/catalog.py
++++ b/vesuvius/src/vesuvius/fiber_spline_generator/extend/catalog.py
+@@ -111,6 +111,20 @@ def strict_duplicate(a, b):
+                 maximum=float(d.max()), reverse=reverse, angle=angle)
+ 
+ 
++def cross_block_duplicate(a, b):
++    """``a`` lying along ``b`` where two blocks fitted them: compare()'s duplicate.
++
++    Each block fits its splines to the field it predicted from its own crop, so
++    two blocks' copies of one fibre lie a few tenths of a voxel apart where
++    both read it, outside strict_duplicate. Only sources of different blocks
++    are compared so; adjacent fibres of one block never are.
++    """
++    match = ov.compare(a, b)
++    if match is None or match['kind'] != 'duplicate' or match['contained'] == 'B':
++        return None
++    return dict(crossBlock=True, **match['metrics'])
++
++
+ SCHEMA = '''
+ CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,sha TEXT NOT NULL,receipt TEXT NOT NULL,
+@@ -239,12 +253,14 @@ class Catalog:
+             slo,shi=bbox(sp); llo,lhi=bbox(lp)
+             contained_bbox=bool(np.all(slo>=llo-.65) and np.all(shi<=lhi+.65))
+             dup = strict_duplicate(sp,lp) if contained_bbox else None
++            if dup is None and np.all(slo>=llo-ov.MAX_P90) and np.all(shi<=lhi+ov.MAX_P90):
++                dup = cross_block_duplicate(sp,lp)
+             if dup is not None:
+                 self.db.execute('INSERT OR REPLACE INTO duplicates VALUES(?,?,?)',
+                                 (short, long, jdump(dup)))
+                 return
+-            # Reject proximity-only contained neighbours; compare() classifies
+-            # these as duplicate but only strict_duplicate may suppress them.
++            # Other contained neighbours are kept: compare() classifies them as
++            # duplicate, but only the two tests above may suppress them.
+             # Any suffix/head overlap must reach one endpoint of each source.
+             # The cheap bbox gate avoids constructing projection trees for most
+             # spatial neighbours and for endpoint-only gap proposals.
+diff --git a/vesuvius/tests/fiber_spline_generator/test_stitch.py b/vesuvius/tests/fiber_spline_generator/test_stitch.py
+index 60bb84a0f..4ba3bd026 100644
+--- a/vesuvius/tests/fiber_spline_generator/test_stitch.py
++++ b/vesuvius/tests/fiber_spline_generator/test_stitch.py
+@@ -3,6 +3,7 @@ import numpy as np
+ from vesuvius.fiber_spline_generator.cli import GAP_MODEL
+ from vesuvius.fiber_spline_generator.extend.ct_support import CTSupport
+ from vesuvius.fiber_spline_generator.extend.gap_model import Predictor, geometry_features
++from vesuvius.fiber_spline_generator.extend import catalog
+ from vesuvius.fiber_spline_generator.extend.stitch import Stitcher, trim_cut_ends
+ 
+ SHAPE_XYZ = (320, 96, 96)
+@@ -145,3 +146,36 @@ def test_short_splines_are_kept_once_by_the_block_owning_them(tmp_path):
+     finally:
+         stitcher.close()
+     assert len(fibers) == 1 and fibers[0]["family"] == 1
++
++
++def along_y(x, z, y0=10.0, y1=86.0):
++    """ZYX points of a straight horizontal-family spline along y."""
++    y = np.arange(y0, y1 + 0.25, 0.5)
++    return np.stack([np.full_like(y, z), y, np.full_like(y, x)], axis=1)
++
++
++def two_blocks(tmp_path, zs, shift):
++    """Fibres along y at global x 150, inside both blocks' read regions; block 1's copies ``shift`` voxels off in z."""
++    stitcher = Stitcher(tmp_path)
++    try:
++        stitcher.add_block("block-0", [0, 0, 0], [192, 96, 96], [("H", along_y(150, z)) for z in zs],
++                           (np.zeros(3), np.array([160, 96, 96])))
++        stitcher.add_block("block-1", [128, 0, 0], [192, 96, 96], [("H", along_y(22, z + shift)) for z in zs],
++                           (np.array([160, 0, 0]), np.array([320, 96, 96])))
++        return stitcher.stitched()
++    finally:
++        stitcher.close()
++
++
++def test_two_blocks_copies_of_a_fiber_along_their_border_are_written_once(tmp_path, monkeypatch):
++    # 0.3 voxel apart: past strict_duplicate's 0.20 median, well inside compare()'s duplicate.
++    assert len(two_blocks(tmp_path / "patched", [48.0], 0.3)) == 1
++    monkeypatch.setattr(catalog, "cross_block_duplicate", lambda a, b: None)
++    assert len(two_blocks(tmp_path / "strict only", [48.0], 0.3)) == 2
++
++
++def test_adjacent_fibers_seen_by_both_blocks_stay_two(tmp_path):
++    # Fibres 2 voxels apart: each block's copy of one is suppressed by the other block's, never the neighbour.
++    stitched = two_blocks(tmp_path, [48.0, 50.0], 0.3)
++    assert len(stitched) == 2
++    assert sorted(round(float(np.median(np.asarray(t["points"])[:, 2]))) for t in stitched) == [48, 50]

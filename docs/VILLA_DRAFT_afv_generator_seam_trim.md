@@ -28,6 +28,8 @@ runs). villa merges fixes of that kind, and the patch is ready:
 5. **Size:** the patch is 47 lines of code and comments in two files, plus 54 lines of tests. That is above the 4–25
    lines our fixes usually are. The comment block above `CUT_END` can be cut if villa prefers.
 6. **No AI-authorship markers** in the commit or the body, including `Co-Authored-By`.
+7. **Whether to bundle finding 108's change** is the owner's decision: see "Option: bundle the cross-block change" at
+   the end. The body below is the trim alone.
 
 ---
 
@@ -139,3 +141,46 @@ copies cost when using the output.]
   * the 1024³ zone at the default block size: its registration,
     `docs/preregistration/2026-11-08_afv_generator_default_zone.md`, script, `scripts/afv_generator_default_zone.py`,
     and report, `reports/afv_generator_default_zone.md`.
+
+## Option: bundle the cross-block change (finding 108)
+
+Prepared 2026-11-09 from [finding 108](../reports/afv_generator_cross_block_duplicates.md), whose registered verdict is
+`SUPPORTED`. It is not in the body above.
+
+* **What it fixes:** with the trim, two blocks' copies of a fiber still lie along each other where both blocks read it,
+  and both are written. `compare()` classifies them as duplicates, but `_compare_pair` lets only `strict_duplicate`
+  (a median 0.20 voxel) suppress one. Each block fits its splines to its own field, so the copies lie a few tenths of
+  a voxel apart.
+* **The change:** `extend/catalog.py` +18/−2 (`cross_block_duplicate`, its call in `_compare_pair`'s branch for
+  sources of different blocks, and the comment there), and two tests in `test_stitch.py` (+34). The patch is
+  `repro/fibers/villa_fiber_generator_cross_block_duplicates_c3d9da6fe.patch`, on top of the trim. The local villa
+  branch `fiber-generator-cross-block-duplicates` holds both changes.
+* **For bundling:**
+  * villa allows three open PRs and two are open, so a second PR has no slot.
+  * The change was measured on top of the trim. Alone, it would be measured against a base villa does not have.
+* **Against:** the PR grows from 47 to 65 added lines of code and comments in three files, further from the small fixes
+  villa merges most readily.
+* **Text to add if bundled:**
+  * **The change:** "`extend/catalog.py`: where two sources come from different blocks, a copy that `compare()`
+    classifies as a duplicate of the other (the shorter copy, inside the longer one's box ± `MAX_P90`) is suppressed,
+    as a strict duplicate is. Sources of one block are never compared so, and adjacent fibres of one block are kept."
+  * **Measurement, over the trim alone on the eight cubes:** merge-penalized ERL up on 8 of 8, by a median +5.7% at
+    τ = 4 (+2.5% to +10.2%) and +5.4% at τ = 2; merges at τ = 2 386 → 384; the median written-twice share
+    0.104 → 0.032.
+  * **Both changes over main:** a median +17.6% at τ = 4 (+6.3% to +31.0%) and +13.2% at τ = 2, with merges at τ = 2
+    439 → 384. As a fraction of the same cube run as one block, eight blocks reach 0.905 to 1.026 at τ = 4 (main:
+    0.703 to 0.923).
+  * **How often it bites, the 1024³ zone at block 512:** the written length beside a same-family copy falls from
+    0.052 with the trim to 0.017 (main: 0.120). In the cube, ERLpen rises +3.4% at τ = 4 over the trim, and +20.0%
+    over main.
+  * **Tests:** two blocks' copies of one fiber 0.3 voxel apart are written once, and twice with
+    `cross_block_duplicate` disabled, as main does. Two fibres 2 voxels apart, seen by both blocks, stay two; main
+    writes four.
+  * **Limits:** measured on top of the trim only. Two distinct fibres less than 1.5 voxels apart, where both blocks see
+    both, could be merged; on the eight cubes merges and coverage did not move against the change, and the test
+    covers fibres 2 voxels apart.
+  * **Records:** finding 108's registration, `docs/preregistration/2026-11-09_afv_generator_cross_block_duplicates.md`,
+    script, `scripts/afv_generator_cross_block_duplicates.py`, and report,
+    `reports/afv_generator_cross_block_duplicates.md`.
+* **villa #2434** (open, by another contributor) edits another part of `_compare_pair`, for ends meeting at a shared
+  point. The two merge cleanly in `catalog.py`, and only `test_stitch.py` conflicts, where both add tests at one spot.

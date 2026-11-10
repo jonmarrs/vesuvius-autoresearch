@@ -264,3 +264,86 @@ def test_the_default_zone_is_finding_107s_zone_and_block():
     )
     assert f"It ran a {zone}³ zone at block {block} on the CPU" in t
     assert f"The {zone}³ zone used {block}, but it is one zone and one cube" in t
+
+
+XD_RECORD = ROOT / "reports/afv_generator_cross_block_duplicates.json"
+XD_PATCH = (
+    ROOT / "repro/fibers/villa_fiber_generator_cross_block_duplicates_c3d9da6fe.patch"
+)
+
+
+def numstat(patch: Path) -> dict[str, tuple[int, int]]:
+    out, name = {}, None
+    for line in patch.read_text().splitlines():
+        if line.startswith("diff --git"):
+            name = line.rsplit("/", 1)[1]
+            out[name] = (0, 0)
+        elif line.startswith(("+++", "---")):
+            continue
+        elif line.startswith(("+", "-")):
+            a, r = out[name]
+            out[name] = (a + line.startswith("+"), r + line.startswith("-"))
+    return out
+
+
+def test_the_bundling_option_is_finding_108s_record_and_patch():
+    d, d106, t = (
+        json.loads(XD_RECORD.read_text()),
+        json.loads(RECORD.read_text())["cubes"],
+        flat(),
+    )
+    option = t.split("## Option: bundle the cross-block change (finding 108)", 1)[1]
+    assert d["verdict"]["decision"] == "SUPPORTED" and "`SUPPORTED`" in option
+    n, trim = numstat(XD_PATCH), numstat(PATCH)
+    assert f"`extend/catalog.py` +{n['catalog.py'][0]}/−{n['catalog.py'][1]}" in option
+    assert f"two tests in `test_stitch.py` (+{n['test_stitch.py'][0]})" in option
+    code = trim["stitch.py"][0] + trim["cli.py"][0]
+    assert (
+        f"from {code} to {code + n['catalog.py'][0]} added lines of code and comments in three files"
+        in option
+    )
+    assert f"the patch is {code} lines of code and comments in two files" in t.lower()
+    R = [d["cubes"][c]["rows"] for c in bs.HELD_OUT]
+
+    def gain(r: dict, tol: str) -> float:
+        return (
+            r["trim+dup"][tol]["erl_merge_penalized"]
+            / r["trim"][tol]["erl_merge_penalized"]
+            - 1
+        )
+
+    g4, g2 = [gain(r, "tol4") for r in R], [gain(r, "tol2") for r in R]
+    m = [sum(r[v]["tol2"]["merges"] for r in R) for v in ("trim", "trim+dup")]
+    dup = d["verdict"]["P4_median_duplicated_share"][0]
+    assert (f"up on {sum(x > 0 for x in g4)} of 8, by a median {pct(statistics.median(g4))} at τ = 4 "
+            f"({pct(min(g4))} to {pct(max(g4))}) and {pct(statistics.median(g2))} at τ = 2; merges at τ = 2 "
+            f"{m[0]} → {m[1]}; the median written-twice share {dup[0]:.3f} → {dup[1]:.3f}") in option  # fmt: skip
+    both = {c: d["cubes"][c]["rows"]["trim+dup"] for c in bs.HELD_OUT}
+    erl = lambda r, tol="tol4": r[tol]["erl_merge_penalized"]  # noqa: E731
+    gm = {
+        tol: [
+            erl(both[c], tol) / erl(d106[c]["rows"]["real/main"], tol) - 1
+            for c in bs.HELD_OUT
+        ]
+        for tol in ("tol4", "tol2")
+    }
+    mm = sum(d106[c]["rows"]["real/main"]["tol2"]["merges"] for c in bs.HELD_OUT)
+    assert (f"a median {pct(statistics.median(gm['tol4']))} at τ = 4 ({pct(min(gm['tol4']))} to {pct(max(gm['tol4']))}) "
+            f"and {pct(statistics.median(gm['tol2']))} at τ = 2, with merges at τ = 2 {mm} → {m[1]}") in option  # fmt: skip
+    one = [erl(both[c]) / erl(d106[c]["rows"]["one/main"]) for c in bs.HELD_OUT]
+    main = [
+        erl(d106[c]["rows"]["real/main"]) / erl(d106[c]["rows"]["one/main"])
+        for c in bs.HELD_OUT
+    ]
+    assert (f"eight blocks reach {min(one):.3f} to {max(one):.3f} at τ = 4 (main: {min(main):.3f} to "
+            f"{max(main):.3f})") in option  # fmt: skip
+    z = d["zone"]["rows"]
+    zm = json.loads(ZONE_RECORD.read_text())["result"]["rows"]["main"]
+    zg = [z["trim+dup"]["cube"]["tol4"]["erl_merge_penalized"] / x["cube"]["tol4"]["erl_merge_penalized"] - 1
+          for x in (z["trim"], zm)]  # fmt: skip
+    assert (f"falls from {z['trim']['zone']['duplicated_share']:.3f} with the trim to "
+            f"{z['trim+dup']['zone']['duplicated_share']:.3f} (main: {zm['zone']['duplicated_share']:.3f})") in option  # fmt: skip
+    assert (
+        f"ERLpen rises {pct(zg[0])} at τ = 4 over the trim, and {pct(zg[1])} over main"
+        in option
+    )

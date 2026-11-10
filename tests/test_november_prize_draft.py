@@ -30,6 +30,7 @@ FINDINGS = {
     105: "neural_tracer_link_splice",
     106: "afv_generator_block_seams",
     107: "afv_generator_default_zone",
+    108: "afv_generator_cross_block_duplicates",
 }
 
 
@@ -306,3 +307,27 @@ def test_the_seam_trim_case_in_practice_is_finding_107s_record():
     assert (f"ERLpen rises {g[0]:+.1f}% at tolerance 4 and {g[1]:+.1f}% at tolerance 2, with merges "
             f"{m['cube']['tol2']['merges']} → {p['cube']['tol2']['merges']} at tolerance 2 and coverage "
             f"{c:.1f}% at tolerance 4").replace("coverage -", "coverage −") in section  # fmt: skip
+
+
+def test_the_rest_of_the_seam_defect_is_finding_108s_record():
+    d = json.loads((ROOT / f"reports/{FINDINGS[108]}.json").read_text())
+    one = json.loads((ROOT / f"reports/{FINDINGS[106]}.json").read_text())["cubes"]
+    section = " ".join(_section("Queued, not posted").split())
+    assert d["verdict"]["decision"] == "SUPPORTED" and "(`SUPPORTED`)" in section
+    rows = [d["cubes"][c]["rows"] for c in d["cubes"]]
+    gain = {t: [r["trim+dup"][t]["erl_merge_penalized"] / r["trim"][t]["erl_merge_penalized"] - 1 for r in rows]
+            for t in ("tol4", "tol2")}  # fmt: skip
+    assert (
+        all(x > 0 for x in gain["tol4"] + gain["tol2"])
+        and "over the trim alone on every cube" in section
+    )
+    m = d["verdict"]["P3_merges_tol2"][0]
+    assert (f"a median +{100 * statistics.median(gain['tol4']):.1f}% at tolerance 4 and "
+            f"+{100 * statistics.median(gain['tol2']):.1f}% at tolerance 2, with merges {m[0]} → {m[1]} at "
+            "tolerance 2") in section  # fmt: skip
+    f = [d["cubes"][c]["rows"]["trim+dup"]["tol4"]["erl_merge_penalized"]
+         / one[c]["rows"]["one/main"]["tol4"]["erl_merge_penalized"] for c in d["cubes"]]  # fmt: skip
+    assert (
+        f"eight blocks reach {min(f):.3f} to {max(f):.3f} of one block's ERLpen at tolerance 4"
+        in section
+    )
