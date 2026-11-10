@@ -31,8 +31,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import lzma
 import math
 import sys
+import zlib
 from collections.abc import Mapping, Sequence
 from numbers import Integral
 from pathlib import Path
@@ -478,7 +480,13 @@ def _read_window(
     array = zarr.open(str(directory), mode="r")
     z0, y0, x0 = origin
     depth, height, width = size
-    data = np.asarray(array[z0 : z0 + depth, y0 : y0 + height, x0 : x0 + width])
+    try:
+        data = np.asarray(array[z0 : z0 + depth, y0 : y0 + height, x0 : x0 + width])
+    except (RuntimeError, EOFError, zlib.error, lzma.LZMAError) as exc:
+        # Codec errors from a damaged chunk, such as an interrupted download.
+        raise ValueError(
+            f"{level} has a chunk in this window that does not decode: {exc}"
+        ) from exc
     if data.shape != (depth, height, width):
         raise ValueError(
             f"{level} read returned shape {data.shape}, expected {(depth, height, width)}"
