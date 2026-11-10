@@ -1,7 +1,8 @@
 """Generate confidence-filtered pseudo-labels for a fragment region using a
 trained checkpoint. Output is a 3-value PNG (0=bg, 255=ink, 128=uncertain/ignore)
-consumed by training with confidence weighting. PNG 128 normalizes to 128/255,
-giving residual weight 1/255, not exactly zero, in the existing loss.
+consumed by training with confidence weighting. The confidence-weighted ink
+BCE/Dice losses give PNG 128 zero weight after augmentation; auxiliary losses
+and spatial holdout exclusion need separate handling.
 """
 
 import argparse

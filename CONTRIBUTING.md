@@ -19,6 +19,18 @@ git submodule update --init villa    # the pinned ScrollPrize/villa
 uv run python scripts/smoke_test.py  # ~20s, exercises the main code paths
 ```
 
+`make test` remains the smoke alias. Use `make validate` for all curated
+validation modules or `make test-all` for every module under `tests/`, including
+research and historical-report guards. Both hide CUDA; data-, network- and
+GPU-dependent tests may skip. Some historical research tests instead require
+the original study corpus or old Villa commit objects and fail when those are
+absent. Record these gaps explicitly. A smoke pass is not a full validation run.
+
+The default `uv sync` installs the locked `dev` group (pytest, Ruff and Mypy),
+including the Mypy command used by the commit hook. Use the existing
+[resume instructions](docs/RESUME_AFTER_RESTART.md) on a research host with an
+unlocked Villa installation; do not exact-sync away its manually installed packages.
+
 The smoke test forces `CUDA_VISIBLE_DEVICES=""`. Run it while the machine is
 idle: CPU tests still compete with fits and renders for RAM and CPU time.
 

@@ -22,6 +22,9 @@ measurements or access CUDA. Use `--json` for a structured report. A passing set
 check is not a GPU, model-compatibility or prize-eligibility check.
 See [status output, config budgets and next steps](docs/WORKSPACE_STATUS.md).
 
+The [repository audit](docs/REPOSITORY_AUDIT.md) records verified fixes, remaining
+architecture and cleanup decisions, and the limits of the available validation.
+
 **Window limits:** the project's existing 64-pixel recipe and artifact checks are
 local evaluation contracts. Current official reading-prize rules allow larger
 windows with evidence against hallucination. See the [rules and limitations](docs/RESEARCH_STRATEGY.md);

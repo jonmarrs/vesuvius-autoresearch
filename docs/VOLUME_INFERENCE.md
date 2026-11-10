@@ -69,6 +69,24 @@ Until 2026-10-16 a model without the head exported its ink map as fiber. A fiber
 head is a trained output, not an independently validated fiber measurement.
 Ensembling does not establish accuracy or hallucination absence.
 
+## Regional output planning
+
+Regional commands accept local Zarr paths and local `file://` URIs. They check
+the complete artifact family, custom `--output_img` and `--metadata_out` paths
+against each other, the CT group, its selected level-0 array and every checkpoint.
+The check runs before CT inference and again before old metadata is invalidated.
+An image cannot replace an ink preview, and metadata cannot replace an array or
+checkpoint. Exact canonical image/metadata paths remain supported. Checkpoint
+settings must serialize as finite JSON before inference begins.
+
+Existing artifact files must be regular files without symbolic or hard links.
+Existing Zarr/uncertainty trees have the same requirements, with a 100,000-entry
+inspection limit per tree. Use a fresh output directory or stem when a retained
+artifact fails these checks. As with production planning, these checks are
+snapshots, not filesystem locks or a transaction across outputs. Keep sources
+stable and serialize writers. Regional arrays and tile lists still scale with
+the requested region; path planning does not bound RAM or VRAM use.
+
 ## Production planning
 
 Inspect a production run before starting model work:

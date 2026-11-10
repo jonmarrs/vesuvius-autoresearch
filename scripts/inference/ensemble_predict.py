@@ -29,6 +29,10 @@ from scripts.inference.predict import (
     save_vc3d_zarr,
     write_prediction_metadata,
 )
+from scripts.regional_prediction_artifacts import (
+    RegionalArtifactPlan,
+    validate_checkpoint_metadata,
+)
 from vesuvius_autoresearch.core.inference import (
     multitask_inference_recipe,
     multitask_probabilities,
@@ -100,6 +104,7 @@ def ensemble_predict():
         ):
             raise ValueError("checkpoint config must be an object")
         config = checkpoint.get("config", {})
+        validate_checkpoint_metadata(config)
         patch_size = config.get("patch_size", args.patch_size)
         layers = config.get("num_layers", 16)
         base_feat = config.get("base_feat", 64)
@@ -151,8 +156,22 @@ def ensemble_predict():
     args.patch_size = patch_size
     args.voxel_size_um = scales[0]
     validate_region(args, patch_size, max_layers)
-    dataset = FastVesuviusVolume(
+    base = prediction_stem(
+        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
+        getattr(args, "artifact_stem", None),
+    )
+    if args.num_parts > 1:
+        base += f"_part{args.part_id}of{args.num_parts}"
+    artifacts = RegionalArtifactPlan.create(
+        base,
+        args.output_img or f"predictions/{base}.png",
+        args.metadata_out,
         args.uri,
+        args.checkpoints,
+    )
+    output_img, output_dir = str(artifacts.image), str(artifacts.directory)
+    dataset = FastVesuviusVolume(
+        str(artifacts.source_array),
         use_ridges=use_ridges_any,
         ridge_sigma=ridge_sigmas[0] if ridge_sigmas else 2.0,
         strict_reads=True,
@@ -198,16 +217,11 @@ def ensemble_predict():
     ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
     fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
-    base = prediction_stem(
-        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
-        getattr(args, "artifact_stem", None),
-    )
-    if args.num_parts > 1:
-        base += f"_part{args.part_id}of{args.num_parts}"
-    output_img = args.output_img or f"predictions/{base}.png"
-    output_dir = os.path.dirname(output_img) or "."
+    artifacts.validate()
     os.makedirs(output_dir, exist_ok=True)
-    metadata_path = invalidate_prediction_metadata(output_dir, base, args.metadata_out)
+    metadata_path = invalidate_prediction_metadata(
+        output_dir, base, str(artifacts.metadata)
+    )
     if args.num_parts > 1:
         args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
         np.save(args.blend_weight_path, weights.cpu().numpy())

@@ -104,6 +104,8 @@ VALIDATION_TESTS = [
     "tests/test_active_learning_queue_contracts.py",
     "tests/test_generate_pseudo_labels.py",
     "tests/test_volume_inference_contracts.py",
+    "tests/test_regional_artifact_plan.py",
+    "tests/test_proofreader_launcher.py",
     "tests/test_volume_read_contracts.py",
     "tests/test_detector_contracts.py",
     "tests/test_detector_evaluation_inputs.py",
