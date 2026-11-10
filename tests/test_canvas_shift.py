@@ -10,6 +10,7 @@ readings of one constant must not become a drift.
 import json
 import os
 import sys
+import warnings
 from pathlib import Path
 
 import cv2
@@ -102,7 +103,8 @@ def test_a_linear_resample_uses_the_canvas_size_residual():
 def test_nearest_resample_keeps_a_label_binary():
     label = np.zeros((80, 80), np.uint8)
     label[20:40, 20:40] = 255
-    out = resample_to_tifxyz(label, ay=6.4, sy=0.0, ax=-3.2, sx=0.0, nearest=True)
+    with pytest.warns(UserWarning, match="nearest"):
+        out = resample_to_tifxyz(label, ay=6.4, sy=0.0, ax=-3.2, sx=0.0, nearest=True)
     assert set(np.unique(out)).issubset({0, 255})
     assert out[32, 27] == 255
     assert out[8, 8] == 0
@@ -493,7 +495,7 @@ def test_nonzero_cross_terms_round_trip_through_the_remap():
     canvas[10, 20] = 255
     with pytest.warns(UserWarning, match="nearest"):
         out = resample_to_tifxyz(
-            canvas, ay=1.0, sy=0.0, ax=2.0, sx=0.0, cy=0.05, cx=0.1
+            canvas, ay=1.0, sy=0.0, ax=2.0, sx=0.0, cy=0.05, cx=0.1, nearest=True
         )
     assert out[12, 23] == 255
     assert int(out.sum()) == 255
@@ -529,20 +531,41 @@ def test_a_large_correction_leaves_only_the_held_out_subpixel():
     assert again["ncc"] > 0.9
 
 
-def test_an_integer_grayscale_resize_does_not_invent_gray_levels():
-    """OpenCV's default resize is bilinear and turns a 0/200 step into 100."""
+def test_uint8_and_uint16_shift_matches_bilinear():
+    """Intensity defaults to bilinear. Integer dtype is not a label."""
+    smooth = _texture(40, 40, seed=40)
+    for dtype, scale in ((np.uint8, 200.0), (np.uint16, 40000.0)):
+        image = np.clip(smooth * scale + 10, 0, np.iinfo(dtype).max).astype(dtype)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = resample_to_tifxyz(image, ay=0.0, sy=0.0, ax=0.5, sx=0.0)
+        reference = resample_to_tifxyz(
+            image.astype(np.float32), ay=0.0, sy=0.0, ax=0.5, sx=0.0
+        )
+        assert out.dtype == dtype
+        assert float(np.max(np.abs(out.astype(np.float64) - reference))) <= 0.5
+        with pytest.warns(UserWarning, match="nearest"):
+            nearest = resample_to_tifxyz(
+                image, ay=0.0, sy=0.0, ax=0.5, sx=0.0, nearest=True
+            )
+        assert nearest.dtype == dtype
+        assert not np.array_equal(out, nearest)
+
+
+def test_an_integer_grayscale_resize_interpolates():
+    """uint8 and uint16 intensity resize is bilinear, then rounded back."""
     image = np.zeros((8, 8), np.uint8)
     image[:, 4:] = 200
     out = resize_grayscale(image, (8, 5))
     assert out.shape == (8, 5)
     assert out.dtype == np.uint8
-    assert set(np.unique(out)).issubset({0, 200})
+    assert 100 in set(np.unique(out))
     wider = image.astype(np.uint16) * 10
     kept = resize_grayscale(wider, (8, 5))
     assert kept.dtype == np.uint16
-    assert set(np.unique(kept)).issubset({0, 2000})
-    blended = resize_grayscale(image, (8, 5), interpolation=cv2.INTER_LINEAR)
-    assert 100 in set(np.unique(blended))
+    assert 1000 in set(np.unique(kept))
+    sharp = resize_grayscale(image, (8, 5), interpolation=cv2.INTER_NEAREST)
+    assert set(np.unique(sharp)).issubset({0, 200})
 
 
 def test_a_float_grayscale_resize_interpolates():
@@ -553,28 +576,83 @@ def test_a_float_grayscale_resize_interpolates():
     assert np.any((out > 0) & (out < 200))
 
 
-def test_an_integer_label_stays_binary_unless_linear_is_requested():
+def test_correct_canvas_and_the_cli_bilinear_a_uint8_canvas(tmp_path):
+    canvas = np.clip(_texture(96, 96, seed=41) * 180 + 20, 0, 255).astype(np.uint8)
+    surface = resample_to_tifxyz(
+        canvas.astype(np.float32), ay=0.5, sy=0.0, ax=-0.4, sx=0.0
+    )
+    window = (24, 24, 40, 40)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = correct_canvas(surface, canvas, [window], max_shift=8)
+    corrected = result["corrected"]
+    fit = result["fit"]
+    reference = resample_to_tifxyz(
+        canvas.astype(np.float32),
+        ay=float(fit["ay"]),
+        sy=float(fit["sy"]),
+        ax=float(fit["ax"]),
+        sx=float(fit["sx"]),
+        cy=float(fit["cy"]),
+        cx=float(fit["cx"]),
+    )
+    assert corrected.dtype == np.uint8
+    assert float(np.max(np.abs(corrected.astype(np.float64) - reference))) <= 0.5
+    np.save(tmp_path / "surface.npy", surface)
+    np.save(tmp_path / "canvas.npy", canvas)
+    out = tmp_path / "out.npy"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        code = main(
+            [
+                str(tmp_path / "surface.npy"),
+                str(tmp_path / "canvas.npy"),
+                "--window",
+                "24",
+                "24",
+                "40",
+                "40",
+                "--max-shift",
+                "8",
+                "--out",
+                str(out),
+            ]
+        )
+    assert code == 0
+    assert np.array_equal(np.load(out), corrected)
+
+
+def test_an_explicit_nearest_flag_keeps_an_integer_label_binary():
     label = np.zeros((32, 32), np.uint8)
     label[:, 16:] = 255
-    with pytest.warns(UserWarning, match="nearest"):
-        kept = resample_to_tifxyz(label, ay=0.0, sy=0.0, ax=0.5, sx=0.0)
-    assert set(np.unique(kept)).issubset({0, 255})
-    blended = resample_to_tifxyz(label, ay=0.0, sy=0.0, ax=0.5, sx=0.0, nearest=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        blended = resample_to_tifxyz(label, ay=0.0, sy=0.0, ax=0.5, sx=0.0)
+    assert blended.dtype == np.uint8
     assert not set(np.unique(blended)).issubset({0, 255})
+    with pytest.warns(UserWarning, match="nearest"):
+        kept = resample_to_tifxyz(label, ay=0.0, sy=0.0, ax=0.5, sx=0.0, nearest=True)
+    assert set(np.unique(kept)).issubset({0, 255})
 
 
 def test_a_boolean_mask_defaults_to_nearest():
-    """np.issubdtype(bool, np.integer) is false, so a mask needs its own check."""
+    """A bool mask is nearest, and that default does not warn."""
     mask = np.zeros((32, 32), dtype=bool)
     mask[:, 16:] = True
-    with pytest.warns(UserWarning, match="nearest"):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         kept = resample_to_tifxyz(mask, ay=0.0, sy=0.0, ax=0.5, sx=0.0)
+        resized = resize_grayscale(mask, (32, 20))
+        explicit = resample_to_tifxyz(
+            mask, ay=0.0, sy=0.0, ax=0.5, sx=0.0, nearest=True
+        )
     assert kept.dtype == np.bool_
     assert set(np.unique(kept)).issubset({False, True})
+    assert explicit.dtype == np.bool_
+    assert np.array_equal(explicit, kept)
     blended = resample_to_tifxyz(mask, ay=0.0, sy=0.0, ax=0.5, sx=0.0, nearest=False)
     assert blended.dtype == np.float32
     assert np.any((blended > 0) & (blended < 1))
-    resized = resize_grayscale(mask, (32, 20))
     assert resized.dtype == np.bool_
     assert set(np.unique(resized)).issubset({False, True})
 
@@ -629,6 +707,7 @@ def test_cli_resamples_an_integer_label_with_nearest(tmp_path):
                 "40",
                 "--max-shift",
                 "12",
+                "--nearest",
                 "--out",
                 str(out_path),
             ]
@@ -721,13 +800,13 @@ def test_a_nearest_resample_returns_the_label_dtype():
     label = np.zeros((32, 32), np.uint16)
     label[8:20, 8:20] = 1000
     with pytest.warns(UserWarning, match="nearest"):
-        out = resample_to_tifxyz(label, ay=2.0, sy=0.0, ax=-3.0, sx=0.0)
+        out = resample_to_tifxyz(label, ay=2.0, sy=0.0, ax=-3.0, sx=0.0, nearest=True)
     assert out.dtype == np.uint16
     assert set(np.unique(out)) == {0, 1000}
     wide = np.zeros((16, 16), np.int32)
     wide[4:8, 4:8] = 20_000_001  # not exact in float32
     with pytest.warns(UserWarning, match="nearest"):
-        out = resample_to_tifxyz(wide, ay=1.0, sy=0.0, ax=0.0, sx=0.0)
+        out = resample_to_tifxyz(wide, ay=1.0, sy=0.0, ax=0.0, sx=0.0, nearest=True)
     assert out.dtype == np.int32 and int(out.max()) == 20_000_001
 
 
@@ -743,7 +822,8 @@ def test_cli_keeps_a_16_bit_label_in_a_png(tmp_path):
     with pytest.warns(UserWarning, match="nearest"):
         code = main(
             [str(tmp_path / "surface.npy"), str(tmp_path / "canvas.npy"),
-             "--window", "20", "20", "40", "40", "--max-shift", "12", "--out", str(out)]
+             "--window", "20", "20", "40", "40", "--max-shift", "12",
+             "--nearest", "--out", str(out)]
         )  # fmt: skip
     assert code == 1
     saved = cv2.imread(str(out), cv2.IMREAD_UNCHANGED)
@@ -819,9 +899,8 @@ sys.path.insert(0, os.path.abspath("scripts"))
 import probe_canvas_frame_shift as probe  # noqa: E402
 
 
-def test_a_level1_canvas_uses_the_integer_resize(monkeypatch):
-    fine = np.zeros((4, 4), np.uint8)
-    fine[:, 2:] = 200
+def test_a_level1_canvas_is_bilinear_intensity(monkeypatch):
+    fine = np.arange(16, dtype=np.uint8).reshape(4, 4) * 10
 
     def _region(*_args, **kwargs):
         assert kwargs["dtype"] == np.uint8
@@ -829,8 +908,11 @@ def test_a_level1_canvas_uses_the_integer_resize(monkeypatch):
 
     monkeypatch.setattr(probe, "_zarr_region", _region)
     out = probe._canvas_on_level2("base", 1, 0, 2, 0, 2)
-    assert out.shape == (2, 2)
-    assert set(np.unique(out)).issubset({0, 200})
+    bilinear = resize_grayscale(fine, (2, 2), interpolation=cv2.INTER_LINEAR)
+    nearest = resize_grayscale(fine, (2, 2), interpolation=cv2.INTER_NEAREST)
+    assert out.dtype == np.uint8
+    assert np.array_equal(out, bilinear)
+    assert not np.array_equal(out, nearest)
 
 
 def test_the_probe_replaces_only_the_rows_of_the_run_it_repeats():

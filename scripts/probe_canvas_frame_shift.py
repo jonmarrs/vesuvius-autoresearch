@@ -226,9 +226,9 @@ def _canvas_on_level2(
 ) -> np.ndarray:
     """Slice 32 on the level-2 lattice.
 
-    Level 1 is uint8. It is resized onto the level-2 grid with nearest
-    neighbor, so a stored gray level is not averaged into a value the bytes
-    do not contain.
+    Level 1 is uint8 intensity. It is resized onto the level-2 grid with
+    bilinear interpolation, then rounded back to uint8. A bool mask would
+    stay nearest; this canvas is not one.
     """
     if canvas_level == 2:
         return _zarr_region(base, 2, i0, i1, j0, j1, 32)

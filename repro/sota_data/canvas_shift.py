@@ -27,12 +27,11 @@ a masked box mean (default width 31, holes left as NaN so they do not darken
 a neighbour) and does not divide by the local standard deviation. The NCC
 mask is "finite", not the supervision zarr. A window with fewer than 100
 finite pixels can still be scored here; the published map requires 100.
-Integer labels are resampled with nearest neighbor, so 0/255 stays 0/255 and
-the result keeps the label's dtype. A float label is blended unless the
-caller passes ``nearest=True``. ``resize_grayscale`` follows the same rule:
-an integer or bool image defaults to nearest neighbor, because OpenCV's
-default bilinear resize invents gray levels between those pixels. A float
-image stays bilinear.
+Grayscale intensity, including uint8 and uint16, is resampled with bilinear
+interpolation and cast back to its dtype by rounding and clipping. A bool
+mask stays nearest neighbor. An integer array is not treated as a label:
+pass ``nearest=True`` or ``--nearest`` for that, which warns. ``resize_grayscale``
+uses the same split.
 
 ``sample_tifxyz`` and ``sample_volume_trilinear`` build the surface the
 correlation compares against the canvas: CT sampled at the tifxyz cells.
@@ -45,7 +44,7 @@ One window::
 
 Several windows fit the linear residual. ``--out corrected.npy`` writes the
 canvas resampled onto the tifxyz frame, on the surface's grid unless
-``--out-shape`` says otherwise. ``--nearest`` keeps label values intact. A
+``--out-shape`` says otherwise. ``--nearest`` keeps a label intact. A
 PNG holds only a uint8 or uint16 result; anything else is refused rather
 than squeezed to 8 bits. Exit status: 0 aligned within 1 level-0 px, 1 a
 shift was measured, 2 usage or input/output error, 3 a shift not located.
@@ -137,6 +136,18 @@ def _highpass_region(
     return highpass(crop, size)[y0 - top : y1 - top, x0 - left : x1 - left]
 
 
+def _cast_back(dtype: np.dtype, values: np.ndarray, nearest: bool) -> np.ndarray:
+    """Return ``values`` in ``dtype``. Integers are rounded and clipped."""
+    if dtype == np.bool_:
+        if nearest:
+            return values.astype(bool)
+        return values.astype(np.float32, copy=False)
+    if np.issubdtype(dtype, np.integer):
+        info = np.iinfo(dtype)
+        return np.clip(np.rint(values), info.min, info.max).astype(dtype)
+    return values.astype(dtype, copy=False)
+
+
 def resize_grayscale(
     image: np.ndarray,
     out_shape: tuple[int, int],
@@ -144,10 +155,9 @@ def resize_grayscale(
 ) -> np.ndarray:
     """Resize a 2D grayscale image to ``out_shape`` (height, width).
 
-    OpenCV's default resize is bilinear, which invents gray levels between
-    integer pixels (a 0/200 step becomes 100). An integer or bool image
-    therefore defaults to nearest neighbor. A float image defaults to
-    bilinear. Pass ``interpolation`` to override either default.
+    Intensity, including uint8 and uint16, defaults to bilinear and is cast
+    back by rounding and clipping. A bool mask defaults to nearest neighbor.
+    Integer dtype does not select nearest. Pass ``interpolation`` to override.
     """
     plane = _plane(image, "image")
     if len(out_shape) != 2 or any(
@@ -156,16 +166,20 @@ def resize_grayscale(
     ):
         raise ValueError("out_shape must be two positive integers (height, width)")
     height, width = int(out_shape[0]), int(out_shape[1])
-    integer = bool(np.issubdtype(plane.dtype, np.integer) or plane.dtype == np.bool_)
     if interpolation is None:
-        interpolation = cv2.INTER_NEAREST if integer else cv2.INTER_LINEAR
+        interpolation = (
+            cv2.INTER_NEAREST if plane.dtype == np.bool_ else cv2.INTER_LINEAR
+        )
     elif isinstance(interpolation, bool) or not isinstance(interpolation, Integral):
         raise ValueError("interpolation must be an OpenCV flag")
-    work = plane.astype(np.uint8) if plane.dtype == np.bool_ else plane
+    if plane.dtype == np.bool_:
+        work = plane.astype(np.uint8)
+    elif np.issubdtype(plane.dtype, np.integer) and plane.dtype.itemsize > 2:
+        work = plane.astype(np.float64)
+    else:
+        work = plane.astype(np.float32)
     resized = cv2.resize(work, (width, height), interpolation=int(interpolation))
-    if plane.dtype == np.bool_ and int(interpolation) == cv2.INTER_NEAREST:
-        return resized.astype(bool)
-    return resized
+    return _cast_back(plane.dtype, resized, int(interpolation) == cv2.INTER_NEAREST)
 
 
 def level0_centers(indices: np.ndarray, stride: int) -> np.ndarray:
@@ -670,26 +684,24 @@ def resample_to_tifxyz(
     ``((y_t - ay) / (1 + sy), (x_t - ax) / (1 + sx))``. ``out_shape`` is the
     tifxyz grid, which is not the canvas shape when the two sizes differ.
 
-    ``nearest=None`` uses nearest neighbor for an integer or bool canvas and
-    bilinear for a float. ``np.issubdtype(np.bool_, np.integer)`` is false, so
-    a mask is matched on its dtype explicitly and is not blended. An integer
-    label stays on its values and comes back in its own dtype. Pass
-    ``nearest=False`` to blend those values (the result is then float32, as
-    it is for a float canvas), or ``nearest=True`` to keep a float label intact.
+    ``nearest=None`` is bilinear for intensity, including uint8 and uint16, and
+    nearest for a bool mask. Integer dtype is not a label. Pass
+    ``nearest=True`` to keep a label on its values; that path warns for an
+    integer label and does not warn for a bool mask. The result is cast back
+    to the input dtype, with rounding and clipping when the samples were blended.
     """
     source = _plane(canvas, "canvas")
-    integer = bool(np.issubdtype(source.dtype, np.integer) or source.dtype == np.bool_)
+    integer = bool(np.issubdtype(source.dtype, np.integer))
     if nearest is None:
-        nearest = integer
-        if nearest:
-            warnings.warn(
-                "integer label resampled with nearest neighbor so values stay "
-                "intact; pass nearest=False to blend them",
-                UserWarning,
-                stacklevel=2,
-            )
+        nearest = source.dtype == np.bool_
     elif not isinstance(nearest, bool):
         raise ValueError("nearest must be True, False, or None")
+    if nearest and integer:
+        warnings.warn(
+            "integer label resampled with nearest neighbor so values stay intact",
+            UserWarning,
+            stacklevel=2,
+        )
     # float32 holds every 8- and 16-bit value exactly; wider integers need float64.
     work = np.float64 if integer and source.dtype.itemsize > 2 else np.float32
     image = np.where(np.isfinite(source), source, 0).astype(work)
@@ -736,9 +748,7 @@ def resample_to_tifxyz(
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=0,
     )
-    if nearest and integer:
-        return out.astype(source.dtype)
-    return out.astype(np.float32, copy=False)
+    return _cast_back(source.dtype, out, nearest)
 
 
 def correct_canvas(
@@ -756,11 +766,11 @@ def correct_canvas(
     """Measure each window, fit the shift, and resample onto ``out_shape``.
 
     ``out_shape`` is the tifxyz grid. It defaults to the surface's shape: the
-    surface is sampled on that grid, and the canvas may be another size. An
-    integer canvas is resampled with nearest neighbor unless ``nearest`` is
-    passed. ``aligned_before`` is True when every window's shift is within
-    ``aligned_tolerance`` level-0 pixels (``px_scale`` times the image
-    pixels) on both axes.
+    surface is sampled on that grid, and the canvas may be another size. A
+    uint8 or other integer intensity canvas is bilinear unless ``nearest``
+    is True. A bool mask is nearest. ``aligned_before`` is True when every
+    window's shift is within ``aligned_tolerance`` level-0 pixels
+    (``px_scale`` times the image pixels) on both axes.
     """
     if (
         not isinstance(windows, Sequence)
@@ -888,12 +898,13 @@ def _parser() -> argparse.ArgumentParser:
     resample.add_argument(
         "--nearest",
         action="store_true",
-        help="nearest-neighbor resample. This is the default for an integer label",
+        help="nearest-neighbor resample for a label. Grayscale intensity, "
+        "including uint8 and uint16, stays bilinear unless this is set",
     )
     resample.add_argument(
         "--linear",
         action="store_true",
-        help="bilinear resample even for an integer label, which blends 0/255",
+        help="bilinear resample. This is the default for grayscale intensity",
     )
     return parser
 
