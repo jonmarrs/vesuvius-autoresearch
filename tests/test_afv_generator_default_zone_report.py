@@ -244,3 +244,18 @@ def test_the_registration_and_the_strategy_carry_the_verdict():
             f"and {p['zone']['duplicated_share']:.3f} with the trim. In the cube, ERLpen rose {100 * g4:.1f}% at "
             f"tolerance 4 and {100 * g2:.1f}% at tolerance 2, with merges at tolerance 2 {mg[0]} → {mg[1]} and coverage "
             f"{pct(c)[:-1].replace('-', '−').lstrip('+')}% at tolerance 4. Decision `{v['decision']}`") in strat  # fmt: skip
+
+
+def test_the_zone_its_blocks_and_the_trim_are_the_records():
+    """The zone, block, read size, face coordinate and trim length the report and the strategy state."""
+    r, t = record()["result"], flat()
+    zone, block, margin = r["zone"], r["block"], r["settings"]["margin"]
+    n = (zone // block) ** 3
+    assert f"one {zone}³ zone of the public Scroll-3 scan" in t
+    assert f"`--block-size {block}`, so the zone is {n} blocks" in t
+    assert f"the zone is {n} blocks, each read as {block + 2 * margin}³" in t
+    # the zone starts MARGIN into the scan, so its inner faces lie at MARGIN + BLOCK, PAD before the cube's
+    assert f"at cube coordinate {margin + block - r['pad']} on each axis" in t
+    assert f"drops the {r['cut_end']:g} voxels at each spline end" in t
+    strat = " ".join((ROOT / "docs/RESEARCH_STRATEGY.md").read_text().split())
+    assert f"one {zone}³ zone of the Scroll-3 scan in {n} blocks of {block}" in strat
