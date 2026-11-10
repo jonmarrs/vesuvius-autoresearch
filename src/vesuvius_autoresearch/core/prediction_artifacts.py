@@ -1,6 +1,40 @@
 """Shared names and path checks for regional prediction artifacts (stdlib only)."""
 
+import os
+import stat
 from pathlib import Path
+
+
+def validate_output_file(path, info=None, *, label="prediction"):
+    """Reject links and special entries before an output may be replaced."""
+    info = Path(path).lstat() if info is None else info
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise ValueError(
+            f"{label} output must be a nonsymlink regular file without hard links: {path}"
+        )
+
+
+def validate_output_tree(path, *, max_entries=100_000, label="prediction"):
+    """Inspect an existing output tree without following links or reading chunks."""
+    stack, count = [Path(path)], 0
+    while stack:
+        directory = stack.pop()
+        if not stat.S_ISDIR(directory.lstat().st_mode):
+            raise ValueError(
+                f"{label} Zarr output must be a nonsymlink directory: {directory}"
+            )
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                count += 1
+                if count > max_entries:
+                    raise ValueError(
+                        f"existing {label} output exceeds {max_entries} entries"
+                    )
+                info = entry.stat(follow_symlinks=False)
+                if stat.S_ISDIR(info.st_mode):
+                    stack.append(Path(entry.path))
+                else:
+                    validate_output_file(Path(entry.path), info, label=label)
 
 
 def prediction_stem(default: str, override: str | None = None) -> str:

@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(ROOT), str(ROOT / "src")]
+
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -14,6 +17,7 @@ from tqdm import tqdm
 
 from scripts.labeling.label_artifacts import new_output, publish_new_file
 from scripts.training.input_paths import validation_label_path
+from scripts.uncertainty_artifacts import MAX_MASK_VOXELS, mask_shape, publish_mask
 
 # Local imports
 from vesuvius_autoresearch.core.checkpoint_tools import (
@@ -32,11 +36,13 @@ from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 def calculate_entropy(probs):
     """Calculate pixel-wise entropy: -p*log(p) - (1-p)*log(1-p)"""
+    if not isinstance(probs, torch.Tensor) or probs.is_complex():
+        raise ValueError("probabilities must be a real tensor")
+    probs = probs if probs.dtype == torch.float64 else probs.float()
     if not torch.isfinite(probs).all() or not ((probs >= 0) & (probs <= 1)).all():
         raise ValueError("probabilities must be finite in [0,1]")
     # 1e-8 underflows in float16, making endpoint terms 0 * log(0) = NaN.
     # xlogy defines those terms as zero; promote low-precision maps for scoring.
-    probs = probs if probs.dtype == torch.float64 else probs.float()
     return -torch.xlogy(probs, probs) - torch.xlogy(1 - probs, 1 - probs)
 
 
@@ -201,10 +207,28 @@ def identify_uncertain_patches(probs, threshold=0.2):
     Identifies high-entropy (uncertain) regions in a probability map.
     probs: (H, W) or (C, H, W) tensor
     """
-    if not np.isfinite(threshold) or not 0 <= threshold <= 1:
-        raise ValueError("uncertainty threshold must be finite in [0,1]")
+    try:
+        if isinstance(threshold, (bool, np.bool_)):
+            raise ValueError
+        threshold = float(threshold)
+        if not math.isfinite(threshold) or not 0 <= threshold <= 1:
+            raise ValueError
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("uncertainty threshold must be finite in [0,1]") from exc
     if isinstance(probs, np.ndarray):
-        probs = torch.from_numpy(probs)
+        if probs.dtype.kind not in "buif" or probs.dtype.itemsize > 8:
+            raise ValueError("probabilities must be real numeric values")
+        probs = torch.from_numpy(
+            np.asarray(
+                probs, dtype=np.float64 if probs.dtype == np.float64 else np.float32
+            )
+        )
+    if (
+        not isinstance(probs, torch.Tensor)
+        or probs.ndim not in (2, 3)
+        or min(probs.shape) < 1
+    ):
+        raise ValueError("uncertainty probabilities must be nonempty H/W or C/H/W")
 
     entropy = calculate_entropy(probs)
     if entropy.dim() == 3:
@@ -213,33 +237,39 @@ def identify_uncertain_patches(probs, threshold=0.2):
     # Normalize entropy to [0, 1]
     max_entropy = -0.5 * np.log(0.5) - (1 - 0.5) * np.log(1 - 0.5)
     entropy /= max_entropy
+    entropy.clamp_(0, 1)
 
     return (entropy > threshold).float()
 
 
-def export_for_proofreader(mask, output_path):
-    """
-    Exports a binary mask to a Zarr volume for the proofreader tool.
-    """
-    import zarr
-
+def export_for_proofreader(
+    mask,
+    output_path,
+    *,
+    overwrite=False,
+    sources=(),
+    metadata=None,
+    max_voxels=MAX_MASK_VOXELS,
+):
+    """Publish a binary proofreader mask; replacement must be explicitly requested."""
     if isinstance(mask, torch.Tensor):
-        mask = mask.cpu().numpy()
-
-    # Ensure 3D [Z, H, W]
-    if mask.ndim == 2:
-        mask = mask[np.newaxis, ...]
-
-    # If 4D [C, Z, H, W], take first channel
-    if mask.ndim == 4:
-        mask = mask[0]
-
-    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    z = zarr.open(
-        output_path, mode="w", shape=mask.shape, chunks=(1, 64, 64), dtype="f4"
+        mask_shape(mask.shape, max_voxels)
+        if mask.is_complex():
+            raise ValueError("proofreader mask must contain real binary values")
+        mask = mask.detach().cpu()
+        if mask.dtype == torch.bfloat16:
+            mask = mask.float()
+        mask = mask.numpy()
+    record = publish_mask(
+        mask,
+        output_path,
+        overwrite=overwrite,
+        sources=sources,
+        metadata=metadata,
+        max_voxels=max_voxels,
     )
-    z[:] = mask
     print(f"Exported uncertainty mask for proofreading: {output_path}")
+    return record
 
 
 def main(argv=None):
