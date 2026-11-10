@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import zarr
 
@@ -103,3 +104,75 @@ def test_help_does_not_load_scientific_or_gui_dependencies(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "categorical" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("dtype", "values", "accepted"),
+    [
+        ("u2", [0, 255], True),
+        ("u2", [256], False),
+        ("u2", [300], False),
+        ("u2", [65535], False),
+        ("i2", [-1], False),
+        ("i2", [-32768], False),
+        ("i2", [0, 255], True),
+        ("u8", [2**64 - 1], False),
+        ("u1", [0, 255], True),
+        ("b1", [False, True], True),
+    ],
+)
+def test_label_range_is_lossless_before_launch_and_preserves_inputs(
+    tmp_path, monkeypatch, capsys, dtype, values, accepted
+):
+    ct, labels = _volumes(tmp_path, shape=(66, 8, 8), label_dtype=dtype)
+    array = zarr.open(str(labels), mode="r+")
+    array[0, 0, 0] = values[0]
+    array[-1, -1, -1] = values[-1]  # Beyond the first bounded scan block.
+    before_values = array[:]
+    before = {
+        str(path.relative_to(tmp_path)): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    }
+    launched = []
+
+    def run(command, **kwargs):
+        launched.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    monkeypatch.chdir(tmp_path)
+    assert launcher.main(_arguments(ct, labels)) == (0 if accepted else 1)
+    assert len(launched) == int(accepted)
+    if not accepted:
+        assert "0..255" in capsys.readouterr().err
+    np.testing.assert_array_equal(zarr.open(str(labels), mode="r")[:], before_values)
+    assert {
+        str(path.relative_to(tmp_path)): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    } == before
+
+
+@pytest.mark.parametrize("axis", [0, 1, 2])
+def test_label_range_checks_every_axis_with_bounded_reads(tmp_path, monkeypatch, axis):
+    from volume_cartographer_wrapper.volume import FastLocalVolume
+
+    shape = [8, 8, 8]
+    shape[axis] = 66
+    ct, labels = _volumes(tmp_path, shape=tuple(shape), label_dtype="u2")
+    zarr.open(str(labels), mode="r+")[-1, -1, -1] = 300
+    before = zarr.open(str(labels), mode="r")[:]
+    reads = []
+    original = FastLocalVolume.get_chunk
+
+    def read(self, z, y, x, depth, height, width):
+        reads.append(((z, y, x), (depth, height, width)))
+        assert max(depth, height, width) <= 64
+        return original(self, z, y, x, depth, height, width)
+
+    monkeypatch.setattr(FastLocalVolume, "get_chunk", read)
+    with pytest.raises(ValueError, match="0..255"):
+        launcher._inputs(ct, labels, tmp_path / "out", 8)
+    assert any(origin[axis] == 64 for origin, _ in reads)
+    np.testing.assert_array_equal(zarr.open(str(labels), mode="r")[:], before)

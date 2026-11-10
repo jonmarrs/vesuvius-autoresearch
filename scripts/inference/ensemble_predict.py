@@ -279,7 +279,7 @@ def ensemble_predict():
         )
         ax.axis("off")
     figure.tight_layout()
-    figure.savefig(output_img)
+    figure.savefig(output_img, format=artifacts.image_format)
     plt.close(figure)
     write_prediction_metadata(
         metadata_path,

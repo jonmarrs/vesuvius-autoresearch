@@ -646,7 +646,7 @@ def predict():
         ax.axis("off")
 
     plt.tight_layout()
-    plt.savefig(out_path)
+    plt.savefig(out_path, format=artifacts.image_format)
     plt.close()
 
     def write_metadata(fiber_coherence=None):

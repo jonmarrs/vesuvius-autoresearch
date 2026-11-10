@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -70,7 +71,30 @@ def _inputs(volume_path, predictions_path, output, patch_size):
             (labels.path, "label array"),
         ],
     )
+    _validate_label_range(labels)
     return volume.path, labels.path
+
+
+def _validate_label_range(labels):
+    """Pinned Villa saves uint8 labels; reject values that its cast would lose."""
+    if labels.dtype.kind == "b" or (
+        labels.dtype.kind == "u" and labels.dtype.itemsize == 1
+    ):
+        return
+    # Signed/wide labels can still be lossless. Check all values without loading
+    # a full label volume; each requested block is at most 64**3 voxels.
+    block_shape = tuple(min(64, size) for size in labels.chunks)
+    for origin in product(
+        *(
+            range(0, size, step)
+            for size, step in zip(labels.shape, block_shape, strict=True)
+        )
+    ):
+        block = labels.get_chunk(*origin, *block_shape)
+        if int(block.min()) < 0 or int(block.max()) > 255:
+            raise ValueError(
+                "proofreader labels must be in 0..255; pinned Villa saves labels as uint8"
+            )
 
 
 def main(argv=None):

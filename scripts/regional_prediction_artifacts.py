@@ -25,6 +25,16 @@ def _output_path(value):
     return path.parent.resolve() / path.name
 
 
+def _image_path(value):
+    """Bind savefig's filename before checking aliases or reserving artifacts."""
+    path = _output_path(value)
+    if not path.suffix:
+        from matplotlib import rcParams
+
+        path = Path(f"{str(path).rstrip('.')}.{rcParams['savefig.format']}")
+    return path
+
+
 def validate_checkpoint_metadata(config):
     """Refuse unrecordable checkpoint settings before overwriting any outputs."""
     try:
@@ -45,7 +55,7 @@ class RegionalArtifactPlan:
 
     @classmethod
     def create(cls, stem, image, metadata, uri, checkpoints):
-        image = _output_path(image)
+        image = _image_path(image)
         source = local_volume_path(uri).resolve()
         plan = cls(
             image.parent,
@@ -58,6 +68,12 @@ class RegionalArtifactPlan:
         )
         plan.validate()
         return plan
+
+    @property
+    def image_format(self):
+        # Writers pass this explicitly so backend/default changes cannot append
+        # another suffix to the filename that this plan actually validated.
+        return self.image.suffix[1:]
 
     @property
     def paths(self):
