@@ -8,6 +8,11 @@ committed with this file. The two changes are:
 * on top of it, the cross-block duplicate change,
   `repro/fibers/villa_fiber_generator_cross_block_duplicates_c3d9da6fe.patch` (finding 108).
 
+**Pushed at 18:19:23 PST (9f3bf4f6). Run 18:19:29 PST on 11-09 to 12:34:00 PST on 11-10: finding 109,
+`reports/afv_generator_seam_confirmation.md`. The gate passed on all ten cubes, and P1 to P5 held (ERLpen at τ = 4
+above main's on 10 of 10, median +31.2%, and +23.0% on the four cubes at blocks of 256; above the trim's alone on 10 of
+10; merges at τ = 2 325 → 297; median duplicated share 0.409 → 0.043): `CONFIRMED`.**
+
 ## The question
 
 Both changes were measured on the same eight Scroll-3 cubes of 512³, each in 8 blocks of 256.

@@ -101,7 +101,7 @@ Three further facts set the ranking:
 | Rank | Direction and next deliverable | Bounded first step | Continue / stop decision |
 | --- | --- | --- | --- |
 | 1 | **A First Letters campaign on unread scrolls with the published PHerc. 343 recipe.** Next deliverable: that repository's own image, reproduced on this machine from its `reproduce.sh`. | The reproduction is the kill test. It needs the 24 GB card to itself, so it waits for the owner's decision on pausing the training loop. After it, one band of one scroll at a time, with no training on the target. | If the known positive cannot be reproduced here, stop and report why: nothing found on an unread scroll would mean anything. After that, the controls and the kill criterion in [the campaign section](#the-first-letters-campaign) decide. Judged chance of letters on a given scroll: low, a single-digit percentage. Confidence that the by-products are prize-eligible work: high. |
-| 2 | **Land the measured fiber fixes in Villa:** the seam trim (findings 106 and 107), cross-block duplicates (108), link splice (105) and seed heading (100 and 103). The aim is unchanged: fibers that reach farther without switching. | No new GPU work. Finding 109, a registered confirmation of both seam changes on ten cubes ScrollGT does not ship, was running at this review and is not reported here. Each Villa PR or issue is posted on the owner's decision, inside the limits of three open PRs and two code-fix PRs a week. | Propose only what held up on held-out cubes, and say where it does nothing: VC3D's default zone is one block, where the trim changes nothing, so the case rests on multi-block zones. Promise no reading gain; no geometry change measured here has produced one. If finding 109 does not confirm, propose only the part it supports. Confidence of a merge: moderate. Of more than \$250 to \$500: low to moderate. |
+| 2 | **Land the measured fiber fixes in Villa:** the seam trim (findings 106 and 107), cross-block duplicates (108), link splice (105) and seed heading (100 and 103). The aim is unchanged: fibers that reach farther without switching. | No new GPU work. Finding 109, the registered confirmation of both seam changes on ten cubes of Scrolls 1 and 5 that ScrollGT does not ship, returned `CONFIRMED` on November 10. Each Villa PR or issue is posted on the owner's decision, inside the limits of three open PRs and two code-fix PRs a week. | Propose only what held up on held-out cubes, and say where it does nothing: VC3D's default zone is one block, where the trim changes nothing, so the case rests on multi-block zones. Promise no reading gain; no geometry change measured here has produced one. Finding 109 confirmed both seam changes, so a PR can state both scrolls' figures: lead with the cubes cut at Scroll 3's block size, and state the coverage cost. Confidence of a merge: moderate. Of more than \$250 to \$500: low to moderate. |
 | 3 | **Fix the defects the campaign hits on a 4-core, 31 GB, one-4090 machine.** Deliverable: each fix as a small Villa PR with before/after logs from the real run, bundled monthly. | CPU only. A fix starts from a failure reproduced here on current Villa main, never from reading code. At most two code-fix PRs a week. | No queue exists in advance: of eight open issues checked as starting candidates on November 10, six already had an open PR that references them (see [reuse](#where-to-reuse-existing-work)). Do not compete with an open patch; validate it on real data if that is what its author asks for. Confidence: moderate, conditional on rank 1 running at all. |
 | 4 | **Dense winding inputs for scrolls other than PHerc. Paris 4.** | Parked, with no budget. | Start only if rank 1 shows that these inputs are the binding constraint on a fit. Two attempts argue for caution: a contributor's CT peak count was wrong on a quarter to a third of segments, and our ink-derived constraints were circular. Confidence: low. |
 
@@ -162,7 +162,7 @@ reproduced, stop, publish the nulls and meshes, and reassess.
 
 ## Proposed timeline
 
-- **November (to the 30th).** Finish and report finding 109. Run the kill test. File November with Villa #2258
+- **November (to the 30th).** Finding 109 was reported on November 10. Run the kill test. File November with Villa #2258
   and whatever else has merged; expect \$0 to \$250.
 - **December.** Run the PHerc. 0841 control. Run the first band on an eligible scroll with published tracks and
   umbilicus: PHerc. 0125 first, with low confidence that it is untried, else 0211 or 0826. Turn each obstacle
@@ -249,6 +249,14 @@ Not verified for this review: how PHerc. 306B was won, and the organizers' First
   0.104 → 0.032): `SUPPORTED`. With both changes, eight blocks reach 0.905 to 1.026 of one block's ERLpen at
   tolerance 4 (main: 0.703 to 0.923). The change adds 18 lines to villa's `catalog.py` and removes 2; any villa PR is
   the owner's decision.
+- [Finding 109](../reports/afv_generator_seam_confirmation.md) (2026-11-10, registered) ran both seam changes on the
+  ten hand-traced cubes of Scrolls 1 and 5 that ScrollGT does not ship, which no step of the generator work had used
+  (ERLpen at τ = 4 above main's on 10 of 10, median +31.2%, and +23.0% on the four cubes at blocks of 256; above the
+  trim's alone on 10 of 10; merges at τ = 2 325 → 297; median duplicated share 0.409 → 0.043): `CONFIRMED`. The six
+  256³ cubes, cut in blocks of 128 that no villa user runs, carry the ten-cube median; the four at Scroll 3's block
+  size are the comparable figure. Coverage at τ = 4 is below main's on all ten, by a median 2.3%, and more face
+  crossings are lost than on main (125 against 84 of 910). No cube ran at villa's default block size of 512, and
+  nothing here measures reading. Any villa PR is the owner's decision.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013
