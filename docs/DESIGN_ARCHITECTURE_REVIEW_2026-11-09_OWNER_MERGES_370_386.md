@@ -152,8 +152,13 @@ Where they can be checked offline, they are right.
 
 ## A note on this round's work
 
-- **#388 merged during this round**, at 23:23 UTC ("Require complete paired evidence for confidence analysis"). It is
-  merged into this branch, and its review is left to the next round.
+- **The owner merged two more PRs during this round.** Both are merged into this branch, and their review is left to
+  the next round:
+  - #388, at 23:23 UTC ("Require complete paired evidence for confidence analysis"). The verification above includes
+    it.
+  - #389, at 23:54 UTC ("Check ink pyramids for silent depth truncation"). It arrived after the verification above.
+    Its module, `test_ink_pyramid_depth.py`, passes on this branch together with this round's three modules and the
+    suite guard: 80 passed and 4 skipped. Ruff and mypy are clean on its two Python files.
 - **A helper agent made finding 107's mutants and wrote its tests.** I reran 11 of the kills myself (eight script
   mutants and three document mutants). Each new test passed as merged and failed with its mutant.
 - **Finding 107's review and mutation runs were done in a sparse worktree.** There the two tests that scan the whole
