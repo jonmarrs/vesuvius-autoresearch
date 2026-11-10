@@ -81,6 +81,7 @@ VALIDATION_TESTS = [
     "tests/test_sota_registration_gates.py",
     "tests/test_sota_warp_alignment.py",
     "tests/test_ink_pyramid_depth.py",
+    "tests/test_canvas_shift.py",
     "tests/test_fiber_workflow_contracts.py",
     "tests/test_analyze_orientation_field.py",
     "tests/test_export_fiber_targets_bench.py",
