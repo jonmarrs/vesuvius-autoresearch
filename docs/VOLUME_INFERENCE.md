@@ -84,8 +84,10 @@ Existing Zarr/uncertainty trees have the same requirements, with a 100,000-entry
 inspection limit per tree. Use a fresh output directory or stem when a retained
 artifact fails these checks. As with production planning, these checks are
 snapshots, not filesystem locks or a transaction across outputs. Keep sources
-stable and serialize writers. Regional arrays and tile lists still scale with
-the requested region; path planning does not bound RAM or VRAM use.
+stable and serialize writers. Regional tile coordinates use a sized lazy
+sequence, including interleaved shards, without allocating the full tile grid.
+Regional arrays still scale with the requested region; path planning does not
+bound RAM or VRAM use.
 
 ## Production planning
 

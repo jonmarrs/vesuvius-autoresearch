@@ -225,6 +225,7 @@ class VesuviusTrainer(BaseTrainer):
         train_loader, _ = self._build_dataloaders()
 
         from train import apply_augmentations
+
         from vesuvius_model import VesuviusConfig
 
         v_cfg_dummy = VesuviusConfig(

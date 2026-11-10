@@ -9,14 +9,14 @@ Encoded filenames are decoded locally and quoted again for downloads. JSON
 links outside the folder or with unsupported URLs are recorded as skipped.
 """
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 import hashlib
-from html.parser import HTMLParser
 import json
-from pathlib import Path
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from html.parser import HTMLParser
+from pathlib import Path
 from urllib.parse import quote, unquote, urljoin, urlsplit
 from urllib.request import urlopen
 
@@ -36,7 +36,9 @@ class Listing(HTMLParser):
             name = unquote(parts.path, errors="strict")
         except ValueError:
             if ".json" in href:
-                self.skipped_json_links.append({"href": href, "reason": "invalid URL encoding"})
+                self.skipped_json_links.append(
+                    {"href": href, "reason": "invalid URL encoding"}
+                )
             return
         if not name.endswith(".json"):
             return
@@ -78,7 +80,11 @@ def main():
             raise ValueError(f"{name}: expected vc3d_fiber")
         with (annotations / name).open("xb") as stream:
             stream.write(captured)
-        return {"name": name, "bytes": len(captured), "sha256": hashlib.sha256(captured).hexdigest()}
+        return {
+            "name": name,
+            "bytes": len(captured),
+            "sha256": hashlib.sha256(captured).hexdigest(),
+        }
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         files = list(pool.map(fetch, sorted(listing.names)))
@@ -91,11 +97,15 @@ def main():
     }
     (root / "download_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     if listing.skipped_json_links:
-        print(f"Downloaded {len(files)} JSON files; "
-              f"skipped {len(listing.skipped_json_links)} listed JSON link(s); "
-              "see download_manifest.json")
+        print(
+            f"Downloaded {len(files)} JSON files; "
+            f"skipped {len(listing.skipped_json_links)} listed JSON link(s); "
+            "see download_manifest.json"
+        )
     else:
-        print(f"Downloaded all {len(files)} listed JSON files ({sum(f['bytes'] for f in files)} bytes) from {url}")
+        print(
+            f"Downloaded all {len(files)} listed JSON files ({sum(f['bytes'] for f in files)} bytes) from {url}"
+        )
 
 
 if __name__ == "__main__":

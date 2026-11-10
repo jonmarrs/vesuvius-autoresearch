@@ -230,23 +230,33 @@ def test_a_second_stop_kills_the_run_before_the_loop_settles(tmp_path):
     first stop short before its SIGKILL. A run ignoring SIGTERM then replaced
     best_model.pt after the settle, and outlived the loop."""
     pidfile, written = tmp_path / "leader.pid", tmp_path / "best_model.pt"
-    leader = (
-        "import os,signal,time; from pathlib import Path; "
-        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
-        f"Path({str(pidfile)!r}).write_text(str(os.getpid())); time.sleep(2.0); "
-        f"Path({str(written)!r}).write_text('run'); time.sleep(60)"
-    )
+    settled = tmp_path / "settled"
+    leader = f"""
+import os, signal, time
+from pathlib import Path
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+Path({str(pidfile)!r}).write_text(str(os.getpid()))
+while not Path({str(settled)!r}).exists(): time.sleep(.01)
+Path({str(written)!r}).write_text('run')
+time.sleep(60)
+"""
     supervisor = ProcessSupervisor(grace_seconds=3)
     alive_at_settle = []
+
+    def settle():
+        alive_at_settle.append(alive(int(pidfile.read_text())))
+        # Only a write after settling is a violation. A wall-clock write could
+        # precede both stops when the test runner was delayed under suite load.
+        settled.write_text("settled")
+
     try:
         _stop_twice_as_the_loop_does(
             supervisor,
             [sys.executable, "-c", leader],
             (0.7, 1.0),
-            lambda: alive_at_settle.append(alive(int(pidfile.read_text()))),
+            settle,
         )
         assert alive_at_settle == [False]
-        time.sleep(1.5)  # past the moment the run would have written
         assert not written.exists()
         assert supervisor.active is None and supervisor.stopping is None
     finally:

@@ -1,7 +1,9 @@
 # Repository audit and remaining decisions
 
-Audited from parent commit `cc9dda42acdacaea39769ea56d0e8edd29d630b3`, with
-Villa pinned to `ccb431818fa68059138f2c964ae299fc474ff116`.
+The first pass started at `cc9dda42acdacaea39769ea56d0e8edd29d630b3`. The
+follow-up includes main `f00cfc45` (the accepted November strategy and canvas
+registration work). Villa remains pinned to
+`ccb431818fa68059138f2c964ae299fc474ff116`.
 
 This is a repository-wide inventory and automated scan, with focused manual
 review of the training, inference, data, artifact-publication, developer and
@@ -40,12 +42,60 @@ in the final section.
 | Regional inference could destroy inputs or corrupt its own artifacts. | Four new regressions initially failed: both single and ensemble commands accepted a checkpoint or the ink NPY as `--metadata_out`, then replaced it with JSON. Shared planning now protects checkpoints, the CT group and selected array, and the complete output family. It rejects path/inode/ancestor aliases and unsafe existing entries before inference and rechecks before invalidating old metadata. |
 | Unrecordable checkpoint settings failed only after outputs had been replaced. | A NaN or set in an otherwise usable checkpoint configuration now fails finite-JSON preflight. The new tests require no inference or filesystem changes in these cases. |
 | The proofreader launcher did not match pinned Villa. | It supplied `[16, 64, 64]` where Villa expects one integer cubic patch edge, inherited Villa's z=2500 default, looked up Villa relative to the caller's directory, overwrote a fixed config file and swallowed child failures. It now uses an explicit scalar edge, z=0, checkout-relative launch, a temporary config and the child exit code. Metadata-only checks reject mismatched 3D shapes, floating-point labels, oversized patches, overlapping output paths and nonempty previous sessions. These checks do not prove physical registration. |
-| Developer checks depended on undeclared tools. | The default locked dev group now declares pytest, Ruff and Mypy; the existing no-sync Mypy hook can use the project tool. The augmentation pipeline's missing `fft-conv-pytorch` dependency is now declared; Numba and jsonschema are explicit rather than only transitive. Existing runtime package versions were retained. A launcher test now uses the active Python instead of assuming a checkout-local `.venv`. `make validate` and `make test-all` make the distinction from the existing smoke alias visible. |
+| Developer checks depended on undeclared tools. | The default locked dev group now declares pytest, Ruff and Mypy; the existing no-sync Mypy hook can use the project tool. The augmentation pipeline's missing `fft-conv-pytorch` dependency is now declared; Numba and jsonschema are explicit rather than only transitive. These declarations retained existing runtime versions; the separate Lightning patch is recorded below. A launcher test now uses the active Python instead of assuming a checkout-local `.venv`. `make validate` and `make test-all` make the distinction from the existing smoke alias visible. |
 | An unused partial-loading helper and stale documentation contradicted current inference/training. | Removed the prediction module's uncalled `load_compatible_state_dict` and its helper-only test; real inference continues to require strict weights. Corrected the pseudo-label docstring that still claimed PNG 128 had residual BCE/Dice weight. Regional CLI help now accurately requests a local volume. |
 
 Path checks are snapshots, not locks. Regional publication remains a sequence of
 writes with metadata last; interruption can leave incomplete outputs without a
 success sidecar. No multi-writer or power-loss guarantee is added.
+
+## Follow-up fixes against current main
+
+- **Canvas publication:** the new correction CLI could replace either input,
+  follow output links, leave a partial previous result after a write failure,
+  or write `corrected.NPY.npy` when asked for `corrected.NPY`. Four input-alias
+  cases, a failed-write case and the uppercase-filename case reproduced these
+  defects. It now validates input/output separation before measurement and
+  publication and stages encoded output before replacing an existing result.
+  It preserves replacement permissions and returns the documented error status
+  on encoding/storage failures. Direct and module launches use this checkout's
+  helper modules when another editable checkout is on the import path.
+- **Canvas value integrity:** nearest-neighbor warp and resize converted 64-bit
+  categorical IDs through float64, changing IDs above 2^53. Linear interpolation
+  could also wrap a saturated int64/uint64 value to the opposite endpoint.
+  Categorical gathering now retains the original integer dtype and linear
+  conversion assigns saturated endpoints before casting. Geometry is compared
+  with OpenCV, including fractional offsets and zero-filled boundaries. Complex
+  and nonnumeric input planes are rejected rather than cast to real intensities.
+- **Tile planning:** regional inference now returns a sized lazy sequence,
+  preserving row-major order, interleaved shards, indexing and slicing. The
+  61,009-tile fixture allocated 5,489,925 traced bytes before this fix; a fresh
+  measurement with the correct checkout allocated 1,012 bytes afterward.
+  Production dry-run and regional planning share the same axis-count formula.
+  These figures concern Python tile planning, not model or GPU peak memory.
+- **Dependency patch:** PyTorch Lightning 2.6.1 was updated to 2.6.6, removing
+  advisory `PYSEC-2026-3967` from the root lock's PyPI lookup. The other existing
+  package versions were retained. The [dependency audit](../reports/dependency_audit.json)
+  records the remaining versions, advisory IDs, aliases and known fixes; counts
+  are advisory records and can include duplicates, not distinct exploitable bugs.
+- **Operational messages and cleanup:** a forced exclusivity-guard override
+  now reports that Villa jobs are still running. Removed the unreferenced
+  [legacy augmentation wrapper](https://github.com/jonmarrs/vesuvius-autoresearch/blob/6320a32f818caa61dd1d67ecd07c617b09c73c13/scripts/training/vesuvius_augmentations.py), which could silently
+  substitute an identity transform. The maintained augmentation path remains in
+  `scripts/training/train.py`. Fixed eleven non-preserved Ruff findings; the
+  remaining 84 are in preserved Villa or retained GP-winner reproductions. The
+  native-retry record guard still verifies the same source URL and supports
+  both dictionary spellings instead of depending on formatting.
+- **Lifecycle regression stability:** the repeated-stop test used a two-second
+  child write deadline, so suite scheduling delays could let the child write
+  before either stop. It now gates the write on actual loop settlement and
+  still requires the process to be dead at settlement. Supervisor behavior
+  was unchanged.
+
+Main's accepted November strategy resolves the previous audit's stale-strategy
+item. This is an upstream change included in the follow-up, not a newly measured
+research result. Historical scientific artifacts and frozen Villa files were
+kept unchanged.
 
 ## Items for owner review
 
@@ -54,17 +104,16 @@ caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
-| High | **GitHub reports an untriaged dependency-security backlog.** The push notification reported 149 alerts on the default branch: 6 critical, 57 high, 59 moderate and 27 low ([Dependabot dashboard](https://github.com/jonmarrs/vesuvius-autoresearch/security/dependabot)). The available GitHub integration returned HTTP 403 when listing the alerts. | Review individual advisories, affected manifests, reachable workflows and available fixes with an account that can read security alerts. Prioritize confirmed applicable critical/high findings. The notification counts do not establish which pinned runtime packages need upgrades; no blanket dependency update was applied. |
+| High | **Dependency advisories still need migrations and applicability review.** GitHub reported 149 alerts on the default branch (6 critical), but its advisory API returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **The alternate v3 trainer has drifted from the maintained training contract.** [trainer](../v3_training/trainer.py) uses `from train import apply_augmentations`, mixes a labeled dataset returning three elements with an unlabeled dataset returning two, and its custom loops have their own teacher/loss/checkpoint behavior. The maintained implementation is [training/train.py](../scripts/training/train.py). | Retire the v3 entry point, or fund a dedicated port with actual training tests. Fixing tuple unpacking alone would not validate its SSL/UA-MT method, so this audit does not present it as repaired. Its prior sprint board is already marked archived. |
 | High | **Training-data onboarding is incomplete.** The [quick start](../README.md) expects fragment CT Zarrs and aligned labels, but explicitly states that no maintained command builds those directories. Archived downloaders fetch different inputs. | Choose a supported source/format and add a pinned download/conversion manifest plus one small verified example. Do not revive placeholder-producing archival downloaders as though they prepared the training recipe. |
 | High | **A clean checkout cannot run every research test successfully.** Some probe tests require the original private spiral corpus; render-equivalence and preserved-source tests require old Villa commit objects absent from a shallow pinned checkout. See [real-patch tests](../tests/test_probe_real_patch_scatter.py), [render-equivalence tests](../tests/test_check_render_equivalence.py) and [preserved-source tests](../tests/test_villa_preserved.py). | Decide which tests are portable unit tests and which are corpus/history integration checks. Add explicit fixtures/markers and a documented provision step without weakening their scientific assertions. Missing real data is not evidence that the underlying claims pass. |
-| Medium | **Regional memory scales with the whole region.** [single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) allocate full-region GPU accumulators; [region_tiles](../src/vesuvius_autoresearch/core/inference.py) materializes the tile list, and ensemble members are all resident together. Skipping uncertainty also skips that export's size budget. | Select a RAM/VRAM planning contract or tile-streaming design, then profile on the 4090. The existing [production path](../scripts/production_predict.py) is a useful batched alternative, but no full-scroll peak-memory or throughput result was measured here. |
+| Medium | **Regional GPU memory still scales with the whole region.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) allocate full-region GPU accumulators and keep ensemble members resident together. CPU tile enumeration is now lazy, but skipping uncertainty still skips that export's size budget. | Select a RAM/VRAM planning contract or accumulator-streaming design, then profile on the 4090. The [production path](../scripts/production_predict.py) is a batched alternative; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Four historical JSON artifacts contain 30 nonfinite tokens.** [old queue](../reports/active_learning_queue.json) has 20 NaN uncertainty scores; [old detector card](../reports/detector/PHercParis2Fr143_scorecard.json), [interpolation result](../reports/interp_vs_labels.json) and [tracking-gap result](../reports/scorer_tracking_gap_descriptive.json) contain the others. | Keep these as historical evidence with explicit status, or regenerate into new versioned artifacts from retained inputs. Do not turn missing/undefined measurements into zeros or rewrite the old scores to make JSON valid. The old queue is not a usable ranking. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
-| Medium | **The research plan mixes a dated snapshot with later progress.** [strategy](RESEARCH_STRATEGY.md) still ranks feedback on #2141/#2259 as pending in its October 28 snapshot; the [second filed response](PRIZE_FILING_2026-10_SECOND_SUBMITTED.md) records their October 30 merges. Later research updates do not rewrite that ranked table. | Refresh current action items and upstream states as one owner-facing plan while preserving filed text and historical observations. This audit does not claim current upstream adoption from internal PR counts. |
-| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies; several declared packages have no obvious first-party import, but retained upstream workflows may need them. Ruff also reports the reproduction/style backlog counted above. | Inventory actual supported commands before splitting CPU/GPU/research extras or removing dependencies. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code. Do not bulk-delete reports, `sprint_logs/`, `scripts/archive/` or reproductions solely because they are not imported. |
+| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The root demo/evidence generators still use direct GPU imports and fixed output locations. | Inventory supported commands before splitting CPU/GPU/research extras. Decide whether to retain, port or archive the two root generators. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 | Lower | **No checked-in CI workflow enforces the checks.** `.github/` contains review/report templates but no workflow. | Choose a bounded CPU CI job and a separate opt-in data/GPU integration job. Set runtime/storage budgets before enabling broad historical tests on every push. |
 
 ## Verification record
@@ -124,3 +173,61 @@ coverage; resolved integration/dependency failures were rerun; smoke exercised
 both augmentation backends and loaded all 288 checkpoint tensors. The lock check
 passed, with no pre-existing package version/source changes. These checks do not
 supply the missing real-data evidence identified in the review table.
+
+## Follow-up validation
+
+The earlier verification section describes the first pass. Against current
+main, the full **202-module curated suite** completed with
+`2 failed, 5402 passed, 41 skipped, 1 xfailed` in 847.32 seconds. One failure
+was the wall-clock lifecycle assertion described above. The other was the
+temporary-file mode guard reading the deleted wrapper from `git ls-files`
+before its deletion was staged; the final index resolves that mismatch.
+
+The final six-module recheck passed `126 passed` in 33.43 seconds, covering
+both failed modules, canvas publication/value contracts, lazy tiles, the
+exclusive guard message and the retry record guard. After the lifecycle
+assertion was changed, its entire module also passed `38 passed` in 20.23 seconds,
+and the repeated-stop case passed ten separate isolated runs.
+All failures from the completed curated run are resolved; the whole suite
+was not repeated after these final changes. A separate six-module workflow
+selection passed `269 passed` in 39.95 seconds. Results from overlapping runs
+are not additive.
+
+Smoke passed `9/11 passed, 2 skipped, 0 failed` in 17.3 seconds and loaded all
+288 checkpoint tensors; the skips still require local CT/ink labels. The
+documentation guard selection passed `138 passed, 1 skipped` in 74.58 seconds.
+The skipped guard needs the original spiral corpus.
+
+Configured Mypy passed on 952 source files. Ruff check and format passed on all
+27 changed Python files. The whole-repository Ruff scan has 84 findings, all in
+the preserved Villa and retained GP-winner reproductions. The offline lock
+consistency check passed (255 packages); Lightning is the only pre-existing
+package whose version changed. The advisory report's lock hash and record
+totals were checked against the final lock and report contents.
+
+Exact commands for the full run and final failed-module/workflow recheck:
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short -o faulthandler_timeout=90
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_loop_lifecycle.py tests/test_file_modes.py tests/test_canvas_artifact_contracts.py tests/test_region_tile_iteration.py tests/test_guard_heavy_analysis.py tests/test_check_retry_cycle.py -q --tb=short
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_loop_lifecycle.py -q --tb=short
+```
+
+The [advisory report](../reports/dependency_audit.json) is a dated public PyPI
+lookup of the exported non-dev root lock on Linux/Python 3.10. The before/after
+raw advisory record counts were 198 and 197 after the Lightning patch. Neither
+those counts nor the supplementary Torch lookup establish exploitability.
+The lookup used `pip-audit 2.10.1`; export and audit commands were:
+
+```sh
+env UV_CACHE_DIR=/workspace/.vesuvius-review-cache/uv UV_PYTHON_INSTALL_DIR=/workspace/.vesuvius-review-python uv export --python /workspace/.vesuvius-review-env/bin/python --locked --no-dev --no-hashes --no-emit-project --format requirements-txt --output-file /tmp/vesuvius-audit-runtime-requirements-after.txt
+
+env UV_CACHE_DIR=/workspace/.vesuvius-review-cache/uv UV_PYTHON_INSTALL_DIR=/workspace/.vesuvius-review-python UV_TOOL_DIR=/workspace/.vesuvius-review-cache/tools uv tool run --python /workspace/.vesuvius-review-env/bin/python --from pip-audit pip-audit --cache-dir /workspace/.vesuvius-review-cache/pip-audit -r /tmp/vesuvius-audit-runtime-requirements-after.txt --no-deps --disable-pip --progress-spinner off --timeout 15 --format json --output /tmp/vesuvius-pip-audit-after.json
+```
+
+The audit command returned status 1 because advisory records remain; this is
+not a passing security check.
+The GPU, missing data/history, GUI, wheel and real-data limitations above
+still apply.
