@@ -41,6 +41,7 @@ from repro.sota_data.canvas_shift import (  # noqa: E402
     level0_centers,
     measure_shift,
     resample_to_tifxyz,
+    resize_grayscale,
     sample_tifxyz,
     sample_volume_trilinear,
 )
@@ -183,7 +184,14 @@ class _Tiff:
 
 
 def _zarr_region(
-    base: str, level: int, y0: int, y1: int, x0: int, x1: int, z: int
+    base: str,
+    level: int,
+    y0: int,
+    y1: int,
+    x0: int,
+    x1: int,
+    z: int,
+    dtype: np.dtype = np.float32,
 ) -> np.ndarray:
     import numcodecs
 
@@ -192,7 +200,7 @@ def _zarr_region(
     ch_z, ch_y, ch_x = meta["chunks"]
     sep = meta.get("dimension_separator", ".")
     codec = numcodecs.get_codec(meta["compressor"]) if meta["compressor"] else None
-    out = np.zeros((y1 - y0, x1 - x0), np.float32)
+    out = np.zeros((y1 - y0, x1 - x0), dtype)
     cz, lz = divmod(z, ch_z)
     for cy in range(
         max(0, y0 // ch_y), min((height - 1) // ch_y, (y1 - 1) // ch_y) + 1
@@ -216,16 +224,18 @@ def _zarr_region(
 def _canvas_on_level2(
     base: str, canvas_level: int, i0: int, i1: int, j0: int, j1: int
 ) -> np.ndarray:
-    """Slice 32 on the level-2 lattice. Level 1 is averaged 2x2, as w018 requires."""
+    """Slice 32 on the level-2 lattice.
+
+    Level 1 is uint8. It is resized onto the level-2 grid with nearest
+    neighbor, so a stored gray level is not averaged into a value the bytes
+    do not contain.
+    """
     if canvas_level == 2:
         return _zarr_region(base, 2, i0, i1, j0, j1, 32)
     if canvas_level != 1:
         raise ValueError(f"canvas level {canvas_level} is not 1 or 2")
-    fine = _zarr_region(base, 1, 2 * i0, 2 * i1, 2 * j0, 2 * j1, 32)
-    height, width = i1 - i0, j1 - j0
-    return (
-        fine[: height * 2, : width * 2].reshape(height, 2, width, 2).mean(axis=(1, 3))
-    )
+    fine = _zarr_region(base, 1, 2 * i0, 2 * i1, 2 * j0, 2 * j1, 32, dtype=np.uint8)
+    return resize_grayscale(fine, (i1 - i0, j1 - j0))
 
 
 def _volume_at(base: str, points: np.ndarray) -> np.ndarray:

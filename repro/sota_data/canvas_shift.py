@@ -29,7 +29,10 @@ mask is "finite", not the supervision zarr. A window with fewer than 100
 finite pixels can still be scored here; the published map requires 100.
 Integer labels are resampled with nearest neighbor, so 0/255 stays 0/255 and
 the result keeps the label's dtype. A float label is blended unless the
-caller passes ``nearest=True``.
+caller passes ``nearest=True``. ``resize_grayscale`` follows the same rule:
+an integer or bool image defaults to nearest neighbor, because OpenCV's
+default bilinear resize invents gray levels between those pixels. A float
+image stays bilinear.
 
 ``sample_tifxyz`` and ``sample_volume_trilinear`` build the surface the
 correlation compares against the canvas: CT sampled at the tifxyz cells.
@@ -132,6 +135,37 @@ def _highpass_region(
     if not np.isfinite(crop).any():
         return np.full((y1 - y0, x1 - x0), np.nan, np.float32)
     return highpass(crop, size)[y0 - top : y1 - top, x0 - left : x1 - left]
+
+
+def resize_grayscale(
+    image: np.ndarray,
+    out_shape: tuple[int, int],
+    interpolation: int | None = None,
+) -> np.ndarray:
+    """Resize a 2D grayscale image to ``out_shape`` (height, width).
+
+    OpenCV's default resize is bilinear, which invents gray levels between
+    integer pixels (a 0/200 step becomes 100). An integer or bool image
+    therefore defaults to nearest neighbor. A float image defaults to
+    bilinear. Pass ``interpolation`` to override either default.
+    """
+    plane = _plane(image, "image")
+    if len(out_shape) != 2 or any(
+        isinstance(value, bool) or not isinstance(value, Integral) or int(value) < 1
+        for value in out_shape
+    ):
+        raise ValueError("out_shape must be two positive integers (height, width)")
+    height, width = int(out_shape[0]), int(out_shape[1])
+    integer = bool(np.issubdtype(plane.dtype, np.integer) or plane.dtype == np.bool_)
+    if interpolation is None:
+        interpolation = cv2.INTER_NEAREST if integer else cv2.INTER_LINEAR
+    elif isinstance(interpolation, bool) or not isinstance(interpolation, Integral):
+        raise ValueError("interpolation must be an OpenCV flag")
+    work = plane.astype(np.uint8) if plane.dtype == np.bool_ else plane
+    resized = cv2.resize(work, (width, height), interpolation=int(interpolation))
+    if plane.dtype == np.bool_ and int(interpolation) == cv2.INTER_NEAREST:
+        return resized.astype(bool)
+    return resized
 
 
 def level0_centers(indices: np.ndarray, stride: int) -> np.ndarray:
@@ -428,9 +462,8 @@ def measure_shift(
         float(response[row, col - 1]), peak, float(response[row, col + 1])
     )
     scale = float(px_scale)
-    # Mean of the integer pixel coordinates inside the window. y + height/2
-    # sits half a pixel past that, on the far edge of the last included pixel
-    # when the height is even.
+    # Mean of the integer pixel coordinates in the window. y + height/2 is
+    # half a pixel past that mean for every window height, not only even ones.
     center_y = y + (height - 1) / 2.0
     center_x = x + (width - 1) / 2.0
     return {

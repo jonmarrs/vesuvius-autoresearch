@@ -25,6 +25,7 @@ from repro.sota_data.canvas_shift import (
     main,
     measure_shift,
     resample_to_tifxyz,
+    resize_grayscale,
     sample_tifxyz,
     sample_volume_trilinear,
 )
@@ -461,7 +462,7 @@ def test_cli_help_exits_zero():
 
 
 def test_window_centre_is_the_mean_of_its_pixel_indices():
-    """y + height/2 is half a pixel past the last included pixel when height is even."""
+    """y + height/2 is half a pixel past the mean for every window height."""
     image = _texture(80, 80, seed=13)
     found = measure_shift(image, image, (10, 12, 20, 8), max_shift=8)
     assert found["y"] == pytest.approx(10 + (20 - 1) / 2.0)
@@ -526,6 +527,30 @@ def test_a_large_correction_leaves_only_the_held_out_subpixel():
     assert abs(float(again["dy0"])) < 1.5
     assert abs(float(again["dx0"])) < 1.5
     assert again["ncc"] > 0.9
+
+
+def test_an_integer_grayscale_resize_does_not_invent_gray_levels():
+    """OpenCV's default resize is bilinear and turns a 0/200 step into 100."""
+    image = np.zeros((8, 8), np.uint8)
+    image[:, 4:] = 200
+    out = resize_grayscale(image, (8, 5))
+    assert out.shape == (8, 5)
+    assert out.dtype == np.uint8
+    assert set(np.unique(out)).issubset({0, 200})
+    wider = image.astype(np.uint16) * 10
+    kept = resize_grayscale(wider, (8, 5))
+    assert kept.dtype == np.uint16
+    assert set(np.unique(kept)).issubset({0, 2000})
+    blended = resize_grayscale(image, (8, 5), interpolation=cv2.INTER_LINEAR)
+    assert 100 in set(np.unique(blended))
+
+
+def test_a_float_grayscale_resize_interpolates():
+    image = np.zeros((8, 8), np.float32)
+    image[:, 4:] = 200
+    out = resize_grayscale(image, (8, 5))
+    assert out.dtype == np.float32
+    assert np.any((out > 0) & (out < 200))
 
 
 def test_an_integer_label_stays_binary_unless_linear_is_requested():
@@ -776,6 +801,20 @@ def test_the_highpass_of_a_window_is_the_highpass_of_the_image():
 
 sys.path.insert(0, os.path.abspath("scripts"))
 import probe_canvas_frame_shift as probe  # noqa: E402
+
+
+def test_a_level1_canvas_uses_the_integer_resize(monkeypatch):
+    fine = np.zeros((4, 4), np.uint8)
+    fine[:, 2:] = 200
+
+    def _region(*_args, **kwargs):
+        assert kwargs["dtype"] == np.uint8
+        return fine
+
+    monkeypatch.setattr(probe, "_zarr_region", _region)
+    out = probe._canvas_on_level2("base", 1, 0, 2, 0, 2)
+    assert out.shape == (2, 2)
+    assert set(np.unique(out)).issubset({0, 200})
 
 
 def test_the_probe_replaces_only_the_rows_of_the_run_it_repeats():
