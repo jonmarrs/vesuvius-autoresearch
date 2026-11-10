@@ -47,9 +47,10 @@ def test_successive_halving_of_a_65_slice_render():
 
 
 def test_unchanged_z_scale_with_the_short_depths_is_truncated():
-    rows = [("0", [65, 8, 8], [1, 1, 1])]
+    rows = [("0", [65, 64, 64], [1, 1, 1])]
     for step, depth in enumerate((33, 17, 9, 5, 3), start=1):
-        rows.append((str(step), [depth, 8, 8], [1, 2**step, 2**step]))
+        side = 64 // 2**step
+        rows.append((str(step), [depth, side, side], [1, 2**step, 2**step]))
     records = {record["path"]: record for record in assess_levels(_levels(*rows))}
     assert records["0"]["status"] == "full_depth"
     for path in ("1", "2", "3", "4", "5"):
@@ -800,3 +801,145 @@ def test_cli_refuses_a_chunk_that_does_not_decode(tmp_path, capsys, compressor, 
     assert main([str(root), *window]) == 2
     error = capsys.readouterr().err
     assert error.startswith("error: 0 has a chunk in this window that does not decode")
+
+
+def _depth_then_xy_pool(volume, depth_factor, factor):
+    depth = volume.shape[0] // depth_factor
+    return np.stack(
+        [
+            _xy_pool(
+                volume[index * depth_factor : (index + 1) * depth_factor], factor
+            ).mean(axis=0)
+            for index in range(depth)
+        ]
+    )
+
+
+def test_content_agreement_pools_depth_by_its_own_factor():
+    """A level pooled 2 in depth and 4 in XY reads as a depth pool only at width 2."""
+    level0 = _pattern(16, 32, 32)
+    coarse = _depth_then_xy_pool(level0, 2, 4)
+    isotropic = content_agreement(level0, coarse, 4)
+    assert isotropic["depth_factor"] == 4
+    assert isotropic["verdict"] != "depth_pooled"
+    report = content_agreement(level0, coarse, 4, depth_factor=2)
+    assert report["depth_factor"] == 2
+    assert report["verdict"] == "depth_pooled"
+    assert report["median_r_depth_pooled"] > 0.99
+
+
+@pytest.mark.parametrize("depth_factor", [0, True, 1.5])
+def test_content_agreement_refuses_an_unusable_depth_factor(depth_factor):
+    level0 = _pattern(4, 8, 8)
+    with pytest.raises(ValueError, match="depth factor must be a positive integer"):
+        content_agreement(level0, _xy_pool(level0, 2), 2, depth_factor=depth_factor)
+
+
+def test_cli_accepts_a_depth_pool_coarser_in_xy_than_in_z(tmp_path, capsys):
+    """Level 2 at scale [2, 4, 4] is pooled 2 in depth, so --compare pools level 0 by 2."""
+    level0 = _pattern(16, 32, 32)
+    root = tmp_path / "anisotropic.zarr"
+    _write_arrays(
+        root,
+        [
+            ("0", level0.astype(np.float32), [1, 1, 1]),
+            ("2", _depth_then_xy_pool(level0, 2, 4).astype(np.float32), [2, 4, 4]),
+        ],
+    )
+    window = ["--compare", "2", "--origin", "0", "0", "--size", "32", "32"]
+    assert main([str(root), "--json", *window]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["levels"][1]["status"] == "depth_pooled"
+    assert (report["content"]["factor"], report["content"]["depth_factor"]) == (4, 2)
+    assert report["content"]["verdict"] == "depth_pooled"
+    assert report["content"]["agrees_with_metadata"] is True
+
+
+def test_cli_tests_a_z_unchanged_level_against_an_isotropic_pool(tmp_path, capsys):
+    """A level that says z is unchanged but was pooled 4 in depth is caught by its pixels."""
+    level0 = _pattern(16, 32, 32)
+    root = tmp_path / "mislabelled.zarr"
+    _write_arrays(
+        root,
+        [
+            ("0", level0.astype(np.float32), [1, 1, 1]),
+            ("2", _depth_then_xy_pool(level0, 4, 4).astype(np.float32), [1, 4, 4]),
+        ],
+    )
+    window = ["--compare", "2", "--origin", "0", "0", "--size", "32", "32"]
+    assert main([str(root), "--json", *window]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["levels"][1]["status"] == "truncated"
+    assert report["content"]["depth_factor"] == 4
+    assert report["content"]["verdict"] == "depth_pooled"
+
+
+def test_cli_refuses_to_pool_depth_by_a_fractional_z_ratio(tmp_path, capsys):
+    level0 = _pattern(20, 16, 16)
+    root = tmp_path / "fractional.zarr"
+    _write_arrays(
+        root,
+        [
+            ("0", level0.astype(np.float32), [1, 1, 1]),
+            ("1", _xy_pool(level0[:8], 2).astype(np.float32), [2.5, 2, 2]),
+        ],
+    )
+    window = ["--compare", "1", "--origin", "0", "0", "--size", "16", "16"]
+    assert main([str(root), *window]) == 2
+    assert "z scale ratio 2.5 is not an integer depth pool" in capsys.readouterr().err
+
+
+def test_a_scale_written_in_xyz_order_is_inconsistent(tmp_path, capsys):
+    """The 17-of-65 level with its scale written x, y, z reads as z 4, y 4, x 1."""
+    records = assess_levels(
+        _levels(
+            ("0", [65, 15872, 18944], [1, 1, 1]),
+            ("2", [17, 3968, 4736], [4, 4, 1]),
+        )
+    )
+    assert records[1]["status"] == "inconsistent"
+    assert records[1]["xy_matches_declared_scale"] is False
+    assert records[1]["reason"] == "x extent does not match the declared x scale"
+    root = tmp_path / "xyz.zarr"
+    _write_headers(root, [("0", [65, 8, 8], [1, 1, 1]), ("2", [17, 2, 2], [4, 4, 1])])
+    assert main([str(root), "--json"]) == 1
+    assert json.loads(capsys.readouterr().out)["usable_levels"] == ["0"]
+
+
+@pytest.mark.parametrize(
+    "shape, axes",
+    [([65, 8, 4], "y"), ([65, 4, 8], "x"), ([65, 8, 8], "y and x")],
+)
+def test_each_xy_extent_is_held_to_its_declared_scale(shape, axes):
+    records = assess_levels(
+        _levels(("0", [65, 8, 8], [1, 1, 1]), ("1", shape, [1, 2, 2]))
+    )
+    assert records[1]["status"] == "inconsistent"
+    assert (
+        records[1]["reason"]
+        == f"{axes} extent does not match the declared {axes} scale"
+    )
+
+
+def test_ceil_halved_xy_extents_match_their_scale():
+    records = assess_levels(
+        _levels(
+            ("0", [65, 15, 17], [1, 1, 1]),
+            ("1", [65, 8, 9], [1, 2, 2]),
+            ("2", [17, 4, 5], [4, 4, 4]),
+        )
+    )
+    assert [record["status"] for record in records] == [
+        "full_depth",
+        "full_depth",
+        "depth_pooled",
+    ]
+    assert all(record["xy_matches_declared_scale"] for record in records)
+
+
+def test_a_level_finer_in_z_than_level_0_is_inconsistent():
+    """depth_pooled needs a z scale above 1, as assess_levels documents."""
+    records = assess_levels(
+        _levels(("0", [65, 8, 8], [1, 1, 1]), ("1", [130, 4, 4], [0.5, 2, 2]))
+    )
+    assert records[1]["status"] == "inconsistent"
