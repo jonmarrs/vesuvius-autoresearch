@@ -1,10 +1,14 @@
 # Research roadmap
 
 **Updated November 5, 2026 UTC.** The current decision record is
-[Research strategy: useful progress on one RTX 4090](RESEARCH_STRATEGY.md).
+[Research strategy: First Letters and biting fixes on one RTX 4090](RESEARCH_STRATEGY.md).
 It replaces the July roadmap and reconciles the current official prize rules,
 our actual measurements, upstream work already in progress and our compute
 budget. Historical reports and preregistrations retain their original scope.
+
+The strategy accepted on November 10 makes a First Letters campaign the main
+line and reorders the work below, which was written on November 5. Where the
+two differ, the strategy governs.
 
 1. **Pursue useful November engineering on current Villa.** The official
    [November rollover](https://github.com/ScrollPrize/villa/pull/2301) merged
