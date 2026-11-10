@@ -11,7 +11,11 @@ tifxyz cells, and the shift is reported in level-0 pixels. The search is
     python scripts/probe_canvas_frame_shift.py w01-heldout
 
 Nothing here is fetched from upstream Villa. The bytes come from the public
-Hugging Face ink bucket and the public CT zarr used in that issue.
+Hugging Face ink bucket and the public CT zarr used in that issue. Range reads
+are cached in ``CANVAS_SHIFT_CACHE`` (default ``<tmp>/canvas_shift_cache``), and
+the overlays and ``canvas_shift_real.json`` go to ``CANVAS_SHIFT_ARTIFACTS``
+(default ``<tmp>/canvas_shift_artifacts``), which is created before anything is
+downloaded.
 
 The shift itself comes from ``canvas_shift``. That high-pass is a masked box
 mean, not the published Gaussian of sigma 4 with a local standard deviation
@@ -25,6 +29,7 @@ import json
 import os
 import struct
 import sys
+import tempfile
 import urllib.request
 from pathlib import Path
 
@@ -40,7 +45,11 @@ from repro.sota_data.canvas_shift import (  # noqa: E402
     sample_volume_trilinear,
 )
 
-CACHE = Path(os.environ.get("CANVAS_SHIFT_CACHE", "/tmp/canvas_shift_cache"))
+CACHE = Path(
+    os.environ.get(
+        "CANVAS_SHIFT_CACHE", os.path.join(tempfile.gettempdir(), "canvas_shift_cache")
+    )
+)
 HF = "https://huggingface.co/buckets/scrollprize/datasets/resolve/"
 S3 = "https://vesuvius-challenge-open-data.s3.amazonaws.com/"
 STRIDE = 4  # level-2 lattice, in level-0 pixels
@@ -55,16 +64,22 @@ def _fetch(url: str, rng: tuple[int, int] | None = None) -> bytes:
     CACHE.mkdir(parents=True, exist_ok=True)
     key = hashlib.sha1(f"{url}|{rng}".encode()).hexdigest()
     path = CACHE / key[:2] / key
+    want = None if rng is None else rng[1] - rng[0] + 1
     if path.exists():
-        return path.read_bytes()
+        cached = path.read_bytes()
+        # An interrupted older write left a short file; read it again.
+        if want is None or len(cached) == want:
+            return cached
     headers = {"Range": f"bytes={rng[0]}-{rng[1]}"} if rng else {}
     request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=180) as response:
         payload = response.read()
-        if rng is not None and len(payload) != rng[1] - rng[0] + 1:
+        if want is not None and len(payload) != want:
             raise RuntimeError(f"short read {len(payload)} for {url} {rng}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(payload)
+    part = path.with_name(f"{path.name}.{os.getpid()}.part")
+    part.write_bytes(payload)
+    os.replace(part, path)  # a reader never sees half a file
     return payload
 
 
@@ -119,6 +134,20 @@ class _Tiff:
                 )[0]
                 blob = _fetch(url, (pointer_at, pointer_at + nvals * size - 1))
                 tags[tag] = struct.unpack(bo + fmt * nvals, blob)
+        # This reader decodes uncompressed float32 strips and nothing else; say
+        # so rather than read other bytes as coordinates.
+        if 322 in tags or 324 in tags:
+            raise ValueError(f"{url} is tiled; this reader reads strips")
+        if tags.get(259, (1,))[0] != 1:
+            raise ValueError(f"{url} is compressed (tag 259 = {tags[259][0]})")
+        if (
+            tags.get(258, (1,))[0] != 32
+            or tags.get(339, (1,))[0] != 3
+            or tags.get(277, (1,))[0] != 1
+        ):
+            raise ValueError(f"{url} is not one float32 sample per pixel")
+        if 273 not in tags:
+            raise ValueError(f"{url} has no strip offsets")
         self.bo = bo
         self.width, self.height = tags[256][0], tags[257][0]
         self.rows_per_strip = tags.get(278, (self.height,))[0]
@@ -227,7 +256,7 @@ def _volume_at(base: str, points: np.ndarray) -> np.ndarray:
     ys = ly[order]
     ymin = np.minimum.reduceat(ys, starts)
     ymax = np.maximum.reduceat(ys, starts)
-    sep = meta.get("dimension_separator", "/")
+    sep = meta.get("dimension_separator", ".")  # zarr v2's default
     for ck, zslice, y_a, y_b in zip(keys // 128, keys % 128, ymin, ymax, strict=True):
         x = int(ck) % nc[2]
         y = (int(ck) // nc[2]) % nc[1]
@@ -454,10 +483,52 @@ def _overlay(row: dict, path: Path) -> None:
     _write_overlay(path, before, after)
 
 
+RUNS = ("w018", "w01", "w01-heldout", "all")
+
+
+def artifact_dir() -> Path:
+    return Path(
+        os.environ.get(
+            "CANVAS_SHIFT_ARTIFACTS",
+            os.path.join(tempfile.gettempdir(), "canvas_shift_artifacts"),
+        )
+    )
+
+
+def _run_of(name: str) -> str | None:
+    """Which run writes a row: ``w01 held-out`` is the ``w01-heldout`` run's."""
+    if name.startswith("w018"):
+        return "w018"
+    if name == "w01 held-out":
+        return "w01-heldout"
+    if name.startswith("w01"):
+        return "w01"
+    return None
+
+
+def merge_rows(previous: list[dict], rows: list[dict], which: str) -> list[dict]:
+    """Earlier rows of the other runs, then this run's. ``all`` replaces everything."""
+    if which == "all":
+        return list(rows)
+    kept = [item for item in previous if _run_of(str(item.get("name", ""))) != which]
+    return kept + list(rows)
+
+
 def main(argv: list[str] | None = None) -> int:
     choice = (argv or sys.argv[1:])[:1] or ["all"]
     which = choice[0]
-    artifact = Path(os.environ.get("CANVAS_SHIFT_ARTIFACTS", "/opt/cursor/artifacts"))
+    if which not in RUNS:
+        print(
+            "usage: probe_canvas_frame_shift.py [w018|w01|w01-heldout|all]",
+            file=sys.stderr,
+        )
+        return 2
+    artifact = artifact_dir()
+    try:
+        artifact.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"error: cannot write artifacts to {artifact}: {exc}", file=sys.stderr)
+        return 2
     rows = []
     if which in ("w018", "all"):
         row = measure_window(W018, 16896, 36352, 512, 128)
@@ -522,25 +593,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         _overlay(row, artifact / "w01_heldout_before_after.png")
-    if which not in ("w018", "w01", "w01-heldout", "all"):
-        print(
-            "usage: probe_canvas_frame_shift.py [w018|w01|w01-heldout|all]",
-            file=sys.stderr,
-        )
-        return 2
     out = artifact / "canvas_shift_real.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    previous = []
-    if out.exists() and which != "all":
-        previous = json.loads(out.read_text()).get("rows", [])
-        previous = [
-            item
-            for item in previous
-            if item.get("name") != which
-            and not str(item.get("name", "")).startswith(which + " ")
-            and not str(item.get("name", "")).startswith(which + "-")
-        ]
-    out.write_text(json.dumps({"rows": previous + rows}, indent=2))
+    previous = json.loads(out.read_text()).get("rows", []) if out.exists() else []
+    out.write_text(json.dumps({"rows": merge_rows(previous, rows, which)}, indent=2))
     print(f"wrote {out}", flush=True)
     return 0
 

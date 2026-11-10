@@ -10,6 +10,7 @@ readings of one constant must not become a drift.
 import json
 import os
 import sys
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -338,9 +339,22 @@ def test_a_window_that_is_not_inset_is_rejected():
         measure_shift(image, image, (0, 10, 40, 40), max_shift=8)
 
 
-def test_a_shape_mismatch_is_rejected():
-    with pytest.raises(ValueError, match="shape"):
-        measure_shift(_texture(40, 40), _texture(40, 48), (8, 8, 16, 16), max_shift=4)
+def test_a_canvas_of_another_size_is_measured_in_the_shared_index_space():
+    """Paris-4 canvases are not their tifxyz grid's size; both start at pixel 0."""
+    canvas = _texture(80, 96, seed=21)
+    surface = np.pad(
+        _independent_surface(canvas, ay=4, sy=0, ax=-3, sx=0), ((0, 12), (0, 0))
+    )
+    found = measure_shift(surface, canvas, (16, 16, 40, 40), max_shift=12)
+    assert surface.shape != canvas.shape
+    assert found["dy"] == pytest.approx(4, abs=0.2)
+    assert found["dx"] == pytest.approx(-3, abs=0.2)
+
+
+def test_a_window_outside_the_canvas_is_rejected():
+    surface = _texture(96, 96)
+    with pytest.raises(ValueError, match="inside the canvas"):
+        measure_shift(surface, _texture(40, 96), (16, 16, 40, 40), max_shift=8)
 
 
 def test_a_flat_canvas_does_not_pretend_to_be_centered():
@@ -583,3 +597,305 @@ def test_cli_resamples_an_integer_label_with_nearest(tmp_path):
     # Nearest keeps label values whole. The border fill is 0. Bilinear would
     # put fractional gray on the half-pixel edges of this shift.
     assert np.all(np.mod(saved, 1) == 0)
+
+
+# Second review (2026-11-09). Each test below failed on dd0803df.
+
+
+def test_windows_on_one_line_get_the_separable_fit():
+    """Collinear centres cannot tell a y slope from an x slope.
+
+    On dd0803df the least-squares fit split a true ``dy = 0.01*y`` into
+    ``sy = cy = 0.005``, 4 px wrong at (900, 100). The size residual is per
+    axis, so these windows get the fit two windows get.
+    """
+    for points in (
+        [(100.0, 100.0), (500.0, 500.0), (900.0, 900.0)],
+        [(100.0, 100.0), (500.0, 520.0), (900.0, 900.0)],
+    ):
+        with pytest.warns(UserWarning, match="one line"):
+            fitted = fit_shift(
+                [{"y": y, "x": x, "dy": 0.01 * y, "dx": -0.005 * x} for y, x in points]
+            )
+        assert fitted["model"] == "linear"
+        assert fitted["cy"] == 0.0 and fitted["cx"] == 0.0
+        assert fitted["sy"] == pytest.approx(0.01)
+        assert fitted["sx"] == pytest.approx(-0.005)
+
+
+def test_a_row_of_windows_keeps_its_fit_and_warns():
+    """A row cannot see the change across it; along it the fit is unambiguous."""
+    points = [(100.0, 100.0), (100.0, 5100.0), (100.0, 10100.0)]
+    with pytest.warns(UserWarning, match="slope across it stays 0"):
+        fitted = fit_shift(
+            [
+                {"y": y, "x": x, "dy": 2.0 + 0.0001 * x, "dx": -0.004 * x}
+                for y, x in points
+            ]
+        )
+    assert fitted["cy"] == pytest.approx(0.0001) and fitted["sy"] == 0.0
+    assert fitted["sx"] == pytest.approx(-0.004)
+
+
+def test_an_elongated_rectangle_of_windows_is_not_a_line():
+    import warnings
+
+    points = [(100.0, 200.0), (1100.0, 200.0), (100.0, 20200.0), (1100.0, 20200.0)]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        fitted = fit_shift(
+            [
+                {"y": y, "x": x, "dy": 0.01 * y + 0.00002 * x, "dx": 0.0}
+                for y, x in points
+            ]
+        )
+    assert fitted["model"] == "affine"
+
+
+def test_the_w01_window_layout_still_identifies_a_cross_term():
+    """The probe's four w01 centres: three on one column and one off it."""
+    centres = [
+        (14081.5, 16129.5),
+        (18001.5, 16129.5),
+        (22001.5, 16129.5),
+        (18001.5, 28001.5),
+    ]
+    fitted = fit_shift(
+        [
+            {
+                "y": y,
+                "x": x,
+                "dy": 11.5 + 0.00426 * y + 0.0001 * x,
+                "dx": 11.8 - 0.00388 * x,
+            }
+            for y, x in centres
+        ]
+    )
+    assert fitted["model"] == "affine"
+    assert fitted["cy"] == pytest.approx(0.0001)
+    assert fitted["sy"] == pytest.approx(0.00426)
+
+
+def test_a_nearest_resample_returns_the_label_dtype():
+    label = np.zeros((32, 32), np.uint16)
+    label[8:20, 8:20] = 1000
+    with pytest.warns(UserWarning, match="nearest"):
+        out = resample_to_tifxyz(label, ay=2.0, sy=0.0, ax=-3.0, sx=0.0)
+    assert out.dtype == np.uint16
+    assert set(np.unique(out)) == {0, 1000}
+    wide = np.zeros((16, 16), np.int32)
+    wide[4:8, 4:8] = 20_000_001  # not exact in float32
+    with pytest.warns(UserWarning, match="nearest"):
+        out = resample_to_tifxyz(wide, ay=1.0, sy=0.0, ax=0.0, sx=0.0)
+    assert out.dtype == np.int32 and int(out.max()) == 20_000_001
+
+
+def test_cli_keeps_a_16_bit_label_in_a_png(tmp_path):
+    label = np.zeros((96, 96), np.uint16)
+    label[30:60, 30:60] = 1000
+    texture = (_texture(96, 96, seed=22) * 3000 + 30000).astype(np.uint16)
+    canvas = np.maximum(label, texture)
+    surface = resample_to_tifxyz(canvas.astype(np.float32), ay=4, sy=0, ax=-3, sx=0)
+    np.save(tmp_path / "surface.npy", surface)
+    np.save(tmp_path / "canvas.npy", canvas)
+    out = tmp_path / "out.png"
+    with pytest.warns(UserWarning, match="nearest"):
+        code = main(
+            [str(tmp_path / "surface.npy"), str(tmp_path / "canvas.npy"),
+             "--window", "20", "20", "40", "40", "--max-shift", "12", "--out", str(out)]
+        )  # fmt: skip
+    assert code == 1
+    saved = cv2.imread(str(out), cv2.IMREAD_UNCHANGED)
+    assert saved.dtype == np.uint16 and int(saved.max()) == int(canvas.max())
+
+
+def test_cli_refuses_to_write_a_float_result_as_png(tmp_path, capsys):
+    canvas = _texture(96, 96, seed=23)
+    surface = resample_to_tifxyz(canvas, ay=4, sy=0, ax=-3, sx=0)
+    np.save(tmp_path / "surface.npy", surface)
+    np.save(tmp_path / "canvas.npy", canvas)
+    out = tmp_path / "out.png"
+    code = main(
+        [str(tmp_path / "surface.npy"), str(tmp_path / "canvas.npy"),
+         "--window", "20", "20", "40", "40", "--max-shift", "12", "--out", str(out)]
+    )  # fmt: skip
+    assert code == 2
+    assert not out.exists()
+    assert ".npy or .tif" in capsys.readouterr().err
+
+
+def test_correct_canvas_reads_a_canvas_of_another_size_onto_the_surface_grid():
+    canvas = _texture(80, 96, seed=24)
+    surface = np.pad(
+        _independent_surface(canvas, ay=4, sy=0, ax=-3, sx=0), ((0, 12), (0, 0))
+    )
+    result = correct_canvas(surface, canvas, [(16, 16, 40, 40)], max_shift=12)
+    corrected = result["corrected"]
+    assert isinstance(corrected, np.ndarray)
+    assert corrected.shape == surface.shape
+    interior = np.s_[12:70, 12:80]
+    assert (
+        float(np.percentile(np.abs(corrected[interior] - surface[interior]), 95)) < 0.15
+    )
+
+
+def test_aligned_is_judged_in_level0_pixels():
+    """0.6 image px is 2.4 level-0 px on a level-2 pair: not aligned."""
+    canvas = _texture(96, 96, seed=25)
+    surface = _independent_surface(canvas, ay=0.6, sy=0, ax=0, sx=0)
+    windows = [(20, 20, 48, 48)]
+    assert (
+        correct_canvas(surface, canvas, windows, max_shift=8)["aligned_before"] is True
+    )
+    level2 = correct_canvas(surface, canvas, windows, max_shift=8, px_scale=4)
+    assert level2["aligned_before"] is False
+
+
+def test_cli_exits_three_when_the_shift_is_not_located(tmp_path, capsys):
+    flat = np.full((80, 80), 3.0, np.float32)
+    path = tmp_path / "flat.npy"
+    np.save(path, flat)
+    code = main(
+        [str(path), str(path), "--window", "16", "16", "32", "32", "--max-shift", "8"]
+    )
+    assert code == 3
+    assert "not located:" in capsys.readouterr().err
+
+
+def test_the_highpass_of_a_window_is_the_highpass_of_the_image():
+    """measure_shift filters the window plus a margin, not the whole image each time."""
+    from repro.sota_data.canvas_shift import _highpass_region, highpass
+
+    image = _texture(120, 140, seed=26)
+    image[40:50, 60:90] = np.nan
+    full = highpass(image, 31)
+    for y0, y1, x0, x1 in ((0, 40, 0, 50), (30, 90, 50, 110), (100, 120, 100, 140)):
+        part = _highpass_region(image, y0, y1, x0, x1, 31)
+        np.testing.assert_allclose(part, full[y0:y1, x0:x1], atol=1e-5, equal_nan=True)
+
+
+sys.path.insert(0, os.path.abspath("scripts"))
+import probe_canvas_frame_shift as probe  # noqa: E402
+
+
+def test_the_probe_replaces_only_the_rows_of_the_run_it_repeats():
+    previous = [
+        {"name": n} for n in ("w018 r0", "w01 inside-a", "w01-fit", "w01 held-out")
+    ]
+    names = lambda rows: [r["name"] for r in rows]  # noqa: E731
+    merged = probe.merge_rows(
+        previous, [{"name": "w01 inside-a"}, {"name": "w01-fit"}], "w01"
+    )
+    assert names(merged) == ["w018 r0", "w01 held-out", "w01 inside-a", "w01-fit"]
+    merged = probe.merge_rows(previous, [{"name": "w01 held-out"}], "w01-heldout")
+    assert names(merged) == ["w018 r0", "w01 inside-a", "w01-fit", "w01 held-out"]
+    assert names(probe.merge_rows(previous, [{"name": "w018 r0"}], "all")) == [
+        "w018 r0"
+    ]
+
+
+def test_the_probe_writes_artifacts_beside_its_cache_by_default(monkeypatch, tmp_path):
+    import tempfile
+
+    monkeypatch.delenv("CANVAS_SHIFT_ARTIFACTS", raising=False)
+    assert (
+        probe.artifact_dir() == Path(tempfile.gettempdir()) / "canvas_shift_artifacts"
+    )
+    monkeypatch.setenv("CANVAS_SHIFT_ARTIFACTS", str(tmp_path / "a"))
+    assert probe.artifact_dir() == tmp_path / "a"
+
+
+def test_the_probe_checks_its_arguments_and_output_before_any_download(
+    monkeypatch, tmp_path
+):
+    def _no_network(*args, **kwargs):
+        raise AssertionError("fetched before the arguments were checked")
+
+    monkeypatch.setattr(probe, "_fetch", _no_network)
+    assert probe.main(["w99"]) == 2
+    blocked = tmp_path / "file"
+    blocked.write_text("")
+    monkeypatch.setenv("CANVAS_SHIFT_ARTIFACTS", str(blocked / "artifacts"))
+    assert probe.main(["w018"]) == 2
+
+
+def _serve(monkeypatch, blob: bytes) -> list:
+    seen: list = []
+
+    def _fetch(url, rng=None):
+        seen.append((url, rng))
+        if rng is None:
+            return blob
+        return blob[rng[0] : rng[1] + 1]
+
+    monkeypatch.setattr(probe, "_fetch", _fetch)
+    return seen
+
+
+def test_the_probe_tiff_reader_reads_float32_strips(monkeypatch, tmp_path):
+    import tifffile
+
+    plane = np.arange(40 * 30, dtype=np.float32).reshape(40, 30)
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=7)
+    _serve(monkeypatch, path.read_bytes())
+    np.testing.assert_array_equal(
+        probe._Tiff("x").rows(3, 20, 5, 25), plane[3:20, 5:25]
+    )
+
+
+@pytest.mark.parametrize(
+    "kwargs, words",
+    [
+        ({"compression": "zlib"}, "compressed"),
+        ({"tile": (16, 16)}, "tiled"),
+        ({"dtype": np.uint16}, "float32"),
+    ],
+)
+def test_the_probe_tiff_reader_refuses_what_it_cannot_decode(
+    monkeypatch, tmp_path, kwargs, words
+):
+    import tifffile
+
+    dtype = kwargs.pop("dtype", np.float32)
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, np.ones((32, 32), dtype), **kwargs)
+    _serve(monkeypatch, path.read_bytes())
+    with pytest.raises(ValueError, match=words):
+        probe._Tiff("x")
+
+
+def test_the_probe_reads_a_v2_zarr_chunk_with_the_default_separator(monkeypatch):
+    meta = json.dumps(
+        {"compressor": None, "chunks": [128, 128, 128], "shape": [256, 256, 256]}
+    )
+    seen = []
+
+    def _fetch(url, rng=None):
+        seen.append(url)
+        if url.endswith(".zarray"):
+            return meta.encode()
+        return bytes(rng[1] - rng[0] + 1)
+
+    monkeypatch.setattr(probe, "_fetch", _fetch)
+    probe._volume_at("base", np.array([[40.0, 40.0, 40.0]]))
+    assert {u for u in seen if not u.endswith(".zarray")} == {"base/2/0.0.0"}
+
+
+def test_the_probe_cache_refetches_a_short_ranged_entry(monkeypatch, tmp_path):
+    import hashlib
+    import io
+
+    monkeypatch.setattr(probe, "CACHE", tmp_path)
+    url, rng = "https://example.invalid/x", (0, 9)
+    key = hashlib.sha1(f"{url}|{rng}".encode()).hexdigest()
+    (tmp_path / key[:2]).mkdir()
+    (tmp_path / key[:2] / key).write_bytes(b"abc")  # an interrupted earlier write
+    monkeypatch.setattr(
+        probe.urllib.request,
+        "urlopen",
+        lambda request, timeout: io.BytesIO(b"0123456789"),
+    )
+    assert probe._fetch(url, rng) == b"0123456789"
+    assert (tmp_path / key[:2] / key).read_bytes() == b"0123456789"
+    assert not list(tmp_path.glob("**/*.part"))
