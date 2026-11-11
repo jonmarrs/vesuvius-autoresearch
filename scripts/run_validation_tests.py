@@ -82,6 +82,7 @@ VALIDATION_TESTS = [
     "tests/test_sota_register.py",
     "tests/test_placement_impl_parity.py",
     "tools/placement_check/test_placement_check.py",
+    "tools/scroll_frames/test_scroll_frames.py",
     "tests/test_sota_registration_gates.py",
     "tests/test_sota_warp_alignment.py",
     "tests/test_ink_pyramid_depth.py",

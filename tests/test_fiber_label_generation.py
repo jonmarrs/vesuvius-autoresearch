@@ -332,6 +332,56 @@ def test_skeleton_bounds_follow_xyz_coordinates_and_zyx_arrays(generator):
     assert result[1, 1, 4] and result[2, 1, 4]
 
 
+def test_long_crossing_edge_is_rejected_before_recursive_sampling(
+    generator, monkeypatch
+):
+    monkeypatch.setattr(
+        generator.np.linalg,
+        "norm",
+        lambda *a, **kw: pytest.fail("sampled an obviously over-budget edge"),
+    )
+    with pytest.raises(ValueError, match="sample.*budget|budget.*sample"):
+        generator._fill_volume_for_tree(
+            tree((-1e12, 1, 1), (1e12, 1, 1)),
+            (3, 4, 5),
+            max_edge_samples=64,
+        )
+
+
+def test_budget_counts_actual_samples_when_the_recursion_limit_stops_first(generator):
+    start, stop = np.zeros(3), np.array([1.0, 0, 0])
+    with pytest.raises(ValueError, match="sample.*budget|budget.*sample"):
+        generator._interpolate_adaptive(start, stop, max_recursion=3, max_points=8)
+    result = generator._interpolate_adaptive(start, stop, max_recursion=3, max_points=9)
+    np.testing.assert_array_equal(np.asarray(result)[:, 0], np.arange(9) / 8)
+
+
+def test_budgeted_midpoints_preserve_the_existing_dyadic_samples(generator):
+    result = generator._interpolate_adaptive(
+        np.zeros(3), np.array([1.0, 0, 0]), max_points=17
+    )
+    expected = np.zeros((17, 3))
+    expected[:, 0] = np.arange(17) / 16
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("budget", [0, 1, -1, True, 2.5, float("nan")])
+def test_invalid_sampling_budget_fails_before_optional_sdk_import(
+    generator, tmp_path, monkeypatch, budget
+):
+    monkeypatch.setitem(sys.modules, "webknossos", None)
+    settings = skeleton_args(tmp_path, dry_run=True, max_edge_samples=budget)
+    with pytest.raises(ValueError, match="max_edge_samples"):
+        generator._run_skeleton_mode(settings)
+    assert not settings.output_dir.exists()
+
+
+def test_sampling_budget_is_reported_by_skeleton_dry_run(generator, tmp_path, capsys):
+    settings = skeleton_args(tmp_path, dry_run=True, max_edge_samples=33)
+    assert generator._run_skeleton_mode(settings) == 0
+    assert json.loads(capsys.readouterr().out)["max_edge_samples"] == 33
+
+
 def test_negative_fractional_skeleton_coordinates_do_not_leak_into_zero(generator):
     result = generator._fill_volume_for_tree(
         tree((-0.2, 1, 1), (-0.1, 1, 1)), (3, 4, 5)
@@ -470,8 +520,38 @@ def test_real_sdk_nested_nml_cli_publishes_complete_fibers(tmp_path):
         assert metadata["source_nml_sha256"] and metadata["label_file_sha256"]
         assert metadata["tree_traversal"] == "recursive"
         assert metadata["hessian_eigensolver_version"] == 2
+        assert metadata["max_edge_samples"] == 65_537
     assert labels[0].any()
     np.testing.assert_array_equal(labels[1], labels[0])
+
+
+def test_real_sdk_cli_propagates_sampling_budget_and_publishes_nothing(tmp_path):
+    webknossos = pytest.importorskip("webknossos")
+    annotation = _sdk_skeleton(webknossos, [0])
+    source = tmp_path / "budget_s5_00000z_00000y_00000x_8_v00.nml"
+    annotation.save(source)
+    output = tmp_path / "over-budget"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/labeling/generate_fiber_labels.py",
+            "--mode",
+            "skeleton",
+            "--nml-path",
+            str(source),
+            "--output-dir",
+            str(output),
+            "--max-edge-samples",
+            "2",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 1
+    assert "sample" in result.stderr and "budget" in result.stderr
+    assert not output.exists()
 
 
 def test_many_skeleton_trees_do_not_queue_unbounded_volume_results(
@@ -650,6 +730,7 @@ def test_skeleton_publish_has_source_hash_and_preserves_old_outputs(
     assert meta["origin_zyx"] == [10, 20, 30] and meta["source_nml_sha256"]
     assert meta["tree_traversal"] == "recursive"
     assert meta["hessian_eigensolver_version"] == 2
+    assert meta["max_edge_samples"] == generator.DEFAULT_MAX_EDGE_SAMPLES
     before = (settings.output_dir / "labels.tif").read_bytes()
     with pytest.raises(ValueError, match="already exists"):
         generator._run_skeleton_mode(settings)

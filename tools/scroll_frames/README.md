@@ -22,6 +22,10 @@ scrollframes list PHercParis4/20230702185753
 Exits 1 on a collision and 0 without one. A lookup that fails, or a malformed segment, exits 2. Pure
 stdlib; `s3fs` only for the live lookup.
 
+Parsed voxel sizes must be positive finite numbers. Nonfinite or unrepresentable
+optional numeric values are omitted. JSON output uses finite numbers or `null`;
+an unrepresentable derived ratio returns status 2 without printing a report.
+
 ## The problem
 
 Every one of those meshes says:
