@@ -135,8 +135,8 @@ This pass continues from `41f55bf7`, on the same audit branch.
   sentinel fetch instead of slow live requests for a nonexistent segment. The
   handoff, standalone placement, implementation-parity and synthetic registration
   modules are included in the curated registry. With the later frame checks
-  below it contained 207 modules; the CLI retirement checks bring the current
-  registry to 208.
+  below it contained 207 modules; CLI retirement brought it to 208. The later
+  regional resource checks bring the current registry to 210.
 
 ## Numeric diagnostics and skeleton resource limits
 
@@ -193,9 +193,39 @@ This pass continues from `c45acbec` and resolves two more review-list entries.
   cover bootstrap tools, Actions, OS packages or the GPU research environment.
   The root-lock advisory migrations below remain unresolved.
 
+## Regional resources and historical artifact disposition
+
+This pass continues from `e38d2d6f`.
+
+- **Independent accumulator limit:** both regional predictors now require
+  `width * height * 12` bytes for three explicitly float32 blend planes to fit
+  `--max_accumulator_bytes`, default 512 MiB. Preflight runs before model
+  construction or CT reads, including default-z inference, skipped uncertainty
+  export and tile shards. Checkpoints deserialize on CPU and the saved state
+  is released after loading each model. Successful metadata records the byte
+  plan. This caps persistent blend planes, not peak RAM/VRAM; model residency,
+  activations, normalization, decoding and export temporaries are additional.
+  The 4090 profiling/streaming decision remains open below. The
+  [inference guide](VOLUME_INFERENCE.md#regional-output-planning) records the
+  arithmetic, override and limitations.
+- **Historical invalid fields:** the four identified JSON artifacts are retained
+  unchanged as historical evidence, with explicit status in the
+  [catalogue](../reports/HISTORICAL_ARTIFACTS.md) and its strict-JSON
+  [digest/pointer record](../reports/historical_artifact_status.json).
+  It identifies all 30 nonfinite fields. The old queue is unusable as a ranking;
+  the other artifacts contain partial historical metrics with undefined fields.
+  No value was filled with zero or regenerated. Unaffected finite fields keep
+  their original scope and were not newly validated. New measurements need
+  separate versioned outputs and retained source inputs. This resolves the
+  review-list choice about retaining versus regenerating these four files.
+- **Portable coverage:** the allocation-free byte arithmetic is included in the
+  portable profile, which now has ten modules. The new predictor preflight
+  regressions require the separate research review environment. Default full
+  selection remains the 210-module curated registry.
+
 ## Items for owner review
 
-The nine remaining items below are in suggested work order, not a claim that
+The eight remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
@@ -204,9 +234,8 @@ each has caused a measured scientific failure.
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data onboarding is incomplete.** The [quick start](../README.md) expects fragment CT Zarrs and aligned labels, but explicitly states that no maintained command builds those directories. Archived downloaders fetch different inputs. | Choose a supported source/format and add a pinned download/conversion manifest plus one small verified example. Do not revive placeholder-producing archival downloaders as though they prepared the training recipe. |
 | High | **A clean checkout cannot run every research test successfully.** Some probe tests require the original private spiral corpus; render-equivalence and preserved-source tests require old Villa commit objects absent from a shallow pinned checkout. See [real-patch tests](../tests/test_probe_real_patch_scatter.py), [render-equivalence tests](../tests/test_check_render_equivalence.py) and [preserved-source tests](../tests/test_villa_preserved.py). | Decide which tests are portable unit tests and which are corpus/history integration checks. Add explicit fixtures/markers and a documented provision step without weakening their scientific assertions. Missing real data is not evidence that the underlying claims pass. |
-| Medium | **Regional GPU memory still scales with the whole region.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) allocate full-region GPU accumulators and keep ensemble members resident together. CPU tile enumeration is now lazy, but skipping uncertainty still skips that export's size budget. | Select a RAM/VRAM planning contract or accumulator-streaming design, then profile on the 4090. The [production path](../scripts/production_predict.py) is a batched alternative; no full-scroll peak-memory or throughput result was measured here. |
+| Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
-| Medium | **Four historical JSON artifacts contain 30 nonfinite tokens.** [old queue](../reports/active_learning_queue.json) has 20 NaN uncertainty scores; [old detector card](../reports/detector/PHercParis2Fr143_scorecard.json), [interpolation result](../reports/interp_vs_labels.json) and [tracking-gap result](../reports/scorer_tracking_gap_descriptive.json) contain the others. | Keep these as historical evidence with explicit status, or regenerate into new versioned artifacts from retained inputs. Do not turn missing/undefined measurements into zeros or rewrite the old scores to make JSON valid. The old queue is not a usable ranking. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The root demo/evidence generators still use direct GPU imports and fixed output locations. | Inventory supported commands before splitting CPU/GPU/research extras. Decide whether to retain, port or archive the two root generators. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the new CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
@@ -444,3 +473,41 @@ The snapshot commands run from `/tmp/vesuvius-portable-ci-checkout`; the others
 run from the audit checkout. The CI advisory lookup used the same `pip-audit`
 options documented above, with `requirements/ci-cpu.txt` as the input and a
 separate report. It returned status 0; the root-lock audit still returns 1.
+
+## Regional resource and historical-status verification
+
+The nine-module inference/production/runner selection passed `329 passed` in
+155.42 seconds. After adding two more fixtures for checkpoint-derived default
+dimensions, the complete ten-case preflight module and registry/file-mode
+guards passed `28 passed` in 66.83 seconds. These overlapping counts are not
+additive. The refusal fixtures use synthetic checkpoint/volume inputs and
+traps for CT reads and model construction; they do not allocate the requested
+oversized arrays or reproduce a physical GPU OOM.
+
+The ten-module portable profile passed `254 passed` with no skips in 53.71
+seconds in a separate source snapshot and the existing minimal hashed CI
+environment. Its twenty resource-planning tests need no ML dependencies.
+Maintained-source lint passed there too. Configured Mypy passed on 958 source
+files. Smoke passed `9/11 passed, 2 skipped, 0 failed` in 45.9 seconds; the two
+skips still need local CT/ink labels. Documentation guards passed
+`138 passed, 1 skipped` in 91.51 seconds; that skip needs the original spiral
+corpus. The full 210-module curated registry was not repeated.
+
+The four original historical files were compared byte for byte with `e38d2d6f`,
+and their hashes and all 30 catalogue pointers were checked against those
+bytes. The new catalogue parsed as strict JSON. This verifies its disposition
+record, not scientific validity or strict interchange of the original files.
+No GPU measurement, full-scroll memory/throughput claim or regenerated metric
+was produced.
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py --match '*regional_*' --match '*volume_inference_contracts*' --match '*uncertainty_handoff*' --match '*predict_checkpoint_loading*' --match '*production_predict*' --match '*production_artifact_plan*' --match '*validation_runner*' -- --tb=short -o faulthandler_timeout=90
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_regional_resource_preflight.py tests/test_validation_suite_covers_the_loop.py tests/test_file_modes.py -q --tb=short
+
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-portable-ci-env/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+```
+
+The last command ran from `/tmp/vesuvius-portable-budget-checkout`; the others
+ran from the audit checkout. This local portable run is separate from hosted
+GitHub verification recorded on the PR.

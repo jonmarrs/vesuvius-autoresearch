@@ -47,6 +47,10 @@ from vesuvius_autoresearch.core.inference import (
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+from vesuvius_autoresearch.core.regional_resources import (
+    MAX_ACCUMULATOR_BYTES,
+    plan_regional_accumulators,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -68,6 +72,7 @@ class EnsembleArgs(Tap):
     num_parts: int = 1
     part_id: int = 0
     gaussian_blend: bool = True
+    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
 
     def configure(self):
         self.add_argument("--gaussian_blend", action="store_true", default=True)
@@ -96,9 +101,7 @@ def ensemble_predict():
             raise FileNotFoundError(
                 f"requested ensemble checkpoint not found: {checkpoint_path}"
             )
-        checkpoint = torch.load(
-            checkpoint_path, map_location=device, weights_only=False
-        )
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         if not isinstance(checkpoint, dict) or not isinstance(
             checkpoint.get("config", {}), dict
         ):
@@ -114,6 +117,11 @@ def ensemble_predict():
             "voxel_size_um",
         )
         use_ridges = config.get("use_ridges", False)
+        args.resource_plan = plan_regional_accumulators(
+            patch_size if args.width is None else args.width,
+            patch_size if args.height is None else args.height,
+            args.max_accumulator_bytes,
+        )
         model = build_inference_model(
             architecture=config.get("architecture", "gated_unet"),
             patch_size=patch_size,
@@ -126,6 +134,7 @@ def ensemble_predict():
             multi_task_heads=config.get("multi_task_heads", False),
         ).to(device)
         model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+        del checkpoint
         models.append((model.eval(), use_ridges, layers, patch_size))
         configs.append(config)
         scales.append(scale)
@@ -178,7 +187,9 @@ def ensemble_predict():
     )
     validate_region(args, patch_size, max_layers, dataset.shape)
     tiles = region_tiles(args, patch_size)
-    full_ink = torch.zeros((args.height, args.width), device=device)
+    full_ink = torch.zeros(
+        (args.height, args.width), device=device, dtype=torch.float32
+    )
     full_fiber, weights = torch.zeros_like(full_ink), torch.zeros_like(full_ink)
     if args.gaussian_blend:
         from vesuvius_autoresearch.core.villa_inference import GaussianBlender

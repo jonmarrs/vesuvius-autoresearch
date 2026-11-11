@@ -25,6 +25,9 @@ See [status output, config budgets and next steps](docs/WORKSPACE_STATUS.md).
 
 The [repository audit](docs/REPOSITORY_AUDIT.md) records verified fixes, remaining
 architecture and cleanup decisions, and the limits of the available validation.
+The [historical artifact status catalogue](reports/HISTORICAL_ARTIFACTS.md)
+identifies retained results with undefined fields; the old active-learning queue
+is unusable as a ranking.
 
 The [portable CPU checks](CONTRIBUTING.md#development) run without the GPU research
 environment or a Villa checkout. The CPU workflow runs them on PRs;

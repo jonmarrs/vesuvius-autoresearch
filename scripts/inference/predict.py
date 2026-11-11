@@ -47,6 +47,10 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
     prediction_paths,
     prediction_stem,
 )
+from vesuvius_autoresearch.core.regional_resources import (
+    MAX_ACCUMULATOR_BYTES,
+    plan_regional_accumulators,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -242,6 +246,7 @@ def write_prediction_metadata(
         else None,
         "checkpoint_sha256": getattr(args, "checkpoint_sha256", None),
         "inference_recipe": getattr(args, "inference_recipe", None),
+        "resource_plan": getattr(args, "resource_plan", None),
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
         "fiber_coherence": fiber_coherence,
@@ -318,6 +323,7 @@ class PredictionArgs(Tap):
     part_id: int = 0
     disable_tta: bool = False
     skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
+    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
     compute_coherence: bool = (
         False  # Enable automated fiber coherence evaluation (Villa ST)
     )
@@ -354,7 +360,7 @@ def predict():
     checkpoint_bytes = Path(checkpoint_path).read_bytes()
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
     checkpoint = torch.load(
-        io.BytesIO(checkpoint_bytes), map_location=device, weights_only=False
+        io.BytesIO(checkpoint_bytes), map_location="cpu", weights_only=False
     )
     del checkpoint_bytes
     if not isinstance(checkpoint, dict) or not isinstance(
@@ -380,6 +386,11 @@ def predict():
     )
     if not isinstance(use_ridges, bool):
         raise ValueError("use_ridges must be a boolean")
+    args.resource_plan = plan_regional_accumulators(
+        patch_size if args.width is None else args.width,
+        patch_size if args.height is None else args.height,
+        args.max_accumulator_bytes,
+    )
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     if args.z is None:
         # Centre the window in the depth band the checkpoint was trained on, on
@@ -423,6 +434,7 @@ def predict():
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+    del checkpoint
     model.eval()
     # A model without a fiber head returns its ink logits as "fiber": exported,
     # that was the ink map under the fiber prediction's name.
@@ -442,9 +454,11 @@ def predict():
     predict_width, predict_height, stride = args.width, args.height, args.stride
 
     # Initialize accumulation buffers
-    full_prob_ink = torch.zeros((predict_height, predict_width), device=device)
-    full_prob_fiber = torch.zeros((predict_height, predict_width), device=device)
-    full_weight = torch.zeros((predict_height, predict_width), device=device)
+    full_prob_ink = torch.zeros(
+        (predict_height, predict_width), device=device, dtype=torch.float32
+    )
+    full_prob_fiber = torch.zeros_like(full_prob_ink)
+    full_weight = torch.zeros_like(full_prob_ink)
 
     # Choose weight window: Gaussian (smoother) or Hanning (default)
     if args.gaussian_blend:

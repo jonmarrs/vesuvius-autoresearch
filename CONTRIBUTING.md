@@ -17,9 +17,10 @@ python3.10 -m venv /tmp/vesuvius-cpu-tests
 /tmp/vesuvius-cpu-tests/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short
 ```
 
-The nine-module portable profile checks process cleanup, setup diagnostics,
+The ten-module portable profile checks process cleanup, setup diagnostics,
 bounded file captures, validation selection, retired launchers and the standalone
-geometry tools. It runs on Linux with pytest and NumPy; it does not validate
+geometry tools, plus regional accumulator byte arithmetic. It runs on Linux
+with pytest and NumPy; it does not validate
 models, GPU behavior, annotation quality or historical study results. Use
 `--profile portable --list` to inspect its exact scope. Patterns passed with
 `--match` are restricted to that profile and never fall back to the full suite.

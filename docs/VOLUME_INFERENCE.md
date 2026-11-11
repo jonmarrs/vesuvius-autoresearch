@@ -86,8 +86,27 @@ artifact fails these checks. As with production planning, these checks are
 snapshots, not filesystem locks or a transaction across outputs. Keep sources
 stable and serialize writers. Regional tile coordinates use a sized lazy
 sequence, including interleaved shards, without allocating the full tile grid.
-Regional arrays still scale with the requested region; path planning does not
-bound RAM or VRAM use.
+Regional arrays still scale with the requested region. Both regional commands
+separately enforce `--max_accumulator_bytes` (default 536870912, or 512 MiB)
+before model construction or CT reads. Three persistent float32 planes (ink,
+fiber and blend weight) require `width * height * 12` bytes, even without a
+fiber head. This check applies when uncertainty export is skipped and to every
+shard; splitting tiles does not shrink the full-region buffers. Checkpoints
+deserialize onto CPU before model construction, avoiding an initial GPU copy of
+the saved state. Successful metadata records the effective `resource_plan`.
+
+For example, a 4096-by-4096 region requires 201326592 bytes (192 MiB) for those
+three planes. An 8192-by-8192 region requires 805306368 bytes (768 MiB), so the
+default refuses it. Prefer a smaller region; an intentional override uses, for
+example, `--max_accumulator_bytes 805306368` after checking available capacity.
+
+This is a cap on the three persistent blend planes, **not a peak RAM/VRAM
+estimate or a guarantee the run fits**. Checkpoint capture/deserialization,
+resident ensemble models, activations, normalization temporaries, tile inputs,
+host copies, exports and CT decoding consume additional memory. All ensemble
+members still reside together. No 4090 profiling or streaming accumulator was
+added. Production planning has its own contract below; this option applies only
+to the two regional commands.
 
 ## Production planning
 

@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "scope": "Four retained artifacts identified in the repository audit, not an inventory of every historical result.",
+  "policy": "Original bytes are preserved. Nonfinite fields are undefined and must not be used as measurements or ranking scores, or replaced with zero. No metrics were regenerated or scientifically revalidated. Regenerated results require new versioned paths and source provenance.",
+  "artifacts": [
+    {
+      "path": "reports/active_learning_queue.json",
+      "sha256": "f378f1c4305c15e8b66256c7ccfba2f5da3ffe134a1d79db3b4cb0b9264dfe73",
+      "status": "retained_historical_unusable_ranking",
+      "nonfinite_fields": [
+        {
+          "json_pointer": "/queue/0/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/1/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/2/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/3/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/4/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/5/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/6/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/7/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/8/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/9/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/10/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/11/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/12/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/13/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/14/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/15/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/16/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/17/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/18/uncertainty_score",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/queue/19/uncertainty_score",
+          "token": "NaN"
+        }
+      ],
+      "interpretation": "All twenty uncertainty scores are NaN; do not use this queue as a review ranking. Generate a new versioned queue with the maintained sampler and retained source inputs."
+    },
+    {
+      "path": "reports/detector/PHercParis2Fr143_scorecard.json",
+      "sha256": "ae50a58112b00447d6986557db6579e1b47c226864b8dd9c0da7191f993113ed",
+      "status": "retained_historical_partial_metrics",
+      "nonfinite_fields": [
+        {
+          "json_pointer": "/centerline_dice",
+          "token": "NaN"
+        }
+      ],
+      "interpretation": "centerline_dice is undefined, not zero. Other finite fields remain historical measurements; this status record does not revalidate them."
+    },
+    {
+      "path": "reports/interp_vs_labels.json",
+      "sha256": "7d3d504538e078b2abdda85470a708a2971b0bd1d13ac931e9ae5b8996866a0b",
+      "status": "retained_historical_partial_metrics",
+      "nonfinite_fields": [
+        {
+          "json_pointer": "/segments/1/alignment/peak_auc",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/segments/1/alignment/auc_at_0",
+          "token": "NaN"
+        }
+      ],
+      "interpretation": "Two alignment AUC fields are undefined. Preserve the separate finite fields without using these NaN values as measurements."
+    },
+    {
+      "path": "reports/scorer_tracking_gap_descriptive.json",
+      "sha256": "ad7a8a595fae6f716d104ffb2d008d5076c634919c232607c3ad3932d6f03099",
+      "status": "retained_historical_partial_metrics",
+      "nonfinite_fields": [
+        {
+          "json_pointer": "/reference/512/within_segment/20231007101619/scorer",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/reference/512/within_segment/20231031143852/strip",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/reference/512/within_segment/20231031143852/scorer",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/reference/512/within_segment/20231031143852/prob",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/reference/512/within_segment/20231106155351/strip",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/reference/512/within_segment/20231106155351/scorer",
+          "token": "NaN"
+        },
+        {
+          "json_pointer": "/reference/512/within_segment/20231106155351/prob",
+          "token": "NaN"
+        }
+      ],
+      "interpretation": "Seven within-segment correlations are undefined. They cannot support a numerical comparison or be imputed as zero."
+    }
+  ]
+}

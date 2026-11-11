@@ -114,6 +114,8 @@ VALIDATION_TESTS = [
     "tests/test_volume_inference_contracts.py",
     "tests/test_region_tile_iteration.py",
     "tests/test_regional_artifact_plan.py",
+    "tests/test_regional_resource_plan.py",
+    "tests/test_regional_resource_preflight.py",
     "tests/test_proofreader_launcher.py",
     "tests/test_volume_read_contracts.py",
     "tests/test_detector_contracts.py",
@@ -237,6 +239,7 @@ VALIDATION_TESTS = [
 
 
 PORTABLE_TESTS = [
+    "tests/test_regional_resource_plan.py",
     "tests/test_text_snapshot.py",
     "tests/test_validation_runner.py",
     "tests/test_workspace_status.py",
