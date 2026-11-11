@@ -27,6 +27,98 @@ import train  # noqa: E402
 from scripts.training.config import ExperimentConfig  # noqa: E402
 
 
+@pytest.mark.parametrize("kind", ["labeled", "uamt"])
+def test_heldout_overlap_stops_the_real_trainer_before_labels_or_gpu(
+    tmp_path, monkeypatch, kind
+):
+    validation = _volume(tmp_path / "heldout")
+    selected = _config(
+        validation if kind == "labeled" else _volume(tmp_path / "training"),
+        val_uri=validation,
+        use_uamt=kind == "uamt",
+        unlabeled_uris=[validation + "/"],
+    )
+
+    def too_early(*args, **kwargs):
+        pytest.fail("data or GPU setup reached before split validation")
+
+    monkeypatch.setattr(train.torch, "set_float32_matmul_precision", too_early)
+    monkeypatch.setattr(train, "resolve_training_labels", too_early)
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        train.train(selected)
+
+
+@pytest.mark.parametrize(
+    "target", ["best_model.pt", "training/inklabels.png", "active.json"]
+)
+def test_checkpoint_collision_stops_the_real_trainer_before_gpu(
+    tmp_path, monkeypatch, target
+):
+    uri = _volume(tmp_path / "training")
+    selected = _config(uri, checkpoint_out=target)
+    monkeypatch.chdir(tmp_path)
+
+    def too_early(*args, **kwargs):
+        pytest.fail("GPU setup reached before output preflight")
+
+    monkeypatch.setattr(train.torch, "set_float32_matmul_precision", too_early)
+    before = {str(p): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.train(selected, config_path="active.json")
+    assert {
+        str(p): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()
+    } == before
+
+
+def test_cycle_checkpoint_helper_cannot_overwrite_incumbent_in_experiment_mode(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    incumbent = tmp_path / "best_model.pt"
+    incumbent.write_bytes(b"original incumbent")
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.save_cycle_checkpoints(
+            {"model": "must not be written"}, "best_model.pt", True
+        )
+    assert incumbent.read_bytes() == b"original incumbent"
+
+
+def test_ablation_entrypoint_protects_its_active_config_before_gpu(
+    tmp_path, monkeypatch
+):
+    import json
+
+    from scripts import train_with_new_augs as entry
+
+    uri = _volume(tmp_path / "training")
+    path = tmp_path / "experiment.json"
+    path.write_text(json.dumps({"uris": [uri], "checkpoint_out": str(path)}))
+    before = path.read_bytes()
+    monkeypatch.setattr(
+        entry.torch.multiprocessing, "set_start_method", lambda *args: None
+    )
+
+    def too_early(*args, **kwargs):
+        pytest.fail("GPU setup reached before active-config protection")
+
+    monkeypatch.setattr(entry.torch, "set_float32_matmul_precision", too_early)
+    monkeypatch.setattr(sys, "argv", ["train_with_new_augs.py", "--config", str(path)])
+    with pytest.raises(ValueError, match="artifact collision"):
+        entry.main()
+    assert path.read_bytes() == before
+
+
+def test_periodic_checkpoint_checks_the_active_config_before_evaluation(tmp_path):
+    selected = _config("train.zarr", checkpoint_out=str(tmp_path / "trial.pt"))
+    active = tmp_path / "trial.pt.step3.pt"
+    active.write_bytes(b"active configuration")
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.periodic_pixel_auc_eval(
+            object(), object(), selected, "cpu", 3, 1.5, config_path=active
+        )
+    assert active.read_bytes() == b"active configuration"
+
+
 def _volume(root, depth=33, labels=True):
     """A fragment whose slice z holds the value z, so a read shows its depth."""
     root.mkdir()

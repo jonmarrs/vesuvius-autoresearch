@@ -259,17 +259,18 @@ decision for the missing-input failures identified above.
 
 ## Items for owner review
 
-The seven remaining items below are in suggested work order, not a claim that
+The eight remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
-| High | **Dependency advisories still need migrations and applicability review.** GitHub reported 149 alerts on the default branch (6 critical), but its advisory API returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
+| High | **Dependency advisories still need migrations and applicability review.** GitHub's latest observed push banner reported 151 alerts on the default branch (6 critical); its advisory API previously returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
 | Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
+| Medium | **Training read-failure policy needs a decision.** The [labeled loader](../src/vesuvius_autoresearch/core/vesuvius_loader.py) still returns zero CT, label and fiber patches on read/preprocessing exceptions in permissive mode, and the main training loader uses that default. Validation is strict, and warning counts are recorded. | Decide whether training should abort, skip failed samples, or use bounded retries with an explicit failure budget. This is a scientific/operational policy change; no occurrence in a real run was established here. Path-separation preflight does not establish independence of copied or overlapping crops or different remote URLs; source-pinned split review is still required. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
 ## Verification record
@@ -762,3 +763,83 @@ identity metadata and a re-hashed rotated build input. Configured Mypy passed
 on **967 files**, and maintained Ruff passed. Final publication checks and
 hosted CPU results are recorded on the PR. Missing original data and GPU
 validation remain as stated above.
+
+## Repeated whole-tree audit after PR 403
+
+This pass starts from main `b1b9c365`. The tracked baseline contains **3,261
+files**, including **1,021 Python**, **158 shell**, **447 JSON** and **10 YAML**
+files. Every tracked Python file parsed, every shell file passed `bash -n`, and
+JSON/YAML parsing found no syntax failures. The single script declaring POSIX
+`sh` also passed `dash -n`; neither syntax check proves runtime correctness.
+The same four historical JSON files still contain non-finite tokens; their
+previous disposition and original artifact bytes remain unchanged.
+
+The review combined those whole-tree scans with the full curated baseline and
+manual checks of configuration, training/validation inputs, checkpoints, data
+conversion, source imports, output publication and developer commands. An AST
+reference scan followed by a project search found one unused private helper.
+This is not a line-by-line certification of all historical experiments or the
+pinned upstream repository, and no new GPU or real-fragment result was produced.
+
+### Corrections
+
+| Finding | Evidence and fix |
+| --- | --- |
+| Main training accepted its held-out volume as labeled input, and the UA-MT filter only compared literal strings. | A CPU probe of the real trainer reached validation construction with identical labeled/validation paths. A trailing-slash validation alias also survived the existing filter. A new stat-only split preflight refuses observable local aliases, ancestry and existing inode equality, plus matching remote resource identifiers. It runs before labels/GPU setup and is shared with workspace diagnostics. Disabled UA-MT inputs are not inspected. Copies, physically overlapping crops and different remote addresses remain unverified. |
+| An experiment could replace the incumbent or other input while claiming the loop was untouched. | `save_cycle_checkpoints` accepted `best_model.pt` as `checkpoint_out`. New path checks protect loop weights/config/log/lock paths and named CT, label, mask, catalogue, pseudo-label, foundation and active-config inputs. The checks run before training and final saving; periodic CSV/step snapshots receive the active config path and are checked before evaluation/writing. Symlinks, hard links and special output files are refused. Ordinary experiment checkpoint replacement remains supported. These checks require serialized writers and are not filesystem locks. |
+| The older uint16-to-uint8 detector converter still allowed Pillow's automatic TIFF orientation changes. | Source decoding now requires absent/identity orientation for CT and PNG labels/masks; failure preserves the preceding output generation. Readiness also rejects oriented converted images, even when manifest hashes match. New manifests record `source_orientation_policy`. Existing baked rotations cannot be inferred from output hashes; original-source review is still required. No old conversion or scientific score was rewritten. |
+| The evidence-chain module retained an unused private numeric parser. | Removed `_as_float` after the AST scan and a project-wide reference search found only its definition. Existing evidence-chain and submission tests cover the maintained paths. No report or reproduction was deleted. |
+
+The current owner table now lists **eight** items. It adds the explicit decision
+about permissive training read/preprocessing failures. The other seven decisions
+remain open, with dependency alert counts labeled as the latest observed banner
+rather than a fresh applicability assessment.
+
+### Verification
+
+The complete, unchanged **214-module tracked baseline** passed **5,701 tests**,
+with **42 skipped and one expected failure**, in 602.37 seconds. An initial
+restricted-sandbox attempt was interrupted at an SDK fixture after
+`1 failed, 2324 passed, 21 skipped, 1 xfailed`; its spawn/socket check also failed.
+The successful rerun used socket-capable execution for SDK stubs, with no live
+S3 test opted into. This was an environment requirement, not a product fix.
+
+After corrections:
+
+- Eleven affected modules passed **413 tests** in 58.40 seconds, including the
+  real trainer's early refusal, checkpoint/periodic-save integration and
+  read-only diagnostics. After the readiness follow-up, eight converter/evidence/
+  submission/registry modules passed **309 tests** in 49.38 seconds. These
+  selections overlap and are not a passing full-suite claim for the final tree.
+- The minimal CPU profile passed **325 tests** in 31.47 seconds, with fifteen
+  modules. The full registry now selects 216 modules. No CI dependency change
+  was needed for the two new standard-library guard modules.
+- Configured Mypy passed on **971 files**. Maintained Ruff, changed-file
+  formatting and offline lock consistency pass; dependency versions are unchanged.
+- Smoke passed **9/11, with 2 skipped and 0 failed**, in 12.7 seconds. Skips need
+  the original local CT/labels. Final documentation/file-mode checks and hosted
+  CI are recorded with the reviewable change before publication.
+
+Final entrypoint review also propagated the active config path through the noise
+probe and augmentation-ablation wrappers. Seven training/probe modules then
+passed **311 tests** in 61.62 seconds, including actual ablation entrypoint refusal
+before GPU setup. Mypy remained clean on 971 files. The documentation/file-mode
+selection passed **149 tests with 1 missing-corpus skip** in 40.52 seconds.
+
+Representative exact commands, from the audit checkout (the first and affected
+training integration command used socket-capable sandbox execution):
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short -o faulthandler_timeout=90
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_training_split.py tests/test_training_checkpoint_paths.py tests/test_training_data_sources.py tests/test_workspace_status.py tests/test_detector_conversion_contracts.py tests/test_convert_fragment.py tests/test_surface_volume_import.py tests/test_training_step_contracts.py tests/test_autoresearch_measurement.py tests/test_confidence_weighted_loss.py tests/test_validation_runner.py -q --tb=short
+
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-portable-ci-env/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+
+/workspace/.vesuvius-review-env/bin/python -m mypy . --explicit-package-bases --namespace-packages --python-executable /workspace/.vesuvius-review-env/bin/python
+```
+
+The baseline still leaves tests outside the curated registry, original study
+inputs/history and GPU behavior with the previously documented coverage gaps.
+Source-pinned scientific reruns, full-scroll performance and standalone-wheel
+validation were not supplied by these CPU checks.

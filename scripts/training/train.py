@@ -57,7 +57,12 @@ from torch.utils.data import DataLoader, RandomSampler, default_collate
 from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
+from scripts.training.checkpoint_paths import (
+    validate_checkpoint_writes,
+    validate_training_checkpoint_writes,
+)
 from scripts.training.config import ExperimentConfig
+from scripts.training.data_split import validate_training_split
 from scripts.training.ink_losses import (
     CONFIDENCE_INK_RECIPE,
     compute_dice_loss,
@@ -1484,7 +1489,9 @@ def cutmix_data(x, y, z, alpha=1.0):
     return x, y, z, lam
 
 
-def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s):
+def periodic_pixel_auc_eval(
+    model, val_dataset, config, device, step, elapsed_s, *, config_path=None
+):
     """Gated learning-curve probe: pooled pixel AUC on a FIXED random sample of
     validation patches, plus a step-tagged checkpoint and a CSV row. Wrapped so a
     mid-run eval glitch cannot kill a multi-hour training run. Indices are drawn
@@ -1493,6 +1500,7 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
 
     from scripts.pixel_auc import pooled_pixel_auc
 
+    validate_training_checkpoint_writes(config, config_path=config_path, step=step)
     prefix = config.checkpoint_out or "long_model.pt"
     curve_path = f"{prefix}.curve.csv"
     nl = config.num_layers
@@ -1516,6 +1524,7 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
     finally:
         model.train()
 
+    validate_training_checkpoint_writes(config, config_path=config_path, step=step)
     write_header = not os.path.exists(curve_path)
     with open(curve_path, "a", newline="") as f:
         w = csv.writer(f)
@@ -1954,6 +1963,7 @@ def save_cycle_checkpoints(checkpoint, checkpoint_out, is_improvement) -> list[s
     run stopped between the two leaves the incumbent the loop still records.
     """
     if checkpoint_out:
+        validate_checkpoint_writes([checkpoint_out])
         directory = os.path.dirname(checkpoint_out)
         if directory:
             os.makedirs(directory, exist_ok=True)
@@ -2010,7 +2020,9 @@ def preflight_smoke(config: ExperimentConfig) -> None:
         raise ValueError("preflight: non-finite loss")
 
 
-def train(config: ExperimentConfig, *, strict_warm_start=False):
+def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None):
+    validate_training_split(config)
+    validate_training_checkpoint_writes(config, config_path=config_path)
     print("STARTING TRAINING")
     # What this run's score is comparable with; the depth band is part of it.
     protocol = validation_protocol(getattr(config, "depth_band", None))
@@ -2566,6 +2578,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 device,
                 step,
                 total_training_time,
+                config_path=config_path,
             )
         if total_training_time >= config.time_budget:
             break
@@ -2902,6 +2915,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             f"Saving new best model — val_f1: {val_f1:.6f} "
             f"(ap_lift {ap_prevalence_lift:.3f}, thr {val_f1_threshold:.3f})"
         )
+    validate_training_checkpoint_writes(config, config_path=config_path)
     save_cycle_checkpoints(checkpoint, ckpt_out, is_improvement)
     if promoted:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -3063,6 +3077,6 @@ if __name__ == "__main__":
 
     if args.test:
         config.time_budget = 30
-        train(config)
+        train(config, config_path=args.config)
     else:
-        train(config)
+        train(config, config_path=args.config)

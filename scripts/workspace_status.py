@@ -23,7 +23,9 @@ if __package__ in (None, ""):
 
 from scripts import loop_control
 from scripts.text_snapshot import Snapshot
+from scripts.training.checkpoint_paths import validate_training_checkpoint_writes
 from scripts.training.config import ExperimentConfig
+from scripts.training.data_split import validate_training_split
 from scripts.training.input_paths import training_label_path, validation_label_path
 
 DEFAULT_CONFIG_BYTES = 1024**2
@@ -217,6 +219,25 @@ def inspect_workspace(
     except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as exc:
         add("config", "blocked", f"Cannot load configuration: {exc}", path)
         return finish()
+
+    for name, validate in (
+        ("training_split", lambda: validate_training_split(config, base_dir=repo)),
+        (
+            "checkpoint_outputs",
+            lambda: validate_training_checkpoint_writes(
+                config, config_path=path, base_dir=repo
+            ),
+        ),
+    ):
+        try:
+            validate()
+            add(
+                name,
+                "ok",
+                "No observable path conflicts; source independence and contents remain unverified.",
+            )
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:
+            add(name, "blocked", str(exc))
 
     pseudo = config.pseudo_label_dir
     if pseudo:

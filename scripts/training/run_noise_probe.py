@@ -60,7 +60,7 @@ def run(config_path):
     try:
         os.chdir(workspace)
         train.SKELETON_HIST_DIR = str(workspace / "skeleton_hists")
-        train.train(config, strict_warm_start=True)
+        train.train(config, strict_warm_start=True, config_path=config_path)
     finally:
         train.SKELETON_HIST_DIR = previous_hist
         os.chdir(previous_cwd)

@@ -42,6 +42,21 @@ def save_config(workspace, **changes):
     return repo
 
 
+@pytest.mark.parametrize("kind", ["split", "checkpoint"])
+def test_training_boundary_conflicts_are_reported_without_loading_data(workspace, kind):
+    if kind == "split":
+        repo = save_config(workspace, uris=["./val/surface_volume.zarr/"])
+        name = "training_split"
+    else:
+        repo = save_config(workspace, checkpoint_out="config.json")
+        name = "checkpoint_outputs"
+    before = (repo / "config.json").read_bytes()
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert check(report, name)["status"] == "blocked"
+    assert (repo / "config.json").read_bytes() == before
+
+
 def test_checks_files_without_claiming_training_readiness(workspace):
     repo, _ = workspace
     (repo / "best_model.pt").write_bytes(b"invalid checkpoint, never deserialize")

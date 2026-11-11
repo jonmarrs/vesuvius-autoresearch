@@ -19,6 +19,17 @@ processes, checkpoint presence, configuration parsing and configured data/label
 paths. It shares label selection with the trainer, including refined-label
 priority and the confidence-weight requirement for pseudo-labels.
 
+The `training_split` check rejects observable overlap between the validation
+volume and labeled or active UA-MT inputs. It recognizes local path aliases,
+symlinks, directory ancestry, existing inode aliases and matching remote resource
+identifiers, without opening arrays or making network requests. Different remote
+URLs, copied volumes and physically overlapping crops remain unverified.
+The `checkpoint_outputs` check protects loop state and named local inputs from
+experiment checkpoint and configured curve destinations. The trainer repeats
+these checks before work and saving, including step snapshots when their names
+are known. Source/writer serialization is still required; these snapshots are
+not locks or a proof of scientific holdout independence.
+
 Configuration reads are limited to **1 MiB** by default. They require a regular
 UTF-8 file; directories, FIFOs and files over the selected limit produce a
 blocked config check. On POSIX, the shared capture also opens nonblocking and
