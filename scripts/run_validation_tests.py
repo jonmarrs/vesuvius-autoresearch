@@ -3,7 +3,8 @@
 Run the curated validation suite with the active Python interpreter.
 
 Uses this checkout as the working directory and hides CUDA unless --allow-cuda
-is supplied. --list only prints module paths; --match selects by path glob.
+is supplied. --profile portable selects checks with the minimal CPU dependencies;
+the default remains curated. --list only prints module paths; --match selects by path glob.
 Pass pytest options after --, for example: --match '*noise_probe*' -- -x -rs
 """
 
@@ -138,6 +139,7 @@ VALIDATION_TESTS = [
     "tests/test_lock_observation.py",
     "tests/test_loop_unchanged_control.py",
     "tests/test_workspace_status.py",
+    "tests/test_v3_retirement.py",
     "tests/test_text_snapshot.py",
     "tests/test_autoresearch_measurement.py",
     "tests/test_shift_budgets.py",
@@ -234,7 +236,20 @@ VALIDATION_TESTS = [
 ]
 
 
-def select_tests(patterns):
+PORTABLE_TESTS = [
+    "tests/test_text_snapshot.py",
+    "tests/test_validation_runner.py",
+    "tests/test_workspace_status.py",
+    "tests/test_supervisor_startup.py",
+    "tests/test_loop_lifecycle.py",
+    "tests/test_loop_control_modules.py",
+    "tests/test_v3_retirement.py",
+    "tools/placement_check/test_placement_check.py",
+    "tools/scroll_frames/test_scroll_frames.py",
+]
+
+
+def select_tests(patterns, profile="curated"):
     """Select the union of globs in registry order, rejecting silent omissions."""
     if not VALIDATION_TESTS or len(set(VALIDATION_TESTS)) != len(VALIDATION_TESTS):
         raise ValueError(
@@ -246,19 +261,38 @@ def select_tests(patterns):
             raise ValueError(
                 f"validation module is missing or outside this checkout: {name}"
             )
+    if profile not in {"curated", "portable"}:
+        raise ValueError(f"unknown validation profile: {profile!r}")
+    available = VALIDATION_TESTS
+    if profile == "portable":
+        if (
+            not PORTABLE_TESTS
+            or len(set(PORTABLE_TESTS)) != len(PORTABLE_TESTS)
+            or not set(PORTABLE_TESTS).issubset(VALIDATION_TESTS)
+        ):
+            raise ValueError(
+                "portable registry must be a nonempty unique curated subset"
+            )
+        available = [name for name in VALIDATION_TESTS if name in PORTABLE_TESTS]
     selected = set()
     for pattern in patterns:
-        matches = {
-            name for name in VALIDATION_TESTS if fnmatch.fnmatchcase(name, pattern)
-        }
+        matches = {name for name in available if fnmatch.fnmatchcase(name, pattern)}
         if not matches:
-            raise ValueError(f"--match pattern matched no curated modules: {pattern!r}")
+            raise ValueError(
+                f"--match pattern matched no {profile} modules: {pattern!r}"
+            )
         selected.update(matches)
-    return [name for name in VALIDATION_TESTS if not patterns or name in selected]
+    return [name for name in available if not patterns or name in selected]
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument(
+        "--profile",
+        choices=["curated", "portable"],
+        default="curated",
+        help="portable runs the bounded CPU subset; curated remains the default",
+    )
     parser.add_argument(
         "--match",
         action="append",
@@ -283,7 +317,7 @@ def main(argv=None):
     if args.list and pytest_args:
         parser.error("--list does not run pytest; remove arguments after --")
     try:
-        tests = select_tests(args.match)
+        tests = select_tests(args.match, profile=args.profile)
     except ValueError as exc:
         parser.error(str(exc))
     if args.list:

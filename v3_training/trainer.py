@@ -1,5 +1,19 @@
+"""Archived v3 prototype, preserved for reference rather than supported training.
+
+Its CLI is retired. The maintained trainer is scripts/training/train.py; the
+prototype's data, loss and checkpoint contracts have not been ported or validated.
+"""
+
 import os
 import sys
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+if __name__ == "__main__":
+    sys.path.insert(0, PROJECT_ROOT)
+    from v3_training.retirement import main
+
+    raise SystemExit(main())
 
 import numpy as np
 import torch
@@ -7,7 +21,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # Add project root and villa paths
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 VILLA_TRAIN_PATH = os.path.abspath(
     os.path.join(PROJECT_ROOT, "villa/segmentation/models/multi-task-3d-unet")
 )
@@ -37,8 +50,8 @@ from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 
 class VesuviusTrainer(BaseTrainer):
     """
-    Enhanced Vesuvius Trainer.
-    Supports:
+    Archived, unvalidated prototype. Not a supported training API.
+    Historical implementation:
     1. Challenge Standard Multi-task Learning
     2. Uncertainty-Aware Mean Teacher (UA-MT) - Sprint 020
     3. LeJEPA Self-Supervised Pretraining (SIGReg) - Sprint 019
@@ -371,12 +384,3 @@ class VesuviusTrainer(BaseTrainer):
             ema_model.parameters(), model.parameters(), strict=False
         ):
             ema_param.data.mul_(alpha).add_(param.data, alpha=1 - alpha)
-
-
-if __name__ == "__main__":
-    config_path = os.path.join(os.path.dirname(__file__), "task.yaml")
-    if os.path.exists(config_path):
-        trainer = VesuviusTrainer(config_path)
-        print("Trainer initialized successfully.")
-    else:
-        print(f"Config {config_path} not found.")

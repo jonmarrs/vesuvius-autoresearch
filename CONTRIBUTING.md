@@ -8,6 +8,41 @@ PRs and issues are welcome.
 
 ## Development
 
+For the bounded CPU checks without the research environment, use Python 3.10
+and a fresh virtual environment:
+
+```sh
+python3.10 -m venv /tmp/vesuvius-cpu-tests
+/tmp/vesuvius-cpu-tests/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements/ci-cpu.txt
+/tmp/vesuvius-cpu-tests/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short
+```
+
+The nine-module portable profile checks process cleanup, setup diagnostics,
+bounded file captures, validation selection, retired launchers and the standalone
+geometry tools. It runs on Linux with pytest and NumPy; it does not validate
+models, GPU behavior, annotation quality or historical study results. Use
+`--profile portable --list` to inspect its exact scope. Patterns passed with
+`--match` are restricted to that profile and never fall back to the full suite.
+
+[Portable CPU checks](.github/workflows/cpu.yml) runs this profile and maintained
+source lint on pull requests and pushes to main. The job uses a fresh environment,
+no submodule checkout, read-only repository permissions and a ten-minute wall
+limit. Installation and tests each have a three-minute limit; lint has one.
+Actions are pinned by commit and Python dependencies by version/hash. Preserved
+Villa and GP-winner sources are excluded from lint. A green job is subset evidence;
+the full curated checks and manual smoke below remain separate obligations.
+To make the job a merge requirement, add it as a required status check in branch protection.
+
+Regenerate the CPU lock after changing its direct pins:
+
+```sh
+uv pip compile requirements/ci-cpu.in --python-version 3.10 --generate-hashes --output-file requirements/ci-cpu.txt
+```
+
+Keep pytest/Ruff pins aligned with the root dev group and NumPy with `uv.lock`.
+The [CI advisory snapshot](reports/ci_dependency_audit.json) covers that lock only,
+not bootstrap tools, Actions, OS packages or the GPU runtime.
+
 Inspect setup without installing dependencies or starting work:
 `python3 scripts/workspace_status.py` ([status guide](docs/WORKSPACE_STATUS.md)).
 An `ok` report checks local paths and configuration parsing; it does not certify
@@ -70,6 +105,7 @@ The point is concrete evidence of human evaluation, not polished prose.
 ## Project layout
 
 - `scripts/training/train.py` — training subprocess, spawned one cycle at a time
+- `v3_training/` — [archived prototype](v3_training/README.md); its CLI refuses before ML imports
 - `scripts/training/config.py` — configuration without training imports
 - `run_autoresearch_loop.py` — success-weighted search over `tweak_templates`
 - `scripts/process_supervisor.py` — bounded subprocess-group cleanup

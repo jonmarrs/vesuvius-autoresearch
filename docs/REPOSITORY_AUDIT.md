@@ -135,7 +135,8 @@ This pass continues from `41f55bf7`, on the same audit branch.
   sentinel fetch instead of slow live requests for a nonexistent segment. The
   handoff, standalone placement, implementation-parity and synthetic registration
   modules are included in the curated registry. With the later frame checks
-  below it now contains 207 modules.
+  below it contained 207 modules; the CLI retirement checks bring the current
+  registry to 208.
 
 ## Numeric diagnostics and skeleton resource limits
 
@@ -164,24 +165,50 @@ This pass continues from `5a6870a8` and resolves two entries from the review lis
   regression coverage. These checks do not establish real-data annotation
   quality or a total worker/volume memory bound.
 
+## Archived launchers and portable CI
+
+This pass continues from `c45acbec` and resolves two more review-list entries.
+
+- **Retired v3 CLI:** both `v3_training/run_v3.py` and
+  `v3_training/trainer.py` now explain the maintained training command and refuse
+  execution with status 2 before importing ML packages or reading configuration.
+  Direct and module launches, including `--help`, are checked from another
+  working directory with import traps and an unchanged dummy configuration.
+  The archived class implementation and YAML files remain for reference;
+  retiring the CLI does not repair or validate its historical training methods.
+  See the [archive contract](../v3_training/README.md).
+- **Bounded CPU CI:** the [root workflow](../.github/workflows/cpu.yml) checks
+  maintained-source lint and a nine-module portable profile, selected by the
+  existing validation runner. The default remains the full curated registry.
+  Profile-scoped globs fail if unmatched and cannot silently expand to research
+  tests. A fresh Linux/Python 3.10 environment uses a small hashed dependency
+  lock, pinned Actions, read-only repository permissions, no submodule checkout
+  and explicit installation/test/job time limits. Frozen Villa and GP-winner
+  sources retain their lint exclusions. Required-status branch protection and
+  opt-in data/GPU jobs remain owner decisions; adding a workflow does not make
+  its status a merge requirement.
+- **CI dependency scope:** the [CI advisory snapshot](../reports/ci_dependency_audit.json)
+  binds the requirements hash and records zero public PyPI advisory records
+  across its ten pinned dependencies, with no skipped packages. This does not
+  cover bootstrap tools, Actions, OS packages or the GPU research environment.
+  The root-lock advisory migrations below remain unresolved.
+
 ## Items for owner review
 
-The priority below is the suggested work order, not a claim that each item has
-caused a measured scientific failure.
+The nine remaining items below are in suggested work order, not a claim that
+each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
 | High | **Dependency advisories still need migrations and applicability review.** GitHub reported 149 alerts on the default branch (6 critical), but its advisory API returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
-| High | **The alternate v3 trainer has drifted from the maintained training contract.** [trainer](../v3_training/trainer.py) uses `from train import apply_augmentations`, mixes a labeled dataset returning three elements with an unlabeled dataset returning two, and its custom loops have their own teacher/loss/checkpoint behavior. The maintained implementation is [training/train.py](../scripts/training/train.py). | Retire the v3 entry point, or fund a dedicated port with actual training tests. Fixing tuple unpacking alone would not validate its SSL/UA-MT method, so this audit does not present it as repaired. Its prior sprint board is already marked archived. |
 | High | **Training-data onboarding is incomplete.** The [quick start](../README.md) expects fragment CT Zarrs and aligned labels, but explicitly states that no maintained command builds those directories. Archived downloaders fetch different inputs. | Choose a supported source/format and add a pinned download/conversion manifest plus one small verified example. Do not revive placeholder-producing archival downloaders as though they prepared the training recipe. |
 | High | **A clean checkout cannot run every research test successfully.** Some probe tests require the original private spiral corpus; render-equivalence and preserved-source tests require old Villa commit objects absent from a shallow pinned checkout. See [real-patch tests](../tests/test_probe_real_patch_scatter.py), [render-equivalence tests](../tests/test_check_render_equivalence.py) and [preserved-source tests](../tests/test_villa_preserved.py). | Decide which tests are portable unit tests and which are corpus/history integration checks. Add explicit fixtures/markers and a documented provision step without weakening their scientific assertions. Missing real data is not evidence that the underlying claims pass. |
 | Medium | **Regional GPU memory still scales with the whole region.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) allocate full-region GPU accumulators and keep ensemble members resident together. CPU tile enumeration is now lazy, but skipping uncertainty still skips that export's size budget. | Select a RAM/VRAM planning contract or accumulator-streaming design, then profile on the 4090. The [production path](../scripts/production_predict.py) is a batched alternative; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Four historical JSON artifacts contain 30 nonfinite tokens.** [old queue](../reports/active_learning_queue.json) has 20 NaN uncertainty scores; [old detector card](../reports/detector/PHercParis2Fr143_scorecard.json), [interpolation result](../reports/interp_vs_labels.json) and [tracking-gap result](../reports/scorer_tracking_gap_descriptive.json) contain the others. | Keep these as historical evidence with explicit status, or regenerate into new versioned artifacts from retained inputs. Do not turn missing/undefined measurements into zeros or rewrite the old scores to make JSON valid. The old queue is not a usable ranking. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
-| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The root demo/evidence generators still use direct GPU imports and fixed output locations. | Inventory supported commands before splitting CPU/GPU/research extras. Decide whether to retain, port or archive the two root generators. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
-| Lower | **No checked-in CI workflow enforces the checks.** `.github/` contains review/report templates but no workflow. | Choose a bounded CPU CI job and a separate opt-in data/GPU integration job. Set runtime/storage budgets before enabling broad historical tests on every push. |
+| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The root demo/evidence generators still use direct GPU imports and fixed output locations. | Inventory supported commands before splitting CPU/GPU/research extras. Decide whether to retain, port or archive the two root generators. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the new CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
 ## Verification record
 
@@ -379,3 +406,41 @@ This check uses synthetic geometry and does not replace a corpus measurement.
 The final documentation guard selection passed `138 passed, 1 skipped` in 33.03
 seconds (the skip needs the original spiral corpus). File-mode guards passed
 `11 passed` in 3.90 seconds, and `git diff --check` passed.
+
+## Portable CI and retirement verification
+
+The new launcher/profile regression selection passed `44 passed` in 2.00
+seconds, after initially reproducing eleven failures. A separate source
+snapshot, without Villa's checkout or research data, installed only the ten
+hashed CI dependencies into a new Python 3.10 environment. The portable profile
+passed `234 passed` in 24.06 seconds with plugin autoload disabled and no skips.
+Torch, CuPy, SciPy, Zarr and the Villa package were absent. Maintained-source
+lint also passed there. This local run exercises the workflow commands; it is
+not evidence of a completed hosted GitHub run.
+
+`actionlint 1.7.12` accepted the workflow. Configured Mypy passed on 955 source
+files. Inventory/coverage checks passed `19 passed` in 35.41 seconds, file-mode
+guards passed `11 passed` in 29.95 seconds, and smoke passed
+`9/11 passed, 2 skipped, 0 failed` in 15.1 seconds. The smoke skips still require
+local CT/ink labels. The full 208-module curated registry was not repeated.
+No training, GPU, corpus or historical-method claim follows from these checks.
+The documentation guard selection passed `138 passed, 1 skipped` in 30.53
+seconds; that skip still requires the original spiral corpus. Ruff format
+accepted all 42 Python files in the cumulative PR, and `git diff --check` passed.
+
+Reproduction commands for the isolated snapshot and the profile regressions:
+
+```sh
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-portable-ci-env/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+
+/tmp/vesuvius-portable-ci-env/bin/ruff check . --extend-exclude repro/villa_preserved,repro/gp_winner
+
+/workspace/.vesuvius-review-env/bin/python -m pytest tests/test_v3_retirement.py tests/test_validation_runner.py -q --tb=short
+
+/tmp/vesuvius-actionlint/actionlint .github/workflows/cpu.yml
+```
+
+The snapshot commands run from `/tmp/vesuvius-portable-ci-checkout`; the others
+run from the audit checkout. The CI advisory lookup used the same `pip-audit`
+options documented above, with `requirements/ci-cpu.txt` as the input and a
+separate report. It returned status 0; the root-lock audit still returns 1.
