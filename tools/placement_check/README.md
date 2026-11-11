@@ -49,6 +49,15 @@ annotator's labels, a segmentation mask. It does not need to be good, only indep
 better than chance. A weak reference widens the peak; it does not move it.
 
 Bool arrays are used as-is; anything else is thresholded at `>127`.
+Inputs must contain finite real values. A common evaluation crop with no
+foreground cannot establish placement, even if the uncropped image is nonempty.
+Agreement must also be strictly positive at full resolution: a coarse match
+alone cannot establish an offset when refinement is disabled.
+The tool raises for a peak on the coarse, refinement or requested search
+boundary, including when a small image reduces the usable search. Choose an
+image with usable interior signal and enough context for the requested search.
+The CLI returns status 2 without a score report when placement is unknown;
+status 1 reports a measured offset exceeding `--max-offset`.
 
 ## Choosing a threshold
 

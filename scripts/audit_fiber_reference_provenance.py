@@ -14,10 +14,10 @@ files without one remain in an explicitly unknown group.
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
 import hashlib
 import json
 import math
+from collections import Counter, defaultdict
 from pathlib import Path
 
 
@@ -35,10 +35,14 @@ def audit_folder(folder: Path) -> dict:
     files = sorted(folder.glob("*.json"))
     if not files:
         raise ValueError(f"no annotation JSON files in {folder}")
-    by_frame = defaultdict(lambda: {
-        "file_count": 0,
-        "by_interp_mode": defaultdict(lambda: {"spans": 0, "control_chord_length": 0.0}),
-    })
+    by_frame = defaultdict(
+        lambda: {
+            "file_count": 0,
+            "by_interp_mode": defaultdict(
+                lambda: {"spans": 0, "control_chord_length": 0.0}
+            ),
+        }
+    )
     mode_spans = Counter()
     settings = Counter()
     predictions = Counter()
@@ -57,10 +61,14 @@ def audit_folder(folder: Path) -> dict:
         frames[frame] += 1
         by_frame[frame]["file_count"] += 1
         modes = by_frame[frame]["by_interp_mode"]
-        resolutions[str(annotation.get("vc_open_data_source_original_resolution", "unknown"))] += 1
+        resolutions[
+            str(annotation.get("vc_open_data_source_original_resolution", "unknown"))
+        ] += 1
         control_points += len(points)
         line_points += len(annotation.get("line_points", []))
-        for index, (start, end) in enumerate(zip(positions, positions[1:])):
+        for index, (start, end) in enumerate(
+            zip(positions[:-1], positions[1:], strict=True)
+        ):
             metadata = points[index].get("segment_to_next") or {}
             mode = metadata.get("interp_mode") or "unknown"
             distance = math.dist(start, end)
@@ -74,17 +82,21 @@ def audit_folder(folder: Path) -> dict:
                 # cannot establish equality to all current tracer defaults.
                 settings[json.dumps(metadata.get("config"), sort_keys=True)] += 1
                 predictions[metadata.get("fiber_manifest") or "unknown"] += 1
-        inputs.append({
-            "name": path.name,
-            "bytes": len(captured),
-            "sha256": hashlib.sha256(captured).hexdigest(),
-        })
+        inputs.append(
+            {
+                "name": path.name,
+                "bytes": len(captured),
+                "sha256": hashlib.sha256(captured).hexdigest(),
+            }
+        )
     for group in by_frame.values():
         modes = group["by_interp_mode"]
         total = sum(row["control_chord_length"] for row in modes.values())
         group["total_control_chord_length"] = total
         for row in modes.values():
-            row["control_chord_share"] = row["control_chord_length"] / total if total else None
+            row["control_chord_share"] = (
+                row["control_chord_length"] / total if total else None
+            )
         group["by_interp_mode"] = dict(sorted(modes.items()))
     return {
         "schema_version": 1,
@@ -116,9 +128,21 @@ def main():
     report = audit_folder(args.folder)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
-    print(json.dumps({k: report[k] for k in (
-        "file_count", "control_point_count", "line_point_count", "interp_mode_span_counts", "by_coordinate_frame"
-    )}, indent=2))
+    print(
+        json.dumps(
+            {
+                k: report[k]
+                for k in (
+                    "file_count",
+                    "control_point_count",
+                    "line_point_count",
+                    "interp_mode_span_counts",
+                    "by_coordinate_frame",
+                )
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -71,21 +72,22 @@ def _load_2d_surface_prediction(
     """
     _, arr = level_zero(zarr_path)
 
-    if arr.ndim == 3 and arr.shape[0] == 1:
-        raw = np.asarray(arr[0])
-    elif arr.ndim == 2:
-        raw = np.asarray(arr)
-    else:
+    if not (arr.ndim == 2 or (arr.ndim == 3 and arr.shape[0] == 1)):
         raise ValueError(
             f"ink prediction must have shape (H, W) or (1, H, W), got {arr.shape}"
         )
 
-    if raw.shape != expected_hw:
+    if arr.shape[-2:] != expected_hw:
         raise ValueError(
-            f"ink prediction shape {raw.shape} != expected (h, w) from bbox {expected_hw}; "
+            f"ink prediction shape {arr.shape[-2:]} != expected (h, w) from bbox {expected_hw}; "
             "the prediction zarr is in local-window coords, so the bbox h/w must match the prediction size"
         )
+    if arr.dtype != np.uint8 and arr.dtype.kind != "f":
+        raise ValueError(
+            "ink prediction must be finite probabilities in [0, 1] or uint8"
+        )
 
+    raw = np.asarray(arr[0] if arr.ndim == 3 else arr)
     if raw.dtype == np.uint8:
         return raw.astype(np.float32) / 255.0
     if (
@@ -130,7 +132,8 @@ def _prediction_alignment(prediction_path, ct_path, bbox, declared):
     if (
         not isinstance(source, str)
         or not source
-        or Path(source).resolve() != Path(ct_path).resolve()
+        or resolve_artifact_path(source, metadata_path).resolve()
+        != Path(ct_path).resolve()
     ):
         raise ValueError("prediction source_uri does not match the CT source")
     for key, expected in (
@@ -173,16 +176,28 @@ def _prediction_alignment(prediction_path, ct_path, bbox, declared):
     }
 
 
-def _prediction_run_metadata(prediction_path, ct_path, bbox, metadata_path):
-    """Check supplied run metadata or the producer's conventional sibling file."""
-    explicit = metadata_path is not None
-    path = (
-        Path(metadata_path)
-        if explicit
-        else Path(prediction_path).with_name(f"{Path(prediction_path).stem}_meta.json")
-    )
-    if not explicit and not path.exists():
-        return {"coverage_basis": "caller-declared fully evaluated prediction"}
+def _prediction_run_paths(prediction_path, metadata_path):
+    """Find producer and legacy sidecars without hiding contradictory records."""
+    prediction = Path(prediction_path)
+    producer_layout = prediction.name.endswith("_ink.zarr")
+    conventional = []
+    if producer_layout:
+        stem = prediction.name[: -len("_ink.zarr")]
+        conventional.append(prediction.with_name(f"{stem}_meta.json"))
+    conventional.append(prediction.with_name(f"{prediction.stem}_meta.json"))
+    paths = [Path(metadata_path)] if metadata_path is not None else []
+    paths.extend(path for path in conventional if os.path.lexists(path))
+    paths = list(dict.fromkeys(path.absolute() for path in paths))
+    if not paths and producer_layout:
+        raise ValueError(
+            "prediction run metadata is required for an _ink.zarr producer artifact; "
+            "provide --prediction-metadata for a custom location"
+        )
+    return paths
+
+
+def _check_prediction_run_metadata(path, prediction_path, ct_path, bbox):
+    """Validate one run record; an explicit record does not replace these facts."""
     metadata = _load_json(path)
     if (
         metadata.get("prediction_complete") is not True
@@ -223,9 +238,23 @@ def _prediction_run_metadata(prediction_path, ct_path, bbox, metadata_path):
     ):
         raise ValueError("prediction run metadata dimensions do not match the bbox")
     return {
-        "coverage_basis": "matching complete prediction run metadata",
         "path": str(path.resolve()),
         "metadata": metadata,
+    }
+
+
+def _prediction_run_metadata(prediction_path, ct_path, bbox, metadata_path):
+    paths = _prediction_run_paths(prediction_path, metadata_path)
+    if not paths:
+        return {"coverage_basis": "caller-declared fully evaluated prediction"}
+    records = [
+        _check_prediction_run_metadata(path, prediction_path, ct_path, bbox)
+        for path in paths
+    ]
+    return {
+        "coverage_basis": "matching complete prediction run metadata",
+        **records[0],
+        "additional_records": records[1:],
     }
 
 
@@ -417,8 +446,8 @@ def generate_3d_ink_labels(
                 "debug PNG must be a direct .png child of the new output directory"
             )
         debug_name = debug_path.name
-    ct = _load_zarr_window(ct_path, z0, z1, y0, y1, x0, x1)
     ink_2d = _load_2d_surface_prediction(ink_pred_path, expected_hw=(y1 - y0, x1 - x0))
+    ct = _load_zarr_window(ct_path, z0, z1, y0, y1, x0, x1)
 
     if ct.shape[1:] != ink_2d.shape:
         raise ValueError(

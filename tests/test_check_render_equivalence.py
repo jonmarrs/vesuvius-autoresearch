@@ -23,9 +23,7 @@ sys.path.insert(0, str(_REPO / "scripts"))
 import check_render_equivalence as mod  # noqa: E402
 
 _VILLA = _REPO / "villa"
-_needs = pytest.mark.skipif(
-    not (_VILLA / ".git").exists(), reason="villa submodule absent"
-)
+_needs = pytest.mark.villa_history("be09a8503")
 
 
 def test_it_checks_exactly_what_setup_workdir_extracts():
@@ -61,7 +59,13 @@ def test_a_ref_against_itself_is_interchangeable():
 
 
 @_needs
-@pytest.mark.parametrize("ref", ["38c2b4278", "bfef6abe0", "3b398f7cc", "d82e13edf"])
+@pytest.mark.parametrize(
+    "ref",
+    [
+        pytest.param(ref, marks=pytest.mark.villa_history(ref))
+        for ref in ("38c2b4278", "bfef6abe0", "3b398f7cc", "d82e13edf")
+    ],
+)
 def test_the_four_cleared_refs_still_read_interchangeable(ref):
     """These were cleared by hand on 2026-09-14. If the checker ever disagrees,
     either it broke or one of those clearances was wrong."""
@@ -81,6 +85,7 @@ def test_the_four_cleared_refs_still_read_interchangeable(ref):
 
 
 @_needs
+@pytest.mark.villa_history("d9d70bef1")
 def test_the_one_real_hot_path_change_is_NOT_called_interchangeable():
     """The load-bearing test. d9d70bef1 changes tifxyz.py, which render_ink
     imports. A checker that called this interchangeable would let a corpus split
@@ -103,6 +108,7 @@ def test_the_one_real_hot_path_change_is_NOT_called_interchangeable():
 
 
 @_needs
+@pytest.mark.villa_history("d8c5f488a")
 def test_the_old_09_11_split_would_have_been_caught():
     """The bump that actually split the corpus. If the checker had existed, this
     is the verdict it would have given -- lasagna and vesuvius/src both differ."""
@@ -146,6 +152,7 @@ def test_lasagna_is_treated_as_a_pipeline_stage_not_a_library():
 
 
 @_needs
+@pytest.mark.villa_history("1f544fa71")
 def test_a_lasagna_change_is_never_called_inert():
     """1f544fa71 changes lasagna/fit.py, fit2tifxyz.py, model.py and optimizer.py.
     Whatever else it reports, it must not report that a render is unaffected."""
@@ -174,6 +181,7 @@ def test_documentation_is_not_a_render_suspect():
 
 
 @_needs
+@pytest.mark.villa_history("0e01fe1c7")
 def test_a_docs_only_change_in_a_stage_is_not_flagged():
     out = subprocess.run(
         [

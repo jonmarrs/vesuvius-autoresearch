@@ -8,6 +8,10 @@
 > (see `FINDINGS.md`). The current plan of record is
 > **[research_plan.md](./research_plan.md)** + **[RESEARCH_STRATEGY.md](./RESEARCH_STRATEGY.md)**.
 
+The historical `ACTIVE` labels below are not current support claims. The
+[v3 prototype launchers are retired](../v3_training/README.md); use the maintained
+trainer and current research plan for new work.
+
 This board tracks the prioritized research trajectory for the autonomous swarm. Sprints are designed to move from fundamental calibration to prize-winning breakthroughs within a 2-month window.
 
 ## 📋 BACKLOG

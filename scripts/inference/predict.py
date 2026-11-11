@@ -1,7 +1,7 @@
 """
 Vesuvius Prediction Script.
 Performs inference on a specific block of a Vesuvius scroll volume.
-Usage: uv run python -m scripts.inference.predict --uri "s3://..." --z 1000 --y 2000 --x 3000
+Usage: uv run python -m scripts.inference.predict --uri local.zarr --z 1000 --y 2000 --x 3000
 """
 
 import hashlib
@@ -23,6 +23,10 @@ import torch
 from matplotlib.patches import Rectangle
 from tap import Tap
 
+from scripts.regional_prediction_artifacts import (
+    RegionalArtifactPlan,
+    validate_checkpoint_metadata,
+)
 from scripts.uncertainty_artifacts import mask_shape, validate_destination
 from vesuvius_autoresearch.core.inference import (
     depth_band_for,
@@ -43,24 +47,11 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
     prediction_paths,
     prediction_stem,
 )
+from vesuvius_autoresearch.core.regional_resources import (
+    MAX_ACCUMULATOR_BYTES,
+    plan_regional_accumulators,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
-
-
-def load_compatible_state_dict(model, state_dict):
-    model_state = model.state_dict()
-    compatible = {}
-    skipped = []
-    for key, value in state_dict.items():
-        if key in model_state and model_state[key].shape == value.shape:
-            compatible[key] = value
-        else:
-            skipped.append(key)
-    model.load_state_dict(compatible, strict=False)
-    if skipped:
-        print(
-            f"Warning: skipped {len(skipped)} incompatible checkpoint tensors: {', '.join(skipped[:8])}"
-        )
-    return skipped
 
 
 def build_prediction_model(config_dict, args, use_ridges):
@@ -255,6 +246,7 @@ def write_prediction_metadata(
         else None,
         "checkpoint_sha256": getattr(args, "checkpoint_sha256", None),
         "inference_recipe": getattr(args, "inference_recipe", None),
+        "resource_plan": getattr(args, "resource_plan", None),
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
         "fiber_coherence": fiber_coherence,
@@ -309,7 +301,7 @@ def _uncertainty_sources(args, base, directory, image):
 
 
 class PredictionArgs(Tap):
-    uri: str  # S3 or local path to Zarr volume
+    uri: str  # Local path or local file URI to a Zarr volume
     z: int | None = (
         None  # first slice; default: centred in the checkpoint's depth_band on its own volumes, else the volume
     )
@@ -331,6 +323,7 @@ class PredictionArgs(Tap):
     part_id: int = 0
     disable_tta: bool = False
     skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
+    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
     compute_coherence: bool = (
         False  # Enable automated fiber coherence evaluation (Villa ST)
     )
@@ -367,7 +360,7 @@ def predict():
     checkpoint_bytes = Path(checkpoint_path).read_bytes()
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
     checkpoint = torch.load(
-        io.BytesIO(checkpoint_bytes), map_location=device, weights_only=False
+        io.BytesIO(checkpoint_bytes), map_location="cpu", weights_only=False
     )
     del checkpoint_bytes
     if not isinstance(checkpoint, dict) or not isinstance(
@@ -375,6 +368,7 @@ def predict():
     ):
         raise ValueError("checkpoint and checkpoint config must be objects")
     config_dict = checkpoint.get("config", {})
+    validate_checkpoint_metadata(config_dict)
     args.voxel_size_um = positive_number(
         config_dict.get(
             "voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)
@@ -392,6 +386,11 @@ def predict():
     )
     if not isinstance(use_ridges, bool):
         raise ValueError("use_ridges must be a boolean")
+    args.resource_plan = plan_regional_accumulators(
+        patch_size if args.width is None else args.width,
+        patch_size if args.height is None else args.height,
+        args.max_accumulator_bytes,
+    )
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     if args.z is None:
         # Centre the window in the depth band the checkpoint was trained on, on
@@ -407,6 +406,10 @@ def predict():
         args.z = min(max(0, (centre - num_layers) // 2), max(0, depth - num_layers))
     validate_region(args, patch_size, num_layers)
     base_name, out_path, output_dir = _prediction_output(args)
+    artifacts = RegionalArtifactPlan.create(
+        base_name, out_path, args.metadata_out, args.uri, [checkpoint_path]
+    )
+    out_path, output_dir = str(artifacts.image), str(artifacts.directory)
     uncertainty_path, uncertainty_sources = _uncertainty_sources(
         args, base_name, output_dir, out_path
     )
@@ -431,6 +434,7 @@ def predict():
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+    del checkpoint
     model.eval()
     # A model without a fiber head returns its ink logits as "fiber": exported,
     # that was the ink map under the fiber prediction's name.
@@ -439,7 +443,10 @@ def predict():
 
     # Open the dataset
     dataset = FastVesuviusVolume(
-        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma, strict_reads=True
+        str(artifacts.source_array),
+        use_ridges=use_ridges,
+        ridge_sigma=ridge_sigma,
+        strict_reads=True,
     )
     validate_region(args, patch_size, num_layers, dataset.shape)
 
@@ -447,9 +454,11 @@ def predict():
     predict_width, predict_height, stride = args.width, args.height, args.stride
 
     # Initialize accumulation buffers
-    full_prob_ink = torch.zeros((predict_height, predict_width), device=device)
-    full_prob_fiber = torch.zeros((predict_height, predict_width), device=device)
-    full_weight = torch.zeros((predict_height, predict_width), device=device)
+    full_prob_ink = torch.zeros(
+        (predict_height, predict_width), device=device, dtype=torch.float32
+    )
+    full_prob_fiber = torch.zeros_like(full_prob_ink)
+    full_weight = torch.zeros_like(full_prob_ink)
 
     # Choose weight window: Gaussian (smoother) or Hanning (default)
     if args.gaussian_blend:
@@ -510,13 +519,14 @@ def predict():
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
 
+    artifacts.validate()
     if args.uncertainty_export["status"] == "PLANNED":
         validate_destination(
             uncertainty_path, overwrite=True, sources=uncertainty_sources
         )
     os.makedirs(output_dir, exist_ok=True)
     metadata_path = invalidate_prediction_metadata(
-        output_dir, base_name, args.metadata_out
+        output_dir, base_name, str(artifacts.metadata)
     )
     np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
     if has_fiber:
@@ -650,7 +660,7 @@ def predict():
         ax.axis("off")
 
     plt.tight_layout()
-    plt.savefig(out_path)
+    plt.savefig(out_path, format=artifacts.image_format)
     plt.close()
 
     def write_metadata(fiber_coherence=None):

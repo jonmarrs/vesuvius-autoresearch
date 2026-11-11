@@ -44,8 +44,11 @@ One window::
 
 Several windows fit the linear residual. ``--out corrected.npy`` writes the
 canvas resampled onto the tifxyz frame, on the surface's grid unless
-``--out-shape`` says otherwise. ``--nearest`` keeps a label intact. A
-PNG holds only a uint8 or uint16 result; anything else is refused rather
+``--out-shape`` says otherwise. ``--nearest`` preserves categorical IDs,
+including 64-bit integers. Output must be separate from both inputs and cannot
+be an existing link or special file. Publication stages the result before
+replacing an existing file; caught write failures preserve the previous result.
+A PNG holds only a uint8 or uint16 result; anything else is refused rather
 than squeezed to 8 bits. Exit status: 0 aligned within 1 level-0 px, 1 a
 shift was measured, 2 usage or input/output error, 3 a shift not located.
 """
@@ -54,11 +57,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import warnings
 from collections.abc import Sequence
 from numbers import Integral
 from pathlib import Path
+
+# A shared editable installation can point at another checkout. Both direct
+# and -m CLI launches must use the helpers belonging to this source tree.
+_ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(_ROOT), str(_ROOT / "src")]
 
 import cv2
 import numpy as np
@@ -89,6 +98,8 @@ def _plane(image: np.ndarray, what: str) -> np.ndarray:
         array = array[..., 0]
     if array.ndim != 2:
         raise ValueError(f"{what} must be a 2D image, got shape {array.shape}")
+    if array.dtype.kind not in "buif":
+        raise ValueError(f"{what} must contain real numeric or boolean samples")
     if array.size == 0 or not np.isfinite(array).any():
         raise ValueError(f"{what} must contain at least one finite sample")
     if np.isinf(array).any():
@@ -144,6 +155,15 @@ def _cast_back(dtype: np.dtype, values: np.ndarray, nearest: bool) -> np.ndarray
         return values.astype(np.float32, copy=False)
     if np.issubdtype(dtype, np.integer):
         info = np.iinfo(dtype)
+        if dtype.itemsize == 8:
+            # Float64 rounds int64/uint64 max up to 2**63/2**64. Casting that
+            # endpoint wraps, so assign saturated endpoints in the integer dtype.
+            rounded = np.rint(values)
+            high, low = rounded >= info.max, rounded <= info.min
+            out = np.where(high | low, 0, rounded).astype(dtype)
+            np.copyto(out, np.array(info.max, dtype=dtype), where=high)
+            np.copyto(out, np.array(info.min, dtype=dtype), where=low)
+            return out
         return np.clip(np.rint(values), info.min, info.max).astype(dtype)
     return values.astype(dtype, copy=False)
 
@@ -172,6 +192,23 @@ def resize_grayscale(
         )
     elif isinstance(interpolation, bool) or not isinstance(interpolation, Integral):
         raise ValueError("interpolation must be an OpenCV flag")
+    if (
+        np.issubdtype(plane.dtype, np.integer)
+        and plane.dtype.itemsize > 4
+        and int(interpolation) in (cv2.INTER_NEAREST, cv2.INTER_NEAREST_EXACT)
+    ):
+        # Resize small coordinate vectors, never the 64-bit categorical values.
+        rows = cv2.resize(
+            np.arange(plane.shape[0], dtype=np.float64)[:, None],
+            (1, height),
+            interpolation=int(interpolation),
+        )[:, 0].astype(np.intp)
+        cols = cv2.resize(
+            np.arange(plane.shape[1], dtype=np.float64)[None, :],
+            (width, 1),
+            interpolation=int(interpolation),
+        )[0].astype(np.intp)
+        return plane[rows[:, None], cols[None, :]]
     if plane.dtype == np.bool_:
         work = plane.astype(np.uint8)
     elif np.issubdtype(plane.dtype, np.integer) and plane.dtype.itemsize > 2:
@@ -703,8 +740,6 @@ def resample_to_tifxyz(
             stacklevel=2,
         )
     # float32 holds every 8- and 16-bit value exactly; wider integers need float64.
-    work = np.float64 if integer and source.dtype.itemsize > 2 else np.float32
-    image = np.where(np.isfinite(source), source, 0).astype(work)
     for name, slope in (("sy", sy), ("sx", sx), ("cy", cy), ("cx", cx)):
         if (
             isinstance(slope, bool)
@@ -722,7 +757,7 @@ def resample_to_tifxyz(
         ):
             raise ValueError(f"{name} must be a finite number")
     if out_shape is None:
-        out_h, out_w = image.shape
+        out_h, out_w = source.shape
     else:
         if len(out_shape) != 2 or any(
             isinstance(value, bool) or not isinstance(value, Integral) or int(value) < 1
@@ -739,6 +774,24 @@ def resample_to_tifxyz(
     xx = np.arange(out_w, dtype=np.float64)[None, :]
     map_y = (x_scale * (yy - float(ay)) - float(cy) * (xx - float(ax))) / det
     map_x = (y_scale * (xx - float(ax)) - float(cx) * (yy - float(ay))) / det
+    if nearest and integer and source.dtype.itemsize > 4:
+        # Float64 cannot represent every 64-bit class ID. Round the same
+        # float32 coordinates as OpenCV, then gather values in their own dtype.
+        rows = np.rint(map_y.astype(np.float32))
+        cols = np.rint(map_x.astype(np.float32))
+        valid = (
+            np.isfinite(rows)
+            & np.isfinite(cols)
+            & (rows >= 0)
+            & (cols >= 0)
+            & (rows < source.shape[0])
+            & (cols < source.shape[1])
+        )
+        out = np.zeros((out_h, out_w), dtype=source.dtype)
+        out[valid] = source[rows[valid].astype(np.intp), cols[valid].astype(np.intp)]
+        return out
+    work = np.float64 if integer and source.dtype.itemsize > 2 else np.float32
+    image = np.where(np.isfinite(source), source, 0).astype(work)
     interpolation = cv2.INTER_NEAREST if nearest else cv2.INTER_LINEAR
     out = cv2.remap(
         image,
@@ -812,8 +865,8 @@ def correct_canvas(
 
 
 def _load_array(path: Path) -> np.ndarray:
-    if path.suffix == ".npy":
-        array = np.load(path)
+    if path.suffix.lower() == ".npy":
+        array = np.load(path, allow_pickle=False)
     else:
         array = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
         if array is None:
@@ -838,6 +891,42 @@ def _check_writable(path: Path, array: np.ndarray) -> None:
             f"{path.name} cannot hold a {array.dtype} result without changing its "
             "values; write .npy or .tif (a uint8 or uint16 label can also be .png)"
         )
+
+
+def _output_path(path: Path, *inputs: Path) -> Path:
+    from vesuvius_autoresearch.core.prediction_artifacts import (
+        validate_output_file,
+        validate_plan_paths,
+    )
+
+    path = path.absolute()
+    path = path.parent.resolve() / path.name
+    if path.suffix.lower() not in {".npy", *_WRITABLE}:
+        raise ValueError("corrected output must be .npy, .png, .tif or .tiff")
+    validate_plan_paths(
+        [(path, "corrected canvas")], [(item, "canvas input") for item in inputs]
+    )
+    if os.path.lexists(path):
+        validate_output_file(path, label="canvas")
+    return path
+
+
+def _publish_array(path: Path, array: np.ndarray, *inputs: Path) -> None:
+    from vesuvius_autoresearch.fibers.provenance import atomic_file
+
+    _check_writable(path, array)
+    _output_path(path, *inputs)
+    if path.suffix.lower() == ".npy":
+        encoded = None
+    else:
+        ok, encoded = cv2.imencode(path.suffix.lower(), array)
+        if not ok:
+            raise OSError(f"could not encode corrected canvas as {path.suffix}")
+    with atomic_file(path, "wb") as stream:
+        if encoded is None:
+            np.save(stream, array, allow_pickle=False)
+        else:
+            stream.write(encoded.tobytes())
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -912,6 +1001,8 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.out is not None:
+            args.out = _output_path(args.out, args.surface, args.canvas)
         surface = _load_array(args.surface)
         canvas = _load_array(args.canvas)
         if args.linear:
@@ -933,23 +1024,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     except CanvasShiftNotLocated as exc:
         print(f"not located: {exc}", file=sys.stderr)
         return 3
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, cv2.error) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     corrected = result.pop("corrected")
     assert isinstance(corrected, np.ndarray)
     if args.out is not None:
         try:
-            _check_writable(args.out, corrected)
-        except ValueError as exc:
+            _publish_array(args.out, corrected, args.surface, args.canvas)
+        except (OSError, ValueError, cv2.error) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-        if args.out.suffix.lower() == ".npy":
-            np.save(args.out, corrected)
-        else:
-            if not cv2.imwrite(str(args.out), corrected):
-                print(f"error: could not write {args.out}", file=sys.stderr)
-                return 2
     payload = {
         "aligned_before": result["aligned_before"],
         "fit": result["fit"],

@@ -23,6 +23,18 @@ measurements or access CUDA. Use `--json` for a structured report. A passing set
 check is not a GPU, model-compatibility or prize-eligibility check.
 See [status output, config budgets and next steps](docs/WORKSPACE_STATUS.md).
 
+The [repository audit](docs/REPOSITORY_AUDIT.md) records verified fixes, remaining
+architecture and cleanup decisions, and the limits of the available validation.
+The [historical artifact status catalogue](reports/HISTORICAL_ARTIFACTS.md)
+identifies retained results with undefined fields; the old active-learning queue
+is unusable as a ranking.
+
+The [portable CPU checks](CONTRIBUTING.md#development) run without the GPU research
+environment or a Villa checkout. The CPU workflow runs them on PRs;
+they do not establish model or scientific validity. The old
+[v3 training CLI](v3_training/README.md) is retired; maintained training uses
+`scripts/training/train.py`.
+
 **Window limits:** the project's existing 64-pixel recipe and artifact checks are
 local evaluation contracts. Current official reading-prize rules allow larger
 windows with evidence against hallucination. See the [rules and limitations](docs/RESEARCH_STRATEGY.md);
