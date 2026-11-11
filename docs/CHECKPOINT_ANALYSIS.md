@@ -194,6 +194,13 @@ uv run python scripts/launch_proofreader.py \
 This launcher accepts aligned 3D CT and integer categorical label arrays of the
 same shape, including OME groups with a level-0 array. Verify their physical
 registration separately: matching shapes alone do not establish alignment.
+Label IDs must be in `0..255`, including IDs added while editing: pinned Villa
+saves labels as uint8. Bool and uint8 inputs need no value scan; wider or signed
+integer inputs require a complete label scan before launch, with requested
+blocks capped at 64 voxels per axis. Storage decoding can allocate more than
+the requested block, so this is not a process-memory or runtime limit. Negative
+or oversized IDs are refused rather than truncated; valid wide inputs are
+retained unchanged. The input check does not constrain later GUI edits.
 The scalar patch edge must fit every axis; Villa uses cubic patches. The
 launcher starts at z=0, locates Villa from this checkout, uses a temporary
 configuration and returns the GUI subprocess's exit code. Napari and Villa's

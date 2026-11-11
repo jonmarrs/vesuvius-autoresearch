@@ -131,8 +131,11 @@ while not Path({str(pidfile)!r}).exists(): time.sleep(.01)
     supervisor = ProcessSupervisor(grace_seconds=0.15)
     try:
         if leader_exits:
+            # This path tests cleanup after a successful leader exit. Allow
+            # worker/interpreter startup under suite load; the cleanup checks
+            # below retain their own bounds. The timeout path is tested next.
             assert (
-                supervisor.run([sys.executable, "-c", leader], timeout=3).returncode
+                supervisor.run([sys.executable, "-c", leader], timeout=15).returncode
                 == 0
             )
         else:

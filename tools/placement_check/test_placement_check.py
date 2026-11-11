@@ -150,3 +150,16 @@ def test_cli_declines_unknown_placement_without_a_success_report(
     assert code == 2
     assert output.out == ""
     assert "placement-check:" in output.err
+
+
+def test_zero_full_resolution_agreement_is_not_a_located_coarse_peak():
+    fixed = np.zeros((136, 135), bool)
+    moving = np.zeros_like(fixed)
+    fixed[64, 40] = True
+    moving[64, 45] = True
+    # Both points survive the odd-width nearest coarse lattice at adjacent
+    # columns, but that coarse 4px offset has no agreement at full resolution.
+    with pytest.raises(ValueError, match="full resolution"):
+        placement_offset(fixed, moving, max_shift=8, coarse=4, refine=0)
+    located = placement_offset(fixed, moving, max_shift=8, coarse=4, refine=2)
+    assert (located.dy, located.dx, located.dice_at_peak) == (0, 5, 1.0)

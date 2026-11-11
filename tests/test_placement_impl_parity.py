@@ -127,3 +127,14 @@ def test_both_refuse_a_peak_at_the_refinement_boundary(impl):
     b = np.roll(a, 5, axis=1)
     with pytest.raises(ValueError, match="search boundary"):
         impl(a, b, max_shift=32, coarse=4, refine=1)
+
+
+@requires_tool
+@pytest.mark.parametrize("impl", [ours, published])
+def test_both_refuse_a_coarse_match_with_zero_full_resolution_agreement(impl):
+    fixed = np.zeros((136, 135), bool)
+    moving = np.zeros_like(fixed)
+    fixed[64, 40] = True
+    moving[64, 45] = True
+    with pytest.raises(ValueError, match="full resolution"):
+        impl(fixed, moving, max_shift=8, coarse=4, refine=0)

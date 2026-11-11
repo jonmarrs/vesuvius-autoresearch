@@ -79,8 +79,11 @@ def missing_villa_refs(root, refs):
         return [
             "villa history requires its own initialized checkout, not the parent repository"
         ]
-    return [
-        f"missing Villa commit: {ref}"
-        for ref in dict.fromkeys(refs)
-        if git("rev-parse", "--verify", f"{ref}^{{commit}}").returncode
-    ]
+    missing = []
+    for ref in dict.fromkeys(refs):
+        resolved = git("rev-parse", "--verify", f"{ref}^{{commit}}")
+        # A branch can itself have a hexadecimal name. Resolution alone must
+        # not authorize another commit as the immutable source being checked.
+        if resolved.returncode or not resolved.stdout.strip().startswith(ref):
+            missing.append(f"missing Villa commit: {ref}")
+    return missing

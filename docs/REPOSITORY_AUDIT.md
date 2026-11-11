@@ -594,3 +594,78 @@ redirect a temporary test repository's commands into another index or object
 store. After adding that regression, the final twelve-module portable run passed
 `275 passed` with no skips in 33.35 seconds. It includes all sixteen policy tests
 and the five recovery prechecks. Configured Mypy again passed on 960 files.
+
+## Pre-merge review corrections
+
+Review against main `f00cfc45` confirmed that commit `47ff96ec` on the existing
+data-loss follow-up branch contained two fixes not yet incorporated here. Both
+defects were reproduced against `538bb067`: its focused regressions reported
+`25 failed, 8 passed` before the fixes. The commit was incorporated as `282f62fe`.
+
+- **Actual image destination:** Matplotlib could append a default extension to
+  a filename the artifact planner had validated, overwriting a checkpoint or
+  sibling preview outside that plan. Planning now resolves the appended suffix
+  and trailing-dot behavior, protects that actual path and supplies the planned
+  format explicitly to both regional writers. Tests exercise the real savefig
+  statement, aliases, case/default-format changes and both entrypoints.
+- **Proofreader label IDs:** integer dtype alone did not prevent pinned Villa
+  from truncating existing negative or greater-than-255 IDs when saving uint8.
+  Wide/signed input labels now receive a complete bounded-block range scan;
+  bool/uint8 inputs remain metadata-only. Valid wide labels are not rewritten.
+  This does not restrict later human edits or establish physical registration.
+  Both affected modules passed `70 passed` in 7.76 seconds after incorporation.
+- **Zero-agreement placement:** a 136-by-135 synthetic fixture with a five-pixel
+  displacement could produce a coarse four-pixel peak with zero full-resolution
+  agreement when `refine=0`. The standalone tool returned it as located while
+  the registration gate already refused. It now also requires positive final
+  agreement. Two regressions failed before that guard; the 68-check standalone,
+  parity and registration-gate selection passes, including a positive control
+  that locates the true displacement with sufficient refinement.
+
+The earlier and intermediate full-suite attempts were intentionally interrupted
+when these fixes became necessary. They are not passing full-suite evidence.
+The completed-run and follow-up verification are recorded below.
+
+## Final review verification
+
+The completed 212-module curated run reported
+`1 failed, 5652 passed, 42 skipped, 1 xfailed` in 857.22 seconds. The failure
+was `test_supervisor_reaps_term_resistant_descendants[True]`: its three-second
+deadline expired while the leader waited for its worker's startup file. That
+successful-exit test now allows fifteen seconds for interpreter/worker startup.
+Its timeout-path case, descendant-liveness assertions and cleanup deadlines are
+unchanged. The full lifecycle module passes in the final recheck.
+
+Review also reproduced an immutable-ref gap in the new test prerequisites: a
+hexadecimal branch named `deadbeef` could satisfy the gate while resolving to a
+different commit. The fixture now requires the resolved hash to start with the
+declared commit prefix. Both default and strict-mode regressions failed before
+the fix and pass afterward.
+
+The complete lifecycle and prerequisite modules passed `56 passed` in 25.13
+seconds after those final changes. All failures from the completed curated run
+are resolved; the whole registry was not repeated after the startup-test and
+commit-prefix corrections. Counts from overlapping selections are not additive.
+The separate lock-constrained WebKnossos SDK run passed all `81` fiber-label
+tests in 68.19 seconds, including the optional SDK coverage absent from the
+base environment. This is not a complete CUDA-lock or original-corpus run.
+
+Configured Mypy passed on 960 source files. Maintained-source lint and the
+cumulative 66-file format checks passed. Smoke passed
+`9/11 passed, 2 skipped, 0 failed` in 16.5 seconds; skips need local CT/ink
+labels. The documentation guards passed `138 passed, 1 skipped`; the skip needs
+the original spiral corpus. Offline lock consistency passed (255 packages),
+and dependency-report bindings plus the retained historical-artifact hashes
+were verified. No historical artifact bytes changed relative to main.
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short -o faulthandler_timeout=90
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_research_prerequisites.py tests/test_loop_lifecycle.py -q --tb=short
+
+env PYTHONPATH=src:/tmp/vesuvius-review-sdk OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_fiber_label_generation.py -q -rs --tb=short
+```
+
+The seven remaining owner-review items, GPU/data/history limitations, and
+non-transactional publication limits above still apply. The final hosted CPU
+check and reviewed head are linked in the PR before merging.

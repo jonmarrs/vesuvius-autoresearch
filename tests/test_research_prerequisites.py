@@ -239,3 +239,43 @@ def test_missing_source_blob_after_valid_commit_preflight_is_a_failure(tmp_path)
     )
     assert code == 1 and "historical source blob unavailable" in output, output
     assert "1 failed" in output and "skipped" not in output
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_hex_named_branch_cannot_substitute_for_a_commit_prefix(tmp_path, strict):
+    villa = tmp_path / "checkout/villa"
+    env = git_environment()
+    subprocess.run(["git", "init", "-q", str(villa)], check=True, env=env)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(villa),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "unrelated commit",
+        ],
+        check=True,
+        env=env,
+    )
+    actual = subprocess.check_output(
+        ["git", "-C", str(villa), "rev-parse", "HEAD"], text=True, env=env
+    ).strip()
+    assert not actual.startswith("deadbeef")
+    subprocess.run(["git", "-C", str(villa), "branch", "deadbeef"], check=True, env=env)
+    code, output = run_checks(
+        tmp_path,
+        'import pytest\n@pytest.mark.villa_history("deadbeef")\ndef test_claim():\n    raise AssertionError("WRONG SOURCE RAN")\n',
+        *(["--require-research-inputs"] if strict else []),
+    )
+    assert code == (1 if strict else 0), output
+    assert "missing Villa commit: deadbeef" in output
+    assert "WRONG SOURCE RAN" not in output

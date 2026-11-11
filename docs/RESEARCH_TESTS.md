@@ -85,7 +85,9 @@ For example, `git -C villa show ced62390e:ink-detection/train_timesformer_og.py`
 should succeed before attempting the preserved-source comparison.
 
 The fixture verifies that `villa/` is its own repository rather than accepting
-the parent's refs, and checks each declared commit. Its Git probes prohibit
+the parent's refs, and requires the resolved commit hash to match each declared
+prefix. A hexadecimal branch name cannot substitute for a different commit.
+Its Git probes prohibit
 transport and have ten-second timeouts. Git probes and temporary-repository
 operations ignore inherited repository/index selectors from hooks while
 retaining authentication and guard settings. Marked tests inherit

@@ -200,6 +200,11 @@ def placement_offset(
     peak, by, bx = _scan(
         a, b, margin, (cy - refine, cx - refine), (cy + refine, cx + refine)
     )
+    if not peak > 0:
+        raise ValueError(
+            "placement_offset: no shift agrees at all at full resolution; "
+            "the placement is unknown"
+        )
 
     refinement_boundary = refine > 0 and (
         abs(by - cy) == refine or abs(bx - cx) == refine
