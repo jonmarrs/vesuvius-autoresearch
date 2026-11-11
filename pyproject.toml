@@ -78,6 +78,10 @@ testpaths = ["tests"]
 # "src" first: the shared .venv's editable install may point at another checkout.
 pythonpath = [".", "src", "scripts/training"]
 python_files = ["test_*.py"]
+markers = [
+    "research_input(name): requires original spiral_patches or spiral_rays study inputs; missing inputs skip unless --require-research-inputs",
+    "villa_history(*refs): requires immutable commits in the Villa checkout; missing history skips unless --require-research-inputs",
+]
 norecursedirs = [
     ".git",
     ".venv",

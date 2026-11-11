@@ -17,9 +17,10 @@ python3.10 -m venv /tmp/vesuvius-cpu-tests
 /tmp/vesuvius-cpu-tests/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short
 ```
 
-The ten-module portable profile checks process cleanup, setup diagnostics,
+The twelve-module portable profile checks process cleanup, setup diagnostics,
 bounded file captures, validation selection, retired launchers and the standalone
-geometry tools, plus regional accumulator byte arithmetic. It runs on Linux
+geometry tools, regional accumulator byte arithmetic and research-prerequisite
+policy and recovery prechecks. It runs on Linux
 with pytest and NumPy; it does not validate
 models, GPU behavior, annotation quality or historical study results. Use
 `--profile portable --list` to inspect its exact scope. Patterns passed with
@@ -58,9 +59,12 @@ uv run python scripts/smoke_test.py  # ~20s, exercises the main code paths
 `make test` remains the smoke alias. Use `make validate` for all curated
 validation modules or `make test-all` for every module under `tests/`, including
 research and historical-report guards. Both hide CUDA; data-, network- and
-GPU-dependent tests may skip. Some historical research tests instead require
-the original study corpus or old Villa commit objects and fail when those are
-absent. Record these gaps explicitly. A smoke pass is not a full validation run.
+GPU-dependent tests may skip. Declared corpus/history checks skip with named
+missing prerequisites by default; pass `--require-research-inputs` to pytest to
+fail selected checks when those inputs are absent. See the
+[research-test provisioning and scope](docs/RESEARCH_TESTS.md). Other legacy skip
+policies and research dependencies remain separate. Record these gaps explicitly.
+A smoke pass is not a full validation run.
 
 The default `uv sync` installs the locked `dev` group (pytest, Ruff and Mypy),
 including the Mypy command used by the commit hook. Use the existing

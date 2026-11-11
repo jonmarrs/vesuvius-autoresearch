@@ -56,6 +56,7 @@ def test_smoothing_actually_induces_correlation():
     assert corr > 0.6
 
 
+@pytest.mark.research_input("spiral_patches")
 def test_real_patch_residuals_are_correlated_not_white():
     """The fact that decides which arm is the relevant comparison. If real
     residuals were white, the independent arm would be right and the earlier
@@ -66,6 +67,7 @@ def test_real_patch_residuals_are_correlated_not_white():
     assert float((a > 0).mean()) > 0.6
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_correlated_noise_breaks_the_metric_earlier_than_independent():
     """The finding. At an RMS where independent noise flips nothing, correlated
     noise of the SAME RMS flips several verdicts."""

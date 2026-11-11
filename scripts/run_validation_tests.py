@@ -116,6 +116,8 @@ VALIDATION_TESTS = [
     "tests/test_regional_artifact_plan.py",
     "tests/test_regional_resource_plan.py",
     "tests/test_regional_resource_preflight.py",
+    "tests/test_research_prerequisites.py",
+    "tests/test_recover_arm_precheck.py",
     "tests/test_proofreader_launcher.py",
     "tests/test_volume_read_contracts.py",
     "tests/test_detector_contracts.py",
@@ -239,6 +241,8 @@ VALIDATION_TESTS = [
 
 
 PORTABLE_TESTS = [
+    "tests/test_recover_arm_precheck.py",
+    "tests/test_research_prerequisites.py",
     "tests/test_regional_resource_plan.py",
     "tests/test_text_snapshot.py",
     "tests/test_validation_runner.py",

@@ -29,11 +29,13 @@ from probe_real_patch_scatter import (  # noqa: E402
 )
 
 
+@pytest.mark.research_input("spiral_patches")
 def test_patches_are_present():
     """Guard on the premise: without real patches this probe measures nothing."""
     assert len(patch_dirs()) >= 5
 
 
+@pytest.mark.research_input("spiral_patches")
 def test_scatter_grows_monotonically_with_window_extent():
     """The central methodological claim, and the reason a single number would be
     misleading. If residual did NOT grow with window size, the first attempt's
@@ -50,6 +52,7 @@ def test_scatter_grows_monotonically_with_window_extent():
     assert medians[-1] > 3 * medians[0]
 
 
+@pytest.mark.research_input("spiral_patches")
 def test_the_comparable_window_is_chosen_by_real_extent():
     """The matched window must be the one whose voxel extent is closest to the
     synthetic patch, not the largest or the first. With a ~20 voxel grid step the
@@ -73,6 +76,7 @@ def test_the_comparable_window_is_chosen_by_real_extent():
         assert cost_best <= cost_other
 
 
+@pytest.mark.research_input("spiral_patches")
 def test_radius_is_measured_from_the_umbilicus_not_the_origin():
     """A radius taken from the volume origin instead of the scroll axis would be
     wrong by the axis offset, which is thousands of voxels here."""

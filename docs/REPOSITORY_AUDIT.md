@@ -223,9 +223,43 @@ This pass continues from `e38d2d6f`.
   regressions require the separate research review environment. Default full
   selection remains the 210-module curated registry.
 
+## Research-test prerequisites and recovery checks
+
+This pass continues from `1d1465fb` and resolves the classification/provisioning
+decision for the missing-input failures identified above.
+
+- **Explicit prerequisites:** corpus-dependent tests in fifteen probe modules
+  now name `spiral_patches` or `spiral_rays`. Historical render and preserved
+  source comparisons name their immutable Villa commits. Missing declared inputs
+  skip by default with the missing paths/refs; `--require-research-inputs` makes
+  them fail for selected checks. It does not require inputs for deselected tests
+  or change unrelated legacy skip policies. All numerical test-function bodies
+  in those probe modules are unchanged. Three source-inspection guards no longer
+  depend on the patch corpus and now execute without it.
+- **Strict history checks:** prerequisites require Villa's own repository, so a
+  hash resolving in the parent cannot satisfy the gate. Read-only probes prohibit
+  transport and have timeouts; marked tests disable implicit lazy fetch. After
+  commit preflight, a missing preserved-source blob fails instead of skipping
+  the remaining byte comparisons. Temporary-repository tests cover these failure
+  modes without presenting synthetic history as original-study evidence.
+  Git probes and temporary-repository operations ignore inherited repository/index
+  selectors from hooks while retaining authentication and guard configuration.
+- **Portable recovery precheck:** ref acceptance now uses a temporary Git
+  repository, and absence uses a temporary missing path rather than a developer's
+  home directory. Every precheck test forces an unattainable capacity threshold,
+  preventing an accidental render on a large host. The validation registry now
+  includes 212 modules; its portable profile includes twelve.
+- **Provisioning and scope:** the [research-test guide](RESEARCH_TESTS.md) lists
+  the original corpus paths, historical commit requirements, explicit history
+  provisioning and strict/selective commands. Skips are unavailable coverage,
+  not scientific passes. These declarations do not certify payload provenance,
+  provide missing originals, migrate all legacy skips or establish that every
+  research test is portable. Data onboarding and new scientific runs remain
+  separate review items below.
+
 ## Items for owner review
 
-The eight remaining items below are in suggested work order, not a claim that
+The seven remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
@@ -233,7 +267,6 @@ each has caused a measured scientific failure.
 | High | **Dependency advisories still need migrations and applicability review.** GitHub reported 149 alerts on the default branch (6 critical), but its advisory API returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data onboarding is incomplete.** The [quick start](../README.md) expects fragment CT Zarrs and aligned labels, but explicitly states that no maintained command builds those directories. Archived downloaders fetch different inputs. | Choose a supported source/format and add a pinned download/conversion manifest plus one small verified example. Do not revive placeholder-producing archival downloaders as though they prepared the training recipe. |
-| High | **A clean checkout cannot run every research test successfully.** Some probe tests require the original private spiral corpus; render-equivalence and preserved-source tests require old Villa commit objects absent from a shallow pinned checkout. See [real-patch tests](../tests/test_probe_real_patch_scatter.py), [render-equivalence tests](../tests/test_check_render_equivalence.py) and [preserved-source tests](../tests/test_villa_preserved.py). | Decide which tests are portable unit tests and which are corpus/history integration checks. Add explicit fixtures/markers and a documented provision step without weakening their scientific assertions. Missing real data is not evidence that the underlying claims pass. |
 | Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
@@ -511,3 +544,53 @@ env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM
 The last command ran from `/tmp/vesuvius-portable-budget-checkout`; the others
 ran from the audit checkout. This local portable run is separate from hosted
 GitHub verification recorded on the PR.
+
+## Research prerequisite verification
+
+The nineteen-module affected selection passed `95 passed, 65 skipped` in 21.15
+seconds. The skips explicitly name unavailable original study files or historical
+Villa commits; they are not passing scientific comparisons. After adding the
+late-blob regression, the complete prerequisite-policy module passed
+`15 passed` in 4.84 seconds. Recovery, runner, registry and file-mode controls
+passed `58 passed` in 10.90 seconds. These selections overlap.
+
+Strict mode was exercised on the real patch-presence and preserved-source
+tests: both missing prerequisites correctly produced setup errors and status 1,
+with neither claim counted as passing. A temporary repository also reproduced
+the parent commit's late skip when a source blob was missing after valid commit
+preflight. The new regression requires failure instead. AST comparison against
+`1d1465fb` confirms identical numerical test-function bodies across all fifteen
+changed probe modules.
+
+The twelve-module portable profile passed `274 passed`, with no skips, in
+43.74 seconds from a separate source snapshot and the unchanged minimal hashed
+CI environment. No Villa checkout, research corpus or ML dependency was needed.
+Maintained-source lint passed there. Configured Mypy passed on 960 source files;
+Ruff check and format passed on all 66 cumulative Python files. The offline lock
+consistency check passed (255 packages); no runtime dependency version changed.
+
+Smoke passed `9/11 passed, 2 skipped, 0 failed` in 23.8 seconds; the skips still
+need local CT/ink labels. Documentation guards passed `138 passed, 1 skipped`
+in 45.35 seconds; that separate legacy skip needs the original spiral corpus.
+The full 212-module curated registry and full research tree were not repeated.
+No original-corpus measurement, historical render equivalence or GPU result
+was established in this pass.
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_probe_best_case_dr.py tests/test_probe_correlated_scatter.py tests/test_probe_cross_estimator_consistency.py tests/test_probe_exceedance_denominator.py tests/test_probe_is_corrected_scatter_physical.py tests/test_probe_nonparametric_surrogate.py tests/test_probe_onset_at_matched_correlation.py tests/test_probe_radial_span_mismatch.py tests/test_probe_real_patch_satisfaction.py tests/test_probe_real_patch_scatter.py tests/test_probe_real_residual_exceedance.py tests/test_probe_scatter_estimator_calibration.py tests/test_probe_self_consistent_exceedance.py tests/test_probe_spiral_satisfaction_empirical_transform.py tests/test_probe_spiral_satisfaction_onset.py tests/test_research_prerequisites.py tests/test_check_render_equivalence.py tests/test_villa_preserved.py tests/test_recover_arm_precheck.py -q -rs --tb=short -o faulthandler_timeout=90
+
+/workspace/.vesuvius-review-env/bin/python -m pytest tests/test_research_prerequisites.py -q --tb=short
+
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-portable-ci-env/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+```
+
+The last command ran from `/tmp/vesuvius-prerequisites-ci-checkout`; the others
+ran from the audit checkout. The first command documents the affected selection;
+its recorded count preceded the final late-blob test, which was covered by the
+complete policy-module recheck.
+
+Author review additionally covered inherited Git hook selectors: they must not
+redirect a temporary test repository's commands into another index or object
+store. After adding that regression, the final twelve-module portable run passed
+`275 passed` with no skips in 33.35 seconds. It includes all sixteen policy tests
+and the five recovery prechecks. Configured Mypy again passed on 960 files.
