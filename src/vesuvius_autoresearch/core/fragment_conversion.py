@@ -68,14 +68,17 @@ def _digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def _image(data, path, max_pixels, dtype):
+def decode_fragment_image(data, path, max_pixels, dtype, *, formats=None, modes=None):
+    """Decode one captured scalar image within a caller's pixel/type contract."""
     try:
         with warnings.catch_warnings():
             # The explicit pixel budget governs, not Pillow's lower warning level.
             warnings.simplefilter("ignore", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(data)) as image:
                 if (
-                    getattr(image, "n_frames", 1) != 1
+                    (formats is not None and image.format not in formats)
+                    or (modes is not None and image.mode not in modes)
+                    or getattr(image, "n_frames", 1) != 1
                     or len(image.getbands()) != 1
                     or image.width * image.height > max_pixels
                     or min(image.size) <= 0
@@ -90,6 +93,10 @@ def _image(data, path, max_pixels, dtype):
     if array.ndim != 2 or array.dtype.kind != "u" or array.dtype.itemsize != dtype:
         raise ValueError(f"expected uint{dtype * 8} grayscale image: {path}")
     return array
+
+
+# Retain the converter's private name for existing call sites and tests.
+_image = decode_fragment_image
 
 
 def convert_layer_u16_to_u8(array):
