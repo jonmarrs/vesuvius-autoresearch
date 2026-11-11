@@ -168,11 +168,13 @@ replaces a training volume's labels, and is refused while `use_confidence_weight
 is off ([pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md)). With confidence weighting enabled,
 post-augmentation PNG-128 and 0.5 targets have zero ink BCE/Dice weight;
 this does not guarantee spatial holdout exclusion through augmentation or
-auxiliary losses. No maintained command in this
-repository builds these directories. The downloaders in `scripts/archive/` are
-unmaintained and fetch raw CT, TIFF layers or label PNGs, not these zarrs; the
-`download_data.py --fragment 4` this guide used to give names a moved script,
-downloads nothing and exits 0.
+auxiliary losses. To prepare a **new** fragment from already-downloaded uint16
+TIFFs and aligned binary PNG labels, use the maintained CPU
+[local data importer](docs/TRAINING_DATA_IMPORT.md). It pins source hashes and
+preserves CT values; verify alignment and the output-relative depth band before
+using its output. A pinned download recipe and verified real-fragment example
+remain open. The downloaders in `scripts/archive/` are unmaintained and are not
+a supported way to prepare this training layout.
 
 Those filename priorities do not establish label quality. The old bulk
 refinement and spiral-region filling commands are retired. Use the

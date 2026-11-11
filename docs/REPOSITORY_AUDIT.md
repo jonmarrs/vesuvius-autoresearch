@@ -266,11 +266,11 @@ each has caused a measured scientific failure.
 | --- | --- | --- |
 | High | **Dependency advisories still need migrations and applicability review.** GitHub reported 149 alerts on the default branch (6 critical), but its advisory API returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
-| High | **Training-data onboarding is incomplete.** The [quick start](../README.md) expects fragment CT Zarrs and aligned labels, but explicitly states that no maintained command builds those directories. Archived downloaders fetch different inputs. | Choose a supported source/format and add a pinned download/conversion manifest plus one small verified example. Do not revive placeholder-producing archival downloaders as though they prepared the training recipe. |
+| High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
 | Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
-| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The root demo/evidence generators still use direct GPU imports and fixed output locations. | Inventory supported commands before splitting CPU/GPU/research extras. Decide whether to retain, port or archive the two root generators. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the new CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
 ## Verification record
 
@@ -669,3 +669,96 @@ env PYTHONPATH=src:/tmp/vesuvius-review-sdk OMP_NUM_THREADS=1 OPENBLAS_NUM_THREA
 The seven remaining owner-review items, GPU/data/history limitations, and
 non-transactional publication limits above still apply. The final hosted CPU
 check and reviewed head are linked in the PR before merging.
+
+## Local training-data import and figure retirement
+
+This follow-up starts from merged main `90a1f029`. The new
+[CPU local importer](TRAINING_DATA_IMPORT.md) accepts consecutive uint16 TIFF
+planes and explicitly aligned binary PNG labels/masks. Planning captures and
+decodes every source; building verifies those hashes again, writes and reads
+back one CT plane at a time, and publishes a new directory only after success.
+The parsed plan and its hash use the same captured bytes. Source/manifest changes,
+shape/type mismatches, insufficient budgets and write failures refuse publication.
+Build limits cannot be raised through the manifest. Planning also enforces the
+reader's manifest-size limit before publishing a plan.
+
+Output preserves uint16 values and original label PNG bytes. It records source
+Z origin, but training coordinates remain output-relative. Geometry/chunk-storage
+caps are acceptance limits rather than measured peak-memory or free-space
+guarantees. Inputs must remain stable and writers serialized; the shared staged
+publisher is not a crash-durable or concurrent-writer transaction. No data source
+was downloaded, and no checkpoint/configuration or historical scientific result
+was updated. A source-pinned download and verified real-fragment example remain
+open in the onboarding item above.
+
+The two unused root figure generators now refuse execution before scientific
+imports or writes and direct callers to the maintained fiber workflow. Copies
+under [legacy figures](../scripts/archive/legacy_figures/README.md) were compared
+byte for byte with the originals at `90a1f029`; both SHA256 comparisons match.
+Existing figures, measurements and reports are unchanged. Retaining historical
+source does not validate its evidence.
+
+Verification in the same isolated Python 3.10.21 CPU environment:
+
+- Importer, retired entrypoints, existing converter and validation-runner tests:
+  **140 passed** in 20.35 seconds. Synthetic fixtures cover direct command-line
+  plan/build, the real volume reader and training dataset, uint16 extrema and
+  endianness, binary-label rules, budgets, changed captures, aliases and cleanup.
+- Loader, file-mode, validation-coverage and Villa component guards:
+  **33 passed, 3 skipped** in 19.51 seconds. The skips need original local CT.
+- The dependency-minimal portable profile: **283 passed** in 32.42 seconds.
+  It now selects thirteen modules; the full curated registry selects 214.
+  Importer tests require the full CPU scientific dependencies and are outside
+  that portable profile. These selections are not a full curated rerun.
+- Configured Mypy: **967 files**, no issues. Maintained-source Ruff and changed
+  source formatting pass; the archived copies already match formatting without
+  being rewritten. Offline lock consistency passes; dependencies are unchanged.
+- Required nine-module documentation guards: **138 passed, 1 skipped** in 33.42
+  seconds; the skip needs the original spiral corpus. Five additional/overlapping
+  documentation and snapshot modules passed **60 tests** in 18.94 seconds.
+  After staging all new files and completing this record, the documentation
+  guards plus file-mode checks passed **149 passed, 1 skipped** in 33.88 seconds.
+- Smoke: **9/11 passed, 2 skipped, 0 failed** in 13.2 seconds. Both skips need
+  original CT/labels. No GPU, training, real-fragment conversion or new scientific
+  measurement was performed.
+
+Representative exact commands (all from the audit checkout):
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_surface_volume_import.py tests/test_legacy_figure_retirement.py tests/test_detector_conversion_contracts.py tests/test_convert_fragment.py tests/test_validation_runner.py -q --tb=short
+
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-portable-ci-env/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+
+/workspace/.vesuvius-review-env/bin/python -m mypy . --explicit-package-bases --namespace-packages --python-executable /workspace/.vesuvius-review-env/bin/python
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/smoke_test.py
+```
+
+The seven owner-review items remain, with local conversion and root-generator
+disposition resolved and the corresponding rows narrowed. Dependency migrations,
+human-feedback semantics, original-source onboarding, GPU profiling, packaging,
+fresh scientific validation and the remaining maintenance decisions are still open.
+
+## PR 403 review corrections
+
+Review reproduced an undeclared TIFF transform: Pillow automatically applies
+EXIF orientation, and orientation 3 rotated an 8×10 uint16 plane by 180° while
+preserving its shape. Dimension checks and CT readback could therefore pass
+while CT no longer matched the declared label grid. The new importer now requires
+absent or identity orientation metadata on both TIFF CT and PNG labels/masks,
+after header/pixel-budget checks and before accepting the image. Both planning
+and building enforce this, including when a
+rotated input has an updated, matching hash. The shared decoder's existing
+converter defaults remain unchanged; this does not rerun historical conversions.
+
+The input guide also clarifies that the optional binary mask guides thresholded
+patch selection. Selected patches can overlap zero-mask pixels, ink-based
+selection or patch catalogues can override the mask, and it is not a per-pixel
+loss exclusion map.
+
+The five-module affected selection above passed **150 tests** in 25.41 seconds,
+including ten orientation regressions for CT, labels and masks, explicit
+identity metadata and a re-hashed rotated build input. Configured Mypy passed
+on **967 files**, and maintained Ruff passed. Final publication checks and
+hosted CPU results are recorded on the PR. Missing original data and GPU
+validation remain as stated above.

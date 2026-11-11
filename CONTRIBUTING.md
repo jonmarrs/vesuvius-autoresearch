@@ -17,7 +17,7 @@ python3.10 -m venv /tmp/vesuvius-cpu-tests
 /tmp/vesuvius-cpu-tests/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short
 ```
 
-The twelve-module portable profile checks process cleanup, setup diagnostics,
+The thirteen-module portable profile checks process cleanup, setup diagnostics,
 bounded file captures, validation selection, retired launchers and the standalone
 geometry tools, regional accumulator byte arithmetic and research-prerequisite
 policy and recovery prechecks. It runs on Linux
@@ -66,6 +66,15 @@ fail selected checks when those inputs are absent. See the
 policies and research dependencies remain separate. Record these gaps explicitly.
 A smoke pass is not a full validation run.
 
+Local training-data conversion has a maintained CPU
+[TIFF/PNG import workflow](docs/TRAINING_DATA_IMPORT.md) with pinned sources and
+new-directory publication. Its tests need the full project's CPU scientific
+dependencies and run in the curated suite, outside the minimal portable profile.
+The two root figure-generator entrypoints now report retirement before ML imports
+or writes. Their source is preserved under
+[scripts/archive/legacy_figures](scripts/archive/legacy_figures/README.md);
+use the maintained [fiber CLI](docs/FIBER_DETECTION.md) for new sourced artifacts.
+
 The default `uv sync` installs the locked `dev` group (pytest, Ruff and Mypy),
 including the Mypy command used by the commit hook. Use the existing
 [resume instructions](docs/RESUME_AFTER_RESTART.md) on a research host with an
@@ -110,6 +119,7 @@ The point is concrete evidence of human evaluation, not polished prose.
 ## Project layout
 
 - `scripts/training/train.py` — training subprocess, spawned one cycle at a time
+- `scripts/training/prepare_surface_volume.py` — pinned local TIFF/PNG import into a new training fragment
 - `v3_training/` — [archived prototype](v3_training/README.md); its CLI refuses before ML imports
 - `scripts/training/config.py` — configuration without training imports
 - `run_autoresearch_loop.py` — success-weighted search over `tweak_templates`
