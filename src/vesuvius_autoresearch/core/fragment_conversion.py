@@ -68,7 +68,16 @@ def _digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def decode_fragment_image(data, path, max_pixels, dtype, *, formats=None, modes=None):
+def decode_fragment_image(
+    data,
+    path,
+    max_pixels,
+    dtype,
+    *,
+    formats=None,
+    modes=None,
+    require_identity_orientation=False,
+):
     """Decode one captured scalar image within a caller's pixel/type contract."""
     try:
         with warnings.catch_warnings():
@@ -85,6 +94,14 @@ def decode_fragment_image(data, path, max_pixels, dtype, *, formats=None, modes=
                 ):
                     raise ValueError(
                         f"expected one scalar image within pixel budget: {path}"
+                    )
+                # TIFF loading applies its orientation tag automatically. A 180°
+                # turn keeps the same shape and can silently misalign CT/labels.
+                # Check after header allocation guards, before NumPy conversion.
+                # PNG EXIF metadata can require a bounded pixel load to inspect.
+                if require_identity_orientation and image.getexif().get(274, 1) != 1:
+                    raise ValueError(
+                        f"image must have identity orientation (1) or no orientation tag: {path}"
                     )
                 array = np.array(image)
     # Pillow reports some damaged files as SyntaxError or TypeError.

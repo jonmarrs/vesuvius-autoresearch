@@ -75,6 +75,7 @@ def _image(data, path, role, max_pixels):
         2 if layer else 1,
         formats={"TIFF"} if layer else {"PNG"},
         modes=None if layer else {"L"},
+        require_identity_orientation=True,
     )
     if not layer and not np.isin(values, [0, 255]).all():
         raise ValueError(f"{role} must be binary uint8 PNG encoded as 0/255: {path}")

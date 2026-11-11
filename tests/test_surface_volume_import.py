@@ -142,6 +142,46 @@ def test_palette_png_is_not_read_as_grayscale_label_indices(source):
         plan(source)
 
 
+def orient(path, orientation):
+    with Image.open(path) as image:
+        values = np.array(image)
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.fromarray(values).save(path, exif=exif)
+
+
+@pytest.mark.parametrize("name", ["16.tif", "inklabels.png", "mask.png"])
+@pytest.mark.parametrize("orientation", [3, 6])
+def test_oriented_images_cannot_silently_change_the_declared_grid(
+    source, name, orientation
+):
+    orient(source / name, orientation)
+    with pytest.raises(ValueError, match="identity orientation"):
+        plan(source)
+
+
+@pytest.mark.parametrize("name", ["16.tif", "inklabels.png", "mask.png"])
+def test_explicit_identity_orientation_is_supported(source, tmp_path, name):
+    orient(source / name, 1)
+    result = importer.build_import(pin(source, tmp_path), tmp_path / "out")
+    array = zarr.open(str(result / "surface_volume.zarr"), mode="r")
+    np.testing.assert_array_equal(array[0], np.array(Image.open(source / "16.tif")))
+
+
+def test_rehashed_oriented_ct_is_refused_during_build(source, tmp_path):
+    manifest = pin(source, tmp_path)
+    orient(source / "16.tif", 3)
+    value = json.loads(manifest.read_text())
+    raw = (source / "16.tif").read_bytes()
+    value["sources"]["layers"][0].update(
+        bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest()
+    )
+    manifest.write_text(json.dumps(value))
+    with pytest.raises(ValueError, match="identity orientation"):
+        importer.build_import(manifest, tmp_path / "out")
+    assert not (tmp_path / "out").exists() and not list(tmp_path.glob(".out-*"))
+
+
 def test_explicit_alignment_and_matching_shapes_are_required(source):
     with pytest.raises(ValueError, match="aligned_labels"):
         plan(source, aligned_labels=False)

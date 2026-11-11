@@ -738,3 +738,27 @@ The seven owner-review items remain, with local conversion and root-generator
 disposition resolved and the corresponding rows narrowed. Dependency migrations,
 human-feedback semantics, original-source onboarding, GPU profiling, packaging,
 fresh scientific validation and the remaining maintenance decisions are still open.
+
+## PR 403 review corrections
+
+Review reproduced an undeclared TIFF transform: Pillow automatically applies
+EXIF orientation, and orientation 3 rotated an 8×10 uint16 plane by 180° while
+preserving its shape. Dimension checks and CT readback could therefore pass
+while CT no longer matched the declared label grid. The new importer now requires
+absent or identity orientation metadata on both TIFF CT and PNG labels/masks,
+after header/pixel-budget checks and before accepting the image. Both planning
+and building enforce this, including when a
+rotated input has an updated, matching hash. The shared decoder's existing
+converter defaults remain unchanged; this does not rerun historical conversions.
+
+The input guide also clarifies that the optional binary mask guides thresholded
+patch selection. Selected patches can overlap zero-mask pixels, ink-based
+selection or patch catalogues can override the mask, and it is not a per-pixel
+loss exclusion map.
+
+The five-module affected selection above passed **150 tests** in 25.41 seconds,
+including ten orientation regressions for CT, labels and masks, explicit
+identity metadata and a re-hashed rotated build input. Configured Mypy passed
+on **967 files**, and maintained Ruff passed. Final publication checks and
+hosted CPU results are recorded on the PR. Missing original data and GPU
+validation remain as stated above.

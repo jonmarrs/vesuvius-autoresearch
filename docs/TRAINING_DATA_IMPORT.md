@@ -23,7 +23,15 @@ Archived downloaders are not a supported preparation recipe.
   0/1 encodings and multi-channel images are refused. Resolve uncertain labels
   separately using the [label proposal workflow](LABEL_EDIT_PROPOSALS.md).
 - An optional mask with the same PNG contract: 255 includes pixels and 0 excludes
-  them from sampling. No mask is invented if it is absent.
+  them from the mask's eligible area. No mask is invented if it is absent.
+  The training loader uses thresholded patch selection, so a selected patch may
+  overlap zero-mask pixels. Ink-based selection and an explicit patch catalogue
+  can override the mask; the mask is not a per-pixel loss exclusion map.
+- TIFF and PNG orientation metadata must be absent or identity (EXIF orientation
+  1). Other values are refused: Pillow otherwise rotates TIFFs
+  automatically, including shape-preserving turns that evade dimension checks.
+  Independently align and export images on the intended grid before importing;
+  removing a tag alone does not establish registration.
 - All images must have exactly the same Y/X dimensions. Independently verify
   their physical crop, scale, orientation and registration, then declare
   `--aligned-labels`. Equal shapes and that declaration do not prove alignment.
