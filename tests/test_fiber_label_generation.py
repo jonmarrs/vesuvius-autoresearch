@@ -365,6 +365,27 @@ def test_budgeted_midpoints_preserve_the_existing_dyadic_samples(generator):
     np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.parametrize("dtype, magnitude", [(np.float64, 1e20), (np.float32, 1e12)])
+def test_budget_preflight_preserves_coarse_floating_point_midpoints(
+    generator, dtype, magnitude
+):
+    start = np.array([magnitude, 0, 0], dtype=dtype)
+    stop = start.copy()
+    stop[0] = np.nextafter(start[0], dtype(np.inf))
+    result = generator._interpolate_adaptive(start, stop)
+    # With adjacent floats, each rounded midpoint is an endpoint. The legacy
+    # depth-100 recursion makes 102 points, within the default budget.
+    assert len(result) == 102
+    np.testing.assert_array_equal(result[0], start)
+    np.testing.assert_array_equal(result[-1], stop)
+
+
+def test_budget_preflight_preserves_the_legacy_norm_underflow_case(generator):
+    start, stop = np.zeros(3), np.array([1e-192, 0, 0])
+    result = generator._interpolate_adaptive(start, stop, curvature_threshold=1e-200)
+    np.testing.assert_array_equal(result, [start, stop])
+
+
 @pytest.mark.parametrize("budget", [0, 1, -1, True, 2.5, float("nan")])
 def test_invalid_sampling_budget_fails_before_optional_sdk_import(
     generator, tmp_path, monkeypatch, budget

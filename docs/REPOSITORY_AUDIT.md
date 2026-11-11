@@ -152,8 +152,9 @@ This pass continues from `5a6870a8` and resolves two entries from the review lis
 - **Crossing skeleton edges:** the previous disjoint-edge culling did not bound
   a long edge passing through the cube. Each edge now has an explicit
   `max_edge_samples` limit, default 65,537. A geometric preflight rejects clearly
-  over-budget edges before recursive sampling, while an exact interval counter
-  enforces the cap when an explicit recursion limit stops earlier. Exceeding the
+  over-budget edges with ordinary pixel precision before recursive sampling,
+  while an exact interval counter handles shallow recursion limits, coarse
+  floating-point spacing and norm underflow. Exceeding the
   limit fails the whole run before label publication. No edge is silently
   omitted or sampled at a different spacing. Plans and label metadata record
   the limit; the CLI passes it through the process pool.
@@ -339,13 +340,20 @@ research measurement was produced or published.
 
 ## Numeric and resource-limit verification
 
-The six-module curated selection passed `289 passed, 11 skipped` in 9.86 seconds.
+The final six-module curated selection passed `292 passed, 11 skipped` in 8.10 seconds.
 The eleven optional SDK checks in the base environment were covered separately:
-the complete fiber-label module passed `78 passed` in 10.95 seconds using the
+the complete fiber-label module passed `81 passed` in 10.06 seconds using the
 lock-constrained WebKnossos SDK directory. Counts overlap and are not additive.
 The new frame suite passed all 47 tests, including ten cases that failed before
 the numeric fixes. The sample-budget regressions initially reported ten failures
 and one SDK-dependent skip before implementation.
+
+Author review also reproduced three false rejections in the first geometric
+preflight: adjacent large float64/float32 coordinates and a tiny custom-step
+case whose legacy norm underflows. The fast estimate now applies only to
+ordinary pixel precision and uses a conservative margin. All other cases use
+the exact counter, preserving those within-budget legacy samples without
+removing the hard limit. The final counts above include the three regressions.
 
 Configured Mypy passed on 953 source files, and Ruff check/format passed on all
 38 Python files in the cumulative PR. Smoke passed
@@ -368,6 +376,6 @@ The differential check compiled only `_interpolate_adaptive` and
 sequences and 3-by-4-by-5 voxel grids matched the current implementation exactly.
 This check uses synthetic geometry and does not replace a corpus measurement.
 
-The final documentation guard selection passed `138 passed, 1 skipped` in 75.47
+The final documentation guard selection passed `138 passed, 1 skipped` in 33.03
 seconds (the skip needs the original spiral corpus). File-mode guards passed
 `11 passed` in 3.90 seconds, and `git diff --check` passed.

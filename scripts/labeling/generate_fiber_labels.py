@@ -80,12 +80,21 @@ def _interpolate_adaptive(
     if not isfinite(curvature_threshold) or curvature_threshold <= 0:
         raise ValueError("curvature_threshold must be finite and positive")
     message = f"skeleton edge exceeds interpolation sample budget ({max_points} points)"
-    # A clearly oversized edge need not allocate even its first recursive list.
-    # If a shallow explicit recursion limit may stop sampling sooner, rely on
-    # the exact leaf counter instead. dist avoids overflow from squared lengths.
-    if max_recursion >= max_points.bit_length() and dist(
-        start_pos, end_pos
-    ) > curvature_threshold * (max_points - 1):
+    # Use the length shortcut only for ordinary pixel coordinates: coarse float
+    # spacing or norm underflow can make the legacy recursion stop much sooner
+    # than geometry predicts. Those cases rely on the exact counter below.
+    coordinates = np.asarray([start_pos, end_pos])
+    precise_pixels = (
+        curvature_threshold == 0.1
+        and (coordinates.dtype.kind in "iu" or coordinates.dtype == np.float64)
+        and np.max(np.abs(coordinates.astype(np.float64)))
+        <= curvature_threshold * 2**48
+    )
+    if (
+        precise_pixels
+        and max_recursion >= max_points.bit_length()
+        and dist(start_pos, end_pos) > 2 * curvature_threshold * (max_points - 1)
+    ):
         raise ValueError(message)
     remaining = max_points - 1  # each leaf contributes one interval, plus one endpoint
 
