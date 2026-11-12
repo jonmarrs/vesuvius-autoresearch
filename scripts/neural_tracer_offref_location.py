@@ -114,17 +114,31 @@ def reference(skel) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def trilinear(v: np.ndarray, p: np.ndarray) -> np.ndarray:
-    p = np.clip(p, 0, np.asarray(v.shape) - 1.001)
+    """Sample ``v`` at points ``p``. An integer coordinate is that voxel.
+
+    Points outside the volume are held on the boundary. A sample on the far
+    face has no next voxel; that neighbour's weight is zero, so the sample is
+    the boundary voxel. Stopping one thousandth of a voxel early mixed the
+    face with the voxel before it.
+    """
+    limit = np.asarray(v.shape, np.float64) - 1
+    p = np.clip(np.asarray(p, np.float64), 0, limit)
     i = np.floor(p).astype(np.int64)
     f = p - i
     out = np.zeros(len(p))
     for dz in (0, 1):
         for dy in (0, 1):
             for dx in (0, 1):
-                wz = f[:, 0] if dz else 1 - f[:, 0]
-                wy = f[:, 1] if dy else 1 - f[:, 1]
-                wx = f[:, 2] if dx else 1 - f[:, 2]
-                out += wz * wy * wx * v[i[:, 0] + dz, i[:, 1] + dy, i[:, 2] + dx]
+                wz = f[:, 0] if dz else 1.0 - f[:, 0]
+                wy = f[:, 1] if dy else 1.0 - f[:, 1]
+                wx = f[:, 2] if dx else 1.0 - f[:, 2]
+                weight = wz * wy * wx
+                use = weight > 0
+                if not np.any(use):
+                    continue
+                out[use] += (
+                    weight[use] * v[i[use, 0] + dz, i[use, 1] + dy, i[use, 2] + dx]
+                )
     return out
 
 

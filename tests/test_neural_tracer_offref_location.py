@@ -168,6 +168,27 @@ def test_trilinear_is_exact_on_a_linear_volume_and_peak_on_a_parabola():
     ] == [None, None]
 
 
+def test_trilinear_reads_the_boundary_voxel_as_itself():
+    """An integer coordinate is that voxel, including the far face and a 1-voxel cube.
+
+    Clipping to shape - 1.001 mixed the last voxel with its neighbour (9 became
+    8.973 on a 2-voxel axis). A point past the end stays on the boundary voxel.
+    """
+    cube = np.zeros((2, 2, 2))
+    cube[1, 1, 1] = 9
+    assert ol.trilinear(cube, np.array([[1.0, 1.0, 1.0]]))[0] == pytest.approx(9)
+    one = np.array([[[4.0]]])
+    assert ol.trilinear(
+        one, np.array([[0.0, 0.0, 0.0], [3.0, -2.0, 0.5]])
+    ) == pytest.approx([4, 4])
+    zz, yy, xx = np.meshgrid(*(np.arange(8.0),) * 3, indexing="ij")
+    linear = 2 * zz + 3 * yy - xx
+    face = np.array([[7.0, 1.25, 2.5]])
+    assert ol.trilinear(linear, face)[0] == pytest.approx(2 * 7 + 3 * 1.25 - 2.5)
+    past = np.array([[8.4, -1.0, 3.2]])
+    assert ol.trilinear(linear, past)[0] == pytest.approx(2 * 7 + 3 * 0 - 3.2)
+
+
 RECORD = json.loads(
     (
         ROOT / "reports/evidence/neural_tracer_offref_location_2026-11-05.json"
