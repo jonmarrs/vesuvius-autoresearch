@@ -588,8 +588,9 @@ def test_trial_wrapper_delegates_and_restores_private_context(
     fake.warm_start_mismatch = real_train.warm_start_mismatch
     calls = []
 
-    def train(cfg, *, strict_warm_start=False):
+    def train(cfg, *, strict_warm_start=False, config_path=None):
         assert strict_warm_start is True
+        assert config_path == path.resolve()
         assert Path.cwd() == workspace
         assert str(workspace / "skeleton_hists") == fake.SKELETON_HIST_DIR
         assert cfg.checkpoint_out == str(workspace / "candidate.pt")

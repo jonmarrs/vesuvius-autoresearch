@@ -120,6 +120,8 @@ VALIDATION_TESTS = [
     "tests/test_recover_arm_precheck.py",
     "tests/test_proofreader_launcher.py",
     "tests/test_surface_volume_import.py",
+    "tests/test_training_split.py",
+    "tests/test_training_checkpoint_paths.py",
     "tests/test_legacy_figure_retirement.py",
     "tests/test_volume_read_contracts.py",
     "tests/test_detector_contracts.py",
@@ -243,6 +245,8 @@ VALIDATION_TESTS = [
 
 
 PORTABLE_TESTS = [
+    "tests/test_training_split.py",
+    "tests/test_training_checkpoint_paths.py",
     "tests/test_legacy_figure_retirement.py",
     "tests/test_recover_arm_precheck.py",
     "tests/test_research_prerequisites.py",

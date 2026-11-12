@@ -344,7 +344,12 @@ def test_strict_unlabeled_samples_must_be_complete_finite_float_tensors(
 
 
 @pytest.mark.parametrize(
-    "factory", [loader.FastVesuviusVolume, loader.VesuviusS3Dataset]
+    "factory",
+    [
+        loader.FastVesuviusVolume,
+        loader.VesuviusS3Dataset,
+        lambda uri, **kwargs: loader.VesuviusLabeledDataset(uri, "unused", **kwargs),
+    ],
 )
 @pytest.mark.parametrize("flag", ["true", 1, None])
 def test_strict_policy_is_an_explicit_boolean(factory, flag):

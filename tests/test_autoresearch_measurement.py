@@ -1285,6 +1285,16 @@ def test_train_writes_the_warm_start_it_made_into_run_result():
         if isinstance(key, ast.Constant)
     }
     assert entries["warm_start"] == "warm_started"
+    assert ast.unparse(assigned["read_policy"]) == "data_read_policy(config)"
+    assert entries["data_read_policy"] == "read_policy"
+    checkpoint = assigned["checkpoint"]
+    assert isinstance(checkpoint, ast.Dict)
+    checkpoint_entries = {
+        key.value: ast.unparse(value)
+        for key, value in zip(checkpoint.keys, checkpoint.values, strict=True)
+        if isinstance(key, ast.Constant)
+    }
+    assert checkpoint_entries["data_read_policy"] == "read_policy"
 
 
 def test_run_result_counts_the_steps_the_training_loop_took():

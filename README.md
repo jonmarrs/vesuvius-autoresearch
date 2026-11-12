@@ -176,6 +176,18 @@ using its output. A pinned download recipe and verified real-fragment example
 remain open. The downloaders in `scripts/archive/` are unmaintained and are not
 a supported way to prepare this training layout.
 
+Training refuses observable overlap between validation and labeled or active
+UA-MT inputs, including local symlinks and group/array paths. It also checks
+experiment checkpoint and curve destinations against loop state and named
+inputs before training and saving. `python3 scripts/workspace_status.py` reports
+these conflicts without loading arrays. Path checks cannot establish independence
+of copied crops or different remote URLs; verify the study split separately.
+
+For new experiments, `"strict_training_reads": true` aborts on labeled/UA-MT
+read or requested preprocessing failures. The default retains legacy fallbacks;
+validation remains strict. Diagnostics and completed run artifacts record the
+[selected read policy](docs/TRAINING_DATA_IMPORT.md#choose-the-training-read-policy).
+
 Those filename priorities do not establish label quality. The old bulk
 refinement and spiral-region filling commands are retired. Use the
 [label edit proposal workflow](docs/LABEL_EDIT_PROPOSALS.md) to inspect bounded

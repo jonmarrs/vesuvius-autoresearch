@@ -11,6 +11,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -23,7 +24,9 @@ if __package__ in (None, ""):
 
 from scripts import loop_control
 from scripts.text_snapshot import Snapshot
-from scripts.training.config import ExperimentConfig
+from scripts.training.checkpoint_paths import validate_training_checkpoint_writes
+from scripts.training.config import ExperimentConfig, data_read_policy
+from scripts.training.data_split import validate_training_split
 from scripts.training.input_paths import training_label_path, validation_label_path
 
 DEFAULT_CONFIG_BYTES = 1024**2
@@ -72,6 +75,9 @@ def inspect_workspace(
         if not isinstance(value, str) or not value:
             add(name, "blocked", "Expected a nonempty local path string.")
             return None
+        candidate = repo / value
+        if os.path.exists(candidate):
+            return candidate
         try:
             scheme = urlsplit(value).scheme
         except ValueError as exc:
@@ -85,7 +91,7 @@ def inspect_workspace(
                 value,
             )
             return None
-        return repo / value
+        return candidate
 
     def present(path, name, *, file=False):
         try:
@@ -217,6 +223,31 @@ def inspect_workspace(
     except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as exc:
         add("config", "blocked", f"Cannot load configuration: {exc}", path)
         return finish()
+
+    report["data_read_policy"] = data_read_policy(config)
+    add(
+        "read_policy",
+        "info",
+        f"Training reads: {report['data_read_policy']['training']}; validation reads: strict. Data contents are not checked.",
+    )
+    for name, validate in (
+        ("training_split", lambda: validate_training_split(config, base_dir=repo)),
+        (
+            "checkpoint_outputs",
+            lambda: validate_training_checkpoint_writes(
+                config, config_path=path, base_dir=repo
+            ),
+        ),
+    ):
+        try:
+            validate()
+            add(
+                name,
+                "ok",
+                "No observable path conflicts; source independence and contents remain unverified.",
+            )
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:
+            add(name, "blocked", str(exc))
 
     pseudo = config.pseudo_label_dir
     if pseudo:
