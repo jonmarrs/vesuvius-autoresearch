@@ -274,13 +274,14 @@ class TraceResult:
 def _trilinear(vol: np.ndarray, p: np.ndarray) -> float:
     """Trilinear sample of a scalar volume at a float (z, y, x) point.
 
-    Coordinates within 1e-9 of zero are snapped to zero. Without that, a value
-    like -5.7e-17 floors to -1 and the sample is reported as out of bounds.
-    That failure killed every walk starting on a face of the volume.
+    Coordinates within 1e-9 of a face are snapped onto that face. Without the
+    snap, a value like -5.7e-17 floors to -1 and the sample is reported as out
+    of bounds. That failure killed every walk starting on a face of the volume.
+    The far face is snapped the same way, so a coordinate within 1e-9 of the
+    last voxel is that voxel.
 
-    A sample on the far face has no next voxel. That neighbour's weight is
-    zero, so it is not read: the sample is the face voxel, including a
-    one-voxel axis. A NaN voxel counts only when its weight is positive. A
+    The missing neighbour's weight is then zero and is not read, including on
+    a one-voxel axis. A NaN voxel counts only when its weight is positive. A
     non-finite coordinate is NaN, and so is a point whose needed support
     leaves the volume.
     """
@@ -288,20 +289,12 @@ def _trilinear(vol: np.ndarray, p: np.ndarray) -> float:
     p = np.asarray(p, dtype=float)
     if p.shape != (3,) or not np.all(np.isfinite(p)):
         return float("nan")
+    last = np.asarray(vol.shape, dtype=float) - 1.0
     p = np.where(np.abs(p) < eps, 0.0, p)
+    p = np.where(np.abs(p - last) < eps, last, p)
     z, y, x = (float(v) for v in p)
     base = [int(np.floor(z)), int(np.floor(y)), int(np.floor(x))]
     frac = [z - base[0], y - base[1], x - base[2]]
-    # A coordinate within 1e-9 of the far face stays on that voxel. Stepping
-    # the base back keeps the 2-voxel stencil inside when the axis has one.
-    for axis, coord in enumerate((z, y, x)):
-        last = vol.shape[axis] - 1
-        if base[axis] == last and abs(coord - base[axis]) < eps:
-            if last == 0:
-                frac[axis] = 0.0
-            else:
-                base[axis] -= 1
-                frac[axis] = coord - base[axis]
     value = 0.0
     for dz in (0, 1):
         for dy in (0, 1):
@@ -326,6 +319,21 @@ def _trilinear(vol: np.ndarray, p: np.ndarray) -> float:
     return float(value)
 
 
+def _nearest_index(p: np.ndarray, shape) -> tuple[int, int, int] | None:
+    """Nearest voxel of ``p``, or None when it is non-finite or outside.
+
+    Rounding a NaN or an infinity raises. A walk that reaches one stops
+    instead.
+    """
+    coords = np.asarray(p, dtype=float)
+    if coords.shape != (3,) or not np.all(np.isfinite(coords)):
+        return None
+    idx = tuple(int(round(v)) for v in coords)
+    if not all(0 <= idx[a] < shape[a] for a in range(3)):
+        return None
+    return idx  # type: ignore[return-value]
+
+
 def _direction_at(
     dirs: np.ndarray, valid: np.ndarray, p: np.ndarray, prev: np.ndarray | None
 ) -> np.ndarray | None:
@@ -336,10 +344,9 @@ def _direction_at(
     but equally valid vectors to near-zero. Aligning signs before averaging is
     possible but adds a failure mode for no real gain at sub-voxel steps.
     """
-    idx = tuple(int(round(v)) for v in p)
-    for a in range(3):
-        if not (0 <= idx[a] < dirs.shape[a]):
-            return None
+    idx = _nearest_index(p, dirs.shape)
+    if idx is None:
+        return None
     if not valid[idx]:
         return None
     d = dirs[idx].astype(float)
@@ -402,8 +409,8 @@ def _walk(
             skipped = 0
 
         nxt = p + d * params.step
-        idx = tuple(int(round(v)) for v in nxt)
-        if not all(0 <= idx[a] < response.shape[a] for a in range(3)):
+        idx = _nearest_index(nxt, response.shape)
+        if idx is None:
             reason = StopReason.OUT_OF_BOUNDS
             break
 

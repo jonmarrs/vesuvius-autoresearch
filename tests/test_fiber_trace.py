@@ -390,9 +390,9 @@ def test_traceresult_shape_matches_input():
 def test_trilinear_keeps_an_exact_voxel_beside_a_nan_neighbour():
     """A zero-weight NaN used to clear the sample, and the walk stopped there.
 
-    The far face and a one-voxel axis are that voxel. A sample that still
-    needs the NaN stays NaN. A non-finite coordinate is NaN rather than an
-    exception.
+    A coordinate within 1e-9 of either face is that voxel, so 7±5e-10 beside
+    a NaN neighbour is the face value. A point at -0.5 is outside and stays
+    NaN. A non-finite coordinate is NaN, and the walk stops instead of raising.
     """
     zz, yy, xx = np.meshgrid(*(np.arange(8.0),) * 3, indexing="ij")
     linear = 2 * zz + 3 * yy - xx
@@ -416,6 +416,12 @@ def test_trilinear_keeps_an_exact_voxel_beside_a_nan_neighbour():
     assert np.isnan(_trilinear(linear, np.array([np.nan, 1.0, 1.0])))
     assert np.isnan(_trilinear(linear, np.array([np.inf, 1.0, 1.0])))
     assert np.isnan(_trilinear(linear, np.array([8.0, 1.0, 1.0])))
+    assert np.isnan(_trilinear(linear, np.array([-0.5, 1.0, 1.0])))
+    face = np.zeros((8, 1, 1))
+    face[7, 0, 0] = 9
+    face[6, 0, 0] = np.nan
+    assert _trilinear(face, np.array([7.0 + 5e-10, 0.0, 0.0])) == pytest.approx(9)
+    assert _trilinear(face, np.array([7.0 - 5e-10, 0.0, 0.0])) == pytest.approx(9)
 
     response = np.ones((5, 5, 5))
     response[3, 2, 2] = np.nan
@@ -433,3 +439,29 @@ def test_trilinear_keeps_an_exact_voxel_beside_a_nan_neighbour():
     )
     assert [tuple(p) for p in pts] == [(2.0, 2.0, 2.0)]
     assert reason is StopReason.OUT_OF_BOUNDS
+    # A non-finite step used to raise in round() before the sample.
+    with np.errstate(invalid="ignore"):
+        stopped, _, reason = _walk(
+            np.array([1.0, 2.0, 2.0]),
+            np.array([1.0, 0.0, 0.0]),
+            np.ones((5, 5, 5)),
+            directions,
+            np.ones((5, 5, 5), dtype=bool),
+            np.zeros((5, 5, 5), dtype=int),
+            TraceParams(step=np.inf, max_steps=2),
+            1,
+        )
+    assert stopped == []
+    assert reason is StopReason.OUT_OF_BOUNDS
+    stopped, _, reason = _walk(
+        np.array([np.nan, 2.0, 2.0]),
+        np.array([1.0, 0.0, 0.0]),
+        np.ones((5, 5, 5)),
+        directions,
+        np.ones((5, 5, 5), dtype=bool),
+        np.zeros((5, 5, 5), dtype=int),
+        TraceParams(step=1.0, max_steps=2),
+        1,
+    )
+    assert stopped == []
+    assert reason is StopReason.INVALID_DIRECTION
