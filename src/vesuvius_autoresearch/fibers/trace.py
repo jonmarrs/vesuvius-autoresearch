@@ -274,36 +274,56 @@ class TraceResult:
 def _trilinear(vol: np.ndarray, p: np.ndarray) -> float:
     """Trilinear sample of a scalar volume at a float (z, y, x) point.
 
-    Coordinates are snapped into range by a small epsilon first. Without it a
-    value like -5.7e-17, which arises routinely from a direction component that
-    is mathematically zero, floors to -1 and the sample is reported as out of
-    bounds. That failure killed every walk starting on a face of the volume.
+    Coordinates within 1e-9 of zero are snapped to zero. Without that, a value
+    like -5.7e-17 floors to -1 and the sample is reported as out of bounds.
+    That failure killed every walk starting on a face of the volume.
+
+    A sample on the far face has no next voxel. That neighbour's weight is
+    zero, so it is not read: the sample is the face voxel, including a
+    one-voxel axis. A NaN voxel counts only when its weight is positive. A
+    non-finite coordinate is NaN, and so is a point whose needed support
+    leaves the volume.
     """
     eps = 1e-9
     p = np.asarray(p, dtype=float)
-    p = np.where(np.abs(p) < eps, 0.0, p)
-    z, y, x = p
-    z0, y0, x0 = int(np.floor(z)), int(np.floor(y)), int(np.floor(x))
-    # Sampling exactly on the far face is legitimate; step back one voxel so the
-    # 2x2x2 neighbourhood stays inside the array.
-    if z0 == vol.shape[0] - 1 and abs(z - z0) < eps:
-        z0 -= 1
-    if y0 == vol.shape[1] - 1 and abs(y - y0) < eps:
-        y0 -= 1
-    if x0 == vol.shape[2] - 1 and abs(x - x0) < eps:
-        x0 -= 1
-    if not (
-        0 <= z0 < vol.shape[0] - 1
-        and 0 <= y0 < vol.shape[1] - 1
-        and 0 <= x0 < vol.shape[2] - 1
-    ):
+    if p.shape != (3,) or not np.all(np.isfinite(p)):
         return float("nan")
-    dz, dy, dx = z - z0, y - y0, x - x0
-    c = vol[z0 : z0 + 2, y0 : y0 + 2, x0 : x0 + 2]
-    wz = np.array([1 - dz, dz])
-    wy = np.array([1 - dy, dy])
-    wx = np.array([1 - dx, dx])
-    return float(np.einsum("i,j,k,ijk->", wz, wy, wx, c))
+    p = np.where(np.abs(p) < eps, 0.0, p)
+    z, y, x = (float(v) for v in p)
+    base = [int(np.floor(z)), int(np.floor(y)), int(np.floor(x))]
+    frac = [z - base[0], y - base[1], x - base[2]]
+    # A coordinate within 1e-9 of the far face stays on that voxel. Stepping
+    # the base back keeps the 2-voxel stencil inside when the axis has one.
+    for axis, coord in enumerate((z, y, x)):
+        last = vol.shape[axis] - 1
+        if base[axis] == last and abs(coord - base[axis]) < eps:
+            if last == 0:
+                frac[axis] = 0.0
+            else:
+                base[axis] -= 1
+                frac[axis] = coord - base[axis]
+    value = 0.0
+    for dz in (0, 1):
+        for dy in (0, 1):
+            for dx in (0, 1):
+                wz = frac[0] if dz else 1.0 - frac[0]
+                wy = frac[1] if dy else 1.0 - frac[1]
+                wx = frac[2] if dx else 1.0 - frac[2]
+                weight = wz * wy * wx
+                if weight == 0.0:
+                    continue
+                zz, yy, xx = base[0] + dz, base[1] + dy, base[2] + dx
+                if not (
+                    0 <= zz < vol.shape[0]
+                    and 0 <= yy < vol.shape[1]
+                    and 0 <= xx < vol.shape[2]
+                ):
+                    return float("nan")
+                sample = float(vol[zz, yy, xx])
+                if not np.isfinite(sample):
+                    return float("nan")
+                value += weight * sample
+    return float(value)
 
 
 def _direction_at(
