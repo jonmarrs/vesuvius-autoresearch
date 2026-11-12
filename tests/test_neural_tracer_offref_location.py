@@ -190,10 +190,10 @@ def test_trilinear_reads_the_boundary_voxel_as_itself():
 
 
 def test_trilinear_returns_nan_for_a_nonfinite_coordinate():
-    """NaN, inf, and -inf used to become an index and return 0. They stay NaN.
+    """A NaN coordinate used to return 0. ±inf were clamped to the boundary voxel.
 
-    A NaN neighbour of an exact voxel has weight zero and does not clear it.
-    A sample that still needs that neighbour is NaN.
+    All three now stay NaN. A NaN neighbour of an exact voxel has weight zero
+    and does not clear it. A sample that still needs that neighbour is NaN.
     """
     v = np.arange(8, dtype=float).reshape(2, 2, 2)
     got = ol.trilinear(
