@@ -283,11 +283,15 @@ def _trilinear(vol: np.ndarray, p: np.ndarray) -> float:
     The missing neighbour's weight is then zero and is not read, including on
     a one-voxel axis. A NaN voxel counts only when its weight is positive. A
     non-finite coordinate is NaN, and so is a point whose needed support
-    leaves the volume.
+    leaves the volume. A point that is not shape ``(3,)`` raises ValueError.
+    An infinite voxel with positive weight is NaN; the walk treats that the
+    same as infinity and stops.
     """
     eps = 1e-9
     p = np.asarray(p, dtype=float)
-    if p.shape != (3,) or not np.all(np.isfinite(p)):
+    if p.shape != (3,):
+        raise ValueError(f"sample point must have shape (3,), got {p.shape}")
+    if not np.all(np.isfinite(p)):
         return float("nan")
     last = np.asarray(vol.shape, dtype=float) - 1.0
     p = np.where(np.abs(p) < eps, 0.0, p)
@@ -313,6 +317,8 @@ def _trilinear(vol: np.ndarray, p: np.ndarray) -> float:
                 ):
                     return float("nan")
                 sample = float(vol[zz, yy, xx])
+                # An infinite voxel used to come back as inf. The walk stops
+                # on either, so the trace is unchanged.
                 if not np.isfinite(sample):
                     return float("nan")
                 value += weight * sample

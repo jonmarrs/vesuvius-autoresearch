@@ -392,7 +392,7 @@ def test_trilinear_keeps_an_exact_voxel_beside_a_nan_neighbour():
 
     A coordinate within 1e-9 of either face is that voxel, so 7±5e-10 beside
     a NaN neighbour is the face value. A point at -0.5 is outside and stays
-    NaN. A non-finite coordinate is NaN, and the walk stops instead of raising.
+    NaN. A non-finite coordinate is NaN. A point that is not shape (3,) raises.
     """
     zz, yy, xx = np.meshgrid(*(np.arange(8.0),) * 3, indexing="ij")
     linear = 2 * zz + 3 * yy - xx
@@ -415,6 +415,10 @@ def test_trilinear_keeps_an_exact_voxel_beside_a_nan_neighbour():
     assert np.isnan(_trilinear(hole, np.array([1.25, 1.0, 1.0])))
     assert np.isnan(_trilinear(linear, np.array([np.nan, 1.0, 1.0])))
     assert np.isnan(_trilinear(linear, np.array([np.inf, 1.0, 1.0])))
+    with pytest.raises(ValueError):
+        _trilinear(linear, np.array([1.0, 2.0]))
+    with pytest.raises(ValueError):
+        _trilinear(linear, np.ones((3, 1)))
     assert np.isnan(_trilinear(linear, np.array([8.0, 1.0, 1.0])))
     assert np.isnan(_trilinear(linear, np.array([-0.5, 1.0, 1.0])))
     face = np.zeros((8, 1, 1))
