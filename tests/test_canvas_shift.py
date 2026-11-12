@@ -328,6 +328,58 @@ def test_ct_sampled_at_a_tifxyz_cell_reads_that_voxel():
     assert np.isnan(holed[0, 0]).all()
 
 
+def test_tifxyz_reads_the_last_in_plane_cell():
+    """A sample on the far edge has no next cell, and that neighbour's weight is 0.
+
+    Requiring the missing corner returned NaN for a stored cell that is in the
+    plane, including a one-row plane and a scale that lands on an integer.
+    A point that still needs that corner stays outside. An in-plane hole still
+    makes the sample NaN when its weight is zero.
+    """
+    plane = np.arange(12, dtype=np.float64).reshape(3, 4)
+    z = plane + 20
+    y = plane + 40
+    x = plane + 60
+    got = sample_tifxyz(
+        z,
+        y,
+        x,
+        np.array([2.0, 2.0, 0.0]),
+        np.array([3.0, 1.25, 0.0]),
+        1.0,
+        1.0,
+    )
+    assert got[0, 0].tolist() == pytest.approx([31.0, 51.0, 71.0])
+    assert got[1, 1].tolist() == pytest.approx(
+        [0.75 * 29 + 0.25 * 30, 0.75 * 49 + 0.25 * 50, 0.75 * 69 + 0.25 * 70]
+    )
+    assert got[2, 2].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    thin = np.array([[4.0, 5.0, 6.0]])
+    one = sample_tifxyz(
+        thin + 1, thin + 2, thin + 3, np.array([0.0]), np.array([2.0]), 1.0, 1.0
+    )
+    assert one[0, 0].tolist() == pytest.approx([7.0, 8.0, 9.0])
+    wide = np.arange(16, dtype=np.float64).reshape(4, 4)
+    scaled = sample_tifxyz(wide, wide, wide, np.array([1.5]), np.array([1.5]), 2.0, 2.0)
+    assert scaled[0, 0].tolist() == pytest.approx([15.0, 15.0, 15.0])
+    past_row = sample_tifxyz(z, y, x, np.array([2.25, 3.0]), np.array([1.0]), 1.0, 1.0)
+    past_col = sample_tifxyz(z, y, x, np.array([1.0]), np.array([3.25, 4.0]), 1.0, 1.0)
+    missing = sample_tifxyz(z, y, x, np.array([np.nan]), np.array([0.0]), 1.0, 1.0)
+    assert np.isnan(past_row).all()
+    assert np.isnan(past_col).all()
+    assert np.isnan(missing).all()
+    holed = plane.copy()
+    holed[1, 1] = -1
+    assert np.isnan(
+        sample_tifxyz(holed, holed, holed, np.array([0.0]), np.array([0.0]), 1.0, 1.0)
+    ).all()
+    z_hole = np.full((3, 4), 5.0)
+    z_hole[1, 1] = 0
+    assert np.isnan(
+        sample_tifxyz(z_hole, plane, plane, np.array([0.0]), np.array([0.0]), 1.0, 1.0)
+    ).all()
+
+
 def test_trilinear_reads_the_last_in_volume_voxel():
     """A sample on the far face has no next voxel, and that neighbour's weight is 0.
 
