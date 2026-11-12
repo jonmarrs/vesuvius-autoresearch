@@ -1,0 +1,18 @@
+# Standalone build of the three villa native modules the spiral fitter loads (track_crossings, track_store,
+# spiral_sampling). Each is one source file that needs only nanobind and OpenMP. Rules copied from villa
+# 0fb38c45 volume-cartographer/python/CMakeLists.txt; flags follow villa's Release defaults (-O3 -march=x86-64-v3),
+# without link-time optimisation.
+cmake_minimum_required(VERSION 3.22)
+project(vc_spiral_native CXX)
+set(VC_PY_SRC "" CACHE PATH "villa volume-cartographer/python/vc directory")
+find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+find_package(nanobind CONFIG REQUIRED)
+find_package(OpenMP REQUIRED)
+add_compile_options(-pipe -march=x86-64-v3 -O3)
+foreach(name track_crossings track_store spiral_sampling)
+    nanobind_add_module(vc_${name} NOMINSIZE "${VC_PY_SRC}/${name}.cpp")
+    set_target_properties(vc_${name} PROPERTIES OUTPUT_NAME ${name}
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/vc")
+    target_link_libraries(vc_${name} PRIVATE OpenMP::OpenMP_CXX)
+    target_compile_features(vc_${name} PRIVATE cxx_std_23)
+endforeach()
