@@ -328,6 +328,48 @@ def test_ct_sampled_at_a_tifxyz_cell_reads_that_voxel():
     assert np.isnan(holed[0, 0]).all()
 
 
+def test_trilinear_reads_the_last_in_volume_voxel():
+    """A sample on the far face has no next voxel, and that neighbour's weight is 0.
+
+    Requiring the missing corner returned NaN for an in-volume centre, including
+    a one-slice volume and the last level-2 cell. A point that still needs that
+    corner, or that sits one voxel past the end, stays outside.
+    """
+    volume = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+    last = np.array([[1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [1.0, 0.25, 1.5]])
+    sampled = sample_volume_trilinear(volume, last, level=0)
+    assert sampled[0] == pytest.approx(float(volume[1, 2, 3]))
+    assert sampled[1] == pytest.approx(float(volume[0, 0, 0]))
+    expected = (
+        0.75 * 0.5 * volume[1, 0, 1]
+        + 0.75 * 0.5 * volume[1, 0, 2]
+        + 0.25 * 0.5 * volume[1, 1, 1]
+        + 0.25 * 0.5 * volume[1, 1, 2]
+    )
+    assert sampled[2] == pytest.approx(float(expected))
+    thin = volume[:1]
+    one = sample_volume_trilinear(thin, np.array([[0.0, 1.0, 2.0]]), level=0)
+    assert one[0] == pytest.approx(float(thin[0, 1, 2]))
+    cube = np.zeros((2, 2, 2), np.float32)
+    cube[1, 1, 1] = 9
+    far = sample_volume_trilinear(cube, np.array([[5.5, 5.5, 5.5]]), level=2)
+    assert far[0] == pytest.approx(9.0)
+    # The volume reader crops to corners that exist. The far cell is then a
+    # one-voxel box whose level-2 centre is level-0 coordinate 1.5.
+    cropped = sample_volume_trilinear(
+        cube[1:, 1:, 1:], np.array([[1.5, 1.5, 1.5]]), level=2
+    )
+    assert cropped[0] == pytest.approx(9.0)
+    raw = volume.astype(np.uint8)
+    assert sample_volume_trilinear(raw, last[:1], level=0)[0] == pytest.approx(
+        float(raw[1, 2, 3])
+    )
+    outside = np.array(
+        [[2.0, 2.0, 3.0], [1.0, 3.0, 3.0], [1.0, 2.0, 4.0], [1.5, 1.0, 1.0]]
+    )
+    assert np.isnan(sample_volume_trilinear(volume, outside, level=0)).all()
+
+
 def test_a_shift_on_the_search_boundary_is_not_reported():
     """A peak at exactly +/- max_shift may be larger still, so it is not a result."""
     canvas = _texture(120, 120, seed=5)
