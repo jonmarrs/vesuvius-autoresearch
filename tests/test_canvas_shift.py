@@ -365,9 +365,27 @@ def test_tifxyz_reads_the_last_in_plane_cell():
     past_row = sample_tifxyz(z, y, x, np.array([2.25, 3.0]), np.array([1.0]), 1.0, 1.0)
     past_col = sample_tifxyz(z, y, x, np.array([1.0]), np.array([3.25, 4.0]), 1.0, 1.0)
     missing = sample_tifxyz(z, y, x, np.array([np.nan]), np.array([0.0]), 1.0, 1.0)
+    negative = sample_tifxyz(
+        z, y, x, np.array([-1.0, -0.25, 0.0]), np.array([-0.5, 0.0]), 1.0, 1.0
+    )
+    infinite = sample_tifxyz(
+        z,
+        y,
+        x,
+        np.array([0.0, np.inf, -np.inf]),
+        np.array([0.0, np.inf]),
+        1.0,
+        1.0,
+    )
     assert np.isnan(past_row).all()
     assert np.isnan(past_col).all()
     assert np.isnan(missing).all()
+    assert np.isnan(negative[:, 0]).all()
+    assert np.isnan(negative[:2, 1]).all()
+    assert negative[2, 1].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    assert infinite[0, 0].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    assert np.isnan(infinite[1:]).all()
+    assert np.isnan(infinite[:, 1]).all()
     holed = plane.copy()
     holed[1, 1] = -1
     assert np.isnan(
@@ -1073,6 +1091,64 @@ def test_the_probe_tiff_reader_reads_float32_strips(monkeypatch, tmp_path):
     np.testing.assert_array_equal(
         probe._Tiff("x").rows(3, 20, 5, 25), plane[3:20, 5:25]
     )
+
+
+def test_the_probe_tiff_reader_stops_at_the_file(monkeypatch, tmp_path):
+    """A 3x4 plane requested as rows [0, 5) and columns [0, 6) is the plane.
+
+    The old reader returned a 5x6 array whose extra rows and columns were NaN.
+    """
+    import tifffile
+
+    plane = np.arange(12, dtype=np.float32).reshape(3, 4) + 8
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=2)
+    _serve(monkeypatch, path.read_bytes())
+    reader = probe._Tiff("x")
+    np.testing.assert_array_equal(reader.rows(0, 5, 0, 6), plane)
+    np.testing.assert_array_equal(reader.rows(1, 8, 2, 9), plane[1:, 2:])
+    leading = reader.rows(-1, 9, -2, 4)
+    assert leading.shape == (plane.shape[0] + 1, plane.shape[1] + 2)
+    assert np.isnan(leading[0]).all()
+    assert np.isnan(leading[:, :2]).all()
+    np.testing.assert_array_equal(leading[1:, 2:], plane)
+
+
+def test_the_probe_reads_the_last_cell_of_a_nan_padded_crop(monkeypatch, tmp_path):
+    """Scale 2 lands on stored cell 3. The crop asks for [2, 6), past a 4x4 file.
+
+    Those extra rows used to be NaN inside the crop, so the last cell's unused
+    neighbour cleared the sample. The read stops at the file and the cell remains.
+    """
+    import tifffile
+
+    plane = np.arange(16, dtype=np.float32).reshape(4, 4)
+    path = tmp_path / "plane.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=2)
+    blob = path.read_bytes()
+    meta = json.dumps({"scale": [2.0, 2.0]}).encode()
+
+    def _fetch(url, rng=None):
+        data = meta if url.endswith("meta.json") else blob
+        if rng is None:
+            return data
+        return data[rng[0] : rng[1] + 1]
+
+    monkeypatch.setattr(probe, "_fetch", _fetch)
+    seen = []
+
+    def _volume(_base, points):
+        seen.append(np.array(points, copy=True))
+        return np.ones(len(points), np.float32)
+
+    monkeypatch.setattr(probe, "_volume_at", _volume)
+    surface, finite = probe._surface(
+        {"tifxyz": "mem://segment", "volume": "mem://volume"}, 0, 1, 0, 1
+    )
+    assert finite.shape == (1, 1)
+    assert bool(finite[0, 0])
+    assert surface[0, 0] == pytest.approx(1.0)
+    assert seen[0][0].tolist() == pytest.approx([15.0, 15.0, 15.0])
 
 
 @pytest.mark.parametrize(
