@@ -296,7 +296,9 @@ def sample_volume_trilinear(
 
     ``volume`` is already that level. Level ``k`` voxel ``i`` covers level-0
     ``[2^k * i, 2^k * i + 2^k - 1]``, so its centre is
-    ``(p0 - (2^k - 1) / 2) / 2^k``. Points outside the volume are NaN.
+    ``(p0 - (2^k - 1) / 2) / 2^k``. A centre on the far face has no next
+    voxel; that neighbour's weight is zero, so the sample is the voxel
+    itself. A point whose interpolation support leaves the volume is NaN.
     """
     array = np.asarray(volume)
     if array.ndim != 3:
@@ -312,7 +314,10 @@ def sample_volume_trilinear(
     frac = continuous - base
     base_i = base.astype(np.int64)
     depth, height, width = array.shape
-    inside = np.all(np.isfinite(points), axis=1)
+    # Finite samples only. A corner one step past an exact voxel has weight
+    # zero, so the last in-volume plane does not need a neighbour that is
+    # not there. Requiring every corner turned that plane into NaN.
+    support = np.all(np.isfinite(points), axis=1)
     value = np.zeros(len(points), np.float64)
     for z_off, y_off, x_off in (
         (a, b, c) for a in (0, 1) for b in (0, 1) for c in (0, 1)
@@ -320,16 +325,21 @@ def sample_volume_trilinear(
         zz = base_i[:, 0] + z_off
         yy = base_i[:, 1] + y_off
         xx = base_i[:, 2] + x_off
-        here = (
-            inside
-            & (zz >= 0)
+        needed = (
+            ((z_off == 0) | (frac[:, 0] > 0))
+            & ((y_off == 0) | (frac[:, 1] > 0))
+            & ((x_off == 0) | (frac[:, 2] > 0))
+        )
+        in_bounds = (
+            (zz >= 0)
             & (yy >= 0)
             & (xx >= 0)
             & (zz < depth)
             & (yy < height)
             & (xx < width)
         )
-        inside &= here
+        support &= ~needed | in_bounds
+        here = support & needed & in_bounds
         weight = (
             (frac[:, 0] if z_off else 1.0 - frac[:, 0])
             * (frac[:, 1] if y_off else 1.0 - frac[:, 1])
@@ -337,7 +347,7 @@ def sample_volume_trilinear(
         )
         value[here] += weight[here] * array[zz[here], yy[here], xx[here]]
     out = np.full(len(points), np.nan, np.float32)
-    out[inside] = value[inside]
+    out[support] = value[support]
     return out
 
 
