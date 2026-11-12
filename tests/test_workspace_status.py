@@ -63,8 +63,49 @@ def test_checks_files_without_claiming_training_readiness(workspace):
     report = status.inspect_workspace(repo)
     assert report["setup_status"] == "ok"
     assert report["training_readiness"] == "not_checked"
+    assert report["data_read_policy"] == {
+        "training": "legacy_permissive",
+        "validation": "strict",
+    }
     assert "unvalidated" in check(report, "checkpoint")["message"]
     assert check(report, "validation.labels")["path"] == str(repo / "val/inklabels.png")
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_reports_the_explicit_read_policy_without_loading_arrays(workspace, strict):
+    repo = save_config(workspace, strict_training_reads=strict)
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "ok"
+    assert report["data_read_policy"] == {
+        "training": "strict" if strict else "legacy_permissive",
+        "validation": "strict",
+    }
+    assert check(report, "read_policy")["status"] == "info"
+
+
+@pytest.mark.parametrize("flag", ["true", 1, None])
+def test_invalid_read_policy_is_not_silently_coerced(workspace, flag):
+    repo = save_config(workspace, strict_training_reads=flag)
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert (
+        "strict_training_reads must be a boolean" in check(report, "config")["message"]
+    )
+
+
+def test_strict_uamt_refuses_unsupported_preprocessing_before_data_loading(workspace):
+    repo = save_config(
+        workspace,
+        strict_training_reads=True,
+        use_uamt=True,
+        use_lasagna=True,
+        unlabeled_uris=["train/surface_volume.zarr"],
+    )
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert "unavailable unlabeled Lasagna" in check(report, "config")["message"]
+    save_config(workspace, unlabeled_uris=[])
+    assert status.inspect_workspace(repo)["setup_status"] == "ok"
 
 
 def test_paused_or_running_state_is_separate_from_filesystem(

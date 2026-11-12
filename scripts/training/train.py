@@ -61,7 +61,7 @@ from scripts.training.checkpoint_paths import (
     validate_checkpoint_writes,
     validate_training_checkpoint_writes,
 )
-from scripts.training.config import ExperimentConfig
+from scripts.training.config import ExperimentConfig, data_read_policy
 from scripts.training.data_split import validate_training_split
 from scripts.training.ink_losses import (
     CONFIDENCE_INK_RECIPE,
@@ -891,6 +891,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         is_unlabeled=True,
         depth_band=band,
         depth_margin=DEPTH_MARGIN,
+        strict_reads=getattr(config, "strict_training_reads", False),
     )
 
 
@@ -1500,6 +1501,7 @@ def periodic_pixel_auc_eval(
 
     from scripts.pixel_auc import pooled_pixel_auc
 
+    read_policy = data_read_policy(config)
     validate_training_checkpoint_writes(config, config_path=config_path, step=step)
     prefix = config.checkpoint_out or "long_model.pt"
     curve_path = f"{prefix}.curve.csv"
@@ -1537,6 +1539,7 @@ def periodic_pixel_auc_eval(
                 "model_state_dict": model.state_dict(),
                 "step": step,
                 "config": asdict(config),
+                "data_read_policy": read_policy,
                 "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
                 if config.use_confidence_weight
                 else None,
@@ -2021,6 +2024,7 @@ def preflight_smoke(config: ExperimentConfig) -> None:
 
 
 def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None):
+    read_policy = data_read_policy(config)
     validate_training_split(config)
     validate_training_checkpoint_writes(config, config_path=config_path)
     print("STARTING TRAINING")
@@ -2070,6 +2074,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 # target from the batch (fiber_target).
                 target_fiber_source="sobel_z",
                 target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
+                strict_reads=getattr(config, "strict_training_reads", False),
                 patches_json=patches_json_path
                 if os.path.exists(patches_json_path)
                 else None,
@@ -2894,6 +2899,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         "val_protocol": protocol,
         "train_sampling_seed": sampling_seed,
         "training_labels": training_labels,
+        "data_read_policy": read_policy,
         "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
         if config.use_confidence_weight
         else None,
@@ -2979,6 +2985,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         "promotion_blocked": promotion_blocked,
         "train_sampling_seed": sampling_seed,
         "training_labels": training_labels,
+        "data_read_policy": read_policy,
         "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
         if config.use_confidence_weight
         else None,

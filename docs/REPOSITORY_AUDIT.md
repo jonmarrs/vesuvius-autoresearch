@@ -270,7 +270,7 @@ each has caused a measured scientific failure.
 | Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
-| Medium | **Training read-failure policy needs a decision.** The [labeled loader](../src/vesuvius_autoresearch/core/vesuvius_loader.py) still returns zero CT, label and fiber patches on read/preprocessing exceptions in permissive mode, and the main training loader uses that default. Validation is strict, and warning counts are recorded. | Decide whether training should abort, skip failed samples, or use bounded retries with an explicit failure budget. This is a scientific/operational policy change; no occurrence in a real run was established here. Path-separation preflight does not establish independence of copied or overlapping crops or different remote URLs; source-pinned split review is still required. |
+| Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
 ## Verification record
@@ -843,3 +843,64 @@ The baseline still leaves tests outside the curated registry, original study
 inputs/history and GPU behavior with the previously documented coverage gaps.
 Source-pinned scientific reruns, full-scroll performance and standalone-wheel
 validation were not supplied by these CPU checks.
+
+## Training read-policy follow-up
+
+This follow-up continues PR 404 from `f549f4ac`. It narrows the training
+read-failure review item without choosing a new default or recovery strategy.
+
+Five synthetic regressions reproduced a strict-read propagation gap: the labeled
+dataset was configured strict, but its underlying CT reader was permissive.
+NaNs, float32 overflow, short depth/height and unsupported returned dtypes could
+therefore pass the initial validation sample probe. All five tests failed before
+the fix. Strict labeled datasets now pass the boolean policy to their volume
+reader; normal strict reads still support CPU preprocessing. Worker serialization
+retains the setting. This restores the intended validation preflight boundary;
+it does not establish that a historical real-data run encountered these defects.
+
+The optional `strict_training_reads` configuration field now selects strict
+behavior for labeled and active UA-MT training readers. It defaults to `false`,
+retaining legacy fallbacks; the new field is appended to preserve positional
+configuration arguments. Invalid non-boolean values are rejected. Strict UA-MT
+with unsupported Lasagna preprocessing is rejected before training begins.
+Validation stays strict independently of the training setting.
+
+Successful final and periodic checkpoints, run results and read-only workspace
+diagnostics record `data_read_policy`; permissive-mode warning counts remain
+available. Strict reads check returned chunks and requested preprocessing, not
+physical registration, acquired-source completeness or holdout independence.
+Aborting does not roll back earlier artifacts. The current configuration,
+checkpoint, study reports and original evidence were not rewritten.
+
+Verification in the existing CPU review environment:
+
+- Nine affected loader/training/probe modules passed **391 tests, 4 skipped**
+  in 123.12 seconds, including the five regression cases and worker serialization.
+- Four compatibility modules passed **92 tests, 3 skipped** in 122.38 seconds,
+  covering periodic checkpoint policy metadata, training steps and the importer.
+- The dependency-minimal fifteen-module profile passed **331 tests** in 39.99
+  seconds. An earlier concurrent run hit a 30-second subprocess startup timeout
+  in an unchanged research-prerequisite fixture. The fresh rerun passed without
+  modifying its timeout or prerequisite behavior.
+- Mypy passed on **971 files**; maintained Ruff, changed-file formatting and
+  offline lock consistency pass. No dependency versions changed.
+- Documentation/file-mode guards passed **149 tests with 1 original-corpus
+  skip** in 35.22 seconds.
+- Smoke passed **9/11, 2 skipped, 0 failed** in 52.6 seconds. Original-data,
+  optional GPU and original-corpus gaps remain; these selections are not a full
+  final-tree curated rerun or a real-data failure-rate measurement.
+
+Representative exact commands (the integration selection used socket-capable
+sandbox execution for existing spawn/SDK tests):
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_preprocessing_contracts.py tests/test_volume_read_contracts.py tests/test_training_data_sources.py tests/test_workspace_status.py tests/test_autoresearch_measurement.py tests/test_noise_probe_contracts.py tests/test_noise_probe_pooled.py tests/test_loader_workers.py tests/test_vesuvius_loader.py -q --tb=short
+
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python -m pytest tests/test_confidence_weighted_loss.py tests/test_training_step_contracts.py tests/test_surface_volume_import.py tests/test_config_depth_band_fits_fragments.py -q --tb=short
+
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-portable-ci-env/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+```
+
+The eight owner items remain, with strict training now an implemented option.
+Adopting a different default, bounded retries/skips and real-data validation
+remain decisions for a separate experiment; no GPU profiling was performed.

@@ -24,7 +24,7 @@ if __package__ in (None, ""):
 from scripts import loop_control
 from scripts.text_snapshot import Snapshot
 from scripts.training.checkpoint_paths import validate_training_checkpoint_writes
-from scripts.training.config import ExperimentConfig
+from scripts.training.config import ExperimentConfig, data_read_policy
 from scripts.training.data_split import validate_training_split
 from scripts.training.input_paths import training_label_path, validation_label_path
 
@@ -220,6 +220,12 @@ def inspect_workspace(
         add("config", "blocked", f"Cannot load configuration: {exc}", path)
         return finish()
 
+    report["data_read_policy"] = data_read_policy(config)
+    add(
+        "read_policy",
+        "info",
+        f"Training reads: {report['data_read_policy']['training']}; validation reads: strict. Data contents are not checked.",
+    )
     for name, validate in (
         ("training_split", lambda: validate_training_split(config, base_dir=repo)),
         (

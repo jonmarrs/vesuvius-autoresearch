@@ -90,6 +90,34 @@ the new path. The reader normalizes this uint16 CT by 65535. Reevaluate the
 incumbent under the resulting inputs/protocol before restarting the research
 loop; see the [quick start](../README.md).
 
+## Choose the training read policy
+
+For an experiment that must stop on failed or malformed CT reads, set
+`"strict_training_reads": true` in its configuration. Both labeled training
+and active UA-MT readers then abort on read failures, CT chunks with the wrong
+shape or non-finite values, unsupported dtypes and failed requested preprocessing. Valid CPU ridge
+preprocessing remains supported. Strict UA-MT rejects Lasagna because that
+reader does not implement it; the configuration fails before training starts.
+
+The default is `false`, preserving the existing counted permissive fallbacks.
+Validation always uses strict reads, including the underlying CT reader. The
+chosen `data_read_policy` is recorded in successful checkpoints and run results;
+`loader_warnings` still reports fallbacks used in permissive mode. An aborted
+run may leave earlier artifacts; this setting adds no rollback or cleanup.
+
+Inspect an experiment configuration without reading arrays or starting training:
+
+```sh
+python3 scripts/workspace_status.py --config your-experiment.json --json
+```
+
+The report includes the selected read policy. It does not establish that the
+data are readable or correctly registered. A policy default change, failure
+budget, retry/skip behavior and real-data failure-rate measurements remain
+separate decisions in the [audit](REPOSITORY_AUDIT.md#items-for-owner-review).
+The policy checks returned chunks; it does not prove that a Zarr store is
+complete or that a readable fill value represents acquired CT.
+
 ## Resource and publication limits
 
 Defaults apply separately to both subcommands:

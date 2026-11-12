@@ -30,6 +30,12 @@ these checks before work and saving, including step snapshots when their names
 are known. Source/writer serialization is still required; these snapshots are
 not locks or a proof of scientific holdout independence.
 
+The JSON `data_read_policy` field and human-readable `read_policy` entry show
+`strict` or `legacy_permissive` for training; validation is always strict.
+Configure `strict_training_reads` as an explicit boolean (`false` by default)
+to choose whether training read failures abort. No arrays are read to produce
+this report. Unsupported strict UA-MT/Lasagna configurations are rejected.
+
 Configuration reads are limited to **1 MiB** by default. They require a regular
 UTF-8 file; directories, FIFOs and files over the selected limit produce a
 blocked config check. On POSIX, the shared capture also opens nonblocking and

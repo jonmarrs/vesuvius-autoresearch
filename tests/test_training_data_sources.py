@@ -188,7 +188,30 @@ def test_without_a_band_the_unlabeled_draws_are_unchanged(tmp_path):
     assert isinstance(dataset, VesuviusS3Dataset)
 
 
-def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("strict", [False, True])
+def test_unlabeled_training_read_failure_obeys_configured_policy(
+    tmp_path, monkeypatch, strict
+):
+    uri = _volume(tmp_path / "training")
+    dataset = train.unlabeled_dataset(uri, _config(uri, strict_training_reads=strict))
+    assert dataset.strict_reads is strict and dataset.volume.strict_reads is strict
+
+    def missing(*args):
+        raise OSError("CT chunk unavailable")
+
+    monkeypatch.setattr(dataset.volume.vol, "get_chunk", missing)
+    if strict:
+        with pytest.raises(RuntimeError, match="failed to read unlabeled patch"):
+            dataset[0]
+    else:
+        patch, _ = dataset[0]
+        assert torch.all(patch == 0)
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_train_gives_uamt_the_band_for_a_training_volume(
+    tmp_path, monkeypatch, capsys, strict
+):
     """Through train.train: UA-MT's reader of the training volume gets the band,
     and the label file each training volume is read with is printed."""
     for fragment in ("train", "val"):
@@ -202,8 +225,9 @@ def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, 
         val_uri=str(tmp_path / "val" / "surface_volume.zarr"),
         use_uamt=True,
         unlabeled_uris=[uri],
+        strict_training_reads=strict,
     )
-    seen = {}
+    seen = {"labeled": []}
 
     class Stop(Exception):
         pass
@@ -218,10 +242,15 @@ def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, 
             raise AssertionError("not read")
 
     def labeled(uri, *args, **kwargs):
+        seen["labeled"].append(kwargs.get("strict_reads"))
         return Catalogue()
 
     def unlabeled(uri, *args, **kwargs):
-        seen["unlabeled"] = (kwargs.get("depth_band"), kwargs.get("depth_margin"))
+        seen["unlabeled"] = (
+            kwargs.get("depth_band"),
+            kwargs.get("depth_margin"),
+            kwargs.get("strict_reads"),
+        )
         raise Stop
 
     monkeypatch.setattr(train, "VesuviusLabeledDataset", labeled)
@@ -235,7 +264,7 @@ def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, 
     )
     with pytest.raises(Stop):
         train.train(config)
-    assert seen == {"unlabeled": ([17, 43], 4)}
+    assert seen == {"labeled": [True, strict], "unlabeled": ([17, 43], 4, strict)}
     labels = os.path.join(str(tmp_path / "train"), "inklabels.png")
     assert f"Training labels for {uri}: {labels}" in capsys.readouterr().out
 
