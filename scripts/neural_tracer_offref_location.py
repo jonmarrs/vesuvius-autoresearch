@@ -119,10 +119,15 @@ def trilinear(v: np.ndarray, p: np.ndarray) -> np.ndarray:
     Points outside the volume are held on the boundary. A sample on the far
     face has no next voxel; that neighbour's weight is zero, so the sample is
     the boundary voxel. Stopping one thousandth of a voxel early mixed the
-    face with the voxel before it.
+    face with the voxel before it. A non-finite coordinate is NaN. A NaN voxel
+    counts only when its weight is positive, so a zero-weight neighbour does
+    not clear the sample.
     """
+    raw = np.asarray(p, np.float64)
+    finite = np.all(np.isfinite(raw), axis=1)
+    # Floor of a non-finite coordinate warns and is not a voxel index.
     limit = np.asarray(v.shape, np.float64) - 1
-    p = np.clip(np.asarray(p, np.float64), 0, limit)
+    p = np.clip(np.where(finite[:, None], raw, 0.0), 0, limit)
     i = np.floor(p).astype(np.int64)
     f = p - i
     out = np.zeros(len(p))
@@ -133,12 +138,13 @@ def trilinear(v: np.ndarray, p: np.ndarray) -> np.ndarray:
                 wy = f[:, 1] if dy else 1.0 - f[:, 1]
                 wx = f[:, 2] if dx else 1.0 - f[:, 2]
                 weight = wz * wy * wx
-                use = weight > 0
+                use = (weight > 0) & finite
                 if not np.any(use):
                     continue
                 out[use] += (
                     weight[use] * v[i[use, 0] + dz, i[use, 1] + dy, i[use, 2] + dx]
                 )
+    out[~finite] = np.nan
     return out
 
 

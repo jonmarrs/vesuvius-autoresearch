@@ -189,6 +189,33 @@ def test_trilinear_reads_the_boundary_voxel_as_itself():
     assert ol.trilinear(linear, past)[0] == pytest.approx(2 * 7 + 3 * 0 - 3.2)
 
 
+def test_trilinear_returns_nan_for_a_nonfinite_coordinate():
+    """NaN, inf, and -inf used to become an index and return 0. They stay NaN.
+
+    A NaN neighbour of an exact voxel has weight zero and does not clear it.
+    A sample that still needs that neighbour is NaN.
+    """
+    v = np.arange(8, dtype=float).reshape(2, 2, 2)
+    got = ol.trilinear(
+        v,
+        np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [np.nan, 0.0, 0.0],
+                [0.0, np.inf, 1.0],
+                [1.0, 0.0, -np.inf],
+            ]
+        ),
+    )
+    assert got[0] == pytest.approx(v[0, 0, 0])
+    assert np.isnan(got[1:]).all()
+    hole = np.zeros((2, 1, 1))
+    hole[0, 0, 0] = 5
+    hole[1, 0, 0] = np.nan
+    assert ol.trilinear(hole, np.array([[0.0, 0.0, 0.0]]))[0] == pytest.approx(5)
+    assert np.isnan(ol.trilinear(hole, np.array([[0.25, 0.0, 0.0]]))[0])
+
+
 RECORD = json.loads(
     (
         ROOT / "reports/evidence/neural_tracer_offref_location_2026-11-05.json"
