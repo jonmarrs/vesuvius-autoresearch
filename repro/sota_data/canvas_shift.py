@@ -241,9 +241,13 @@ def sample_tifxyz(
     """Bilinear ZYX at full-res tifxyz cells ``rows``, ``cols``.
 
     Stored coordinate is ``full_res * scale`` (villa's half=0 convention).
-    A corner stored as ``-1``, a non-finite corner, or ``z <= 0`` makes that
-    sample NaN. The result has shape ``(len(rows), len(cols), 3)`` in Z, Y, X
-    order, which is the order the CT volume is indexed in.
+    A centre on the far edge has no next cell; that neighbour's weight is
+    zero, so the sample is the cell itself. A corner stored as ``-1``, a
+    non-finite corner, or ``z <= 0`` makes that sample NaN, including a hole
+    on a corner this sample does not interpolate. A point whose interpolation
+    support leaves the plane is NaN. The result has shape
+    ``(len(rows), len(cols), 3)`` in Z, Y, X order, which is the order the CT
+    volume is indexed in.
     """
     planes = [np.asarray(plane, np.float64) for plane in (z_plane, y_plane, x_plane)]
     if any(plane.ndim != 2 or plane.shape != planes[0].shape for plane in planes):
@@ -251,40 +255,52 @@ def sample_tifxyz(
     height, width = planes[0].shape
     stored_row = np.asarray(rows, np.float64) * float(scale_y)
     stored_col = np.asarray(cols, np.float64) * float(scale_x)
-    row0 = np.floor(stored_row).astype(np.int64)
-    col0 = np.floor(stored_col).astype(np.int64)
-    row_frac = (stored_row - row0)[:, None]
-    col_frac = (stored_col - col0)[None, :]
+    # Floor of a non-finite coordinate warns and is not a cell index.
+    row_ok = np.isfinite(stored_row)
+    col_ok = np.isfinite(stored_col)
+    safe_row = np.where(row_ok, stored_row, 0.0)
+    safe_col = np.where(col_ok, stored_col, 0.0)
+    row0 = np.floor(safe_row).astype(np.int64)
+    col0 = np.floor(safe_col).astype(np.int64)
+    row_frac = (safe_row - row0)[:, None]
+    col_frac = (safe_col - col0)[None, :]
 
-    def _at(plane: np.ndarray, row: np.ndarray, col: np.ndarray) -> np.ndarray:
+    def _at(plane: np.ndarray, row: np.ndarray, col: np.ndarray):
         ok = (row >= 0) & (row < height) & (col >= 0) & (col < width)
         gathered = plane[np.clip(row, 0, height - 1), np.clip(col, 0, width - 1)]
-        return np.where(ok, gathered, np.nan)
+        return np.where(ok, gathered, np.nan), ok
 
     out = np.empty((len(stored_row), len(stored_col), 3), np.float64)
     valid = np.ones((len(stored_row), len(stored_col)), dtype=bool)
+    weights = (
+        (1.0 - row_frac) * (1.0 - col_frac),
+        row_frac * (1.0 - col_frac),
+        (1.0 - row_frac) * col_frac,
+        row_frac * col_frac,
+    )
     for index, plane in enumerate(planes):
-        corners = [
+        corners = (
             _at(plane, row0[:, None], col0[None, :]),
             _at(plane, row0[:, None] + 1, col0[None, :]),
             _at(plane, row0[:, None], col0[None, :] + 1),
             _at(plane, row0[:, None] + 1, col0[None, :] + 1),
-        ]
-        out[..., index] = (
-            corners[0] * (1.0 - row_frac) * (1.0 - col_frac)
-            + corners[1] * row_frac * (1.0 - col_frac)
-            + corners[2] * (1.0 - row_frac) * col_frac
-            + corners[3] * row_frac * col_frac
         )
+        value = np.zeros((len(stored_row), len(stored_col)), np.float64)
         finite = np.ones_like(valid)
-        for corner in corners:
-            finite &= np.isfinite(corner) & (corner != -1)
-        if index == 0:
-            finite &= corners[0] > 0
-            finite &= corners[1] > 0
-            finite &= corners[2] > 0
-            finite &= corners[3] > 0
+        for (gathered, inside), weight in zip(corners, weights, strict=True):
+            # A corner one step past an exact cell has weight zero, so the
+            # missing neighbour is not read. An in-plane hole still counts.
+            needed = weight > 0
+            finite &= (~needed | inside) & (
+                ~inside | (np.isfinite(gathered) & (gathered != -1))
+            )
+            if index == 0:
+                finite &= ~inside | (gathered > 0)
+            use = needed & inside
+            value[use] += weight[use] * gathered[use]
+        out[..., index] = value
         valid &= finite
+    valid &= row_ok[:, None] & col_ok[None, :]
     out[~valid] = np.nan
     return out
 
