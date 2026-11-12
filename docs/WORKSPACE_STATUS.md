@@ -24,6 +24,9 @@ volume and labeled or active UA-MT inputs. It recognizes local path aliases,
 symlinks, directory ancestry, existing inode aliases and matching remote resource
 identifiers, without opening arrays or making network requests. Different remote
 URLs, copied volumes and physically overlapping crops remain unverified.
+Existing local paths take precedence over URI parsing, matching the CT reader,
+including local names containing colons. For symlinked volumes, annotation paths
+stay beside the configured volume path, as they do in training.
 The `checkpoint_outputs` check protects loop state and named local inputs from
 experiment checkpoint and configured curve destinations. The trainer repeats
 these checks before work and saving, including step snapshots when their names

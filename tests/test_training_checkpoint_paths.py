@@ -90,6 +90,78 @@ def test_ordinary_checkpoint_replacement_and_default_loop_mode_are_allowed(tmp_p
     assert (tmp_path / "trial.pt").read_bytes() == b"old experiment"
 
 
+@pytest.mark.parametrize("role", ["training", "validation"])
+@pytest.mark.parametrize("name", ["inklabels.png", "mask.png", "patches.json"])
+def test_volume_symlink_keeps_annotation_paths_at_the_visible_parent(
+    tmp_path, role, name
+):
+    real = tmp_path / "source/ct.zarr"
+    real.mkdir(parents=True)
+    visible = tmp_path / role
+    visible.mkdir()
+    alias = visible / "volume.zarr"
+    alias.symlink_to(real, target_is_directory=True)
+    target = visible / name
+    target.write_bytes(b"visible training input")
+    selected = config(
+        str(target),
+        **({"uris": [str(alias)]} if role == "training" else {"val_uri": str(alias)}),
+    )
+    with pytest.raises(ValueError, match="artifact collision"):
+        validate_training_checkpoint_writes(selected, base_dir=tmp_path)
+    assert target.read_bytes() == b"visible training input"
+
+
+def test_uri_like_local_ct_tree_cannot_be_overwritten(tmp_path):
+    volume = tmp_path / "scan:training.zarr"
+    volume.mkdir()
+    output = volume / "chunk"
+    output.write_bytes(b"original CT chunk")
+    with pytest.raises(ValueError, match="artifact collision"):
+        validate_training_checkpoint_writes(
+            config(str(output), uris=[volume.name]), base_dir=tmp_path
+        )
+    assert output.read_bytes() == b"original CT chunk"
+
+
+def test_relative_checkout_base_protects_the_actual_annotation_path(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "repo"
+    (root / "train/volume.zarr").mkdir(parents=True)
+    label = root / "train/inklabels.png"
+    label.write_bytes(b"original labels")
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="artifact collision"):
+        validate_training_checkpoint_writes(
+            config("train/inklabels.png"), base_dir="repo"
+        )
+    validate_training_checkpoint_writes(config("trials/candidate.pt"), base_dir="repo")
+    assert label.read_bytes() == b"original labels"
+    assert not (root / "trials").exists()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "cycles.jsonl",
+        "config_temp.json",
+        ".current_day_shift_log",
+        "autoresearch.out",
+        "run.log",
+        ".best_model.pt.held",
+        "sprint_logs/shift.md",
+    ],
+)
+def test_experiment_cannot_replace_loop_journals_logs_or_recovery_files(tmp_path, name):
+    path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"loop state")
+    with pytest.raises(ValueError, match="artifact collision"):
+        validate_checkpoint_writes([path], base_dir=tmp_path)
+    assert path.read_bytes() == b"loop state"
+
+
 @pytest.mark.parametrize("step", [None, 4])
 def test_curve_and_step_artifacts_cannot_replace_foundation_inputs(tmp_path, step):
     source = "trial.pt.curve.csv" if step is None else "trial.pt.step4.pt"

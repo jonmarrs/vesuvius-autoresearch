@@ -23,6 +23,15 @@ LOOP_STATE = (
     "recent_configs.json",
     "autoresearch.lock",
     ".loop_paused",
+    "cycles.jsonl",
+    "config_temp.json",
+    ".current_day_shift_log",
+    ".best_model.pt.held",
+    "autoresearch.out",
+    "run.log",
+    "run.log.old",
+    "watchdog.log",
+    "sprint_logs",
 )
 
 
@@ -71,13 +80,13 @@ def validate_training_checkpoint_writes(
             paths.append(f"{prefix}.step{step}.pt")
     if not paths:
         return
-    base = Path.cwd() if base_dir is None else Path(base_dir)
+    base = Path.cwd() if base_dir is None else Path(base_dir).absolute()
     inputs = [config_path] if config_path is not None else []
     uris = list(getattr(config, "uris", None) or []) + [config.val_uri]
     if getattr(config, "use_uamt", False):
         uris += list(config.unlabeled_uris or [])
     for uri in uris:
-        local = local_volume_path(uri, base_dir=base)
+        local = local_volume_path(uri, base_dir=base, resolve=False)
         if local is not None:
             inputs.append(local)
             inputs.extend(

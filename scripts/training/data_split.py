@@ -4,13 +4,19 @@ This cannot establish independence of copies, crops, or different remote URLs.
 It opens no arrays, changes no configuration, and creates no filesystem entries.
 """
 
+import os
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 
-def _location(uri, base):
+def _location(uri, base, *, resolve_local=True):
     if not isinstance(uri, str) or not uri.strip():
         raise ValueError("volume identifiers must be nonempty strings")
+    # Match FastVesuviusVolume: an existing path wins over URL interpretation.
+    # POSIX names may contain colons or even look like a remote URI.
+    candidate = base / uri
+    if os.path.exists(candidate):
+        return (candidate.resolve() if resolve_local else candidate), None
     parts = urlsplit(uri)
     if not parts.scheme or (
         parts.scheme == "file" and parts.netloc in ("", "localhost")
@@ -21,7 +27,8 @@ def _location(uri, base):
             path = unquote(parts.path)
         else:
             path = uri
-        return (base / path).resolve(), None
+        local = base / path
+        return (local.resolve() if resolve_local else local), None
     # Preserve query/fragment and authority: different remote addresses cannot
     # be proved independent here. Only recognize identical addresses and the
     # root/level-zero spelling used by the volume loader.
@@ -45,10 +52,14 @@ def _overlap(first, second):
         return False
 
 
-def local_volume_path(uri, *, base_dir=None):
-    """Resolve an observable local identifier; remote identifiers return None."""
+def local_volume_path(uri, *, base_dir=None, resolve=True):
+    """Return a local path, or None for remote identifiers.
+
+    Keep the visible path with resolve=False when deriving annotation paths:
+    training selects labels beside the URI, not beside its symlink target.
+    """
     base = Path.cwd() if base_dir is None else Path(base_dir)
-    return _location(uri, base)[0]
+    return _location(uri, base, resolve_local=resolve)[0]
 
 
 def validate_training_split(config, *, base_dir=None):

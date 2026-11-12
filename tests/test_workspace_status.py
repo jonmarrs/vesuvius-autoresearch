@@ -71,6 +71,35 @@ def test_checks_files_without_claiming_training_readiness(workspace):
     assert check(report, "validation.labels")["path"] == str(repo / "val/inklabels.png")
 
 
+def test_existing_uri_like_local_paths_use_the_same_lookup_as_training(workspace):
+    repo, _ = workspace
+    (repo / "train").rename(repo / "scan:train")
+    save_config(workspace, uris=["scan:train/surface_volume.zarr"])
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "ok"
+    assert check(report, "training[0].labels")["path"] == str(
+        repo / "scan:train/inklabels.png"
+    )
+
+
+def test_symlinked_volume_keeps_its_visible_annotation_parent(workspace):
+    repo, _ = workspace
+    (repo / "visible").mkdir()
+    (repo / "visible/surface_volume.zarr").symlink_to(
+        repo / "train/surface_volume.zarr", target_is_directory=True
+    )
+    label = repo / "visible/inklabels.png"
+    label.write_bytes(b"visible annotation")
+    save_config(
+        workspace, uris=["visible/surface_volume.zarr"], checkpoint_out=str(label)
+    )
+    report = status.inspect_workspace(repo)
+    assert check(report, "training[0].labels")["path"] == str(label)
+    assert report["setup_status"] == "blocked"
+    assert check(report, "checkpoint_outputs")["status"] == "blocked"
+    assert label.read_bytes() == b"visible annotation"
+
+
 @pytest.mark.parametrize("strict", [False, True])
 def test_reports_the_explicit_read_policy_without_loading_arrays(workspace, strict):
     repo = save_config(workspace, strict_training_reads=strict)

@@ -50,6 +50,20 @@ def test_active_uamt_alias_is_refused_without_mutating_the_configuration(tmp_pat
     assert vars(selected) == before
 
 
+@pytest.mark.parametrize("name", ["scan:heldout.zarr", "s3://bucket/heldout.zarr"])
+@pytest.mark.parametrize("role", ["training", "validation"])
+def test_existing_local_names_take_precedence_over_uri_parsing(tmp_path, name, role):
+    volume = tmp_path / name
+    volume.mkdir(parents=True)
+    local, alias = name, str(volume.resolve())
+    selected = config(
+        uris=[local if role == "training" else alias],
+        val_uri=alias if role == "training" else local,
+    )
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        validate_training_split(selected, base_dir=tmp_path)
+
+
 def test_uamt_can_share_training_inputs_and_inactive_inputs_are_ignored(tmp_path):
     for selected in [
         config(use_uamt=True, unlabeled_uris=["train.zarr"]),

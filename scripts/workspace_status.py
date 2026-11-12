@@ -11,6 +11,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -74,6 +75,9 @@ def inspect_workspace(
         if not isinstance(value, str) or not value:
             add(name, "blocked", "Expected a nonempty local path string.")
             return None
+        candidate = repo / value
+        if os.path.exists(candidate):
+            return candidate
         try:
             scheme = urlsplit(value).scheme
         except ValueError as exc:
@@ -87,7 +91,7 @@ def inspect_workspace(
                 value,
             )
             return None
-        return repo / value
+        return candidate
 
     def present(path, name, *, file=False):
         try:

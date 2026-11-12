@@ -83,6 +83,27 @@ def test_cycle_checkpoint_helper_cannot_overwrite_incumbent_in_experiment_mode(
     assert incumbent.read_bytes() == b"original incumbent"
 
 
+def test_visible_symlink_labels_are_protected_before_real_training(
+    tmp_path, monkeypatch
+):
+    uri = _volume(tmp_path / "source")
+    visible = tmp_path / "visible"
+    visible.mkdir()
+    alias = visible / "volume.zarr"
+    alias.symlink_to(uri, target_is_directory=True)
+    labels = visible / "inklabels.png"
+    labels.write_bytes(b"visible labels")
+    selected = _config(str(alias), checkpoint_out=str(labels))
+
+    def too_early(*args, **kwargs):
+        pytest.fail("GPU setup reached before protecting visible labels")
+
+    monkeypatch.setattr(train.torch, "set_float32_matmul_precision", too_early)
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.train(selected)
+    assert labels.read_bytes() == b"visible labels"
+
+
 def test_ablation_entrypoint_protects_its_active_config_before_gpu(
     tmp_path, monkeypatch
 ):

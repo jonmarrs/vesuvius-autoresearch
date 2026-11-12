@@ -904,3 +904,47 @@ env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM
 The eight owner items remain, with strict training now an implemented option.
 Adopting a different default, bounded retries/skips and real-data validation
 remain decisions for a separate experiment; no GPU profiling was performed.
+
+## PR 404 review corrections
+
+The pre-merge review reproduced eighteen failing cases across three remaining
+path-guard gaps, then corrected them:
+
+- Existing local volume names containing colons, including URI-like names, now
+  take precedence over URL interpretation, matching `FastVesuviusVolume`.
+  Observable split aliases and checkpoint destinations inside those CT trees
+  are therefore checked as local resources. Workspace diagnostics use the same
+  precedence.
+- Checkpoint protection derives annotation paths from the configured volume
+  spelling. A volume symlink no longer shifts label, mask or catalogue guards
+  to the CT target's parent while training reads beside the visible URI.
+  The shared collision validator still resolves the CT tree itself.
+- Reserved loop paths now include journals, temporary/recovery files, log files
+  and the `sprint_logs` directory. Experiment checkpoints cannot replace this
+  state; ordinary experiment checkpoint replacement remains supported.
+
+A follow-up relative-checkout probe exposed a base-directory duplication in
+annotation protection. Normalizing the explicit checkpoint-check base to an
+absolute path fixes it; a regression checks both refusal and an allowed output
+without creating directories. An actual trainer regression also verifies that
+visible symlink labels are protected before GPU setup.
+
+Review validation in the existing Python 3.10.21 / CPU Torch 2.9.1 environment:
+
+- The thirteen-module affected selection passed **563 tests, 1 skipped** in
+  74.71 seconds. After the relative-base follow-up, the final split/checkpoint/
+  workspace selection passed **96 tests** in 0.91 seconds.
+- The complete 216-module curated CPU run passed **5802 tests, 42 skipped,
+  1 xfailed** in 594.99 seconds, using the full-suite command recorded above.
+  That run collected/imported its tests before the final relative-base
+  correction; the 96-test final selection covers that correction separately.
+- Documentation/file-mode guards passed **149 tests, 1 original-corpus skip**
+  in 69.39 seconds.
+- Mypy passed on **971 files**. Maintained Ruff, formatting of all seven changed
+  Python files and offline lock consistency pass. No dependencies changed.
+- Smoke passed **9/11, 2 skipped, 0 failed** in 11.7 seconds; the skips require
+  original local CT/labels.
+
+These checks do not supply original-data or GPU validation. The eight owner
+items remain; the live research checkout, original study files and checkpoints
+were not modified.
