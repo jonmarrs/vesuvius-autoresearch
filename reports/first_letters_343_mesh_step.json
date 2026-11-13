@@ -1,0 +1,252 @@
+{
+ "finding": 110,
+ "date": "2026-11-12",
+ "registration": "docs/preregistration/2026-11-10_first_letters_343_mesh_step.md",
+ "registration_commit": "ff5ab892",
+ "arm": "recipe",
+ "villa_commit": "0fb38c45",
+ "verdict": {
+  "verdict": "REPRODUCED",
+  "fit_config": "recipe",
+  "p1": {
+   "w047": true,
+   "w048": true
+  },
+  "p2_consecutive": true,
+  "p3": true,
+  "p3_evaluable": true
+ },
+ "raw_fitted_windings": {
+  "w047": {
+   "chosen": "w047",
+   "covered_fraction": 0.9963,
+   "median": 3.23,
+   "quantiles": {
+    "p5": 0.28,
+    "p25": 1.44,
+    "p50": 3.23,
+    "p75": 5.61,
+    "p95": 9.52
+   },
+   "fraction_within": {
+    "1": 0.1786,
+    "2": 0.3313,
+    "3": 0.4684,
+    "5": 0.6969
+   },
+   "signed_median": -0.96,
+   "normal_cosine_median": 0.9959,
+   "a_nodes": 22903,
+   "b_nodes": 15983
+  },
+  "w048": {
+   "chosen": "w048",
+   "covered_fraction": 0.9969,
+   "median": 2.16,
+   "quantiles": {
+    "p5": 0.17,
+    "p25": 0.92,
+    "p50": 2.16,
+    "p75": 4.32,
+    "p95": 8.62
+   },
+   "fraction_within": {
+    "1": 0.2701,
+    "2": 0.4732,
+    "3": 0.6158,
+    "5": 0.7973
+   },
+   "signed_median": 0.19,
+   "normal_cosine_median": 0.9962,
+   "a_nodes": 23639,
+   "b_nodes": 16358
+  }
+ },
+ "p1_final_windings": {
+  "w047": {
+   "chosen": "w047.tifxyz",
+   "covered_fraction": 0.997,
+   "median": 0.9,
+   "quantiles": {
+    "p5": 0.07,
+    "p25": 0.38,
+    "p50": 0.9,
+    "p75": 1.93,
+    "p95": 5.02
+   },
+   "fraction_within": {
+    "1": 0.5365,
+    "2": 0.7561,
+    "3": 0.8591,
+    "5": 0.9467
+   },
+   "signed_median": -0.02,
+   "normal_cosine_median": 0.9973,
+   "a_nodes": 22903,
+   "b_nodes": 22118
+  },
+  "w048": {
+   "chosen": "w048.tifxyz",
+   "covered_fraction": 0.9972,
+   "median": 0.73,
+   "quantiles": {
+    "p5": 0.05,
+    "p25": 0.3,
+    "p50": 0.73,
+    "p75": 1.61,
+    "p95": 4.52
+   },
+   "fraction_within": {
+    "1": 0.5993,
+    "2": 0.8054,
+    "3": 0.8915,
+    "5": 0.9575
+   },
+   "signed_median": -0.02,
+   "normal_cosine_median": 0.9984,
+   "a_nodes": 23639,
+   "b_nodes": 22946
+  }
+ },
+ "p1_other_final_winding": {
+  "w047": {
+   "covered_fraction": 0.9954,
+   "median": 12.8,
+   "quantiles": {
+    "p5": 0.55,
+    "p25": 5.91,
+    "p50": 12.8,
+    "p75": 18.44,
+    "p95": 29.81
+   },
+   "fraction_within": {
+    "1": 0.0821,
+    "2": 0.1321,
+    "3": 0.1687,
+    "5": 0.2253
+   },
+   "signed_median": -12.8,
+   "normal_cosine_median": 0.9901,
+   "a_nodes": 22903,
+   "b_nodes": 22946
+  },
+  "w048": {
+   "covered_fraction": 0.9934,
+   "median": 12.99,
+   "quantiles": {
+    "p5": 0.57,
+    "p25": 6.07,
+    "p50": 12.99,
+    "p75": 18.96,
+    "p95": 31.71
+   },
+   "fraction_within": {
+    "1": 0.0806,
+    "2": 0.1281,
+    "3": 0.1628,
+    "5": 0.2192
+   },
+   "signed_median": 12.99,
+   "normal_cosine_median": 0.9899,
+   "a_nodes": 23639,
+   "b_nodes": 22118
+  }
+ },
+ "p3": {
+  "cells_accepted": 626678,
+  "letter_box_cells": 123154,
+  "letter_box_cells_compared": 121650,
+  "letter_box_coverage": 0.9878,
+  "evaluable": true,
+  "r": 0.8622,
+  "control_wrong_side": 0.1674,
+  "control_slid": {
+   "down": 0.0341,
+   "up": 0.0156,
+   "right": 0.1729,
+   "left": 0.1628,
+   "largest_absolute": 0.1729
+  },
+  "control_slid_256px": {
+   "down": 0.001,
+   "up": -0.0714,
+   "right": 0.0897,
+   "left": 0.0884,
+   "largest_absolute": 0.0897
+  },
+  "r_all_cells": 0.7703,
+  "r_all_cells_with_background": 0.8559,
+  "per_model_r": {
+   "dnative": 0.8792,
+   "hecate": 0.834,
+   "hybrid_3d2d-seed42": 0.5899,
+   "hybrid_3d2d-seed43": 0.6003
+  },
+  "p3": true,
+  "ours_depth": 1,
+  "published_cells": 669771,
+  "accepted_fraction_of_published": 0.9357,
+  "transfer_distance_voxels": {
+   "p50": 1.62,
+   "p95": 3.06
+  }
+ },
+ "steps": {
+  "distance_field": {
+   "exit": 0,
+   "seconds": 53
+  },
+  "fit": {
+   "exit": 0,
+   "seconds": 11320,
+   "steps": 30000,
+   "gpu_peak_mib_all_processes": 12701
+  },
+  "flatten_w047": {
+   "exit": 0,
+   "seconds": 72,
+   "gpu_peak_mib_all_processes": 637
+  },
+  "flatten_w048": {
+   "exit": 0,
+   "seconds": 70,
+   "gpu_peak_mib_all_processes": 677
+  },
+  "ink_w047": {
+   "exit": 0,
+   "seconds": 338,
+   "gpu_peak_mib_all_processes": 3426
+  },
+  "ink_w048": {
+   "exit": 0,
+   "seconds": 404,
+   "gpu_peak_mib_all_processes": 3426
+  },
+  "render_w047": {
+   "exit": 0,
+   "seconds": 86,
+   "flipped": false
+  },
+  "render_w048": {
+   "exit": 0,
+   "seconds": 67,
+   "flipped": false
+  },
+  "snap": {
+   "exit": 0,
+   "seconds": 41
+  }
+ },
+ "fit": {
+  "wall_seconds": 11320,
+  "max_rss_kb": 10772508,
+  "cgroup_memory_bytes_max_sampled": 17084878848,
+  "gpu_peak_mib_all_processes": 12701,
+  "memory_pressure_user_full_avg10_max": 0.15,
+  "windings_saved": [
+   10,
+   130
+  ]
+ },
+ "select_wall_seconds": 225
+}
