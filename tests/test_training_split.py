@@ -157,20 +157,21 @@ def test_a_percent_encoded_file_uri_is_the_path_it_spells(tmp_path):
         )
 
 
-def test_remote_addresses_overlap_only_when_they_are_the_same_address(tmp_path):
+def test_a_different_host_stays_unverified_and_the_query_does_not(tmp_path):
     validation = "s3://bucket/val.zarr?versionId=1"
-    with pytest.raises(ValueError, match=r"training\[0\] overlaps val_uri"):
-        validate_training_split(
-            config(uris=[validation], val_uri=validation), base_dir=tmp_path
-        )
     for other in (
+        validation,
         "s3://bucket/val.zarr?versionId=2",
-        "s3://other/val.zarr?versionId=1",
         "s3://bucket/val.zarr",
     ):
-        validate_training_split(
-            config(uris=[other], val_uri=validation), base_dir=tmp_path
-        )
+        with pytest.raises(ValueError, match=r"training\[0\] overlaps val_uri"):
+            validate_training_split(
+                config(uris=[other], val_uri=validation), base_dir=tmp_path
+            )
+    validate_training_split(
+        config(uris=["s3://other/val.zarr?versionId=1"], val_uri=validation),
+        base_dir=tmp_path,
+    )
 
 
 @pytest.mark.parametrize(
@@ -181,8 +182,9 @@ def test_remote_addresses_overlap_only_when_they_are_the_same_address(tmp_path):
         ("s3://bucket/val.zarr/1", "s3://bucket/val.zarr/0"),
         ("s3://bucket/val.zarr", "s3://bucket/val.zarr/1"),
         ("s3://bucket/val.zarr/1?versionId=1", "s3://bucket/val.zarr?versionId=1"),
-        ("s3://bucket/val.zarr/1", "s3://bucket"),
-        ("s3://bucket", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/2", "s3://bucket/val.zarr/1"),
+        ("s3://bucket/val.zarr/0", "s3://bucket/val.zarr/3"),
+        ("s3n://bucket/val.zarr/2", "s3a://Bucket/val.zarr/1"),
     ],
 )
 def test_a_remote_path_inside_the_held_out_volume_is_refused(training, validation):
@@ -202,10 +204,67 @@ def test_a_remote_name_that_only_shares_a_prefix_stays_unverified():
         )
     )
     validate_training_split(
+        config(uris=["s3://bucket/Val.zarr"], val_uri="s3://bucket/val.zarr")
+    )
+    validate_training_split(
+        config(uris=["s3://bucket/other.zarr/2"], val_uri="s3://bucket/val.zarr/1")
+    )
+
+
+@pytest.mark.parametrize(
+    "training, validation",
+    [
+        ("s3://bucket/val.zarr#part", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr?x=", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr?sig=abc", "s3://bucket/val.zarr"),
+        ("s3://Bucket/val.zarr", "s3://bucket/val.zarr"),
+        ("S3://bucket/val.zarr", "s3://bucket/val.zarr"),
+        ("s3a://bucket/val.zarr", "s3://bucket/val.zarr"),
+        ("s3n://bucket/val.zarr", "s3a://bucket/val.zarr"),
+        ("s3://bucket/val.zarr%2F1", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/%2E%2E/val.zarr", "s3://bucket/val.zarr"),
+        ("s3://bucket/a/../val.zarr", "s3://bucket/val.zarr"),
+        ("https://host:443/val.zarr", "https://host/val.zarr"),
+        ("https://HOST/val.zarr?sig=one#part", "https://host/val.zarr"),
+    ],
+)
+def test_normalized_remote_spellings_of_one_volume_are_refused(training, validation):
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        validate_training_split(config(uris=[training], val_uri=validation))
+
+
+def test_a_dot_segment_and_a_bucket_root_are_not_false_children():
+    """``..`` is resolved, and the bucket root is not every key in the bucket."""
+    validate_training_split(
         config(
-            uris=["s3://bucket/val.zarr/1?versionId=2"],
-            val_uri="s3://bucket/val.zarr?versionId=1",
+            uris=["s3://bucket/val.zarr/../other"],
+            val_uri="s3://bucket/val.zarr",
         )
+    )
+    validate_training_split(
+        config(uris=["s3://bucket"], val_uri="s3://bucket/val.zarr")
+    )
+    validate_training_split(
+        config(uris=["s3://bucket/val.zarr/1"], val_uri="s3://bucket")
+    )
+    validate_training_split(
+        config(uris=["https://host:8443/val.zarr"], val_uri="https://host/val.zarr")
+    )
+    validate_training_split(
+        config(uris=["s3://bucket:443/val.zarr"], val_uri="s3://bucket/val.zarr")
+    )
+    # A non-level key under the volume is not a resolution of it.
+    validate_training_split(
+        config(uris=["s3://bucket/val.zarr/labels"], val_uri="s3://bucket/val.zarr")
+    )
+
+
+def test_integer_levels_of_the_bucket_root_are_the_same_volume():
+    """An all-integer path is a level of the root. A non-integer key is not."""
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        validate_training_split(config(uris=["s3://bucket/2"], val_uri="s3://bucket/1"))
+    validate_training_split(
+        config(uris=["s3://bucket/val.zarr"], val_uri="s3://bucket/1")
     )
 
 

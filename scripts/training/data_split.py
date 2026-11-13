@@ -1,15 +1,26 @@
 """Stat-only checks for observable overlap with the held-out CT volume.
 
 A local path compares directory ancestry and inode identity. A remote address
-compares its spelling: the same address, the level-zero spelling, or a path
-inside that address. Copies, crops, and remote URLs that differ in host,
-query, or fragment are not proved independent. This opens no arrays, changes
-no configuration, and creates no filesystem entries.
+is compared after normalization: scheme and host case, a default port, dot
+segments, and percent-encoding do not make the same volume look different.
+``s3a`` and ``s3n`` are ``s3``. Query and fragment are ignored. Trailing
+integer segments are pyramid levels of the parent, so sibling levels are the
+same volume. A path of only those segments is a level of the bucket or host
+root; an integer name cannot be told from a level without opening the store.
+Copies, crops, and a different host are not proved independent.
+
+The volume reader refuses every remote URI, so this comparison does not decide
+a read that can run today. It is the spelling check a later remote reader
+would already have to pass. This opens no arrays, changes no configuration,
+and creates no filesystem entries.
 """
 
 import os
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+
+# Schemes whose explicit default port is the same endpoint as no port.
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 def _location(uri, base, *, resolve_local=True):
@@ -32,35 +43,59 @@ def _location(uri, base, *, resolve_local=True):
             path = uri
         local = base / path
         return (local.resolve() if resolve_local else local), None
-    # Preserve query, fragment and authority. A child path of the same address
-    # is inside the held-out volume; a pyramid level is one such child. A
-    # different host, query or fragment cannot be proved the same object from
-    # the spelling, so it is left unverified. The level-zero array and the
-    # volume group are the same spelling the volume loader accepts.
-    path = parts.path.rstrip("/")
-    if path.endswith("/0"):
-        path = path[:-2]
-    return None, (parts.scheme, parts.netloc, path, parts.query, parts.fragment)
+    # Query and fragment are not part of the volume. A signed URL and a bare
+    # URL of the same scheme, host, and path are the same spelling.
+    scheme = parts.scheme.lower()
+    if scheme in ("s3a", "s3n"):
+        scheme = "s3"
+    return None, (scheme, *_remote_authority(parts, scheme), _remote_path(parts.path))
 
 
-def _path_contains(parent, child):
-    """True when ``child`` is a path strictly inside ``parent``.
+def _remote_authority(parts, scheme):
+    """Lowercased host, with a scheme's default port removed."""
+    try:
+        host = parts.hostname or ""
+        port = parts.port
+    except ValueError:
+        return parts.netloc.lower(), None
+    if port == _DEFAULT_PORTS.get(scheme):
+        port = None
+    return host, port
 
-    An empty parent is the bucket or host root, so every key is inside it.
-    The boundary is a slash: ``val.zarr`` does not contain ``val.zarr-other``.
+
+def _integer_level(segment):
+    """A pyramid level segment: ``0`` or a decimal integer without a leading zero."""
+    if not segment.isascii() or not segment.isdigit():
+        return False
+    return segment == "0" or not segment.startswith("0")
+
+
+def _remote_path(path):
+    """Decode, resolve ``.`` and ``..``, and fold a trailing pyramid level.
+
+    Percent-decoding runs first, so ``%2F`` is a separator and ``%2E%2E`` is
+    ``..``. A bucket or host root stays empty and is only itself: it is not a
+    parent of every key. Trailing integer segments are resolution levels of
+    the parent, so ``volume/1`` and ``volume/2`` are that volume. A non-level
+    key under the same prefix, such as ``volume/labels``, is not.
     """
-    if parent == "":
-        return child.startswith("/")
-    return child.startswith(parent + "/")
+    segments = []
+    for segment in unquote(path).split("/"):
+        if segment in ("", "."):
+            continue
+        if segment == "..":
+            if segments:
+                segments.pop()
+            continue
+        segments.append(segment)
+    while segments and _integer_level(segments[-1]):
+        segments.pop()
+    return "/".join(segments)
 
 
 def _remote_overlap(left, right):
-    """Same remote address, or one path inside the other."""
-    if left == right:
-        return True
-    if left[:2] != right[:2] or left[3:] != right[3:]:
-        return False
-    return _path_contains(left[2], right[2]) or _path_contains(right[2], left[2])
+    """Same normalized scheme, host, port, and volume path."""
+    return left == right
 
 
 def _overlap(first, second):
@@ -95,8 +130,8 @@ def validate_training_split(config, *, base_dir=None):
     """Refuse labeled/active UA-MT inputs that observably overlap val_uri.
 
     Relative paths use the actual training CWD, or the explicitly inspected
-    checkout. Symlinks, directory ancestry, a remote path inside the same
-    address, and existing inode aliases are checked without reading CT.
+    checkout. Symlinks, directory ancestry, the same normalized remote volume,
+    and existing inode aliases are checked without reading CT.
     Disabled UA-MT inputs are not used and are not inspected.
     Callers keep inputs/writers stable; this is a snapshot, not a lock or proof
     that physically overlapping/copied study regions have been excluded.
