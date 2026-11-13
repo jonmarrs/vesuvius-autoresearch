@@ -202,6 +202,8 @@ def gpu_available_ambiently() -> bool:
     CUDA, because that is the caller asking for CPU-only and should be
     honoured, and True/False on device presence otherwise.
     """
+    if ambient_cuda_is_masked():
+        return False
     probe = (
         "import cupy;"
         "raise SystemExit(0 if cupy.cuda.runtime.getDeviceCount() > 0 else 1)"

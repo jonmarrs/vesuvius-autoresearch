@@ -180,6 +180,7 @@ VALIDATION_TESTS = [
     # missing.
     "tests/test_validation_suite_covers_the_loop.py",
     "tests/test_validation_runner.py",
+    "tests/test_cpu_validation_guard.py",
     "tests/test_betti_loss.py",
     "tests/test_checkout_imports_its_own_code.py",
     "tests/test_detector_depth_ablation.py",
@@ -253,6 +254,7 @@ PORTABLE_TESTS = [
     "tests/test_regional_resource_plan.py",
     "tests/test_text_snapshot.py",
     "tests/test_validation_runner.py",
+    "tests/test_cpu_validation_guard.py",
     "tests/test_workspace_status.py",
     "tests/test_supervisor_startup.py",
     "tests/test_loop_lifecycle.py",
