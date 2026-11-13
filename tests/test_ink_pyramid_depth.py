@@ -765,7 +765,8 @@ def test_cli_refuses_a_compare_it_cannot_honour(tmp_path, capsys, arguments, mes
 @pytest.mark.parametrize(
     "compressor, kept",
     [
-        # Blosc decodes a cut-short copy of a stored (uncompressed) chunk.
+        # An empty Blosc file fails in the codec. A file short by a few bytes
+        # does not; that case is test_cli_refuses_a_blosc_chunk_cut_short.
         (numcodecs.Blosc(), 0),
         (numcodecs.Zstd(), 0.5),
         (numcodecs.Zlib(), 0.5),
@@ -801,6 +802,43 @@ def test_cli_refuses_a_chunk_that_does_not_decode(tmp_path, capsys, compressor, 
     assert main([str(root), *window]) == 2
     error = capsys.readouterr().err
     assert error.startswith("error: 0 has a chunk in this window that does not decode")
+
+
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        numcodecs.Blosc(),
+        numcodecs.Blosc(clevel=0, shuffle=numcodecs.Blosc.NOSHUFFLE),
+    ],
+    ids=["blosc", "blosc-uncompressed"],
+)
+def test_cli_refuses_a_blosc_chunk_cut_short(tmp_path, capsys, compressor):
+    """A Blosc frame short by a few bytes still decodes to a full wrong chunk."""
+    level0 = _pattern(8, 16, 16).astype(np.float32)
+    root = tmp_path / "short.zarr"
+    group = zarr.open_group(str(root), mode="w")
+    datasets = []
+    for path, array, scale in (
+        ("0", level0, [1.0, 1.0, 1.0]),
+        ("1", _xy_pool(level0, 2).astype(np.float32), [1.0, 2.0, 2.0]),
+    ):
+        group.create_dataset(path, data=array, chunks=(4, 8, 8), compressor=compressor)
+        datasets.append(
+            {
+                "path": path,
+                "coordinateTransformations": [{"type": "scale", "scale": scale}],
+            }
+        )
+    group.attrs["multiscales"] = [{"axes": AXES, "datasets": datasets}]
+    window = ["--compare", "1", "--origin", "0", "0", "--size", "16", "16"]
+    assert main([str(root), *window]) == 0
+    capsys.readouterr()
+    chunk = root / "0" / "0.0.0"
+    chunk.write_bytes(chunk.read_bytes()[:-1])
+    assert main([str(root), *window]) == 2
+    error = capsys.readouterr().err
+    assert error.startswith("error: 0 has a chunk in this window that does not decode")
+    assert "0.0.0" in error
 
 
 def _depth_then_xy_pool(volume, depth_factor, factor):
