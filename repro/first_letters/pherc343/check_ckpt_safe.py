@@ -6,6 +6,14 @@ A successful check is not a general safety certification or a persisted receipt.
 import sys
 
 
+def _length_or_value(value):
+    """Scalar tensors expose __len__ but raise TypeError when it is called."""
+    try:
+        return len(value)
+    except TypeError:
+        return value
+
+
 def main() -> int:
     paths = sys.argv[1:]
     if not paths:
@@ -25,10 +33,7 @@ def main() -> int:
             continue
         if isinstance(payload, dict):
             layout = {
-                key: (
-                    type(value).__name__,
-                    len(value) if hasattr(value, "__len__") else value,
-                )
+                key: (type(value).__name__, _length_or_value(value))
                 for key, value in payload.items()
             }
         else:

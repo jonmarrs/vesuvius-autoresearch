@@ -21,10 +21,17 @@ source, encoded = sys.argv[1:]
 spec = json.loads(encoded)
 fake = types.ModuleType("torch")
 calls = []
+class ScalarLike:
+    def __len__(self):
+        raise TypeError("len() of a 0-d tensor")
+    def __repr__(self):
+        return "scalar-like"
 def load(path, **kwargs):
     calls.append({"path": path, "kwargs": kwargs})
     if path in spec["refuse"]:
         raise RuntimeError("synthetic restricted-load refusal")
+    if path == "scalar":
+        return {"counter": ScalarLike()}
     return {"state_dict": {"parameter": 1}}
 fake.load = load
 sys.modules["torch"] = fake
@@ -93,6 +100,14 @@ class CheckpointReporting(unittest.TestCase):
                 call["kwargs"],
                 {"map_location": "cpu", "weights_only": True, "mmap": True},
             )
+
+    def test_scalar_layout_does_not_fail_a_successful_load_or_stop_the_batch(self):
+        result, calls = check(["scalar", "good"], [])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("WEIGHTS_ONLY_OK scalar", result.stdout)
+        self.assertIn("scalar-like", result.stdout)
+        self.assertIn("WEIGHTS_ONLY_OK good", result.stdout)
+        self.assertEqual([call["path"] for call in calls], ["scalar", "good"])
 
     def test_generated_record_does_not_invent_checkpoint_verification(self):
         spec = importlib.util.spec_from_file_location(
