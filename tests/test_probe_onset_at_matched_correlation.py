@@ -42,6 +42,7 @@ def _rays(n=40):
     return usable_rays(load_shard(), n_rays=n)
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_correlation_length_actually_moves_the_onset():
     """If it did not, the mismatch this probe exists to fix would not have
     mattered, and the whole exercise would be empty."""
@@ -52,6 +53,7 @@ def test_correlation_length_actually_moves_the_onset():
     assert hi < lo
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_more_correlation_flips_more_rays():
     """The monotone direction the comparison relies on: at a fixed rms, a longer
     correlation length should catch at least as many rays."""
@@ -94,6 +96,7 @@ def test_corrected_bands_match_the_artifact_they_cite():
     assert CORRECTED_TAIL[0] < CORRECTED_TAIL[1]
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_reported_median_is_not_the_min():
     """Kills the mutant the old test could not: collapsing the per-ray median to a
     min over rays. The old assertion was `first <= med`, which the gating it was
@@ -105,6 +108,7 @@ def test_the_reported_median_is_not_the_min():
     assert med > first, "median collapsed to the minimum; the statistic is wrong"
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_median_is_conditional_and_the_count_says_so():
     """The reported median is taken among rays that flip at all. Fewer than half do
     at most correlation lengths, so the unconditional median is censored above the

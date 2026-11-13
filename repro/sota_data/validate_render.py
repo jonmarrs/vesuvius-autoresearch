@@ -11,6 +11,7 @@ pixel-aligned — no shift needed). This validates the sampler + coordinate conv
 (x,y,z->z,y,x, level-0->level-2) against ground truth before the obj path is trusted on
 Scroll 3.
 """
+
 import io
 import json
 import os
@@ -31,12 +32,12 @@ from repro.sota_data.render_surface import (
 
 SEG = "20230702185753"
 SCAN = "20260411134726"
-BASE = f"vesuvius-challenge-open-data/PHercParis4"
+BASE = "vesuvius-challenge-open-data/PHercParis4"
 TIFXYZ = f"{BASE}/segments/{SEG}/mesh/{SEG}-on-{SCAN}-2.4um.tifxyz"
 RAW_VOL = f"{BASE}/volumes/{SCAN}-2.400um-0.2m-78keV-masked.zarr"
 SURF_VOL = f"{BASE}/segments/{SEG}/surface-volumes/2.4um-0.22m-78keV-volume-{SCAN}.zarr"
 LEVEL = 2
-GRID_DOWN = 2     # render at tifxyz-grid / 2 (~1265x910); finer than the first pass
+GRID_DOWN = 2  # render at tifxyz-grid / 2 (~1265x910); finer than the first pass
 
 
 def _read_tifxyz_s3(fs, path):
@@ -47,11 +48,12 @@ def _read_tifxyz_s3(fs, path):
 def main():
     import s3fs
     import zarr
+
     fs = s3fs.S3FileSystem(anon=True)
 
     xyz = _read_tifxyz_s3(fs, TIFXYZ)
-    xyz = xyz[::GRID_DOWN, ::GRID_DOWN]          # coords are frame-absolute; subsampling ok
-    pm, valid = pointmap_from_tifxyz(xyz, level_div=2 ** LEVEL)
+    xyz = xyz[::GRID_DOWN, ::GRID_DOWN]  # coords are frame-absolute; subsampling ok
+    pm, valid = pointmap_from_tifxyz(xyz, level_div=2**LEVEL)
     print(f"grid {pm.shape[:2]} valid {valid.mean():.3f}", flush=True)
 
     fetch, vol_shape = zarr_fetch(RAW_VOL, LEVEL)
@@ -59,8 +61,11 @@ def main():
 
     # reference: released surface volume, pick the pyramid level whose (H,W) matches our grid
     sg = zarr.open(zarr.storage.FSStore(SURF_VOL, fs=fs), mode="r")
-    lv = min((k for k in sg.keys()),
-             key=lambda k: abs(sg[k].shape[1] - pm.shape[0]) + abs(sg[k].shape[2] - pm.shape[1]))
+    lv = min(
+        (k for k in sg.keys()),
+        key=lambda k: abs(sg[k].shape[1] - pm.shape[0])
+        + abs(sg[k].shape[2] - pm.shape[1]),
+    )
     surf = sg[lv]
     dc = surf.shape[0] // 2
     # a small window of reference depth slices (surface-vol depth centering is a free
@@ -68,9 +73,14 @@ def main():
     refs = []
     for dz in range(-4, 5, 2):
         sl = np.asarray(surf[dc + dz], np.float32)
-        refs.append(cv2.resize(sl, (pm.shape[1], pm.shape[0]), interpolation=cv2.INTER_AREA))
-    print(f"reference surface-vol level {lv} shape {surf.shape}, "
-          f"{len(refs)} depth slices around {dc}", flush=True)
+        refs.append(
+            cv2.resize(sl, (pm.shape[1], pm.shape[0]), interpolation=cv2.INTER_AREA)
+        )
+    print(
+        f"reference surface-vol level {lv} shape {surf.shape}, "
+        f"{len(refs)} depth slices around {dc}",
+        flush=True,
+    )
 
     results = {}
     m = valid
@@ -78,29 +88,48 @@ def main():
         normals = surface_normals(pm, valid, sign=sign)
         layers, stats = sample_layers(pm, valid, normals, fetch, tile=32)
         rendered = layers[layers.shape[0] // 2]
-        best_c = max(ncc(np.where(m, rendered, np.nan), np.where(m, r, np.nan)) for r in refs)
+        best_c = max(
+            ncc(np.where(m, rendered, np.nan), np.where(m, r, np.nan)) for r in refs
+        )
         results[f"sign{int(sign)}"] = {"ncc": float(best_c), **stats}
-        print(f"sign={sign:+.0f}: best center-layer NCC={best_c:.4f} "
-              f"valid={stats['valid_frac']:.3f} clamped={stats['clamped_frac']:.3f}",
-              flush=True)
+        print(
+            f"sign={sign:+.0f}: best center-layer NCC={best_c:.4f} "
+            f"valid={stats['valid_frac']:.3f} clamped={stats['clamped_frac']:.3f}",
+            flush=True,
+        )
 
     best = max(results.values(), key=lambda r: r["ncc"])
     best_sign = max(results, key=lambda k: results[k]["ncc"])
     verdict = "PASS" if best["ncc"] >= 0.60 else "FAIL"
     os.makedirs("reports/detector", exist_ok=True)
     with open("reports/detector/render_validation.json", "w") as f:
-        json.dump({"seg": SEG, "scan": SCAN, "level": LEVEL, "grid_down": GRID_DOWN,
-                   "results": results, "best_sign": best_sign, "verdict": verdict,
-                   "gate": "center-layer NCC >= 0.60 vs released surface volume (same frame)"},
-                  f, indent=2, default=float)
+        json.dump(
+            {
+                "seg": SEG,
+                "scan": SCAN,
+                "level": LEVEL,
+                "grid_down": GRID_DOWN,
+                "results": results,
+                "best_sign": best_sign,
+                "verdict": verdict,
+                "gate": "center-layer NCC >= 0.60 vs released surface volume (same frame)",
+            },
+            f,
+            indent=2,
+            default=float,
+        )
     with open("reports/detector/render_validation.md", "w") as f:
         f.write(f"# Renderer validation (Scroll 1 {SEG}, scan {SCAN}) — {verdict}\n\n")
-        f.write("Clean triple: tifxyz geometry + raw volume + released surface volume all "
-                "in one frame; only our sampler is unknown. Center-depth layer vs the "
-                "released surface volume, same (row,col) parameterization.\n\n")
+        f.write(
+            "Clean triple: tifxyz geometry + raw volume + released surface volume all "
+            "in one frame; only our sampler is unknown. Center-depth layer vs the "
+            "released surface volume, same (row,col) parameterization.\n\n"
+        )
         for k, r in results.items():
-            f.write(f"- {k}: NCC {r['ncc']:.4f} valid {r['valid_frac']:.3f} "
-                    f"clamped {r['clamped_frac']:.3f}\n")
+            f.write(
+                f"- {k}: NCC {r['ncc']:.4f} valid {r['valid_frac']:.3f} "
+                f"clamped {r['clamped_frac']:.3f}\n"
+            )
         f.write(f"\nBest sign: {best_sign}. Gate: NCC >= 0.60.\n")
     print(f"VERDICT: {verdict} (best {best_sign} NCC={best['ncc']:.4f})", flush=True)
     return 0 if verdict == "PASS" else 1

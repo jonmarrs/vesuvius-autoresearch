@@ -21,6 +21,35 @@ def test_parses_scan_and_voxel_size_from_the_name():
     assert f.scan == "20260411134726" and f.um_per_voxel == 2.4
 
 
+@pytest.mark.parametrize("number", ["9" * 500, "0." + "0" * 500 + "1"])
+def test_unrepresentable_voxel_sizes_are_not_parsed_as_frames(number):
+    assert parse_mesh_name(f"{SEG}-on-20260411134726-{number}um.tifxyz") is None
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_bbox_diagonal_is_omitted(value):
+    frame = frames_for(NAMES[:1], {NAMES[0]: {"bbox": [[0, 0, 0], [value, 1, 2]]}})[0]
+    assert frame.bbox_diagonal is None
+    json.dumps(frame.__dict__, allow_nan=False)
+
+
+def test_large_finite_bbox_diagonal_does_not_overflow_intermediate_squares():
+    frame = frames_for(NAMES[:1], {NAMES[0]: {"bbox": [[0, 0, 0], [1e200, 1e200, 0]]}})[
+        0
+    ]
+    assert frame.bbox_diagonal == pytest.approx(2**0.5 * 1e200)
+
+
+def test_unrepresentable_optional_scale_is_omitted():
+    frame = frames_for(NAMES[:1], {NAMES[0]: {"scale": [10**500]}})[0]
+    assert frame.declared_scale is None
+
+
+def test_unrepresentable_voxel_ratio_is_not_returned_as_infinity():
+    with pytest.raises(ValueError, match="finite"):
+        collision([Frame("small", "1", 1e-300), Frame("large", "2", 1e300)])
+
+
 @pytest.mark.parametrize(
     "bad",
     [
@@ -165,6 +194,35 @@ def _run(monkeypatch, capsys, argv, fetched):
     monkeypatch.setattr(scroll_frames, "_fetch", fetch)
     code = scroll_frames.main(argv)
     return code, capsys.readouterr()
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_cli_numeric_failure_is_an_error_without_a_partial_report(
+    monkeypatch, capsys, as_json
+):
+    names = [
+        f"{SEG}-on-1-0.{('0' * 299)}1um.tifxyz",
+        f"{SEG}-on-2-1{('0' * 300)}um.tifxyz",
+    ]
+    argv = ["list", "P/s", *(["--json"] if as_json else [])]
+    code, output = _run(monkeypatch, capsys, argv, (names, {}))
+    assert code == 2
+    assert output.out == ""
+    assert "finite" in output.err
+
+
+def test_cli_json_contains_no_nonstandard_numeric_tokens(monkeypatch, capsys):
+    metadata = {NAMES[0]: {"bbox": [[0, 0, 0], [float("nan"), 1, 2]]}}
+    code, output = _run(
+        monkeypatch, capsys, ["list", "P/s", "--json"], (NAMES[:1], metadata)
+    )
+
+    def reject(token):
+        pytest.fail(f"nonstandard JSON token: {token}")
+
+    result = json.loads(output.out, parse_constant=reject)
+    assert code == 0
+    assert result["frames"][0]["bbox_diagonal"] is None
 
 
 def test_main_exits_1_on_a_collision_and_0_without(monkeypatch, capsys):

@@ -529,13 +529,22 @@ def _probe_constants():
         for n in tree.body
         if isinstance(n, ast.Assign) and n.targets[0].id == "HASHES"
     )
-    url = next(
-        k.value.value
+    url_values = [
+        k.value
         for n in ast.walk(tree)
         if isinstance(n, ast.Call)
         for k in n.keywords
         if k.arg == "source_url"
-    )
+    ] + [
+        value
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Dict)
+        for key, value in zip(n.keys, n.values, strict=True)
+        if isinstance(key, ast.Constant) and key.value == "source_url"
+    ]
+    # Match the recorded field across either Python spelling of a dict. A
+    # conflicting second URL must fail instead of silently choosing the first.
+    (url,) = {ast.literal_eval(value) for value in url_values}
     return hashes, url
 
 

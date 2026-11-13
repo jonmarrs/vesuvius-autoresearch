@@ -15,6 +15,7 @@ from vesuvius_autoresearch.fibers.trace import (
     StopReason,
     TraceParams,
     TraceResult,
+    _trilinear,
     _walk,
     trace_fibers,
 )
@@ -384,3 +385,87 @@ def test_traceresult_shape_matches_input():
     res = trace_fibers(_tubes(n=48), params=_params())
     assert res.shape == (48, 48, 48)
     assert res.to_instances().shape == (48, 48, 48)
+
+
+def test_trilinear_keeps_an_exact_voxel_beside_a_nan_neighbour():
+    """A zero-weight NaN used to clear the sample, and the walk stopped there.
+
+    A coordinate within 1e-9 of either face is that voxel, so 7±5e-10 beside
+    a NaN neighbour is the face value. A point at -0.5 is outside and stays
+    NaN. A non-finite coordinate is NaN. A point that is not shape (3,) raises.
+    """
+    zz, yy, xx = np.meshgrid(*(np.arange(8.0),) * 3, indexing="ij")
+    linear = 2 * zz + 3 * yy - xx
+    assert _trilinear(linear, np.array([1.25, 2.5, 3.75])) == pytest.approx(
+        2 * 1.25 + 3 * 2.5 - 3.75
+    )
+    assert _trilinear(linear, np.array([7.0, 7.0, 7.0])) == pytest.approx(
+        2 * 7 + 3 * 7 - 7
+    )
+    assert _trilinear(linear, np.array([-1e-16, 1.0, 1.0])) == pytest.approx(
+        2 * 0 + 3 * 1 - 1
+    )
+    one = np.array([[[4.0]]])
+    assert _trilinear(one, np.array([0.0, 0.0, 0.0])) == pytest.approx(4)
+    assert np.isnan(_trilinear(one, np.array([0.5, 0.0, 0.0])))
+    hole = np.ones((3, 3, 3))
+    hole[1, 1, 1] = 9
+    hole[2, 1, 1] = np.nan
+    assert _trilinear(hole, np.array([1.0, 1.0, 1.0])) == pytest.approx(9)
+    assert np.isnan(_trilinear(hole, np.array([1.25, 1.0, 1.0])))
+    assert np.isnan(_trilinear(linear, np.array([np.nan, 1.0, 1.0])))
+    assert np.isnan(_trilinear(linear, np.array([np.inf, 1.0, 1.0])))
+    with pytest.raises(ValueError):
+        _trilinear(linear, np.array([1.0, 2.0]))
+    with pytest.raises(ValueError):
+        _trilinear(linear, np.ones((3, 1)))
+    assert np.isnan(_trilinear(linear, np.array([8.0, 1.0, 1.0])))
+    assert np.isnan(_trilinear(linear, np.array([-0.5, 1.0, 1.0])))
+    face = np.zeros((8, 1, 1))
+    face[7, 0, 0] = 9
+    face[6, 0, 0] = np.nan
+    assert _trilinear(face, np.array([7.0 + 5e-10, 0.0, 0.0])) == pytest.approx(9)
+    assert _trilinear(face, np.array([7.0 - 5e-10, 0.0, 0.0])) == pytest.approx(9)
+
+    response = np.ones((5, 5, 5))
+    response[3, 2, 2] = np.nan
+    directions = np.zeros((5, 5, 5, 3))
+    directions[..., 0] = 1
+    pts, _, reason = _walk(
+        np.array([1.0, 2.0, 2.0]),
+        np.array([1.0, 0.0, 0.0]),
+        response,
+        directions,
+        np.ones((5, 5, 5), dtype=bool),
+        np.zeros((5, 5, 5), dtype=int),
+        TraceParams(step=1.0, max_steps=4, min_length=1, claim_radius=0),
+        1,
+    )
+    assert [tuple(p) for p in pts] == [(2.0, 2.0, 2.0)]
+    assert reason is StopReason.OUT_OF_BOUNDS
+    # A non-finite step used to raise in round() before the sample.
+    with np.errstate(invalid="ignore"):
+        stopped, _, reason = _walk(
+            np.array([1.0, 2.0, 2.0]),
+            np.array([1.0, 0.0, 0.0]),
+            np.ones((5, 5, 5)),
+            directions,
+            np.ones((5, 5, 5), dtype=bool),
+            np.zeros((5, 5, 5), dtype=int),
+            TraceParams(step=np.inf, max_steps=2),
+            1,
+        )
+    assert stopped == []
+    assert reason is StopReason.OUT_OF_BOUNDS
+    stopped, _, reason = _walk(
+        np.array([np.nan, 2.0, 2.0]),
+        np.array([1.0, 0.0, 0.0]),
+        np.ones((5, 5, 5)),
+        directions,
+        np.ones((5, 5, 5), dtype=bool),
+        np.zeros((5, 5, 5), dtype=int),
+        TraceParams(step=1.0, max_steps=2),
+        1,
+    )
+    assert stopped == []
+    assert reason is StopReason.INVALID_DIRECTION

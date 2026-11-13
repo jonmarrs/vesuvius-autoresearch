@@ -80,17 +80,21 @@ def test_a_non_retired_segment_is_not_short_circuited(tmp_path, monkeypatch):
     Without this, an early return that fired unconditionally would satisfy every other test
     here while silently disabling the gate for all segments.
 
-    Uses an id that is neither retired nor present on disk, so it exercises the branch
-    deterministically: a real segment would either hit cached data (making the assertion
-    depend on what happens to be downloaded) or spend ~40s re-registering it.
+    A sentinel fetch proves the active path is reached without a cached corpus,
+    a download or slow network retries for a deliberately nonexistent segment.
     """
     import pytest
 
-    from repro.sota_data.gt_register import gt_prep_fragment
+    from repro.sota_data import gt_register
 
-    # gt_prep_fragment creates local_data/sota_gt_meshes/<seg> relative to the working
-    # directory before it fails; in the checkout that left an empty directory behind.
+    calls = []
+
+    def fetch(seg, directory):
+        calls.append(seg)
+        raise LookupError("sentinel fetch reached")
+
+    monkeypatch.setattr(gt_register, "_fetch", fetch)
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(Exception) as exc:
-        gt_prep_fragment("99999999999999", 4000, 2500, 4096, str(tmp_path))
-    assert "retired" not in str(exc.value).lower()
+    with pytest.raises(LookupError, match="sentinel fetch reached"):
+        gt_register.gt_prep_fragment("99999999999999", 4000, 2500, 4096, str(tmp_path))
+    assert calls == ["99999999999999"]

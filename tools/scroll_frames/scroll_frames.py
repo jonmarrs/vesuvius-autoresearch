@@ -79,12 +79,15 @@ def parse_mesh_name(name: str) -> Frame | None:
     the whole reason two frames are indistinguishable from their metadata.
     """
     m = _NAME.match(os.path.basename(name.rstrip("/")))
-    if not m or float(m["um"]) <= 0:
+    if not m:
+        return None
+    um = float(m["um"])
+    if not math.isfinite(um) or um <= 0:
         return None
     return Frame(
         mesh=os.path.basename(name.rstrip("/")),
         scan=m["scan"],
-        um_per_voxel=float(m["um"]),
+        um_per_voxel=um,
     )
 
 
@@ -95,7 +98,7 @@ def _scale(meta: dict) -> float | None:
         return None
     try:
         value = float(sc[0])
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return value if math.isfinite(value) else None
 
@@ -115,7 +118,8 @@ def _grid(meta: dict) -> tuple[int, int] | None:
 
 def _diag(bbox) -> float | None:
     try:
-        return sum((bbox[1][i] - bbox[0][i]) ** 2 for i in range(3)) ** 0.5
+        value = math.hypot(*(bbox[1][i] - bbox[0][i] for i in range(3)))
+        return value if math.isfinite(value) else None
     except Exception:
         return None
 
@@ -162,6 +166,8 @@ def collision(frames: list[Frame]) -> dict:
     scales = sorted(f.declared_scale for f in frames if f.declared_scale is not None)
     ums = sorted(f.um_per_voxel for f in frames)
     spread = ums[-1] / ums[0]
+    if not math.isfinite(spread):
+        raise ValueError("voxel-size ratio must remain finite")
     # Compare with a tolerance, not exactly. The catalog stores this field at both float32
     # and float64 precision, so the same value appears as 0.05 and 0.05000000074505806.
     # An exact comparison calls those "distinguishable metadata" and misses every real
@@ -295,22 +301,27 @@ def main(argv=None) -> int:
             f"<segment>-on-<scan>-<um>um.tifxyz convention: {', '.join(skipped)}",
             file=sys.stderr,
         )
-    if args.json:
-        print(
-            json.dumps(
+    try:
+        result = collision(frames)
+        if args.json:
+            output = json.dumps(
                 {
                     "segment": args.segment,
                     "frames": [f.__dict__ for f in frames],
                     "skipped": skipped,
-                    "collision": collision(frames),
+                    "collision": result,
                 },
                 indent=2,
                 default=str,
+                allow_nan=False,
             )
-        )
-    else:
-        print(render(args.segment, frames))
-    return 1 if collision(frames)["collides"] else 0
+        else:
+            output = render(args.segment, frames)
+    except (ValueError, TypeError, ArithmeticError) as exc:
+        print(f"scrollframes: invalid frame data: {exc}", file=sys.stderr)
+        return 2
+    print(output)
+    return 1 if result["collides"] else 0
 
 
 if __name__ == "__main__":

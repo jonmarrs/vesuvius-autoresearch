@@ -30,7 +30,7 @@ from probe_real_patch_scatter import patch_dirs  # noqa: E402
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
-needs_data = pytest.mark.skipif(not patch_dirs(), reason="real patch data absent")
+needs_data = pytest.mark.research_input("spiral_patches")
 
 
 @needs_data
@@ -80,6 +80,7 @@ def test_the_local_fraction_statistic_saturates():
     assert high / low < 3.0, "statistic does not compress; it may have real power"
 
 
+@pytest.mark.research_input("spiral_patches")
 def test_the_split_is_not_a_partition():
     """Pins the symptom that shows the decomposition is a vector subtraction, not
     an orthogonal split: local can exceed total, which a partition cannot do."""
@@ -88,7 +89,6 @@ def test_the_split_is_not_a_partition():
     assert float((locals_ > totals).mean()) > 0.05
 
 
-@needs_data
 def test_the_raw_check_uses_no_correction_model():
     """Guard on independence. `raw_deviation` must not import or apply the
     attenuation being checked, or the check is the model validating itself."""

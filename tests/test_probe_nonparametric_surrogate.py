@@ -22,7 +22,7 @@ from probe_real_patch_scatter import patch_dirs  # noqa: E402
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
-needs_data = pytest.mark.skipif(not patch_dirs(), reason="real patch data absent")
+needs_data = pytest.mark.research_input("spiral_patches")
 ARTIFACT = os.path.join(_REPO, "reports", "nonparametric_surrogate.txt")
 
 
@@ -110,7 +110,6 @@ def test_the_transplant_prefers_valid_windows():
     assert sum(f >= 1.0 for f in fracs) >= len(fracs) // 2
 
 
-@needs_data
 def test_the_donor_is_never_the_recipient():
     """Self-injection is the flattering failure here, and the assertion that
     prevents it must actually be reachable rather than decorative."""

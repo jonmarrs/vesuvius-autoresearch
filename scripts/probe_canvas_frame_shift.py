@@ -156,7 +156,16 @@ class _Tiff:
         self.dtype = np.dtype(bo + "f4")
 
     def rows(self, r0: int, r1: int, c0: int, c1: int) -> np.ndarray:
-        out = np.full((r1 - r0, c1 - c0), np.nan, np.float32)
+        # Stop at the file. A request past the last row used to come back as
+        # NaN inside the crop, and sample_tifxyz treats an in-plane NaN as a
+        # hole even when its weight is zero, so the last file cell was lost.
+        # A negative r0 stays a leading NaN so index 0 is still requested r0.
+        r1 = min(r1, self.height)
+        c1 = min(c1, self.width)
+        height, width = r1 - r0, c1 - c0
+        if height <= 0 or width <= 0:
+            return np.empty((max(height, 0), max(width, 0)), np.float32)
+        out = np.full((height, width), np.nan, np.float32)
         rr0, rr1 = max(r0, 0), min(r1, self.height)
         cc0, cc1 = max(c0, 0), min(c1, self.width)
         if rr0 >= rr1 or cc0 >= cc1:
@@ -306,6 +315,8 @@ def _surface(
     scale_x = float(np.float32(meta["scale"][0]))
     stored_r = rows * scale_y
     stored_c = cols * scale_x
+    # One cell of margin for the bilinear corner, plus two. rows() drops the
+    # part of that request that is past the file rather than padding NaN.
     r0, r1 = int(np.floor(stored_r.min())) - 1, int(np.floor(stored_r.max())) + 3
     c0, c1 = int(np.floor(stored_c.min())) - 1, int(np.floor(stored_c.max())) + 3
     planes = {

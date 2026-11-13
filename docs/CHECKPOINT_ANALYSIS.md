@@ -183,6 +183,38 @@ all prediction outputs. Other prediction artifacts may already be refreshed if
 mask publication fails; the prediction's success sidecar is then absent. See the
 [handoff review](DESIGN_ARCHITECTURE_REVIEW_UNCERTAINTY_HANDOFF.md).
 
+### Launch the 3D label proofreader
+
+```bash
+uv run python scripts/launch_proofreader.py \
+  --volume /path/to/ct.zarr --predictions /path/to/categorical_labels.zarr \
+  --patch-size 64 --out-dir local_data/proofreading_session
+```
+
+This launcher accepts aligned 3D CT and integer categorical label arrays of the
+same shape, including OME groups with a level-0 array. Verify their physical
+registration separately: matching shapes alone do not establish alignment.
+Label IDs must be in `0..255`, including IDs added while editing: pinned Villa
+saves labels as uint8. Bool and uint8 inputs need no value scan; wider or signed
+integer inputs require a complete label scan before launch, with requested
+blocks capped at 64 voxels per axis. Storage decoding can allocate more than
+the requested block, so this is not a process-memory or runtime limit. Negative
+or oversized IDs are refused rather than truncated; valid wide inputs are
+retained unchanged. The input check does not constrain later GUI edits.
+The scalar patch edge must fit every axis; Villa uses cubic patches. The
+launcher starts at z=0, locates Villa from this checkout, uses a temporary
+configuration and returns the GUI subprocess's exit code. Napari and Villa's
+GUI dependencies must be installed separately.
+
+Choose a new or empty output directory. Villa can automatically load old progress
+by volume name, so this wrapper refuses to resume an existing session without a
+verified resume configuration. Press `a` to toggle approval, then Space to
+save/advance. The uncertainty masks above and regional probability maps are
+not full-volume categorical annotations. A validated crop/coordinate/label
+conversion is still needed before passing them to the proofreader; the launcher
+refuses incompatible shapes and floating-point labels. Approved patch TIFFs
+also need a separate conversion before use by the ink-training workflow.
+
 ## Incumbent re-evaluation
 
 ```bash

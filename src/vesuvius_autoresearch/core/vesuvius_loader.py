@@ -607,11 +607,14 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         depth_band=None,
         depth_margin=0,
     ):
+        if not isinstance(strict_reads, bool):
+            raise ValueError("strict_reads must be a boolean")
         self.volume = FastVesuviusVolume(
             volume_uri,
             cache_dir=cache_dir,
             use_ridges=use_ridges,
             ridge_sigma=ridge_sigma,
+            strict_reads=strict_reads,
         )
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])

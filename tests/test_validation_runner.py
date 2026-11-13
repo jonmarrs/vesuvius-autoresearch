@@ -77,6 +77,47 @@ def test_overlapping_selections_keep_registry_order_once(registry, launched, cap
     assert "Validation scope: 3/3 curated modules" in capsys.readouterr().out
 
 
+def test_portable_profile_selects_only_its_declared_subset(
+    registry, monkeypatch, launched
+):
+    _, names = registry
+    monkeypatch.setattr(runner, "PORTABLE_TESTS", [names[0], names[2]], raising=False)
+    assert runner.main(["--profile", "portable"]) == 0
+    assert launched[0][0][4:] == [names[0], names[2]]
+
+
+def test_portable_matching_cannot_fall_back_to_a_full_suite_module(
+    registry, monkeypatch, launched
+):
+    _, names = registry
+    monkeypatch.setattr(runner, "PORTABLE_TESTS", [names[0]], raising=False)
+    with pytest.raises(SystemExit) as exc:
+        runner.main(["--profile", "portable", "--match", "*alpha*"])
+    assert exc.value.code == 2 and not launched
+
+
+@pytest.mark.parametrize(
+    "portable", [[], ["tests/absent.py"], ["tests/test_zebra.py"] * 2]
+)
+def test_invalid_portable_registry_fails_before_launch(
+    registry, monkeypatch, launched, portable
+):
+    monkeypatch.setattr(runner, "PORTABLE_TESTS", portable, raising=False)
+    with pytest.raises(SystemExit) as exc:
+        runner.main(["--profile", "portable"])
+    assert exc.value.code == 2 and not launched
+
+
+def test_portable_list_uses_registry_order_without_extra_output(
+    registry, monkeypatch, launched, capsys
+):
+    _, names = registry
+    monkeypatch.setattr(runner, "PORTABLE_TESTS", list(reversed(names)), raising=False)
+    assert runner.main(["--profile", "portable", "--list"]) == 0
+    assert capsys.readouterr().out.splitlines() == names
+    assert not launched
+
+
 def test_list_prints_only_selected_paths_and_launches_nothing(
     registry, launched, capsys
 ):

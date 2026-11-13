@@ -6,7 +6,10 @@ Ink probability is sigmoid(ink) on every path: the quantity training validates
 """
 
 import math
+from collections.abc import Sequence
+from dataclasses import dataclass
 from numbers import Integral, Real
+from typing import overload
 
 import torch
 
@@ -121,30 +124,72 @@ def validate_region(args, patch_size, num_layers, shape=None):
             raise ValueError(f"requested region exceeds volume shape {shape}")
 
 
-def tile_starts(length, size, stride):
-    positive_integer(length, "length")
-    positive_integer(size, "size")
-    positive_integer(stride, "stride")
+def tile_count(length, size, stride):
+    """Count regular tile starts plus the final edge without allocating them."""
+    length = positive_integer(length, "length")
+    size = positive_integer(size, "size")
+    stride = positive_integer(stride, "stride")
     if length < size or stride > size:
         raise ValueError("tiling requires length >= size and stride <= size")
-    starts = list(range(0, length - size + 1, stride))
-    if starts[-1] != length - size:
-        starts.append(length - size)
-    return starts
+    edge = length - size
+    return edge // stride + 1 + int(edge % stride != 0)
+
+
+def tile_starts(length, size, stride):
+    count = tile_count(length, size, stride)
+    return [min(index * stride, length - size) for index in range(count)]
+
+
+@dataclass(frozen=True)
+class _RegionTiles(Sequence[tuple[int, int]]):
+    edge_y: int
+    edge_x: int
+    stride: int
+    columns: int
+    indices: range
+
+    def __len__(self):
+        return len(self.indices)
+
+    @overload
+    def __getitem__(self, index: int) -> tuple[int, int]: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> "_RegionTiles": ...
+
+    def __getitem__(self, index):
+        selected = self.indices[index]
+        if isinstance(index, slice):
+            return _RegionTiles(
+                self.edge_y, self.edge_x, self.stride, self.columns, selected
+            )
+        row, column = divmod(selected, self.columns)
+        return min(row * self.stride, self.edge_y), min(
+            column * self.stride, self.edge_x
+        )
 
 
 def region_tiles(args, patch_size):
-    all_tiles = [
-        (y, x)
-        for y in tile_starts(args.height, patch_size, args.stride)
-        for x in tile_starts(args.width, patch_size, args.stride)
-    ]
-    my_tiles = all_tiles[args.part_id :: args.num_parts]
-    if not my_tiles:
+    """A sized lazy shard in the existing row-major, interleaved tile order."""
+    rows = tile_count(args.height, patch_size, args.stride)
+    columns = tile_count(args.width, patch_size, args.stride)
+    positive_integer(args.num_parts, "num_parts")
+    positive_integer(args.part_id, "part_id", minimum=0)
+    if args.part_id >= args.num_parts:
+        raise ValueError("part_id must be smaller than num_parts")
+    total = rows * columns
+    if args.part_id >= total:
         raise ValueError(
             "requested inference shard contains no tiles; reduce num_parts"
         )
-    args.tiles_total = len(all_tiles)
+    my_tiles = _RegionTiles(
+        args.height - patch_size,
+        args.width - patch_size,
+        args.stride,
+        columns,
+        range(args.part_id, total, args.num_parts),
+    )
+    args.tiles_total = total
     args.tiles_processed = len(my_tiles)
     return my_tiles
 

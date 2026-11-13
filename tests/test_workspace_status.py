@@ -42,14 +42,99 @@ def save_config(workspace, **changes):
     return repo
 
 
+@pytest.mark.parametrize("kind", ["split", "checkpoint"])
+def test_training_boundary_conflicts_are_reported_without_loading_data(workspace, kind):
+    if kind == "split":
+        repo = save_config(workspace, uris=["./val/surface_volume.zarr/"])
+        name = "training_split"
+    else:
+        repo = save_config(workspace, checkpoint_out="config.json")
+        name = "checkpoint_outputs"
+    before = (repo / "config.json").read_bytes()
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert check(report, name)["status"] == "blocked"
+    assert (repo / "config.json").read_bytes() == before
+
+
 def test_checks_files_without_claiming_training_readiness(workspace):
     repo, _ = workspace
     (repo / "best_model.pt").write_bytes(b"invalid checkpoint, never deserialize")
     report = status.inspect_workspace(repo)
     assert report["setup_status"] == "ok"
     assert report["training_readiness"] == "not_checked"
+    assert report["data_read_policy"] == {
+        "training": "legacy_permissive",
+        "validation": "strict",
+    }
     assert "unvalidated" in check(report, "checkpoint")["message"]
     assert check(report, "validation.labels")["path"] == str(repo / "val/inklabels.png")
+
+
+def test_existing_uri_like_local_paths_use_the_same_lookup_as_training(workspace):
+    repo, _ = workspace
+    (repo / "train").rename(repo / "scan:train")
+    save_config(workspace, uris=["scan:train/surface_volume.zarr"])
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "ok"
+    assert check(report, "training[0].labels")["path"] == str(
+        repo / "scan:train/inklabels.png"
+    )
+
+
+def test_symlinked_volume_keeps_its_visible_annotation_parent(workspace):
+    repo, _ = workspace
+    (repo / "visible").mkdir()
+    (repo / "visible/surface_volume.zarr").symlink_to(
+        repo / "train/surface_volume.zarr", target_is_directory=True
+    )
+    label = repo / "visible/inklabels.png"
+    label.write_bytes(b"visible annotation")
+    save_config(
+        workspace, uris=["visible/surface_volume.zarr"], checkpoint_out=str(label)
+    )
+    report = status.inspect_workspace(repo)
+    assert check(report, "training[0].labels")["path"] == str(label)
+    assert report["setup_status"] == "blocked"
+    assert check(report, "checkpoint_outputs")["status"] == "blocked"
+    assert label.read_bytes() == b"visible annotation"
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_reports_the_explicit_read_policy_without_loading_arrays(workspace, strict):
+    repo = save_config(workspace, strict_training_reads=strict)
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "ok"
+    assert report["data_read_policy"] == {
+        "training": "strict" if strict else "legacy_permissive",
+        "validation": "strict",
+    }
+    assert check(report, "read_policy")["status"] == "info"
+
+
+@pytest.mark.parametrize("flag", ["true", 1, None])
+def test_invalid_read_policy_is_not_silently_coerced(workspace, flag):
+    repo = save_config(workspace, strict_training_reads=flag)
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert (
+        "strict_training_reads must be a boolean" in check(report, "config")["message"]
+    )
+
+
+def test_strict_uamt_refuses_unsupported_preprocessing_before_data_loading(workspace):
+    repo = save_config(
+        workspace,
+        strict_training_reads=True,
+        use_uamt=True,
+        use_lasagna=True,
+        unlabeled_uris=["train/surface_volume.zarr"],
+    )
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert "unavailable unlabeled Lasagna" in check(report, "config")["message"]
+    save_config(workspace, unlabeled_uris=[])
+    assert status.inspect_workspace(repo)["setup_status"] == "ok"
 
 
 def test_paused_or_running_state_is_separate_from_filesystem(
