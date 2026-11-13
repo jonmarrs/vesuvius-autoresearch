@@ -4,7 +4,9 @@ Usage: make_record.py RUN_ROOT OUT.json
 
 Nothing is typed in here except what no file records: the host, the times the training loop was
 stopped and started, and the list of what the run did not measure. Every other number is read from
-the run's own logs and comparison files under RUN_ROOT.
+the run's own logs and comparison files under RUN_ROOT. Checkpoint restricted-load
+verification remains unknown: the run has no identity-bound load receipts consumed
+by this builder. A checker process status alone is not a per-file receipt.
 """
 
 from __future__ import annotations
@@ -150,7 +152,8 @@ def main() -> int:
         "checkpoints": {
             "downloads_sha256_checked_by": "ink/scripts/fetch_checkpoints.sh",
             "dense_native": "rebuilt from the published safetensors (the original .pth is not public)",
-            "all_load_with_weights_only": True,
+            "all_load_with_weights_only": None,
+            "weights_only_verification": "unverified_no_identity_bound_receipts",
         },
         "mesh": {"files": mesh, "all_match": all(e["match"] for e in mesh.values())},
         "render": {
