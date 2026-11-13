@@ -54,7 +54,7 @@ def main() -> int:
     from scripts.training import train
 
     config = train.ExperimentConfig.load(args.config)
-    train.train(config)
+    train.train(config, config_path=args.config)
     return 0
 
 

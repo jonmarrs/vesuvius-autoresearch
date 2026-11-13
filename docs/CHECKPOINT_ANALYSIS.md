@@ -133,6 +133,88 @@ an accuracy measurement. Queue sampling reads the buffered context for ridge
 models (their ridge channel is computed over it, as in training) and the exact
 checkpoint depth for CT-only models. The queue records the depth band it applied.
 
+## Proofreader uncertainty masks
+
+The optional export from `scripts.inference.predict` marks pixels whose normalized
+binary prediction entropy exceeds 0.2. This is a 2D window-level diagnostic,
+stored as a one-plane Z/Y/X array; it is not an estimate of ink correctness or
+voxelwise uncertainty throughout the model's depth window.
+
+The prediction sidecar's `uncertainty_export` identifies this run's outcome:
+
+| status | meaning |
+| --- | --- |
+| `EXPORTED` | A current nonempty mask was published; `path` identifies it. |
+| `EMPTY` | A current all-zero mask was published; no pixels met the threshold. |
+| `SKIPPED` | `--skip_active_learning` was requested; path is null. |
+| `INCOMPLETE` | This is a distributed shard; combine predictions before proofreading. |
+| `UNAVAILABLE` | The optional exporter could not be imported; the reason is recorded. |
+
+Only EXPORTED/EMPTY paths identify a current mask. Older stores left beside a
+skipped/incomplete/unavailable run are historical. Other prediction entry points
+may record null for this field. Read the sidecar before opening a mask.
+
+Each complete single-region run publishes its mask even when it is empty, so a
+confident rerun replaces the previous nonempty mask. Stores retain the legacy
+bare Zarr v2 float32 0/1 format and chunks `(1, 64, 64)`. Attributes identify axes,
+shape, encoding, selected-voxel count and the supplied source context. Prediction
+exports record the declared source URI/position/voxel size, model window depth,
+checkpoint digest, inference recipe and entropy threshold. This records context;
+it does not independently validate physical registration or confidence calibration.
+
+Python callers can use `export_for_proofreader(mask, output_path, sources=..., metadata=...)`
+from `scripts.active_learning_sampler`. It accepts nonempty H/W, Z/Y/X or
+singleton-channel C/Z/Y/X arrays/tensors with binary 0/1 or 0/255 values. Multiple
+channels, ambiguous shapes, nonfinite/nonbinary values and source/output aliases
+are refused. Tensors are detached for export; NumPy inputs are copied for writing.
+Existing stores require explicit `overwrite=True`; the single-region prediction
+path requests replacement of its own planned mask. The default mask budget is
+134,217,728 voxels (`max_voxels` overrides it in Python). Prediction validates
+that budget/destination before model work; use a bounded region or skip the
+auxiliary export for larger requests. The bound is not an RSS/VRAM limit.
+
+Stores are built in a sibling staging directory, then installed with two renames
+and rollback on installation failure. Build failures preserve an existing store;
+its root directory permissions are retained on replacement. Existing stores must
+be bare 3D arrays with a bounded nonsymlink tree of regular, non-hard-linked
+files. Writers and readers must be serialized: there is a short path gap during
+replacement, and this is not a power-loss transaction or a transaction across
+all prediction outputs. Other prediction artifacts may already be refreshed if
+mask publication fails; the prediction's success sidecar is then absent. See the
+[handoff review](DESIGN_ARCHITECTURE_REVIEW_UNCERTAINTY_HANDOFF.md).
+
+### Launch the 3D label proofreader
+
+```bash
+uv run python scripts/launch_proofreader.py \
+  --volume /path/to/ct.zarr --predictions /path/to/categorical_labels.zarr \
+  --patch-size 64 --out-dir local_data/proofreading_session
+```
+
+This launcher accepts aligned 3D CT and integer categorical label arrays of the
+same shape, including OME groups with a level-0 array. Verify their physical
+registration separately: matching shapes alone do not establish alignment.
+Label IDs must be in `0..255`, including IDs added while editing: pinned Villa
+saves labels as uint8. Bool and uint8 inputs need no value scan; wider or signed
+integer inputs require a complete label scan before launch, with requested
+blocks capped at 64 voxels per axis. Storage decoding can allocate more than
+the requested block, so this is not a process-memory or runtime limit. Negative
+or oversized IDs are refused rather than truncated; valid wide inputs are
+retained unchanged. The input check does not constrain later GUI edits.
+The scalar patch edge must fit every axis; Villa uses cubic patches. The
+launcher starts at z=0, locates Villa from this checkout, uses a temporary
+configuration and returns the GUI subprocess's exit code. Napari and Villa's
+GUI dependencies must be installed separately.
+
+Choose a new or empty output directory. Villa can automatically load old progress
+by volume name, so this wrapper refuses to resume an existing session without a
+verified resume configuration. Press `a` to toggle approval, then Space to
+save/advance. The uncertainty masks above and regional probability maps are
+not full-volume categorical annotations. A validated crop/coordinate/label
+conversion is still needed before passing them to the proofreader; the launcher
+refuses incompatible shapes and floating-point labels. Approved patch TIFFs
+also need a separate conversion before use by the ink-training workflow.
+
 ## Incumbent re-evaluation
 
 ```bash

@@ -1,0 +1,731 @@
+{
+  "what": "PHerc. 343 First Letters image rebuilt on this machine (the campaign's kill test)",
+  "date": "2026-11-10",
+  "recipe": {
+    "repository": "https://github.com/Nieuwlaar/pherc343-first-letters",
+    "commit": "e8370f1f88a211166056df62ea6fcfffe4a1063e",
+    "published_image_sha256": "59307c84ea65091de1bea14a3b75d44069bfe1fb498b3445f698ec3d1b8c1c78"
+  },
+  "host": {
+    "cpu_cores": 4,
+    "ram_gb": 31,
+    "gpu": "RTX 4090, 24 GB"
+  },
+  "scope": {
+    "run_here": [
+      "join of the two published windings into one mesh (mesh/build_concat.py)",
+      "66-layer render from CT streamed off the public bucket",
+      "four released ink models at depth +1, plain and padded render",
+      "tile-phase merge and the submission image"
+    ],
+    "taken_from_the_publication": [
+      "the two windings w047 and w048 (the spiral fit, snap and flatten were not run)",
+      "the scroll axis, the row lines and the 18 letter boxes",
+      "the per-model and ensemble statistics pooled over 31 depths (image_pubstats only)"
+    ]
+  },
+  "checkpoints": {
+    "downloads_sha256_checked_by": "ink/scripts/fetch_checkpoints.sh",
+    "dense_native": "rebuilt from the published safetensors (the original .pth is not public)",
+    "all_load_with_weights_only": true
+  },
+  "mesh": {
+    "files": {
+      "meta.json": {
+        "published": "76dce1781a09108632d15711bc75f43ad963aeddf22b1426954b160638f87e7e",
+        "ours": "76dce1781a09108632d15711bc75f43ad963aeddf22b1426954b160638f87e7e",
+        "match": true
+      },
+      "x.tif": {
+        "published": "8f31c8d7bc79ef79a39677274f0f80cbcc4066b5c92b8aa47e8b938b1f9d1fc4",
+        "ours": "8f31c8d7bc79ef79a39677274f0f80cbcc4066b5c92b8aa47e8b938b1f9d1fc4",
+        "match": true
+      },
+      "y.tif": {
+        "published": "7d4161972cb7e90a0d6d8203040c2e515ce6fb29c172091b21facace315545fc",
+        "ours": "7d4161972cb7e90a0d6d8203040c2e515ce6fb29c172091b21facace315545fc",
+        "match": true
+      },
+      "z.tif": {
+        "published": "04feacf27806f6653d85bb10b53068f0c37cecea209dc739a3b8b3b5c4363c65",
+        "ours": "04feacf27806f6653d85bb10b53068f0c37cecea209dc739a3b8b3b5c4363c65",
+        "match": true
+      }
+    },
+    "all_match": true
+  },
+  "render": {
+    "renderer_image": "sha256:239865b6068fbba8e1c36b01e8d668220d21494d505bc6b46ab14f6f3759ea82",
+    "renderer_source": "villa 75c79ac5f (volume-cartographer tree identical to 41701aa)",
+    "started": "2026-11-10T08:07:05-08:00",
+    "finished": "2026-11-10T08:14:49-08:00",
+    "exit": 0,
+    "wall_seconds": 463.6,
+    "threads": 2,
+    "cache_gb": 3,
+    "container_memory_cap": "8g",
+    "ct_bytes_cached": 4416606588,
+    "check": {
+      "shape": [
+        66,
+        2560,
+        6720
+      ],
+      "dtype": "uint8",
+      "shape_matches": true,
+      "area_layers_sha256": {
+        "34": {
+          "ours": "df1a3e8d4e61de845eca0b94952dc207b73605c1f6093312e5283980b895f8f8",
+          "published": "df1a3e8d4e61de845eca0b94952dc207b73605c1f6093312e5283980b895f8f8",
+          "match": true
+        }
+      },
+      "area_valid_mask_sha256": {
+        "ours": "f60549218edb9871e5acb8930e176a09fe1aaafef28c10a2261014f70a58dcbc",
+        "published": "f60549218edb9871e5acb8930e176a09fe1aaafef28c10a2261014f70a58dcbc",
+        "match": true
+      },
+      "area_valid_fraction": {
+        "ours": 0.6418,
+        "published": 0.6418
+      },
+      "tree": {
+        "ours": {
+          "sha256": "5bd2419e10436f4410a0fa811bb9f30ed85e3a0d550d527c02b422074f6e07bd",
+          "files": 1009,
+          "bytes": 945626693
+        },
+        "published": {
+          "sha256": "c2894f23d170ac1e85bc5b3f2c3c1abcbecdfa73adca8bac66cfa96d4607c274",
+          "files": 1009,
+          "bytes": 945626701
+        },
+        "match": false
+      },
+      "decoded_voxels_identical_where_published": true
+    }
+  },
+  "ink": {
+    "started": "2026-11-10T09:58:20-08:00",
+    "finished": "2026-11-10T10:15:30-08:00",
+    "exit": 0,
+    "wall_seconds": {
+      "plain": 535,
+      "padded": 495
+    },
+    "jobs": [
+      {
+        "render": "plain",
+        "model": "dnative",
+        "depth": 1,
+        "seconds": 190,
+        "exit": 0
+      },
+      {
+        "render": "plain",
+        "model": "hybrid_3d2d-seed42",
+        "depth": 1,
+        "seconds": 180,
+        "exit": 0
+      },
+      {
+        "render": "plain",
+        "model": "hecate",
+        "depth": 1,
+        "seconds": 427,
+        "exit": 0
+      },
+      {
+        "render": "plain",
+        "model": "hybrid_3d2d-seed43",
+        "depth": 1,
+        "seconds": 163,
+        "exit": 0
+      },
+      {
+        "render": "padded",
+        "model": "dnative",
+        "depth": 1,
+        "seconds": 171,
+        "exit": 0
+      },
+      {
+        "render": "padded",
+        "model": "hybrid_3d2d-seed42",
+        "depth": 1,
+        "seconds": 167,
+        "exit": 0
+      },
+      {
+        "render": "padded",
+        "model": "hecate",
+        "depth": 1,
+        "seconds": 424,
+        "exit": 0
+      },
+      {
+        "render": "padded",
+        "model": "hybrid_3d2d-seed43",
+        "depth": 1,
+        "seconds": 157,
+        "exit": 0
+      }
+    ],
+    "parallel": {
+      "villa_jobs": 1,
+      "hecate_jobs": 1
+    },
+    "gpu": {
+      "samples": 206,
+      "interval_seconds": 5,
+      "peak_memory_mib": 3174
+    },
+    "gpu_shared_with": "finding 109's intermittent use; the training loop was stopped",
+    "full_recipe_jobs": 496,
+    "jobs_run": 8
+  },
+  "rerun_same_model": {
+    "model": "hybrid_3d2d-seed42",
+    "render": "plain",
+    "maps": {
+      "_reverse": {
+        "shape": [
+          2560,
+          6720
+        ],
+        "differing_fraction": 0.00264,
+        "max": 1,
+        "fraction_over_1": 0.0,
+        "mean_abs": 0.00264
+      },
+      "forward": {
+        "shape": [
+          2560,
+          6720
+        ],
+        "differing_fraction": 0.00253,
+        "max": 1,
+        "fraction_over_1": 0.0,
+        "mean_abs": 0.00253
+      }
+    }
+  },
+  "image": {
+    "pubstats": {
+      "comparison": {
+        "published": "src/repo/outputs/concat_w047-w048_R5B2_z9500-11000.png",
+        "ours": "work/image_pubstats/concat_w047-w048_R5B2_z9500-11000.png",
+        "panel_hw": [
+          2455,
+          5641
+        ],
+        "pixels_identical_fraction": 0.99937,
+        "abs_diff": {
+          "mean": 0.0008,
+          "p99": 0.0,
+          "max": 5,
+          "fraction_over_8": 0.0
+        },
+        "ink_tint_pearson_r": 1.0,
+        "ink_tint_pearson_r_where_either_shown": 1.0,
+        "ink_shown_fraction": {
+          "published": 0.0851,
+          "ours": 0.0851
+        },
+        "ink_shown_iou": 0.9999,
+        "sidecar_ink_above_threshold_fraction": {
+          "published": 0.1485,
+          "ours": 0.1485
+        },
+        "normalisation": {
+          "dnative": {
+            "published": {
+              "mean": 0.22716,
+              "sd": 0.16337
+            },
+            "ours": {
+              "mean": 0.22716,
+              "sd": 0.16337
+            }
+          },
+          "hecate": {
+            "published": {
+              "mean": 0.04464,
+              "sd": 0.11126
+            },
+            "ours": {
+              "mean": 0.04464,
+              "sd": 0.11126
+            }
+          },
+          "ink9-42": {
+            "published": {
+              "mean": 0.10644,
+              "sd": 0.15903
+            },
+            "ours": {
+              "mean": 0.10644,
+              "sd": 0.15903
+            }
+          },
+          "ink9-43": {
+            "published": {
+              "mean": 0.10645,
+              "sd": 0.16307
+            },
+            "ours": {
+              "mean": 0.10645,
+              "sd": 0.16307
+            }
+          }
+        },
+        "ensemble_stretch": {
+          "published": {
+            "p1": -0.7182422280311584,
+            "p99_5": 3.862934286594383,
+            "source": "ink-stats (fixed grid, every 8th row and column, all depths of the reading side)"
+          },
+          "ours": {
+            "p1": -0.7182422280311584,
+            "p99_5": 3.862934286594383,
+            "source": "ink-stats (fixed grid, every 8th row and column, all depths of the reading side)"
+          }
+        },
+        "ct_stretch": {
+          "published": {
+            "lo": 26.0,
+            "hi": 164.0,
+            "source": "ink-stats: p1..p99.5 of the valid pixels of layers 18..48"
+          },
+          "ours": {
+            "lo": 26.0,
+            "hi": 164.0,
+            "source": "ink-stats: p1..p99.5 of the valid pixels of layers 18..48"
+          }
+        },
+        "ink_map_sha256_match": {
+          "dnative": true,
+          "hecate": true,
+          "ink9-42": false,
+          "ink9-43": false
+        },
+        "control_ours_shifted": {
+          "16px": {
+            "ink_tint_pearson_r": 0.79957,
+            "ink_shown_iou": 0.5696
+          },
+          "64px": {
+            "ink_tint_pearson_r": 0.22763,
+            "ink_shown_iou": 0.179
+          },
+          "256px": {
+            "ink_tint_pearson_r": 0.00567,
+            "ink_shown_iou": 0.052
+          }
+        },
+        "letter_boxes": [
+          {
+            "id": 1,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.2425,
+            "shown_fraction_ours": 0.2425
+          },
+          {
+            "id": 2,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.2491,
+            "shown_fraction_ours": 0.2491
+          },
+          {
+            "id": 3,
+            "ink_shown_iou": 0.9997,
+            "ink_tint_pearson_r": 0.99999,
+            "shown_fraction_published": 0.1307,
+            "shown_fraction_ours": 0.1307
+          },
+          {
+            "id": 4,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.2973,
+            "shown_fraction_ours": 0.2973
+          },
+          {
+            "id": 5,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.37,
+            "shown_fraction_ours": 0.37
+          },
+          {
+            "id": 6,
+            "ink_shown_iou": 0.9999,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.3117,
+            "shown_fraction_ours": 0.3117
+          },
+          {
+            "id": 7,
+            "ink_shown_iou": 0.9999,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.2551,
+            "shown_fraction_ours": 0.2551
+          },
+          {
+            "id": 8,
+            "ink_shown_iou": 0.9999,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.4292,
+            "shown_fraction_ours": 0.4292
+          },
+          {
+            "id": 9,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.4363,
+            "shown_fraction_ours": 0.4363
+          },
+          {
+            "id": 10,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.5957,
+            "shown_fraction_ours": 0.5957
+          },
+          {
+            "id": 11,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.5741,
+            "shown_fraction_ours": 0.5741
+          },
+          {
+            "id": 12,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.4715,
+            "shown_fraction_ours": 0.4715
+          },
+          {
+            "id": 13,
+            "ink_shown_iou": 0.9998,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.3307,
+            "shown_fraction_ours": 0.3308
+          },
+          {
+            "id": 14,
+            "ink_shown_iou": 0.9999,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.4022,
+            "shown_fraction_ours": 0.4022
+          },
+          {
+            "id": 15,
+            "ink_shown_iou": 0.9999,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.4029,
+            "shown_fraction_ours": 0.4029
+          },
+          {
+            "id": 16,
+            "ink_shown_iou": 0.9998,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.5825,
+            "shown_fraction_ours": 0.5825
+          },
+          {
+            "id": 17,
+            "ink_shown_iou": 1.0,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.7974,
+            "shown_fraction_ours": 0.7973
+          },
+          {
+            "id": 18,
+            "ink_shown_iou": 0.9999,
+            "ink_tint_pearson_r": 1.0,
+            "shown_fraction_published": 0.6504,
+            "shown_fraction_ours": 0.6504
+          }
+        ]
+      },
+      "whole_png": {
+        "shape_hw": [
+          2881,
+          5854
+        ],
+        "pixels": 16865374,
+        "differing_pixels": 8727,
+        "max_abs_diff": 5,
+        "sha256": "8954ae313a0eea3dad91621152aa00a90c4b9d0c547ea6ce80134d1300f6509a"
+      }
+    },
+    "ownstats": {
+      "comparison": {
+        "published": "src/repo/outputs/concat_w047-w048_R5B2_z9500-11000.png",
+        "ours": "work/image_ownstats/concat_w047-w048_R5B2_z9500-11000.png",
+        "panel_hw": [
+          2455,
+          5641
+        ],
+        "pixels_identical_fraction": 0.9155,
+        "abs_diff": {
+          "mean": 2.4974,
+          "p99": 63.0,
+          "max": 255,
+          "fraction_over_8": 0.07586
+        },
+        "ink_tint_pearson_r": 0.95588,
+        "ink_tint_pearson_r_where_either_shown": 0.94414,
+        "ink_shown_fraction": {
+          "published": 0.0851,
+          "ours": 0.0623
+        },
+        "ink_shown_iou": 0.7324,
+        "sidecar_ink_above_threshold_fraction": {
+          "published": 0.1485,
+          "ours": 0.1092
+        },
+        "normalisation": {
+          "dnative": {
+            "published": {
+              "mean": 0.22716,
+              "sd": 0.16337
+            },
+            "ours": {
+              "mean": 0.26376,
+              "sd": 0.2021
+            }
+          },
+          "hecate": {
+            "published": {
+              "mean": 0.04464,
+              "sd": 0.11126
+            },
+            "ours": {
+              "mean": 0.0741,
+              "sd": 0.16254
+            }
+          },
+          "ink9-42": {
+            "published": {
+              "mean": 0.10644,
+              "sd": 0.15903
+            },
+            "ours": {
+              "mean": 0.12518,
+              "sd": 0.18636
+            }
+          },
+          "ink9-43": {
+            "published": {
+              "mean": 0.10645,
+              "sd": 0.16307
+            },
+            "ours": {
+              "mean": 0.11799,
+              "sd": 0.18855
+            }
+          }
+        },
+        "ensemble_stretch": {
+          "published": {
+            "p1": -0.7182422280311584,
+            "p99_5": 3.862934286594383,
+            "source": "ink-stats (fixed grid, every 8th row and column, all depths of the reading side)"
+          },
+          "ours": {
+            "p1": -0.71905517578125,
+            "p99_5": 3.8286191797256506,
+            "source": "these maps (fixed grid, every 8th row and column, valid pixels)"
+          }
+        },
+        "ct_stretch": {
+          "published": {
+            "lo": 26.0,
+            "hi": 164.0,
+            "source": "ink-stats: p1..p99.5 of the valid pixels of layers 18..48"
+          },
+          "ours": {
+            "lo": 26.0,
+            "hi": 164.0,
+            "source": "p1..p99.5 of the valid pixels of layers 18..48 (whole render)"
+          }
+        },
+        "ink_map_sha256_match": {
+          "dnative": true,
+          "hecate": true,
+          "ink9-42": false,
+          "ink9-43": false
+        },
+        "control_ours_shifted": {
+          "16px": {
+            "ink_tint_pearson_r": 0.77295,
+            "ink_shown_iou": 0.5296
+          },
+          "64px": {
+            "ink_tint_pearson_r": 0.19165,
+            "ink_shown_iou": 0.1605
+          },
+          "256px": {
+            "ink_tint_pearson_r": 0.00312,
+            "ink_shown_iou": 0.0431
+          }
+        },
+        "letter_boxes": [
+          {
+            "id": 1,
+            "ink_shown_iou": 0.7958,
+            "ink_tint_pearson_r": 0.95422,
+            "shown_fraction_published": 0.2425,
+            "shown_fraction_ours": 0.193
+          },
+          {
+            "id": 2,
+            "ink_shown_iou": 0.8484,
+            "ink_tint_pearson_r": 0.96088,
+            "shown_fraction_published": 0.2491,
+            "shown_fraction_ours": 0.2114
+          },
+          {
+            "id": 3,
+            "ink_shown_iou": 0.514,
+            "ink_tint_pearson_r": 0.92289,
+            "shown_fraction_published": 0.1307,
+            "shown_fraction_ours": 0.0672
+          },
+          {
+            "id": 4,
+            "ink_shown_iou": 0.8704,
+            "ink_tint_pearson_r": 0.96384,
+            "shown_fraction_published": 0.2973,
+            "shown_fraction_ours": 0.2588
+          },
+          {
+            "id": 5,
+            "ink_shown_iou": 0.8869,
+            "ink_tint_pearson_r": 0.96091,
+            "shown_fraction_published": 0.37,
+            "shown_fraction_ours": 0.3282
+          },
+          {
+            "id": 6,
+            "ink_shown_iou": 0.6931,
+            "ink_tint_pearson_r": 0.92431,
+            "shown_fraction_published": 0.3117,
+            "shown_fraction_ours": 0.2161
+          },
+          {
+            "id": 7,
+            "ink_shown_iou": 0.8128,
+            "ink_tint_pearson_r": 0.95781,
+            "shown_fraction_published": 0.2551,
+            "shown_fraction_ours": 0.2073
+          },
+          {
+            "id": 8,
+            "ink_shown_iou": 0.8652,
+            "ink_tint_pearson_r": 0.96326,
+            "shown_fraction_published": 0.4292,
+            "shown_fraction_ours": 0.3713
+          },
+          {
+            "id": 9,
+            "ink_shown_iou": 0.8718,
+            "ink_tint_pearson_r": 0.96209,
+            "shown_fraction_published": 0.4363,
+            "shown_fraction_ours": 0.3803
+          },
+          {
+            "id": 10,
+            "ink_shown_iou": 0.8742,
+            "ink_tint_pearson_r": 0.95143,
+            "shown_fraction_published": 0.5957,
+            "shown_fraction_ours": 0.5208
+          },
+          {
+            "id": 11,
+            "ink_shown_iou": 0.7823,
+            "ink_tint_pearson_r": 0.94039,
+            "shown_fraction_published": 0.5741,
+            "shown_fraction_ours": 0.4491
+          },
+          {
+            "id": 12,
+            "ink_shown_iou": 0.81,
+            "ink_tint_pearson_r": 0.94981,
+            "shown_fraction_published": 0.4715,
+            "shown_fraction_ours": 0.3819
+          },
+          {
+            "id": 13,
+            "ink_shown_iou": 0.7327,
+            "ink_tint_pearson_r": 0.96519,
+            "shown_fraction_published": 0.3307,
+            "shown_fraction_ours": 0.2423
+          },
+          {
+            "id": 14,
+            "ink_shown_iou": 0.7223,
+            "ink_tint_pearson_r": 0.94539,
+            "shown_fraction_published": 0.4022,
+            "shown_fraction_ours": 0.2905
+          },
+          {
+            "id": 15,
+            "ink_shown_iou": 0.7521,
+            "ink_tint_pearson_r": 0.94394,
+            "shown_fraction_published": 0.4029,
+            "shown_fraction_ours": 0.303
+          },
+          {
+            "id": 16,
+            "ink_shown_iou": 0.8556,
+            "ink_tint_pearson_r": 0.96786,
+            "shown_fraction_published": 0.5825,
+            "shown_fraction_ours": 0.4984
+          },
+          {
+            "id": 17,
+            "ink_shown_iou": 0.8527,
+            "ink_tint_pearson_r": 0.93285,
+            "shown_fraction_published": 0.7974,
+            "shown_fraction_ours": 0.6799
+          },
+          {
+            "id": 18,
+            "ink_shown_iou": 0.7884,
+            "ink_tint_pearson_r": 0.9454,
+            "shown_fraction_published": 0.6504,
+            "shown_fraction_ours": 0.5128
+          }
+        ]
+      },
+      "whole_png": {
+        "shape_hw": [
+          2881,
+          5854
+        ],
+        "pixels": 16865374,
+        "differing_pixels": 1172608,
+        "max_abs_diff": 255,
+        "sha256": "27e24aa50965a338043b5308e826e072db2e12d5c0da9f352086d7501380fe22"
+      }
+    }
+  },
+  "training_loop": {
+    "stopped": "2026-11-10T09:58-08:00",
+    "started": "2026-11-10T10:20-08:00"
+  },
+  "not_measured": [
+    "the spiral fit, snap and flatten that produced the two windings",
+    "the 31-depth sweep (496 jobs) and the statistics pooled from it",
+    "host memory of the ink jobs",
+    "the cause of the 8-byte difference in the render's file tree",
+    "whether any of this shows text on a scroll that has not been read"
+  ],
+  "verdict": "REPRODUCED"
+}

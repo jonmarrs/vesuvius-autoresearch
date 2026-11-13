@@ -29,6 +29,10 @@ from scripts.inference.predict import (
     save_vc3d_zarr,
     write_prediction_metadata,
 )
+from scripts.regional_prediction_artifacts import (
+    RegionalArtifactPlan,
+    validate_checkpoint_metadata,
+)
 from vesuvius_autoresearch.core.inference import (
     multitask_inference_recipe,
     multitask_probabilities,
@@ -43,6 +47,10 @@ from vesuvius_autoresearch.core.inference import (
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+from vesuvius_autoresearch.core.regional_resources import (
+    MAX_ACCUMULATOR_BYTES,
+    plan_regional_accumulators,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -64,6 +72,7 @@ class EnsembleArgs(Tap):
     num_parts: int = 1
     part_id: int = 0
     gaussian_blend: bool = True
+    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
 
     def configure(self):
         self.add_argument("--gaussian_blend", action="store_true", default=True)
@@ -92,14 +101,13 @@ def ensemble_predict():
             raise FileNotFoundError(
                 f"requested ensemble checkpoint not found: {checkpoint_path}"
             )
-        checkpoint = torch.load(
-            checkpoint_path, map_location=device, weights_only=False
-        )
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         if not isinstance(checkpoint, dict) or not isinstance(
             checkpoint.get("config", {}), dict
         ):
             raise ValueError("checkpoint config must be an object")
         config = checkpoint.get("config", {})
+        validate_checkpoint_metadata(config)
         patch_size = config.get("patch_size", args.patch_size)
         layers = config.get("num_layers", 16)
         base_feat = config.get("base_feat", 64)
@@ -109,6 +117,11 @@ def ensemble_predict():
             "voxel_size_um",
         )
         use_ridges = config.get("use_ridges", False)
+        args.resource_plan = plan_regional_accumulators(
+            patch_size if args.width is None else args.width,
+            patch_size if args.height is None else args.height,
+            args.max_accumulator_bytes,
+        )
         model = build_inference_model(
             architecture=config.get("architecture", "gated_unet"),
             patch_size=patch_size,
@@ -121,6 +134,7 @@ def ensemble_predict():
             multi_task_heads=config.get("multi_task_heads", False),
         ).to(device)
         model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+        del checkpoint
         models.append((model.eval(), use_ridges, layers, patch_size))
         configs.append(config)
         scales.append(scale)
@@ -151,15 +165,31 @@ def ensemble_predict():
     args.patch_size = patch_size
     args.voxel_size_um = scales[0]
     validate_region(args, patch_size, max_layers)
-    dataset = FastVesuviusVolume(
+    base = prediction_stem(
+        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
+        getattr(args, "artifact_stem", None),
+    )
+    if args.num_parts > 1:
+        base += f"_part{args.part_id}of{args.num_parts}"
+    artifacts = RegionalArtifactPlan.create(
+        base,
+        args.output_img or f"predictions/{base}.png",
+        args.metadata_out,
         args.uri,
+        args.checkpoints,
+    )
+    output_img, output_dir = str(artifacts.image), str(artifacts.directory)
+    dataset = FastVesuviusVolume(
+        str(artifacts.source_array),
         use_ridges=use_ridges_any,
         ridge_sigma=ridge_sigmas[0] if ridge_sigmas else 2.0,
         strict_reads=True,
     )
     validate_region(args, patch_size, max_layers, dataset.shape)
     tiles = region_tiles(args, patch_size)
-    full_ink = torch.zeros((args.height, args.width), device=device)
+    full_ink = torch.zeros(
+        (args.height, args.width), device=device, dtype=torch.float32
+    )
     full_fiber, weights = torch.zeros_like(full_ink), torch.zeros_like(full_ink)
     if args.gaussian_blend:
         from vesuvius_autoresearch.core.villa_inference import GaussianBlender
@@ -198,16 +228,11 @@ def ensemble_predict():
     ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
     fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
-    base = prediction_stem(
-        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
-        getattr(args, "artifact_stem", None),
-    )
-    if args.num_parts > 1:
-        base += f"_part{args.part_id}of{args.num_parts}"
-    output_img = args.output_img or f"predictions/{base}.png"
-    output_dir = os.path.dirname(output_img) or "."
+    artifacts.validate()
     os.makedirs(output_dir, exist_ok=True)
-    metadata_path = invalidate_prediction_metadata(output_dir, base, args.metadata_out)
+    metadata_path = invalidate_prediction_metadata(
+        output_dir, base, str(artifacts.metadata)
+    )
     if args.num_parts > 1:
         args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
         np.save(args.blend_weight_path, weights.cpu().numpy())
@@ -265,7 +290,7 @@ def ensemble_predict():
         )
         ax.axis("off")
     figure.tight_layout()
-    figure.savefig(output_img)
+    figure.savefig(output_img, format=artifacts.image_format)
     plt.close(figure)
     write_prediction_metadata(
         metadata_path,

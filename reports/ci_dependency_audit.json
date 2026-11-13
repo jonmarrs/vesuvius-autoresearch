@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "audited_at_utc": "2026-11-11T03:45:33.780672+00:00",
+  "auditor": "pip-audit 2.10.1 / PyPI advisory service",
+  "scope": "Hashed requirements/ci-cpu.txt on Linux/Python 3.10. Version/advisory matching only; excludes bootstrap pip/setuptools, GitHub Actions, OS packages and the GPU research environment. No reachability assessment.",
+  "requirements_sha256": "04288a2ccc935cb0b9cbdf622953bc5be04cc8350a1d58575535c73b92b69f7e",
+  "advisory_records": 0,
+  "packages": [
+    {
+      "name": "exceptiongroup",
+      "version": "1.3.1"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.1"
+    },
+    {
+      "name": "numpy",
+      "version": "2.2.6"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.7.0"
+    },
+    {
+      "name": "pygments",
+      "version": "2.21.0"
+    },
+    {
+      "name": "pytest",
+      "version": "9.0.3"
+    },
+    {
+      "name": "ruff",
+      "version": "0.9.10"
+    },
+    {
+      "name": "tomli",
+      "version": "2.5.0"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0"
+    }
+  ]
+}

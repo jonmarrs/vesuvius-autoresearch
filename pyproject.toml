@@ -8,7 +8,7 @@ where = ["src"]
 [project]
 name = "vesuvius-autoresearch"
 version = "0.1.0"
-description = "Autonomous pretraining research swarm for high-value AI bounties"
+description = "Single-GPU research and software workflows for the Vesuvius Challenge"
 readme = "README.md"
 requires-python = ">=3.10,<3.11"
 dependencies = [
@@ -20,6 +20,7 @@ dependencies = [
     "fft-conv-pytorch>=1.2.0",
     "fpdf2>=2.8.7",
     "imagecodecs>=2025.3.30",
+    "jsonschema>=4.26.0",
     "kernels>=0.11.7",
     "kimimaro>=5.8.1",
     "matplotlib>=3.10.8",
@@ -27,13 +28,14 @@ dependencies = [
     "nbformat>=5.10.4",
     "nest-asyncio>=1.6.0",
     "nnunetv2>=2.6.2",
+    "numba>=0.63.1",
     "numpy>=2.2.6",
     "opencv-python-headless>=4.13.0.92",
     "pandas>=2.3.3",
     "pyarrow>=21.0.0",
     "pybind11>=3.0.4",
     "pynrrd>=1.1.3",
-    "pytorch-lightning",
+    "pytorch-lightning>=2.6.6",
     "pytorch-optimizer>=3.10.0",
     "requests>=2.32.0",
     "rustbpe>=0.1.0",
@@ -60,6 +62,13 @@ dependencies = [
     "albumentations<1.4",
 ]
 
+[dependency-groups]
+dev = [
+    "mypy==2.4.1",
+    "pytest==9.0.3",
+    "ruff==0.9.10",
+]
+
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cu128" },
@@ -70,6 +79,10 @@ testpaths = ["tests"]
 # "src" first: the shared .venv's editable install may point at another checkout.
 pythonpath = [".", "src", "scripts/training"]
 python_files = ["test_*.py"]
+markers = [
+    "research_input(name): requires original spiral_patches or spiral_rays study inputs; missing inputs skip unless --require-research-inputs",
+    "villa_history(*refs): requires immutable commits in the Villa checkout; missing history skips unless --require-research-inputs",
+]
 norecursedirs = [
     ".git",
     ".venv",

@@ -7,6 +7,8 @@ from pathlib import Path
 
 from vesuvius_autoresearch.core.prediction_artifacts import (
     prediction_stem,
+    validate_output_file,
+    validate_output_tree,
     validate_plan_paths,
 )
 from volume_cartographer_wrapper.volume import (
@@ -18,32 +20,11 @@ MAX_OUTPUT_ENTRIES = 100_000
 
 
 def _regular_file(path, info):
-    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-        raise ValueError(
-            f"production output must be a nonsymlink regular file without hard links: {path}"
-        )
+    validate_output_file(path, info, label="production")
 
 
 def _zarr_tree(path):
-    stack, count = [path], 0
-    while stack:
-        directory = stack.pop()
-        if not stat.S_ISDIR(directory.lstat().st_mode):
-            raise ValueError(
-                f"production Zarr output must be a nonsymlink directory: {directory}"
-            )
-        with os.scandir(directory) as entries:
-            for entry in entries:
-                count += 1
-                if count > MAX_OUTPUT_ENTRIES:
-                    raise ValueError(
-                        f"existing production output exceeds {MAX_OUTPUT_ENTRIES} entries"
-                    )
-                info = entry.stat(follow_symlinks=False)
-                if stat.S_ISDIR(info.st_mode):
-                    stack.append(Path(entry.path))
-                else:
-                    _regular_file(Path(entry.path), info)
+    validate_output_tree(path, max_entries=MAX_OUTPUT_ENTRIES, label="production")
 
 
 @dataclass(frozen=True)

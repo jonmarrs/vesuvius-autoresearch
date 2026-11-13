@@ -1,7 +1,7 @@
 """
 Vesuvius Prediction Script.
 Performs inference on a specific block of a Vesuvius scroll volume.
-Usage: uv run python -m scripts.inference.predict --uri "s3://..." --z 1000 --y 2000 --x 3000
+Usage: uv run python -m scripts.inference.predict --uri local.zarr --z 1000 --y 2000 --x 3000
 """
 
 import hashlib
@@ -10,12 +10,12 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
-# Direct launchers are also used from evidence directories outside the checkout. "src" too: the shared .venv's
-# editable install may point at another checkout (run_ranked_inference launches this file by path).
-if not __package__:
-    root = Path(__file__).resolve().parents[2]
-    sys.path[:0] = [str(root), str(root / "src")]
+# Both direct and -m launches must use this checkout's src; the shared editable
+# installation may currently point at a different worktree.
+root = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(root), str(root / "src")]
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,6 +23,11 @@ import torch
 from matplotlib.patches import Rectangle
 from tap import Tap
 
+from scripts.regional_prediction_artifacts import (
+    RegionalArtifactPlan,
+    validate_checkpoint_metadata,
+)
+from scripts.uncertainty_artifacts import mask_shape, validate_destination
 from vesuvius_autoresearch.core.inference import (
     depth_band_for,
     hann2d,
@@ -38,25 +43,15 @@ from vesuvius_autoresearch.core.inference import (
     validate_region,
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
-from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+from vesuvius_autoresearch.core.prediction_artifacts import (
+    prediction_paths,
+    prediction_stem,
+)
+from vesuvius_autoresearch.core.regional_resources import (
+    MAX_ACCUMULATOR_BYTES,
+    plan_regional_accumulators,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
-
-
-def load_compatible_state_dict(model, state_dict):
-    model_state = model.state_dict()
-    compatible = {}
-    skipped = []
-    for key, value in state_dict.items():
-        if key in model_state and model_state[key].shape == value.shape:
-            compatible[key] = value
-        else:
-            skipped.append(key)
-    model.load_state_dict(compatible, strict=False)
-    if skipped:
-        print(
-            f"Warning: skipped {len(skipped)} incompatible checkpoint tensors: {', '.join(skipped[:8])}"
-        )
-    return skipped
 
 
 def build_prediction_model(config_dict, args, use_ridges):
@@ -251,9 +246,11 @@ def write_prediction_metadata(
         else None,
         "checkpoint_sha256": getattr(args, "checkpoint_sha256", None),
         "inference_recipe": getattr(args, "inference_recipe", None),
+        "resource_plan": getattr(args, "resource_plan", None),
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
         "fiber_coherence": fiber_coherence,
+        "uncertainty_export": getattr(args, "uncertainty_export", None),
         "num_parts": getattr(args, "num_parts", 1),
         "part_id": getattr(args, "part_id", 0),
         "prediction_complete": getattr(args, "num_parts", 1) == 1,
@@ -273,8 +270,38 @@ def write_prediction_metadata(
     Path(path).write_text(encoded + "\n")
 
 
+def _prediction_output(args):
+    base = prediction_stem(
+        f"pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
+        getattr(args, "artifact_stem", None),
+    )
+    if args.num_parts > 1:
+        base += f"_part{args.part_id}of{args.num_parts}"
+    image = args.output_img or f"predictions/{base}.png"
+    return base, image, os.path.dirname(image) or "."
+
+
+def _uncertainty_sources(args, base, directory, image):
+    target = Path(directory) / f"{base}_uncertain"
+    sources = [
+        args.checkpoint,
+        image,
+        *(p for p in prediction_paths(directory, base) if p != target),
+    ]
+    if args.metadata_out:
+        sources.append(args.metadata_out)
+    uri = urlsplit(args.uri)
+    if os.path.exists(args.uri) or not uri.scheme:
+        sources.append(args.uri)
+    elif uri.scheme == "file":
+        if uri.netloc not in {"", "localhost"}:
+            raise ValueError("file URI must refer to the local host")
+        sources.append(unquote(uri.path))
+    return target, sources
+
+
 class PredictionArgs(Tap):
-    uri: str  # S3 or local path to Zarr volume
+    uri: str  # Local path or local file URI to a Zarr volume
     z: int | None = (
         None  # first slice; default: centred in the checkpoint's depth_band on its own volumes, else the volume
     )
@@ -296,6 +323,7 @@ class PredictionArgs(Tap):
     part_id: int = 0
     disable_tta: bool = False
     skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
+    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
     compute_coherence: bool = (
         False  # Enable automated fiber coherence evaluation (Villa ST)
     )
@@ -332,7 +360,7 @@ def predict():
     checkpoint_bytes = Path(checkpoint_path).read_bytes()
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
     checkpoint = torch.load(
-        io.BytesIO(checkpoint_bytes), map_location=device, weights_only=False
+        io.BytesIO(checkpoint_bytes), map_location="cpu", weights_only=False
     )
     del checkpoint_bytes
     if not isinstance(checkpoint, dict) or not isinstance(
@@ -340,6 +368,7 @@ def predict():
     ):
         raise ValueError("checkpoint and checkpoint config must be objects")
     config_dict = checkpoint.get("config", {})
+    validate_checkpoint_metadata(config_dict)
     args.voxel_size_um = positive_number(
         config_dict.get(
             "voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)
@@ -357,6 +386,11 @@ def predict():
     )
     if not isinstance(use_ridges, bool):
         raise ValueError("use_ridges must be a boolean")
+    args.resource_plan = plan_regional_accumulators(
+        patch_size if args.width is None else args.width,
+        patch_size if args.height is None else args.height,
+        args.max_accumulator_bytes,
+    )
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     if args.z is None:
         # Centre the window in the depth band the checkpoint was trained on, on
@@ -371,9 +405,36 @@ def predict():
             centre = depth
         args.z = min(max(0, (centre - num_layers) // 2), max(0, depth - num_layers))
     validate_region(args, patch_size, num_layers)
+    base_name, out_path, output_dir = _prediction_output(args)
+    artifacts = RegionalArtifactPlan.create(
+        base_name, out_path, args.metadata_out, args.uri, [checkpoint_path]
+    )
+    out_path, output_dir = str(artifacts.image), str(artifacts.directory)
+    uncertainty_path, uncertainty_sources = _uncertainty_sources(
+        args, base_name, output_dir, out_path
+    )
+    args.uncertainty_export = {
+        "status": "SKIPPED",
+        "path": None,
+        "reason": "--skip_active_learning requested",
+    }
+    if not args.skip_active_learning:
+        if args.num_parts > 1:
+            args.uncertainty_export = {
+                "status": "INCOMPLETE",
+                "path": None,
+                "reason": "combine inference parts before proofreading",
+            }
+        else:
+            mask_shape((1, args.height, args.width))
+            validate_destination(
+                uncertainty_path, overwrite=True, sources=uncertainty_sources
+            )
+            args.uncertainty_export = {"status": "PLANNED", "path": None}
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+    del checkpoint
     model.eval()
     # A model without a fiber head returns its ink logits as "fiber": exported,
     # that was the ink map under the fiber prediction's name.
@@ -382,7 +443,10 @@ def predict():
 
     # Open the dataset
     dataset = FastVesuviusVolume(
-        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma, strict_reads=True
+        str(artifacts.source_array),
+        use_ridges=use_ridges,
+        ridge_sigma=ridge_sigma,
+        strict_reads=True,
     )
     validate_region(args, patch_size, num_layers, dataset.shape)
 
@@ -390,9 +454,11 @@ def predict():
     predict_width, predict_height, stride = args.width, args.height, args.stride
 
     # Initialize accumulation buffers
-    full_prob_ink = torch.zeros((predict_height, predict_width), device=device)
-    full_prob_fiber = torch.zeros((predict_height, predict_width), device=device)
-    full_weight = torch.zeros((predict_height, predict_width), device=device)
+    full_prob_ink = torch.zeros(
+        (predict_height, predict_width), device=device, dtype=torch.float32
+    )
+    full_prob_fiber = torch.zeros_like(full_prob_ink)
+    full_weight = torch.zeros_like(full_prob_ink)
 
     # Choose weight window: Gaussian (smoother) or Hanning (default)
     if args.gaussian_blend:
@@ -453,17 +519,14 @@ def predict():
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
 
-    base_name = prediction_stem(
-        f"pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}",
-        getattr(args, "artifact_stem", None),
-    )
-    if args.num_parts > 1:
-        base_name += f"_part{args.part_id}of{args.num_parts}"
-    out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
-    output_dir = os.path.dirname(out_path) or "."
+    artifacts.validate()
+    if args.uncertainty_export["status"] == "PLANNED":
+        validate_destination(
+            uncertainty_path, overwrite=True, sources=uncertainty_sources
+        )
     os.makedirs(output_dir, exist_ok=True)
     metadata_path = invalidate_prediction_metadata(
-        output_dir, base_name, args.metadata_out
+        output_dir, base_name, str(artifacts.metadata)
     )
     np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
     if has_fiber:
@@ -506,7 +569,7 @@ def predict():
 
     # Active Learning: optional proofreader export. Prize evidence generation
     # should not fail if this auxiliary tool is not available.
-    if not args.skip_active_learning:
+    if args.uncertainty_export["status"] == "PLANNED":
         try:
             from scripts.active_learning_sampler import (
                 export_for_proofreader,
@@ -514,12 +577,31 @@ def predict():
             )
 
             uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
-            if uncertain_mask.sum() > 0:
-                export_for_proofreader(
-                    uncertain_mask.unsqueeze(0),
-                    os.path.join(output_dir, f"{base_name}_uncertain"),
-                )
+            args.uncertainty_export = export_for_proofreader(
+                uncertain_mask,
+                uncertainty_path,
+                overwrite=True,
+                sources=uncertainty_sources,
+                metadata={
+                    "source_uri": args.uri,
+                    "position_xyz": [args.x, args.y, args.z],
+                    "voxel_size_um": args.voxel_size_um,
+                    "model_num_layers": num_layers,
+                    "artifact_stem": base_name,
+                    "checkpoint_sha256": args.checkpoint_sha256,
+                    "normalized_entropy_threshold": 0.2,
+                    "score_kind": "normalized_binary_entropy",
+                    "inference_recipe": args.inference_recipe,
+                    "coverage_fraction": args.coverage_fraction,
+                },
+            )
+            args.uncertainty_export["normalized_entropy_threshold"] = 0.2
         except ImportError as exc:
+            args.uncertainty_export = {
+                "status": "UNAVAILABLE",
+                "path": None,
+                "reason": str(exc),
+            }
             print(f"Warning: skipping active-learning export: {exc}")
 
     # Generate Visualization (using center CT slice of the whole region)
@@ -578,7 +660,7 @@ def predict():
         ax.axis("off")
 
     plt.tight_layout()
-    plt.savefig(out_path)
+    plt.savefig(out_path, format=artifacts.image_format)
     plt.close()
 
     def write_metadata(fiber_coherence=None):

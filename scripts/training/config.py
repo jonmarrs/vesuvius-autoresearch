@@ -16,6 +16,26 @@ def configuration_fingerprint(values: dict) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def data_read_policy(config) -> dict[str, str]:
+    """Record the selected failure policy independently of checkpoint defaults."""
+    strict = getattr(config, "strict_training_reads", False)
+    if not isinstance(strict, bool):
+        raise ValueError("strict_training_reads must be a boolean")
+    if (
+        strict
+        and getattr(config, "use_uamt", False)
+        and getattr(config, "unlabeled_uris", None)
+        and getattr(config, "use_lasagna", False)
+    ):
+        raise ValueError(
+            "strict UA-MT reads cannot use the unavailable unlabeled Lasagna preprocessing"
+        )
+    return {
+        "training": "strict" if strict else "legacy_permissive",
+        "validation": "strict",
+    }
+
+
 # AuxiliaryConfig was previously imported from scripts/auxiliary_manager.py.
 # That module held an AuxiliaryManager class which was removed when the broken
 # aux-loss path was deleted (commit fa22130). The dataclass is kept inline here
@@ -159,6 +179,11 @@ class ExperimentConfig:
         ]
     )
 
+    # Appended to retain the existing positional configuration arguments.
+    # Opt in to aborting on labeled/UA-MT read or requested preprocessing failures.
+    # False retains counted legacy fallbacks; validation always uses strict reads.
+    strict_training_reads: bool = False
+
     def __post_init__(self):
         if self.depth_band is not None:
             band = self.depth_band
@@ -205,6 +230,7 @@ class ExperimentConfig:
                     flush=True,
                 )
                 self.unlabeled_uris = cleaned
+        data_read_policy(self)
 
     def save(self, path):
         with open(path, "w") as f:

@@ -26,7 +26,7 @@ from probe_spiral_satisfaction_winding import IdentityTransform, displace  # noq
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
-needs_data = pytest.mark.skipif(not patch_dirs(), reason="real patch data absent")
+needs_data = pytest.mark.research_input("spiral_patches")
 ARTIFACT = os.path.join(_REPO, "reports", "real_patch_satisfaction.txt")
 
 

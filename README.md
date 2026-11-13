@@ -5,8 +5,9 @@
 Start with the [current research plan](docs/research_plan.md) for work that fits
 one RTX 4090 (24 GB), the [research strategy](docs/RESEARCH_STRATEGY.md) for
 evidence and stop criteria, and the [October filing plan](docs/PRIZE_PLAN_2026-10_FINAL_WEEK.md)
-for completed contributions. The priorities are useful upstream engineering,
-fiber-tracing improvements and controlled evaluation. New research claims need
+for completed contributions. The priorities are a First Letters campaign on
+unread scrolls with a published recipe, landing measured fiber fixes upstream,
+and fixing the tool defects that campaign hits. New research claims need
 measurements; internal tooling and merged PR counts alone do not establish impact.
 
 **October Progress Prize: engineering entry filed.** The
@@ -21,6 +22,18 @@ This reads setup and process metadata; it does not load model weights, read stud
 measurements or access CUDA. Use `--json` for a structured report. A passing setup
 check is not a GPU, model-compatibility or prize-eligibility check.
 See [status output, config budgets and next steps](docs/WORKSPACE_STATUS.md).
+
+The [repository audit](docs/REPOSITORY_AUDIT.md) records verified fixes, remaining
+architecture and cleanup decisions, and the limits of the available validation.
+The [historical artifact status catalogue](reports/HISTORICAL_ARTIFACTS.md)
+identifies retained results with undefined fields; the old active-learning queue
+is unusable as a ranking.
+
+The [portable CPU checks](CONTRIBUTING.md#development) run without the GPU research
+environment or a Villa checkout. The CPU workflow runs them on PRs;
+they do not establish model or scientific validity. The old
+[v3 training CLI](v3_training/README.md) is retired; maintained training uses
+`scripts/training/train.py`.
 
 **Window limits:** the project's existing 64-pixel recipe and artifact checks are
 local evaluation contracts. Current official reading-prize rules allow larger
@@ -155,11 +168,25 @@ replaces a training volume's labels, and is refused while `use_confidence_weight
 is off ([pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md)). With confidence weighting enabled,
 post-augmentation PNG-128 and 0.5 targets have zero ink BCE/Dice weight;
 this does not guarantee spatial holdout exclusion through augmentation or
-auxiliary losses. No maintained command in this
-repository builds these directories. The downloaders in `scripts/archive/` are
-unmaintained and fetch raw CT, TIFF layers or label PNGs, not these zarrs; the
-`download_data.py --fragment 4` this guide used to give names a moved script,
-downloads nothing and exits 0.
+auxiliary losses. To prepare a **new** fragment from already-downloaded uint16
+TIFFs and aligned binary PNG labels, use the maintained CPU
+[local data importer](docs/TRAINING_DATA_IMPORT.md). It pins source hashes and
+preserves CT values; verify alignment and the output-relative depth band before
+using its output. A pinned download recipe and verified real-fragment example
+remain open. The downloaders in `scripts/archive/` are unmaintained and are not
+a supported way to prepare this training layout.
+
+Training refuses observable overlap between validation and labeled or active
+UA-MT inputs, including local symlinks and group/array paths. It also checks
+experiment checkpoint and curve destinations against loop state and named
+inputs before training and saving. `python3 scripts/workspace_status.py` reports
+these conflicts without loading arrays. Path checks cannot establish independence
+of copied crops or different remote URLs; verify the study split separately.
+
+For new experiments, `"strict_training_reads": true` aborts on labeled/UA-MT
+read or requested preprocessing failures. The default retains legacy fallbacks;
+validation remains strict. Diagnostics and completed run artifacts record the
+[selected read policy](docs/TRAINING_DATA_IMPORT.md#choose-the-training-read-policy).
 
 Those filename priorities do not establish label quality. The old bulk
 refinement and spiral-region filling commands are retired. Use the

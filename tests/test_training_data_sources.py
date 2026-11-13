@@ -27,6 +27,119 @@ import train  # noqa: E402
 from scripts.training.config import ExperimentConfig  # noqa: E402
 
 
+@pytest.mark.parametrize("kind", ["labeled", "uamt"])
+def test_heldout_overlap_stops_the_real_trainer_before_labels_or_gpu(
+    tmp_path, monkeypatch, kind
+):
+    validation = _volume(tmp_path / "heldout")
+    selected = _config(
+        validation if kind == "labeled" else _volume(tmp_path / "training"),
+        val_uri=validation,
+        use_uamt=kind == "uamt",
+        unlabeled_uris=[validation + "/"],
+    )
+
+    def too_early(*args, **kwargs):
+        pytest.fail("data or GPU setup reached before split validation")
+
+    monkeypatch.setattr(train.torch, "set_float32_matmul_precision", too_early)
+    monkeypatch.setattr(train, "resolve_training_labels", too_early)
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        train.train(selected)
+
+
+@pytest.mark.parametrize(
+    "target", ["best_model.pt", "training/inklabels.png", "active.json"]
+)
+def test_checkpoint_collision_stops_the_real_trainer_before_gpu(
+    tmp_path, monkeypatch, target
+):
+    uri = _volume(tmp_path / "training")
+    selected = _config(uri, checkpoint_out=target)
+    monkeypatch.chdir(tmp_path)
+
+    def too_early(*args, **kwargs):
+        pytest.fail("GPU setup reached before output preflight")
+
+    monkeypatch.setattr(train.torch, "set_float32_matmul_precision", too_early)
+    before = {str(p): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.train(selected, config_path="active.json")
+    assert {
+        str(p): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()
+    } == before
+
+
+def test_cycle_checkpoint_helper_cannot_overwrite_incumbent_in_experiment_mode(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    incumbent = tmp_path / "best_model.pt"
+    incumbent.write_bytes(b"original incumbent")
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.save_cycle_checkpoints(
+            {"model": "must not be written"}, "best_model.pt", True
+        )
+    assert incumbent.read_bytes() == b"original incumbent"
+
+
+def test_visible_symlink_labels_are_protected_before_real_training(
+    tmp_path, monkeypatch
+):
+    uri = _volume(tmp_path / "source")
+    visible = tmp_path / "visible"
+    visible.mkdir()
+    alias = visible / "volume.zarr"
+    alias.symlink_to(uri, target_is_directory=True)
+    labels = visible / "inklabels.png"
+    labels.write_bytes(b"visible labels")
+    selected = _config(str(alias), checkpoint_out=str(labels))
+
+    def too_early(*args, **kwargs):
+        pytest.fail("GPU setup reached before protecting visible labels")
+
+    monkeypatch.setattr(train.torch, "set_float32_matmul_precision", too_early)
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.train(selected)
+    assert labels.read_bytes() == b"visible labels"
+
+
+def test_ablation_entrypoint_protects_its_active_config_before_gpu(
+    tmp_path, monkeypatch
+):
+    import json
+
+    from scripts import train_with_new_augs as entry
+
+    uri = _volume(tmp_path / "training")
+    path = tmp_path / "experiment.json"
+    path.write_text(json.dumps({"uris": [uri], "checkpoint_out": str(path)}))
+    before = path.read_bytes()
+    monkeypatch.setattr(
+        entry.torch.multiprocessing, "set_start_method", lambda *args: None
+    )
+
+    def too_early(*args, **kwargs):
+        pytest.fail("GPU setup reached before active-config protection")
+
+    monkeypatch.setattr(entry.torch, "set_float32_matmul_precision", too_early)
+    monkeypatch.setattr(sys, "argv", ["train_with_new_augs.py", "--config", str(path)])
+    with pytest.raises(ValueError, match="artifact collision"):
+        entry.main()
+    assert path.read_bytes() == before
+
+
+def test_periodic_checkpoint_checks_the_active_config_before_evaluation(tmp_path):
+    selected = _config("train.zarr", checkpoint_out=str(tmp_path / "trial.pt"))
+    active = tmp_path / "trial.pt.step3.pt"
+    active.write_bytes(b"active configuration")
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.periodic_pixel_auc_eval(
+            object(), object(), selected, "cpu", 3, 1.5, config_path=active
+        )
+    assert active.read_bytes() == b"active configuration"
+
+
 def _volume(root, depth=33, labels=True):
     """A fragment whose slice z holds the value z, so a read shows its depth."""
     root.mkdir()
@@ -96,7 +209,30 @@ def test_without_a_band_the_unlabeled_draws_are_unchanged(tmp_path):
     assert isinstance(dataset, VesuviusS3Dataset)
 
 
-def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("strict", [False, True])
+def test_unlabeled_training_read_failure_obeys_configured_policy(
+    tmp_path, monkeypatch, strict
+):
+    uri = _volume(tmp_path / "training")
+    dataset = train.unlabeled_dataset(uri, _config(uri, strict_training_reads=strict))
+    assert dataset.strict_reads is strict and dataset.volume.strict_reads is strict
+
+    def missing(*args):
+        raise OSError("CT chunk unavailable")
+
+    monkeypatch.setattr(dataset.volume.vol, "get_chunk", missing)
+    if strict:
+        with pytest.raises(RuntimeError, match="failed to read unlabeled patch"):
+            dataset[0]
+    else:
+        patch, _ = dataset[0]
+        assert torch.all(patch == 0)
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_train_gives_uamt_the_band_for_a_training_volume(
+    tmp_path, monkeypatch, capsys, strict
+):
     """Through train.train: UA-MT's reader of the training volume gets the band,
     and the label file each training volume is read with is printed."""
     for fragment in ("train", "val"):
@@ -110,8 +246,9 @@ def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, 
         val_uri=str(tmp_path / "val" / "surface_volume.zarr"),
         use_uamt=True,
         unlabeled_uris=[uri],
+        strict_training_reads=strict,
     )
-    seen = {}
+    seen = {"labeled": []}
 
     class Stop(Exception):
         pass
@@ -126,10 +263,15 @@ def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, 
             raise AssertionError("not read")
 
     def labeled(uri, *args, **kwargs):
+        seen["labeled"].append(kwargs.get("strict_reads"))
         return Catalogue()
 
     def unlabeled(uri, *args, **kwargs):
-        seen["unlabeled"] = (kwargs.get("depth_band"), kwargs.get("depth_margin"))
+        seen["unlabeled"] = (
+            kwargs.get("depth_band"),
+            kwargs.get("depth_margin"),
+            kwargs.get("strict_reads"),
+        )
         raise Stop
 
     monkeypatch.setattr(train, "VesuviusLabeledDataset", labeled)
@@ -143,7 +285,7 @@ def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, 
     )
     with pytest.raises(Stop):
         train.train(config)
-    assert seen == {"unlabeled": ([17, 43], 4)}
+    assert seen == {"labeled": [True, strict], "unlabeled": ([17, 43], 4, strict)}
     labels = os.path.join(str(tmp_path / "train"), "inklabels.png")
     assert f"Training labels for {uri}: {labels}" in capsys.readouterr().out
 

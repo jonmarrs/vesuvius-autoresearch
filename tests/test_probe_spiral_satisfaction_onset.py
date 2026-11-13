@@ -39,6 +39,7 @@ def _rays(n=40):
     return usable_rays(load_shard(), n_rays=n)
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_rescale_sets_dr_and_preserves_irregularity():
     """The rescale is the whole basis for the absolute-vs-relative claim. It must
     move dr and leave every relative irregularity untouched; if it altered the
@@ -52,6 +53,7 @@ def test_rescale_sets_dr_and_preserves_irregularity():
             assert np.allclose(before, after, atol=1e-9)
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_an_onset_exists_and_is_bracketed():
     """Below the onset nothing flips; above it something does. A probe that found
     a flip at every level, or none at any, would not have located anything."""
@@ -62,6 +64,7 @@ def test_an_onset_exists_and_is_bracketed():
     assert o["fraction_moves"] <= o["verdict_flips"]
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_onset_is_absolute_not_a_fixed_fraction_of_dr():
     """The interpretive claim. Across a 2.5x range of dr the onset in VOXELS
     should stay within a narrow band, while the onset expressed as a fraction of
@@ -76,6 +79,7 @@ def test_the_onset_is_absolute_not_a_fixed_fraction_of_dr():
     assert max(fractions) / min(fractions) > 2.0
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_confounds_that_make_the_dr_bins_unusable_are_real():
     """The probe prints the by-dr-bin table labelled confounded. That label has to
     be earned, not asserted: dr must actually covary with knot count in the real

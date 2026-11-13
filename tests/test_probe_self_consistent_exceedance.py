@@ -32,7 +32,7 @@ from probe_spiral_satisfaction_empirical_transform import (  # noqa: E402
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
-needs_data = pytest.mark.skipif(not patch_dirs(), reason="real patch data absent")
+needs_data = pytest.mark.research_input("spiral_patches")
 
 
 @needs_data
@@ -102,6 +102,7 @@ def test_the_sweep_spans_a_meaningful_surrogate_range():
     assert len(SURROGATES) >= 3
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_exceedance_is_the_differ_probability_not_its_complement():
     """Pins the direction of the statistic, because the report now quotes both.
 

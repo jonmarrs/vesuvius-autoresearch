@@ -3,13 +3,15 @@
 # All targets run inside the project's uv-managed venv. If `uv` is not on
 # PATH, install it: `curl -LsSf https://astral.sh/uv/install.sh | sh`.
 
-.PHONY: help install smoke test reeval shift clean clean-cache check-deps status
+.PHONY: help install smoke test validate test-all reeval shift clean clean-cache check-deps status
 
 help:
 	@echo "Common targets:"
 	@echo "  make install      uv sync — install / update project dependencies"
 	@echo "  make smoke        run scripts/smoke_test.py (CPU-only, ~20s)"
 	@echo "  make test         alias for smoke"
+	@echo "  make validate     run all curated validation modules on CPU"
+	@echo "  make test-all     run every tests/ module on CPU (includes research guards)"
 	@echo "  make reeval       re-evaluate best_model.pt under today's code path"
 	@echo "  make shift        spawn an autoresearch bandit shift in background"
 	@echo "  make check-deps   verify GPU + key imports"
@@ -24,6 +26,12 @@ smoke:
 	CUDA_VISIBLE_DEVICES="" uv run python scripts/smoke_test.py
 
 test: smoke
+
+validate:
+	CUDA_VISIBLE_DEVICES="" uv run python scripts/run_validation_tests.py
+
+test-all:
+	CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests -q
 
 status:
 	@python3 scripts/workspace_status.py

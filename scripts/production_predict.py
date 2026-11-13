@@ -39,15 +39,11 @@ from vesuvius_autoresearch.core.inference import (
     prepare_volume_input,
     read_model_block,
     ridge_depth_context,
+    tile_count,
     tile_starts,
     validate_model_settings,
 )
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
-
-
-def _tile_count(length, size, stride):
-    edge = length - size
-    return edge // stride + 1 + int(edge % stride != 0)
 
 
 def production_predict(argv=None):
@@ -183,8 +179,8 @@ def production_predict(argv=None):
             "batch_size": args.batch_size,
             "voxel_size_um": args.voxel_size_um,
             "model_config": config_dict,
-            "tiles_total": _tile_count(args.height, size, args.stride)
-            * _tile_count(args.width, size, args.stride),
+            "tiles_total": tile_count(args.height, size, args.stride)
+            * tile_count(args.width, size, args.stride),
             "artifact_stem": plan.stem,
             "outputs": {
                 "ink_zarr": str(plan.zarr_path),

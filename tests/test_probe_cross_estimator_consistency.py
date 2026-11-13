@@ -23,7 +23,7 @@ from probe_real_patch_scatter import patch_dirs  # noqa: E402
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
-needs_data = pytest.mark.skipif(not patch_dirs(), reason="real patch data absent")
+needs_data = pytest.mark.research_input("spiral_patches")
 
 ARTIFACT = os.path.join(_REPO, "reports", "cross_estimator_consistency.txt")
 
@@ -143,7 +143,6 @@ def test_agreement_is_not_claimed_as_proof():
     assert "necessary" in text and "not sufficient" in text
 
 
-@needs_data
 def test_real_reported_uses_no_surrogate():
     """What the estimator returns on real patches must not depend on which field
     would have been injected, or the comparison is the model checking itself."""
