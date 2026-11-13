@@ -369,3 +369,126 @@ def test_help_needs_no_scientific_imports(tmp_path, module):
         timeout=15,
     )
     assert result.returncode == 0 and "scientific import" not in result.stderr
+
+
+def test_a_layer_rewritten_at_the_same_size_is_refused_by_its_digest(source, tmp_path):
+    """An uncompressed layer's byte count is the same for any values, so only the digest pins it."""
+    manifest = pin(source, tmp_path)
+    path = source / "17.tif"
+    size = path.stat().st_size
+    Image.fromarray(np.array(Image.open(path)) + np.uint16(1)).save(path)
+    assert path.stat().st_size == size
+    with pytest.raises(ValueError, match="pinned manifest"):
+        importer.build_import(manifest, tmp_path / "out")
+    assert not (tmp_path / "out").exists() and not list(tmp_path.glob(".out-*"))
+
+
+@pytest.mark.parametrize("declared", [1, "yes", None])
+def test_alignment_is_declared_with_true_and_nothing_else(source, declared):
+    with pytest.raises(ValueError, match="aligned_labels"):
+        plan(source, aligned_labels=declared)
+
+
+@pytest.mark.parametrize(
+    "z_start, z_stop, message",
+    [
+        (0, 513, "1..512 consecutive layers"),
+        (19, 19, "1..512 consecutive layers"),
+        (-1, 2, "z_start must be an integer >= 0"),
+        (True, 3, "z_start must be an integer >= 0"),
+    ],
+)
+def test_the_layer_range_is_checked_before_any_file_is_read(
+    source, z_start, z_stop, message
+):
+    labels = source / "missing.png"
+    with pytest.raises(ValueError, match=message):
+        importer.plan_import(source, labels, z_start, z_stop, aligned_labels=True)
+
+
+def test_the_pixel_limit_cannot_be_raised_above_the_decoder_s(source):
+    with pytest.raises(ValueError, match="max_pixels must be <="):
+        plan(source, max_pixels=importer.MAX_PIXELS + 1)
+
+
+def test_a_png_under_a_layer_s_name_is_not_a_ct_layer(source):
+    Image.fromarray(np.zeros((8, 10), np.uint16)).save(source / "17.tif", format="PNG")
+    with pytest.raises(ValueError):
+        plan(source)
+
+
+def test_the_volume_limit_admits_exactly_the_chunk_storage(source):
+    size = importer._storage((3, 8, 10))[1]
+    assert size == 3 * 8 * 10 * 2
+    assert plan(source, max_volume_bytes=size)["limits"]["max_volume_bytes"] == size
+    with pytest.raises(ValueError, match=f"exceeds max_volume_bytes={size - 1}"):
+        plan(source, max_volume_bytes=size - 1)
+
+
+def test_a_source_changed_while_it_is_captured_is_refused(source, monkeypatch):
+    capture = importer.capture_bytes
+
+    def touch_after(path, limit):
+        result = capture(path, limit)
+        if Path(path).name == "17.tif":
+            os.utime(path, ns=(1, 1))
+        return result
+
+    monkeypatch.setattr(importer, "capture_bytes", touch_after)
+    with pytest.raises(ValueError, match="changed while capturing"):
+        plan(source)
+
+
+def test_a_source_changed_later_in_planning_is_refused(source, monkeypatch):
+    image = importer._image
+
+    def touch_labels(data, path, role, max_pixels):
+        if Path(path).name == "18.tif":
+            os.utime(source / "inklabels.png", ns=(1, 1))
+        return image(data, path, role, max_pixels)
+
+    monkeypatch.setattr(importer, "_image", touch_labels)
+    with pytest.raises(ValueError, match="changed during planning"):
+        plan(source)
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        ("contract", "unsupported import manifest contract"),
+        ("span", "manifest depth must match"),
+        ("layer index", "consecutive and ordered"),
+        ("layer name", "filename must match its declared index"),
+        ("relative path", "must be absolute"),
+        ("short digest", "SHA256 digests"),
+    ],
+)
+def test_each_manifest_rule_refuses_its_own_edit(source, tmp_path, change, message):
+    manifest = pin(source, tmp_path)
+    value = json.loads(manifest.read_text())
+    layer, labels = value["sources"]["layers"][1], value["sources"]["labels"]
+    if change == "contract":
+        value["contract"] = 2
+    elif change == "span":
+        value["source_z_range"][1] += 1
+    elif change == "layer index":
+        layer["index"] = 99
+    elif change == "layer name":
+        other = Path(layer["path"]).with_name("other.tif")
+        other.write_bytes(Path(layer["path"]).read_bytes())
+        layer["path"] = str(other)
+    elif change == "relative path":
+        labels["path"] = os.path.relpath(labels["path"])
+    else:
+        labels["sha256"] = labels["sha256"][:12]
+    manifest.write_text(json.dumps(value))
+    with pytest.raises(ValueError, match=message):
+        importer.build_import(manifest, tmp_path / "out")
+    assert not (tmp_path / "out").exists() and not list(tmp_path.glob(".out-*"))
+
+
+def test_a_build_budget_below_the_manifest_s_geometry_is_refused(source, tmp_path):
+    manifest = pin(source, tmp_path)
+    with pytest.raises(ValueError, match="manifest geometry exceeds"):
+        importer.build_import(manifest, tmp_path / "out", max_pixels=8 * 10 - 1)
+    assert not (tmp_path / "out").exists()
