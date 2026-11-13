@@ -5,6 +5,12 @@
 lists the differences, and each one is the owner's decision. No experiment was run for it. Every probability and
 award range below is a judgement, not a measurement.
 
+**Status correction, November 13:** the image-chain kill test already passed on
+November 10 ([reproduction report](../reports/first_letters_343_reproduction.md)).
+The remaining prerequisite is reproducing the mesh stage; the spiral fit, snap
+and flatten were not run in that test. This corrects the scheduling assumptions
+below without adopting this proposal's owner decisions.
+
 Read for this roadmap on 2026-11-12:
 
 - **Villa main of that day** (commit 03a280ad): the prize rules page, the winners page and the 2026 open-problems
@@ -22,8 +28,8 @@ from November 9.
 ## The short version
 
 1. **Keep the main line: a First Letters campaign.** It is still the only five-figure prize whose published winning
-   method fits this machine. Eight awards remain and the deadline is June 25, 2027, so the kill test should not wait
-   any longer.
+   method fits this machine. Eight awards remain and the deadline is June 25, 2027. The image-chain kill test has
+   passed; the mesh-stage reproduction comes next.
 2. **Add one piece of new work: a winding snap that cannot put two windings on one sheet.** That failure is what
    stopped the published recipe on other contributors' fits, and sheet switches are on the organisers' own
    bottleneck list. It is CPU-only geometry.
@@ -38,7 +44,7 @@ from November 9.
 | Prize | Amount | Deadline | What it takes | Judged chance for us |
 | --- | --- | --- | --- | --- |
 | 2027 Grand Prize | \$800,000, then \$100,000, \$50,000 and \$50,000 | June 25, 2027 | One of 13 scrolls unrolled whole and readable: all of the recto, at most 8 documented hours of human input, integrated in VC3D, 70% of each counted column's characters legible. | Solo: well under 1%. As a supplier of components to a team: the owner's decision. |
-| First Letters | \$50,000 a scroll, for at most 8 more scrolls | June 25, 2027 | 10 legible letters inside one 4 cm² of an eligible volume, with the flattened mesh, a programmatic image, a reproducible method, false-positive mitigation and held-out validation. Nothing made public before the announcement. | About one in ten of at least one award, if the kill test passes this month and three to five scrolls get a correct surface. |
+| First Letters | \$50,000 a scroll, for at most 8 more scrolls | June 25, 2027 | 10 legible letters inside one 4 cm² of an eligible volume, with the flattened mesh, a programmatic image, a reproducible method, false-positive mitigation and held-out validation. Nothing made public before the announcement. | About one in ten of at least one award, conditional on the remaining mesh-stage reproduction and three to five scrolls getting a correct surface. |
 | PHerc. Paris 4 title | \$50,000 | Listed as June 25, 2027; the rules also say submissions stay open until it is won | An image of the title on any Scroll 1 scan, including the 2.4 µm volumes. The expected region has shown no detectable ink so far. | Very low. Worth one time-boxed pass, not a line of work. |
 | Progress Prizes | \$20,000 guaranteed to the month's best submission; others \$250 to \$20,000 | Monthly; next is November 30 | Open-source work that helps read the scrolls. See the next two tables. | See "What a month should produce". |
 
@@ -64,7 +70,8 @@ The winners page lists 27 September awards, \$40,500 in all.
 - **The wishlist is empty.** The "help wanted" label has no open issue. The open-problems page is the live list.
 - **Review capacity is short.** With 111 PRs open, a small PR with its evidence attached is the kind that gets read.
 
-So a plan cannot promise a prize every month. Our record is \$0, \$0 and \$250, with October unannounced. A realistic
+So a plan cannot promise a prize every month. Our local award record confirms September's \$250;
+July and August totals are unverified here, and October was unannounced at this read. A realistic
 floor is \$250 in a month when two or three real-use fixes merge. \$500 to \$1,000 needs one item a month that other
 people use or that shows a result on real data.
 
@@ -98,8 +105,8 @@ The strategy's campaign stands as written: its recipe, its five controls and its
 - **Look at the plain render as well.** The rules say ink is sometimes visible in the flattened render with no
   model, and that this alone qualifies. Record the plain render of every band beside the model output.
 - **Treat the calendar as the main risk.** Other contributors run the same recipe, two prizes went in October, and
-  eight remain. The kill test has waited since November 10 for a decision on the training loop. Each further week
-  costs more than any other item here.
+  eight remain. The image-chain check passed on November 10; the mesh-stage reproduction remains. Each further
+  week costs more than any other item here.
 
 ### 2. A snap that cannot stack windings (new)
 
@@ -178,7 +185,7 @@ faster inference, cross-scroll experiments).
 
 | Month | Work | What is filed | Judged award |
 | --- | --- | --- | --- |
-| November (to the 30th) | Pause the loop. Run the kill test. Report finding 109 and post the seam PR. Read the snap step and reproduce the audit. | What has merged, as the draft says. | \$0 to \$250 |
+| November (to the 30th) | Pause the loop for the next run. Reproduce the mesh stage; the image-chain kill test passed. Report finding 109 and post the seam PR. Read the snap step and reproduce the audit. | What has merged, as the draft says. | \$0 to \$250 |
 | December | The PHerc. 0841 control. The first eligible band, on the scroll the scan comparison ranks first. The snap prototype, measured on the failing fits. Fixes as they bite. | The recipe as run on a 4-core, 31 GB, one-4090 machine: commands, costs, failures, meshes. A bundle of fixes. | \$250 to \$1,000 |
 | January | The fit comparison for the fiber fixes. Band sweeps overnight. The snap as a Villa proposal if it held. The ensemble calibration. | The snap, or the fit comparison. A bundle. | \$250 to \$1,000 |
 | February | More bands and scrolls. Apply the campaign's kill criterion at the end of the month. Decide on a team. | Meshes and nulls for the scrolls tried. A bundle. | \$250 to \$500 |
@@ -196,8 +203,8 @@ faster inference, cross-scroll experiments).
 
 ## What to stop or shrink
 
-- **The 64-pixel training loop.** The strategy already judges it unproductive. Pausing it is what unblocks the
-  kill test.
+- **The 64-pixel training loop.** The strategy already judges it unproductive. Pausing it frees capacity for
+  the next campaign run; the image-chain kill test already ran with it temporarily stopped.
 - **Internal audits and reviews.** The hourly design review is on its 162nd round. It has found real defects in
   our own tooling, but none of that work is prize-eligible under the November 5 rules, and this week it used up
   the assistant's usage allowance several times. A daily or on-demand review would leave that budget for
@@ -221,7 +228,8 @@ and two code-fix PRs a week; dense winding inputs stay parked.
 
 ## Decisions for the owner
 
-1. **Pause the training loop now?** This blocks the kill test and everything after it.
+1. **Pause the training loop for the next campaign run?** The image-chain kill test ran with a temporary pause;
+   the remaining mesh-stage run still needs capacity scheduled by the owner.
 2. **Where eligible-scroll outputs are kept**, since this repository is public.
 3. **Whether to post the seam PR and the splice issue** once finding 109 reports.
 4. **Hours a week** for hand refinement in VC3D and for the human-written commentary Villa asks for. Both are

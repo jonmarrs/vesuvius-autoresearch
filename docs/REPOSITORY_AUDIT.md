@@ -259,7 +259,7 @@ decision for the missing-input failures identified above.
 
 ## Items for owner review
 
-The eight remaining items below are in suggested work order, not a claim that
+The nine remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
@@ -272,6 +272,7 @@ each has caused a measured scientific failure.
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+| Lower | **Legacy model and optional adapter support need an explicit scope.** The [shared architecture list](../src/vesuvius_autoresearch/core/inference_constants.py) retains `resnet3d` and `i3d` as training-only names; the inference factory rejects them. The optional [Villa TTA adapter](../src/vesuvius_autoresearch/core/villa_inference.py) has no maintained command caller, and its default concatenation expects matching task-tensor ranks, unlike the current ink/fiber/QC outputs. | Decide whether these are documented experiments, supported public interfaces or candidates for retirement. Preserve compatibility until that choice is made; support would need architecture-specific checkpoint reconstruction and a deliberate mixed-output TTA contract. |
 
 ## Verification record
 
@@ -948,3 +949,88 @@ Review validation in the existing Python 3.10.21 / CPU Torch 2.9.1 environment:
 These checks do not supply original-data or GPU validation. The eight owner
 items remain; the live research checkout, original study files and checkpoints
 were not modified.
+
+## Whole-tree follow-up, November 13, 2026
+
+This pass starts at main `9fa747c5f96a77481fc75d88292742ba15930218`, including
+the First Letters reproduction and the recent canvas/fiber boundary fixes.
+The isolated audit checkout keeps the original research checkout unchanged.
+
+### Coverage and reproduced defects
+
+The starting tree has **3279 tracked regular files**, including **1031 Python
+files (222455 lines), 162 shell scripts, 448 JSON files and 10 YAML files**.
+All Python files parsed, shell scripts passed `bash -n`, and JSON/YAML parsed.
+There were no duplicate top-level Python definitions or JSON object members.
+The same four previously catalogued historical JSON files retain non-finite
+tokens. Header/structure checks passed for 245 images and ten NPY payloads,
+and both ZIP archives passed CRC checks. These scans read the tracked tree;
+manual review focused on maintained training, inference, data loading,
+publication, configuration, developer and newly merged reproduction workflows.
+They do not establish every historical result or exhaustively verify every line.
+
+Six defects were reproduced with **29 initially failing regressions**:
+
+| Defect | Correction |
+| --- | --- |
+| Unknown training architectures silently selected Gated UNet while retaining another architecture name in the configuration. | Shared architecture choices now reject unsupported names during config construction and before training/model setup. The known training-only names remain explicit. |
+| Unknown augmentation modes silently used Albumentations. | Supported mode names are checked at config and augmentation boundaries, including configs mutated after construction. |
+| The batchgenerators pipeline cache used only patch geometry, retaining the previous run's four configured scroll-transform probabilities. | The cache key includes those probabilities. Stand-in pipelines verify their effect on actual output tensors and reuse for an identical configuration. |
+| Four-dimensional backbone logits became a seven-dimensional projection input. | Planar logits receive one depth axis; scalar and volumetric paths retain their behavior. Projection tests check finite outputs and gradients for all three ranks. |
+| The default unused skeleton-distance limit was Infinity, making newly trained checkpoint configurations unpublishable by either regional predictor's finite-JSON guard. | Its inactive default is `null`; loading the legacy positive-infinity sentinel normalizes it to `null` for new runs. Finite legacy values remain recorded. Existing checkpoint bytes are not rewritten. |
+| Depth-band matching disagreed with split checks for existing URI-like local paths, encoded file paths and remote level-zero aliases with queries. | Both now share a standard-library volume-location classifier. Local resources cannot also match the remote spelling under an alternate checkout base. Copies, physically overlapping crops and different remote resources remain unverified. |
+
+Removed the redundant augmentation-cache initialization and the noise probe's
+now-obsolete special-case omission of the unused infinity default. The strategy
+and proposed roadmap now distinguish September's confirmed award from unrecorded
+July/August totals, and distinguish the passed image-chain kill test from the
+unrun mesh stage. No roadmap decision was adopted and no scientific figure changed.
+
+### Verification and remaining limits
+
+The pre-fix 216-module curated CPU baseline passed **5817 tests, 42 skipped,
+1 xfailed** in 727.92 seconds. Before the shared path follow-up, six affected
+modules passed **313 tests, 1 skipped** in 66.25 seconds. The shared-path
+selection then passed **271 tests** in 48.28 seconds. These overlapping subset
+runs do not substitute for the final complete validation record.
+
+Final validation:
+
+- The complete 216-module curated CPU suite passed **5849 tests, 42 skipped,
+  1 xfailed** in 597.03 seconds, including all 32 added regression/control cases.
+- The other 250 `tests/` modules passed **2528 tests, 155 skipped** in 564.68
+  seconds. Their selection began before the final shared-identity extraction;
+  the final curated run above covers the affected paths. Missing original
+  spiral inputs, historical Villa revisions, ScrollGT targets and external
+  checkouts remain skipped coverage. One real TimeSformer inference emitted the
+  90-second faulthandler diagnostic and subsequently passed; the diagnostic was
+  not a test failure or an enforced time limit.
+- A new dependency-minimal environment, installed from the hash-pinned CPU
+  requirements, passed **360 portable tests** in 27.76 seconds. Torch and Zarr
+  were absent; the profile still contains fifteen modules.
+- Documentation/file-mode guards passed **149 tests, 1 original-corpus skip**
+  in 32.96 seconds. Maintained Ruff, formatting of all eleven changed Python
+  files and offline lock consistency pass.
+
+Exact final curated and minimal-profile commands, from this checkout:
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short --junitxml=/tmp/vesuvius-nov13-curated-final.xml -o faulthandler_timeout=90
+
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-nov13-portable/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+```
+
+The outside selection is every `tests/**/test_*.py` module absent from
+`VALIDATION_TESTS`; it used the same CPU environment and `pytest -q`, with
+`--tb=short --continue-on-collection-errors`, a JUnit report and the 90-second
+faulthandler diagnostic. It recorded no collection errors or failing tests.
+
+Mypy passed on **978 files**; maintained Ruff passed. Smoke passed **9/11,
+2 skipped, 0 failed** in 12.3 seconds, with original-data skips. No new dependency
+versions, running research state, measured artifacts or frozen sources changed.
+
+The nine owner-review items above remain. Original-fragment/GPU runs,
+full-scroll resource profiles, standalone-wheel support and historical-artifact
+migrations were not supplied by this pass. In particular, old checkpoints whose
+stored configs contain Infinity are retained unchanged; normalizing a new
+training config is not a rewrite of an older artifact.

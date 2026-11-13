@@ -7,7 +7,7 @@ not registrations or measured runtimes. The probabilities are judgements, not me
 was run for this review.
 
 The owner's goal is a Progress Prize every month while working towards a milestone prize. The record below
-bounds the first half: bundles of merged fixes earned us \$0, \$0 and \$250 in three months, comparable work by
+bounds the first half: September's confirmed award for merged fixes was \$250; comparable work by
 others earned \$250 to \$1,000, and the \$20,000 awards went to whole unwrapping capabilities shown at scale.
 More of the same work reaches neither goal. The one five-figure prize whose published winning method fits this
 machine is First Letters. So the main line is a
@@ -82,8 +82,9 @@ review.
 | \$1,000 | One coherent enabling capability or documented study: spiral fitting on consumer GPUs, `fit_spiral` fixes, Zarr 3 read fixes, and an end-to-end First Letters attempt on PHerc. 0826 published with its commands, failures and costs. |
 | \$250 to \$500 | A bundle of merged fixes, or one fix that bites: a renderer memory fix (\$500), a shared disk cache (\$250), spiralising PHerc. 0211 (\$250). |
 
-Ours: July \$0, August \$0, September \$250 for merged Villa PRs ([award record](PROGRESS_PRIZE_AWARDS.md)). The
-September award shows that this kind of work can be recognized. It does not establish an award probability.
+Our [local award record](PROGRESS_PRIZE_AWARDS.md) confirms September's \$250 for merged Villa PRs.
+It does not record July or August totals, so those months are unverified here rather than recorded as zero.
+The September award shows that this kind of work can be recognized. It does not establish an award probability.
 
 Three further facts set the ranking:
 

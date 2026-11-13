@@ -3,6 +3,7 @@
 import json
 import sys
 from collections import defaultdict
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -121,6 +122,29 @@ def setup_prediction(tmp_path, monkeypatch, mode, configs=None, bad=None):
         runner = ensemble.ensemble_predict
     monkeypatch.setattr(sys, "argv", argv)
     return runner, argv, created, volume, checkpoints
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("legacy_infinite_limit", [False, True])
+def test_default_training_config_can_be_published_as_inference_metadata(
+    tmp_path, monkeypatch, mode, legacy_infinite_limit
+):
+    from scripts.training.config import ExperimentConfig
+
+    selected = ExperimentConfig(patch_size=8, num_layers=2, base_feat=4)
+    if legacy_infinite_limit:
+        # A saved legacy setting is inactive, but must not make the next
+        # training checkpoint impossible to publish through either predictor.
+        settings = asdict(selected)
+        settings["max_prize_skel_dist"] = float("inf")
+        selected = ExperimentConfig.from_json(json.dumps(settings))
+    runner, _, _, _, _ = setup_prediction(
+        tmp_path, monkeypatch, mode, configs=[asdict(selected)]
+    )
+    runner()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    assert metadata["prediction_complete"] is True
+    assert metadata["model_config"]["max_prize_skel_dist"] is None
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
@@ -839,6 +863,56 @@ def test_a_band_outside_the_volume_falls_back_to_the_volume_centre(
     runner()
     metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
     assert metadata["position_xyz"] == [3, 2, (6 - 2) // 2]
+
+
+@pytest.mark.parametrize(
+    "name", ["scan:volume.zarr", "s3://bucket/local.zarr", "space volume.zarr"]
+)
+@pytest.mark.parametrize("reverse", [False, True])
+def test_depth_band_identity_agrees_with_local_volume_aliases(
+    tmp_path, monkeypatch, name, reverse
+):
+    from vesuvius_autoresearch.core.inference import depth_band_for
+
+    monkeypatch.chdir(tmp_path)
+    volume = tmp_path / name
+    volume.mkdir(parents=True)
+    recorded = volume.as_uri() if " " in name else name
+    target = str(volume)
+    if reverse:
+        recorded, target = target, recorded
+    saved = {"depth_band": [1, 27], "uris": [recorded]}
+    assert depth_band_for(saved, target) == [1, 27]
+    assert depth_band_for(saved, str(tmp_path / "different.zarr")) is None
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_depth_band_remote_level_zero_alias_keeps_query_identity(reverse):
+    from vesuvius_autoresearch.core.inference import depth_band_for
+
+    root, level = (
+        "s3://bucket/volume.zarr?version=1",
+        "s3://bucket/volume.zarr/0?version=1",
+    )
+    recorded, target = (level, root) if reverse else (root, level)
+    saved = {"depth_band": [1, 27], "uris": [recorded]}
+    assert depth_band_for(saved, target) == [1, 27]
+    assert depth_band_for(saved, target.replace("version=1", "version=2")) is None
+
+
+def test_local_uri_spelling_does_not_also_match_a_remote_resource(
+    tmp_path, monkeypatch
+):
+    from vesuvius_autoresearch.core import inference_constants
+    from vesuvius_autoresearch.core.inference import depth_band_for
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(inference_constants, "_REPO", str(tmp_path / "other_checkout"))
+    (tmp_path / "s3:/bucket/volume.zarr").mkdir(parents=True)
+    saved = {"depth_band": [1, 27], "uris": ["s3://bucket/volume.zarr"]}
+    # The recorded URI opens a local bare array. The absent local /0 spelling
+    # opens a remote resource; a second base must not turn the first into both.
+    assert depth_band_for(saved, "s3://bucket/volume.zarr/0") is None
 
 
 def test_depth_band_for_matches_recorded_volumes_by_path(tmp_path, monkeypatch):

@@ -4,38 +4,9 @@ This cannot establish independence of copies, crops, or different remote URLs.
 It opens no arrays, changes no configuration, and creates no filesystem entries.
 """
 
-import os
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
 
-
-def _location(uri, base, *, resolve_local=True):
-    if not isinstance(uri, str) or not uri.strip():
-        raise ValueError("volume identifiers must be nonempty strings")
-    # Match FastVesuviusVolume: an existing path wins over URL interpretation.
-    # POSIX names may contain colons or even look like a remote URI.
-    candidate = base / uri
-    if os.path.exists(candidate):
-        return (candidate.resolve() if resolve_local else candidate), None
-    parts = urlsplit(uri)
-    if not parts.scheme or (
-        parts.scheme == "file" and parts.netloc in ("", "localhost")
-    ):
-        if parts.scheme == "file":
-            if parts.query or parts.fragment:
-                raise ValueError("local file URIs cannot have a query or fragment")
-            path = unquote(parts.path)
-        else:
-            path = uri
-        local = base / path
-        return (local.resolve() if resolve_local else local), None
-    # Preserve query/fragment and authority: different remote addresses cannot
-    # be proved independent here. Only recognize identical addresses and the
-    # root/level-zero spelling used by the volume loader.
-    path = parts.path.rstrip("/")
-    if path.endswith("/0"):
-        path = path[:-2]
-    return None, (parts.scheme, parts.netloc, path, parts.query, parts.fragment)
+from vesuvius_autoresearch.core.volume_paths import volume_location as _location
 
 
 def _overlap(first, second):
