@@ -5,6 +5,18 @@
 lists the differences, and each one is the owner's decision. No experiment was run for it. Every probability and
 award range below is a judgement, not a measurement.
 
+**Update, 2026-11-13.** #401 merged after this was written. It reports the campaign's kill test
+([report](../reports/first_letters_343_reproduction.md)), which changes four things below:
+
+- **The kill test has run.** On November 10 the published PHerc. 343 image was rebuilt here, from the published
+  windings onward. It was not waiting, as the short version, rank 1 and the calendar say.
+- **The first decision is answered.** The owner allowed the training loop to be stopped for campaign runs. The
+  kill test stopped it for 22 minutes.
+- **The next step is the recipe's mesh step** on the PHerc. 343 band: spiral fit, snap and flatten, with time and
+  memory recorded. The report calls it the larger unknown. Rank 2's first step, reading the snap, belongs there.
+- **One depth is a cheap first look.** The report finds that one depth shows the same letters, fainter, without
+  the 31-depth sweep. Rank 5's calibration can start from that.
+
 Read for this roadmap on 2026-11-12:
 
 - **Villa main of that day** (commit 03a280ad): the prize rules page, the winners page and the 2026 open-problems
