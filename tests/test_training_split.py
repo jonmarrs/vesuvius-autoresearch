@@ -253,10 +253,6 @@ def test_a_dot_segment_and_a_bucket_root_are_not_false_children():
     validate_training_split(
         config(uris=["s3://bucket:443/val.zarr"], val_uri="s3://bucket/val.zarr")
     )
-    # A non-level key under the volume is not a resolution of it.
-    validate_training_split(
-        config(uris=["s3://bucket/val.zarr/labels"], val_uri="s3://bucket/val.zarr")
-    )
 
 
 def test_integer_levels_of_the_bucket_root_are_the_same_volume():
@@ -265,6 +261,53 @@ def test_integer_levels_of_the_bucket_root_are_the_same_volume():
         validate_training_split(config(uris=["s3://bucket/2"], val_uri="s3://bucket/1"))
     validate_training_split(
         config(uris=["s3://bucket/val.zarr"], val_uri="s3://bucket/1")
+    )
+
+
+@pytest.mark.parametrize(
+    "training, validation",
+    [
+        ("https://host./val.zarr", "https://host/val.zarr"),
+        ("http://host/val.zarr", "https://host/val.zarr"),
+        ("http://host:80/val.zarr", "https://host:443/val.zarr"),
+        ("https://%68ost/val.zarr", "https://host/val.zarr"),
+        ("https://host:abc/val.zarr", "https://host/val.zarr"),
+        ("s3://bucket/val%252Ezarr", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr%252F1", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr\\1", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr;params", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/01", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/00", "s3://bucket/val.zarr/0"),
+        ("s3://bucket/val.zarr/01", "s3://bucket/val.zarr/1"),
+        ("s3://bucket/val.zarr/labels", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/volume", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/volume/0", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/0/c", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/.zarray", "s3://bucket/val.zarr"),
+        ("s3://bucket/data", "s3://bucket/data/val.zarr"),
+        ("s3://bucket/val.zarr", "s3://bucket/val.zarr/volume"),
+        ("s3://bucket/val.zarr/１", "s3://bucket/val.zarr/1"),
+        ("s3://bucket/val.zarr/ 1", "s3://bucket/val.zarr"),
+    ],
+)
+def test_residual_remote_spellings_and_nested_paths_are_refused(training, validation):
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        validate_training_split(config(uris=[training], val_uri=validation))
+
+
+def test_a_year_under_a_non_zarr_name_is_not_a_pyramid_level():
+    """``scroll/2024`` is not a resolution of ``scroll/2023``."""
+    validate_training_split(
+        config(uris=["s3://bucket/scroll/2024"], val_uri="s3://bucket/scroll/2023")
+    )
+    validate_training_split(
+        config(uris=["s3://bucket/scroll/2"], val_uri="s3://bucket/scroll/1")
+    )
+    validate_training_split(
+        config(
+            uris=["s3://bucket/val.zarr/%252E%252E/other"],
+            val_uri="s3://bucket/val.zarr",
+        )
     )
 
 

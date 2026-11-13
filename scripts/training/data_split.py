@@ -1,13 +1,17 @@
 """Stat-only checks for observable overlap with the held-out CT volume.
 
 A local path compares directory ancestry and inode identity. A remote address
-is compared after normalization: scheme and host case, a default port, dot
-segments, and percent-encoding do not make the same volume look different.
-``s3a`` and ``s3n`` are ``s3``. Query and fragment are ignored. Trailing
-integer segments are pyramid levels of the parent, so sibling levels are the
-same volume. A path of only those segments is a level of the bucket or host
-root; an integer name cannot be told from a level without opening the store.
-Copies, crops, and a different host are not proved independent.
+is compared after normalization. Scheme and host case, a trailing dot on the
+host, an ``http``/``https`` pair, a default port, dot segments, backslashes,
+path parameters, and repeated percent-encoding do not make the same volume
+look different. ``s3a`` and ``s3n`` are ``s3``. Query and fragment are ignored.
+One path inside another of the same host is the same volume, except that the
+bare bucket or host root is only itself.
+
+A small integer directly under a ``.zarr`` name, or the only segment of the
+path, is a pyramid level of that parent. Leading zeros count (``01`` and
+``00``). ``scroll/2024`` is not a level. Copies, crops, and a different host
+are not proved independent.
 
 The volume reader refuses every remote URI, so this comparison does not decide
 a read that can run today. It is the spelling check a later remote reader
@@ -16,11 +20,14 @@ and creates no filesystem entries.
 """
 
 import os
+import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 # Schemes whose explicit default port is the same endpoint as no port.
 _DEFAULT_PORTS = {"http": 80, "https": 443}
+# A resolution level is a small integer. A year or other id is not.
+_MAX_PYRAMID_LEVEL = 99
 
 
 def _location(uri, base, *, resolve_local=True):
@@ -48,39 +55,87 @@ def _location(uri, base, *, resolve_local=True):
     scheme = parts.scheme.lower()
     if scheme in ("s3a", "s3n"):
         scheme = "s3"
-    return None, (scheme, *_remote_authority(parts, scheme), _remote_path(parts.path))
+    host, port = _remote_authority(parts, scheme)
+    # The same host and path over http and https is one object.
+    if scheme in ("http", "https"):
+        scheme = "http"
+    return None, (scheme, host, port, _remote_path(parts.path))
+
+
+def _unescape(text):
+    """Percent-decode until the text stops changing, including ``%252F``."""
+    for _ in range(8):
+        decoded = unquote(text)
+        if decoded == text:
+            return text
+        text = decoded
+    return text
+
+
+def _split_host_port(netloc):
+    """Host and numeric port. A non-numeric port is ignored."""
+    if netloc.startswith("["):
+        end = netloc.find("]")
+        if end == -1:
+            return netloc, None
+        host = netloc[1:end]
+        rest = netloc[end + 1 :]
+        if rest.startswith(":") and rest[1:].isdigit():
+            return host, int(rest[1:])
+        return host, None
+    if netloc.count(":") == 1:
+        host, port_text = netloc.rsplit(":", 1)
+        if port_text.isdigit():
+            return host, int(port_text)
+        return host, None
+    return netloc, None
 
 
 def _remote_authority(parts, scheme):
-    """Lowercased host, with a scheme's default port removed."""
-    try:
-        host = parts.hostname or ""
-        port = parts.port
-    except ValueError:
-        return parts.netloc.lower(), None
+    """Lowercased host, with a scheme's default port and a trailing dot removed."""
+    netloc = parts.netloc
+    if "@" in netloc:
+        netloc = netloc.rsplit("@", 1)[-1]
+    host, port = _split_host_port(_unescape(netloc))
+    host = unicodedata.normalize("NFKC", host).lower().rstrip(".")
     if port == _DEFAULT_PORTS.get(scheme):
         port = None
     return host, port
 
 
-def _integer_level(segment):
-    """A pyramid level segment: ``0`` or a decimal integer without a leading zero."""
+def _small_level(segment):
+    """``0``, ``00``, ``01``, or another integer up to the pyramid bound."""
     if not segment.isascii() or not segment.isdigit():
         return False
-    return segment == "0" or not segment.startswith("0")
+    return int(segment) <= _MAX_PYRAMID_LEVEL
+
+
+def _zarr_level(segments):
+    """A small integer directly under a ``.zarr`` name, or the whole path.
+
+    ``val.zarr/01`` is level 1 of that volume. ``scroll/2024`` is a name.
+    A lone ``1`` or ``2`` is a level of the bucket or host root.
+    """
+    if not _small_level(segments[-1]):
+        return False
+    if len(segments) == 1:
+        return True
+    return segments[-2].lower().endswith(".zarr")
 
 
 def _remote_path(path):
-    """Decode, resolve ``.`` and ``..``, and fold a trailing pyramid level.
+    """Decode, resolve ``.`` and ``..``, and fold a real pyramid level.
 
-    Percent-decoding runs first, so ``%2F`` is a separator and ``%2E%2E`` is
-    ``..``. A bucket or host root stays empty and is only itself: it is not a
-    parent of every key. Trailing integer segments are resolution levels of
-    the parent, so ``volume/1`` and ``volume/2`` are that volume. A non-level
-    key under the same prefix, such as ``volume/labels``, is not.
+    Decoding repeats, so ``%252F`` becomes a separator and ``%252E%252E``
+    becomes ``..``. Backslashes are separators. A ``;`` parameter is not
+    part of the key. The bare bucket or host root stays empty and is only
+    itself. A key nested under another key of the same host is inside it.
     """
     segments = []
-    for segment in unquote(path).split("/"):
+    for segment in _unescape(path).replace("\\", "/").split("/"):
+        segment = unicodedata.normalize("NFKC", segment).strip()
+        if ";" in segment:
+            segment = segment.split(";", 1)[0].strip()
         if segment in ("", "."):
             continue
         if segment == "..":
@@ -88,14 +143,26 @@ def _remote_path(path):
                 segments.pop()
             continue
         segments.append(segment)
-    while segments and _integer_level(segments[-1]):
+    while segments and _zarr_level(segments):
         segments.pop()
     return "/".join(segments)
 
 
+def _path_contains(parent, child):
+    """True when ``child`` is strictly inside a non-empty ``parent``."""
+    return bool(parent) and child.startswith(parent + "/")
+
+
 def _remote_overlap(left, right):
-    """Same normalized scheme, host, port, and volume path."""
-    return left == right
+    """Same normalized address, or one path inside the other."""
+    if left[:3] != right[:3]:
+        return False
+    left_path, right_path = left[3], right[3]
+    return (
+        left_path == right_path
+        or _path_contains(left_path, right_path)
+        or _path_contains(right_path, left_path)
+    )
 
 
 def _overlap(first, second):
@@ -130,8 +197,9 @@ def validate_training_split(config, *, base_dir=None):
     """Refuse labeled/active UA-MT inputs that observably overlap val_uri.
 
     Relative paths use the actual training CWD, or the explicitly inspected
-    checkout. Symlinks, directory ancestry, the same normalized remote volume,
-    and existing inode aliases are checked without reading CT.
+    checkout. Symlinks, directory ancestry, the same normalized remote volume
+    or a path nested inside it, and existing inode aliases are checked
+    without reading CT.
     Disabled UA-MT inputs are not used and are not inspected.
     Callers keep inputs/writers stable; this is a snapshot, not a lock or proof
     that physically overlapping/copied study regions have been excluded.
