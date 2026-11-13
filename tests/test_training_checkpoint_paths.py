@@ -179,3 +179,51 @@ def test_remote_ct_is_not_opened_and_local_outputs_are_required(tmp_path):
     with pytest.raises(ValueError, match="local filesystem"):
         validate_checkpoint_writes(["s3://bucket/output.pt"], base_dir=tmp_path)
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("blank", ["", " "])
+def test_a_blank_output_path_is_refused(tmp_path, blank):
+    with pytest.raises(ValueError, match="nonempty local filesystem"):
+        validate_checkpoint_writes([blank], base_dir=tmp_path)
+    assert not list(tmp_path.iterdir())
+
+
+def test_an_existing_output_must_be_an_ordinary_file(tmp_path):
+    """A link to an unprotected file, and a directory, are refused before anything is replaced."""
+    elsewhere = tmp_path / "elsewhere.bin"
+    elsewhere.write_bytes(b"kept")
+    (tmp_path / "linked.pt").symlink_to(elsewhere)
+    (tmp_path / "folder.pt").mkdir()
+    for name in ("linked.pt", "folder.pt"):
+        with pytest.raises(ValueError):
+            validate_checkpoint_writes([name], base_dir=tmp_path)
+    assert elsewhere.read_bytes() == b"kept"
+    (tmp_path / "plain.pt").write_bytes(b"old")
+    validate_checkpoint_writes(["plain.pt"], base_dir=tmp_path)
+
+
+def test_the_default_curve_and_step_names_are_checked_without_a_configured_output(
+    tmp_path,
+):
+    """With no checkpoint_out the trainer writes long_model.pt's curve and step snapshots."""
+    validate_training_checkpoint_writes(config(None), base_dir=tmp_path)
+    (tmp_path / "long_model.pt.curve.csv").symlink_to(tmp_path / "missing")
+    with pytest.raises(ValueError):
+        validate_training_checkpoint_writes(
+            config(None, eval_every_steps=5), base_dir=tmp_path
+        )
+    (tmp_path / "long_model.pt.curve.csv").unlink()
+    (tmp_path / "long_model.pt.step7.pt").symlink_to(tmp_path / "missing")
+    with pytest.raises(ValueError):
+        validate_training_checkpoint_writes(config(None), step=7, base_dir=tmp_path)
+
+
+def test_an_active_unlabeled_volume_is_a_protected_input(tmp_path):
+    (tmp_path / "unlabeled" / "volume.zarr").mkdir(parents=True)
+    selected = config(
+        "unlabeled/volume.zarr/experiment.pt",
+        use_uamt=True,
+        unlabeled_uris=["unlabeled/volume.zarr"],
+    )
+    with pytest.raises(ValueError, match="artifact collision"):
+        validate_training_checkpoint_writes(selected, base_dir=tmp_path)
