@@ -1206,3 +1206,69 @@ def test_the_probe_cache_refetches_a_short_ranged_entry(monkeypatch, tmp_path):
     assert probe._fetch(url, rng) == b"0123456789"
     assert (tmp_path / key[:2] / key).read_bytes() == b"0123456789"
     assert not list(tmp_path.glob("**/*.part"))
+
+
+def test_tifxyz_sampled_from_an_empty_crop_is_all_nan():
+    """No cell exists in an empty crop, so no sample has support."""
+    rows, cols = np.array([0.0, 1.5]), np.array([0.0, 2.0, 3.0])
+    for shape in ((0, 5), (5, 0), (0, 0)):
+        empty = np.empty(shape, np.float32)
+        out = sample_tifxyz(empty, empty, empty, rows, cols, 1.0, 1.0)
+        assert out.shape == (2, 3, 3) and np.isnan(out).all()
+
+
+def test_the_probe_tiff_reader_gives_an_empty_crop_past_the_file(monkeypatch, tmp_path):
+    """A window wholly past the file is an empty crop, which samples as no surface."""
+    import tifffile
+
+    plane = np.arange(40 * 30, dtype=np.float32).reshape(40, 30)
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=7)
+    _serve(monkeypatch, path.read_bytes())
+    reader = probe._Tiff("x")
+    below, right = reader.rows(41, 45, 0, 6), reader.rows(0, 5, 30, 33)
+    assert below.shape == (0, 6) and right.shape == (5, 0)
+    point = np.array([0.0])
+    for crop in (below, right):
+        assert np.isnan(sample_tifxyz(crop, crop, crop, point, point, 1.0, 1.0)).all()
+
+
+def _small_planes():
+    z = np.full((3, 3), 5.0)
+    y = np.arange(9.0).reshape(3, 3) * 10
+    x = np.arange(9.0).reshape(3, 3) + 100
+    return [z, y, x]
+
+
+def test_a_tifxyz_hole_in_one_plane_alone_is_a_hole():
+    """-1 or a non-finite value in any plane is a hole at any weight; only z must be positive."""
+    at = np.array([0.0, 0.5])
+    # y is 0 at cell (0, 0): a coordinate, not a hole
+    z, y, x = _small_planes()
+    assert np.isfinite(sample_tifxyz(z, y, x, at, at, 1.0, 1.0)).all()
+    for plane, bad in ((1, -1.0), (2, -1.0), (1, np.inf), (2, np.nan)):
+        planes = _small_planes()
+        planes[plane][1, 1] = bad
+        # (0.5, 0.5) interpolates cell (1, 1); (0, 0) holds it at weight zero
+        z, y, x = planes
+        assert np.isnan(sample_tifxyz(z, y, x, at, at, 1.0, 1.0)).all(), (plane, bad)
+
+
+def test_trilinear_gives_nan_for_an_unusable_point_without_a_cast_warning():
+    volume = np.arange(8, dtype=np.float32).reshape(2, 2, 2)
+    points = np.array(
+        [[np.nan, 0, 0], [0, np.inf, 0], [0, 0, -np.inf], [1e30, 0, 0], [1, 1, 1]]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        out = sample_volume_trilinear(volume, points)
+    assert np.isnan(out[:4]).all() and out[4] == 7
+
+
+def test_trilinear_does_not_read_a_zero_weight_neighbour():
+    """An exact voxel beside a NaN voxel is that voxel; a point between them is NaN."""
+    volume = np.arange(8, dtype=np.float32).reshape(2, 2, 2)
+    volume[1, 0, 0] = np.nan
+    points = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.0, 1.0, 1.0]])
+    out = sample_volume_trilinear(volume, points)
+    assert out[0] == 0 and np.isnan(out[1]) and out[2] == 3
