@@ -165,8 +165,8 @@ reproduced, stop, publish the nulls and meshes, and reassess.
 
 ## Proposed timeline
 
-- **November (to the 30th).** Finish and report finding 109. The kill test ran on November 10 and the recipe's
-  mesh step on the PHerc. 343 band on November 12; both reproduced. File November with Villa #2258
+- **November (to the 30th).** Finish and report finding 109. The kill test ran on November 10; the recipe's
+  mesh step on the PHerc. 343 band ran on November 12. Both reproduced. File November with Villa #2258
   and whatever else has merged; expect \$0 to \$250.
 - **December.** Run the PHerc. 0841 control. Run the first band on an eligible scroll with published tracks and
   umbilicus: PHerc. 0125 first, with low confidence that it is untried, else 0211 or 0826. Turn each obstacle

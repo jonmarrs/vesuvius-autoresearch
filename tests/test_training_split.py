@@ -121,3 +121,81 @@ def test_relative_paths_use_the_explicit_checkout_not_the_callers_cwd(
 def test_malformed_active_inputs_fail_before_readers(changes):
     with pytest.raises(ValueError):
         validate_training_split(config(**changes))
+
+
+def test_a_file_uri_is_local_only_on_this_host(tmp_path):
+    validation = tmp_path / "val.zarr"
+    validation.mkdir()
+    with pytest.raises(ValueError, match=r"training\[0\] overlaps val_uri"):
+        validate_training_split(
+            config(uris=[f"file://localhost{validation}"]), base_dir=tmp_path
+        )
+    # Another host's file is a remote address, which a local path cannot be compared with.
+    validate_training_split(
+        config(uris=[f"file://otherhost{validation}"]), base_dir=tmp_path
+    )
+
+
+@pytest.mark.parametrize("suffix", ["?version=2", "#part"])
+def test_a_local_file_uri_with_a_query_or_fragment_is_refused(tmp_path, suffix):
+    validation = tmp_path / "val.zarr"
+    validation.mkdir()
+    with pytest.raises(ValueError, match="query or fragment"):
+        validate_training_split(
+            config(uris=[validation.as_uri() + suffix]), base_dir=tmp_path
+        )
+
+
+def test_a_percent_encoded_file_uri_is_the_path_it_spells(tmp_path):
+    validation = tmp_path / "val set.zarr"
+    validation.mkdir()
+    assert "%20" in validation.as_uri()
+    with pytest.raises(ValueError, match=r"training\[0\] overlaps val_uri"):
+        validate_training_split(
+            config(uris=[validation.as_uri()], val_uri="val set.zarr"),
+            base_dir=tmp_path,
+        )
+
+
+def test_remote_addresses_overlap_only_when_they_are_the_same_address(tmp_path):
+    validation = "s3://bucket/val.zarr?versionId=1"
+    with pytest.raises(ValueError, match=r"training\[0\] overlaps val_uri"):
+        validate_training_split(
+            config(uris=[validation], val_uri=validation), base_dir=tmp_path
+        )
+    for other in (
+        "s3://bucket/val.zarr?versionId=2",
+        "s3://other/val.zarr?versionId=1",
+        "s3://bucket/val.zarr",
+    ):
+        validate_training_split(
+            config(uris=[other], val_uri=validation), base_dir=tmp_path
+        )
+
+
+def test_a_symlink_to_the_validation_volume_s_parent_is_refused(tmp_path):
+    (tmp_path / "data" / "val.zarr").mkdir(parents=True)
+    (tmp_path / "link").symlink_to(tmp_path / "data", target_is_directory=True)
+    with pytest.raises(ValueError, match=r"training\[0\] overlaps val_uri"):
+        validate_training_split(
+            config(uris=["link"], val_uri="data/val.zarr"), base_dir=tmp_path
+        )
+
+
+@pytest.mark.parametrize("uris", [("train.zarr",), "train.zarr", [], None])
+def test_training_volumes_are_a_nonempty_list(tmp_path, uris):
+    with pytest.raises(ValueError, match="uris must be a nonempty list"):
+        validate_training_split(config(uris=uris), base_dir=tmp_path)
+
+
+@pytest.mark.parametrize("uri", [" ", "", None, 3])
+def test_a_volume_identifier_is_a_nonempty_string(tmp_path, uri):
+    with pytest.raises(ValueError, match="nonempty strings"):
+        validate_training_split(config(uris=[uri]), base_dir=tmp_path)
+
+
+def test_active_unlabeled_volumes_are_a_list(tmp_path):
+    with pytest.raises(ValueError, match="unlabeled_uris must be a list"):
+        validate_training_split(
+            config(use_uamt=True, unlabeled_uris="other.zarr"), base_dir=tmp_path
+        )
