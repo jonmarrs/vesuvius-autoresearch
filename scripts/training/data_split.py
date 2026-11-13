@@ -2,16 +2,18 @@
 
 A local path compares directory ancestry and inode identity. A remote address
 is compared after normalization. Scheme and host case, a trailing dot on the
-host, an ``http``/``https`` pair, a default port, dot segments, backslashes,
-path parameters, and repeated percent-encoding do not make the same volume
-look different. ``s3a`` and ``s3n`` are ``s3``. Query and fragment are ignored.
-One path inside another of the same host is the same volume, except that the
-bare bucket or host root is only itself.
+host, an ``http``/``https`` pair, a default port, backslashes, path parameters,
+and repeated percent-encoding do not make the same volume look different.
+``s3a`` and ``s3n`` are ``s3``. Query and fragment are ignored.
 
-A small integer directly under a ``.zarr`` name, or the only segment of the
-path, is a pyramid level of that parent. Leading zeros count (``01`` and
-``00``). ``scroll/2024`` is not a level. Copies, crops, and a different host
-are not proved independent.
+S3 does not resolve ``..``, so a key is inside the held-out volume when either
+its resolved spelling or its once-decoded spelling with ``..`` left literal
+overlaps. The bare bucket or host root contains every key of that address.
+
+A small integer under any name, or any integer that is the whole key, is a
+pyramid level of that parent. Leading zeros count (``01`` and ``00``).
+``scroll/2024`` is not a level. Copies, crops, and a different host are not
+proved independent.
 
 The volume reader refuses every remote URI, so this comparison does not decide
 a read that can run today. It is the spelling check a later remote reader
@@ -59,11 +61,11 @@ def _location(uri, base, *, resolve_local=True):
     # The same host and path over http and https is one object.
     if scheme in ("http", "https"):
         scheme = "http"
-    return None, (scheme, host, port, _remote_path(parts.path))
+    return None, (scheme, host, port, *_remote_paths(parts.path))
 
 
 def _unescape(text):
-    """Percent-decode until the text stops changing, including ``%252F``."""
+    """Percent-decode until the text stops changing, at most eight times."""
     for _ in range(8):
         decoded = unquote(text)
         if decoded == text:
@@ -103,49 +105,72 @@ def _remote_authority(parts, scheme):
     return host, port
 
 
-def _small_level(segment):
-    """``0``, ``00``, ``01``, or another integer up to the pyramid bound."""
-    if not segment.isascii() or not segment.isdigit():
-        return False
-    return int(segment) <= _MAX_PYRAMID_LEVEL
+def _is_integer(segment):
+    return segment.isascii() and segment.isdigit() and segment != ""
 
 
-def _zarr_level(segments):
-    """A small integer directly under a ``.zarr`` name, or the whole path.
+def _pyramid_level(segments):
+    """A resolution level of its parent.
 
-    ``val.zarr/01`` is level 1 of that volume. ``scroll/2024`` is a name.
-    A lone ``1`` or ``2`` is a level of the bucket or host root.
+    Any integer that is the whole key is a level of the bucket or host root,
+    including ``100``. A smaller integer under any name is a level of that
+    name (``vol/1``, ``surface_volume/2``, ``val.zarr.zip/1``). ``2024`` under
+    a name is not.
     """
-    if not _small_level(segments[-1]):
+    leaf = segments[-1]
+    if not _is_integer(leaf):
         return False
     if len(segments) == 1:
         return True
-    return segments[-2].lower().endswith(".zarr")
+    return int(leaf) <= _MAX_PYRAMID_LEVEL
 
 
-def _remote_path(path):
-    """Decode, resolve ``.`` and ``..``, and fold a real pyramid level.
+def _clean_segment(segment):
+    segment = unicodedata.normalize("NFKC", segment).strip()
+    if ";" in segment:
+        segment = segment.split(";", 1)[0].strip()
+    return segment
 
-    Decoding repeats, so ``%252F`` becomes a separator and ``%252E%252E``
-    becomes ``..``. Backslashes are separators. A ``;`` parameter is not
-    part of the key. The bare bucket or host root stays empty and is only
-    itself. A key nested under another key of the same host is inside it.
-    """
+
+def _segments(path, *, repeated, resolve_dots):
+    text = (_unescape(path) if repeated else unquote(path)).replace("\\", "/")
     segments = []
-    for segment in _unescape(path).replace("\\", "/").split("/"):
-        segment = unicodedata.normalize("NFKC", segment).strip()
-        if ";" in segment:
-            segment = segment.split(";", 1)[0].strip()
+    for segment in text.split("/"):
+        segment = _clean_segment(segment)
         if segment in ("", "."):
             continue
-        if segment == "..":
+        if resolve_dots and segment == "..":
             if segments:
                 segments.pop()
             continue
         segments.append(segment)
-    while segments and _zarr_level(segments):
-        segments.pop()
-    return "/".join(segments)
+    return segments
+
+
+def _fold_levels(segments):
+    folded = list(segments)
+    while folded and _pyramid_level(folded):
+        folded.pop()
+    return folded
+
+
+def _remote_paths(path):
+    """Literal once-decoded key, dot-resolved key, folded volume, and root flag.
+
+    The literal key keeps ``..`` because S3 stores that segment. The resolved
+    key is what the same characters mean after ``..`` is removed. Folding
+    drops pyramid levels so sibling levels compare equal. ``is_root`` is the
+    bare bucket or host, not a key that only became empty by resolving ``..``.
+    """
+    literal = _segments(path, repeated=False, resolve_dots=False)
+    resolved = _segments(path, repeated=True, resolve_dots=True)
+    is_root = not literal and ".." not in unquote(path)
+    return (
+        "/".join(literal),
+        "/".join(resolved),
+        "/".join(_fold_levels(resolved)),
+        is_root,
+    )
 
 
 def _path_contains(parent, child):
@@ -153,15 +178,26 @@ def _path_contains(parent, child):
     return bool(parent) and child.startswith(parent + "/")
 
 
+def _pair_contains(left, right):
+    return _path_contains(left, right) or _path_contains(right, left)
+
+
 def _remote_overlap(left, right):
-    """Same normalized address, or one path inside the other."""
+    """Same address, a nested key, a literal ``..`` key, or the bare root."""
     if left[:3] != right[:3]:
         return False
-    left_path, right_path = left[3], right[3]
-    return (
-        left_path == right_path
-        or _path_contains(left_path, right_path)
-        or _path_contains(right_path, left_path)
+    literal_left, resolved_left, folded_left, root_left = left[3:]
+    literal_right, resolved_right, folded_right, root_right = right[3:]
+    if folded_left == folded_right:
+        return True
+    if _pair_contains(literal_left, literal_right):
+        return True
+    if _pair_contains(resolved_left, resolved_right):
+        return True
+    # The bare bucket contains every other key. A root *level* folds to the
+    # same empty string and must not, by that, contain a different key.
+    return bool(
+        (root_left and resolved_right != "") or (root_right and resolved_left != "")
     )
 
 

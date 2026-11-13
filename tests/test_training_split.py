@@ -233,20 +233,8 @@ def test_normalized_remote_spellings_of_one_volume_are_refused(training, validat
         validate_training_split(config(uris=[training], val_uri=validation))
 
 
-def test_a_dot_segment_and_a_bucket_root_are_not_false_children():
-    """``..`` is resolved, and the bucket root is not every key in the bucket."""
-    validate_training_split(
-        config(
-            uris=["s3://bucket/val.zarr/../other"],
-            val_uri="s3://bucket/val.zarr",
-        )
-    )
-    validate_training_split(
-        config(uris=["s3://bucket"], val_uri="s3://bucket/val.zarr")
-    )
-    validate_training_split(
-        config(uris=["s3://bucket/val.zarr/1"], val_uri="s3://bucket")
-    )
+def test_a_non_default_port_stays_a_different_endpoint():
+    """An explicit non-default port is not the scheme default, including s3."""
     validate_training_split(
         config(uris=["https://host:8443/val.zarr"], val_uri="https://host/val.zarr")
     )
@@ -274,6 +262,8 @@ def test_integer_levels_of_the_bucket_root_are_the_same_volume():
         ("https://host:abc/val.zarr", "https://host/val.zarr"),
         ("s3://bucket/val%252Ezarr", "s3://bucket/val.zarr"),
         ("s3://bucket/val.zarr%252F1", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr%25252F1", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr%252525252525252F1", "s3://bucket/val.zarr"),
         ("s3://bucket/val.zarr\\1", "s3://bucket/val.zarr"),
         ("s3://bucket/val.zarr;params", "s3://bucket/val.zarr"),
         ("s3://bucket/val.zarr/01", "s3://bucket/val.zarr"),
@@ -288,6 +278,23 @@ def test_integer_levels_of_the_bucket_root_are_the_same_volume():
         ("s3://bucket/val.zarr", "s3://bucket/val.zarr/volume"),
         ("s3://bucket/val.zarr/１", "s3://bucket/val.zarr/1"),
         ("s3://bucket/val.zarr/ 1", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/../other", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/%2E%2E/other", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/%252E%252E/other", "s3://bucket/val.zarr"),
+        ("s3://bucket/vol/1", "s3://bucket/vol/2"),
+        ("s3://bucket/surface_volume/1", "s3://bucket/surface_volume/2"),
+        ("s3://bucket/val.zarr.zip/1", "s3://bucket/val.zarr.zip/2"),
+        ("s3://bucket/100", "s3://bucket/1"),
+        ("s3://bucket/val.zarr/2/0", "s3://bucket/val.zarr/2/1"),
+        ("s3://bucket/val.zarr/2/0", "s3://bucket/val.zarr/1"),
+        ("s3://bucket/scroll/2", "s3://bucket/scroll/1"),
+        ("s3://bucket/scroll/99", "s3://bucket/scroll/1"),
+        ("s3://bucket/val.zarr/99", "s3://bucket/val.zarr/0"),
+        ("s3://bucket", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/1", "s3://bucket"),
+        ("s3://bucket/a/../val.zarr/labels", "s3://bucket/val.zarr"),
+        ("s3://bucket/./val.zarr", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr ", "s3://bucket/val.zarr"),
     ],
 )
 def test_residual_remote_spellings_and_nested_paths_are_refused(training, validation):
@@ -296,16 +303,25 @@ def test_residual_remote_spellings_and_nested_paths_are_refused(training, valida
 
 
 def test_a_year_under_a_non_zarr_name_is_not_a_pyramid_level():
-    """``scroll/2024`` is not a resolution of ``scroll/2023``."""
+    """``scroll/2024`` is not a resolution of ``scroll/2023``.
+
+    ``100`` under a name is past the pyramid bound. A stored ``..`` segment at
+    the bucket root is that key, not every object in the bucket.
+    """
     validate_training_split(
         config(uris=["s3://bucket/scroll/2024"], val_uri="s3://bucket/scroll/2023")
     )
     validate_training_split(
-        config(uris=["s3://bucket/scroll/2"], val_uri="s3://bucket/scroll/1")
+        config(uris=["s3://bucket/scroll/100"], val_uri="s3://bucket/scroll/1")
     )
     validate_training_split(
+        config(uris=["s3://bucket/.."], val_uri="s3://bucket/val.zarr")
+    )
+    # Once-decoded this is the key ``val%2Ezarr/../other``, which is not inside
+    # ``val.zarr``. Fully decoding it also leaves the volume.
+    validate_training_split(
         config(
-            uris=["s3://bucket/val.zarr/%252E%252E/other"],
+            uris=["s3://bucket/val%252Ezarr/%2E%2E/other"],
             val_uri="s3://bucket/val.zarr",
         )
     )
