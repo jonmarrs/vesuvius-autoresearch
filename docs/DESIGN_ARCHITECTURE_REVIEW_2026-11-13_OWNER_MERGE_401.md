@@ -67,8 +67,8 @@ recipe's mesh step, as the strategy does. Its body is unchanged.
   same in each letter box.
 - **Parts of the record are typed, not measured**: the scope lists, the renderer's source, the job counts and the
   checkpoint notes are strings in `make_record.py`.
-- **The renderer's tree identity was not checked here.** The report says villa `75c79ac5f` has the same
-  `volume-cartographer` tree as `41701aa`. This container has no villa checkout.
+- **The renderer's tree identity was not checked here.** The report says villa 75c79ac5f has the same
+  `volume-cartographer` tree as 41701aa. This container has no villa checkout.
 - **The ink times are upper bounds**, as the report says: finding 109 used the GPU during the run.
 
 ## Verification
@@ -82,7 +82,8 @@ recipe's mesh step, as the strategy does. Its body is unchanged.
 - **The standard suite.** The 216 modules give the same failing ids on `b00f7d9` and on this branch.
 - **The test modules outside the suite.** The 250 modules give the same failing ids on `b00f7d9` and on this branch,
   and two more passes: the new tests.
-- **The doc audit**, run alone, lists the same unresolved references as on `b00f7d9`.
+- **The doc audit**, run alone, lists the same unresolved references as on `b00f7d9`. Four of them are new with
+  #401: the villa and recipe commits its report names, which this checkout cannot resolve.
 - **The smoke test** gives 8 passed, 3 skipped and none failed.
 
 The failing ids are this container's, as in the last two rounds: it has no villa checkout.
