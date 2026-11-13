@@ -1,7 +1,10 @@
 """Stat-only checks for observable overlap with the held-out CT volume.
 
-This cannot establish independence of copies, crops, or different remote URLs.
-It opens no arrays, changes no configuration, and creates no filesystem entries.
+A local path compares directory ancestry and inode identity. A remote address
+compares its spelling: the same address, the level-zero spelling, or a path
+inside that address. Copies, crops, and remote URLs that differ in host,
+query, or fragment are not proved independent. This opens no arrays, changes
+no configuration, and creates no filesystem entries.
 """
 
 import os
@@ -29,20 +32,46 @@ def _location(uri, base, *, resolve_local=True):
             path = uri
         local = base / path
         return (local.resolve() if resolve_local else local), None
-    # Preserve query/fragment and authority: different remote addresses cannot
-    # be proved independent here. Only recognize identical addresses and the
-    # root/level-zero spelling used by the volume loader.
+    # Preserve query, fragment and authority. A child path of the same address
+    # is inside the held-out volume; a pyramid level is one such child. A
+    # different host, query or fragment cannot be proved the same object from
+    # the spelling, so it is left unverified. The level-zero array and the
+    # volume group are the same spelling the volume loader accepts.
     path = parts.path.rstrip("/")
     if path.endswith("/0"):
         path = path[:-2]
     return None, (parts.scheme, parts.netloc, path, parts.query, parts.fragment)
 
 
+def _path_contains(parent, child):
+    """True when ``child`` is a path strictly inside ``parent``.
+
+    An empty parent is the bucket or host root, so every key is inside it.
+    The boundary is a slash: ``val.zarr`` does not contain ``val.zarr-other``.
+    """
+    if parent == "":
+        return child.startswith("/")
+    return child.startswith(parent + "/")
+
+
+def _remote_overlap(left, right):
+    """Same remote address, or one path inside the other."""
+    if left == right:
+        return True
+    if left[:2] != right[:2] or left[3:] != right[3:]:
+        return False
+    return _path_contains(left[2], right[2]) or _path_contains(right[2], left[2])
+
+
 def _overlap(first, second):
     left, remote_left = first
     right, remote_right = second
     if left is None or right is None:
-        return remote_left is not None and remote_left == remote_right
+        return (
+            remote_left is not None
+            and remote_right is not None
+            and _remote_overlap(remote_left, remote_right)
+        )
     if left == right or left in right.parents or right in left.parents:
         return True
     try:
@@ -66,8 +95,9 @@ def validate_training_split(config, *, base_dir=None):
     """Refuse labeled/active UA-MT inputs that observably overlap val_uri.
 
     Relative paths use the actual training CWD, or the explicitly inspected
-    checkout. Symlinks, directory ancestry and existing inode aliases are checked
-    without reading CT. Disabled UA-MT inputs are not used and are not inspected.
+    checkout. Symlinks, directory ancestry, a remote path inside the same
+    address, and existing inode aliases are checked without reading CT.
+    Disabled UA-MT inputs are not used and are not inspected.
     Callers keep inputs/writers stable; this is a snapshot, not a lock or proof
     that physically overlapping/copied study regions have been excluded.
     """

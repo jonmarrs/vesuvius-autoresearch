@@ -173,6 +173,53 @@ def test_remote_addresses_overlap_only_when_they_are_the_same_address(tmp_path):
         )
 
 
+@pytest.mark.parametrize(
+    "training, validation",
+    [
+        ("s3://bucket/val.zarr/1", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/2/0", "s3://bucket/val.zarr"),
+        ("s3://bucket/val.zarr/1", "s3://bucket/val.zarr/0"),
+        ("s3://bucket/val.zarr", "s3://bucket/val.zarr/1"),
+        ("s3://bucket/val.zarr/1?versionId=1", "s3://bucket/val.zarr?versionId=1"),
+        ("s3://bucket/val.zarr/1", "s3://bucket"),
+        ("s3://bucket", "s3://bucket/val.zarr"),
+    ],
+)
+def test_a_remote_path_inside_the_held_out_volume_is_refused(training, validation):
+    """A pyramid level is the same volume. Local children are already refused."""
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        validate_training_split(config(uris=[training], val_uri=validation))
+
+
+def test_a_remote_name_that_only_shares_a_prefix_stays_unverified():
+    validate_training_split(
+        config(uris=["s3://bucket/val.zarr-other"], val_uri="s3://bucket/val.zarr")
+    )
+    validate_training_split(
+        config(
+            uris=["s3://other/val.zarr/1"],
+            val_uri="s3://bucket/val.zarr",
+        )
+    )
+    validate_training_split(
+        config(
+            uris=["s3://bucket/val.zarr/1?versionId=2"],
+            val_uri="s3://bucket/val.zarr?versionId=1",
+        )
+    )
+
+
+def test_an_unlabeled_remote_pyramid_level_is_refused():
+    with pytest.raises(ValueError, match=r"unlabeled\[0\] overlaps val_uri"):
+        validate_training_split(
+            config(
+                use_uamt=True,
+                unlabeled_uris=["s3://bucket/val.zarr/1"],
+                val_uri="s3://bucket/val.zarr",
+            )
+        )
+
+
 def test_a_symlink_to_the_validation_volume_s_parent_is_refused(tmp_path):
     (tmp_path / "data" / "val.zarr").mkdir(parents=True)
     (tmp_path / "link").symlink_to(tmp_path / "data", target_is_directory=True)
