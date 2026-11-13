@@ -205,4 +205,5 @@ def test_the_strategy_reports_the_kill_test_as_passed():
     whole = PUB["whole_png"]
     share = 100 * whole["differing_pixels"] / whole["pixels"]
     assert f"{100 - share:.2f}% of the published image's pixels" in STRATEGY
-    assert "The spiral fit, snap and flatten were not run" in STRATEGY
+    # The mesh step was not part of the kill test; finding 110 ran it on 2026-11-12.
+    assert "reports/first_letters_343_mesh_step.md" in STRATEGY
