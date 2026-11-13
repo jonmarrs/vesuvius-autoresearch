@@ -196,3 +196,32 @@ def test_the_scripts_refuse_to_measure_twice():
     assert "exists: this is measured once" in source
     assert "exists: a step is run once" in (HERE / "run_render.sh").read_text()
     json.dumps(sc.verdict(GATE, None))
+
+
+def _load_describe():
+    sys.path.insert(0, str(HERE))
+    spec = importlib.util.spec_from_file_location(
+        "describe_under_test", HERE / "describe.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_shift_scan_finds_a_map_that_was_moved_and_the_bootstrap_brackets_the_auc():
+    describe = _load_describe()
+    rng = np.random.default_rng(2)
+    ink = _letters((400, 400))
+    ok = np.ones(ink.shape, bool)
+    score = ink + 0.5 * rng.normal(size=ink.shape)
+
+    class Segment:
+        render_ok, scored = ok, ok
+
+    Segment.ink = ink
+    moved = np.roll(score, (-4, 2), axis=(0, 1))
+    found = describe.shift_scan(Segment, moved)
+    assert (found["rows"], found["cols"]) == (4, -2)
+    spread = describe.block_bootstrap(score, ok, ink, rng)
+    assert spread["low"] <= sc.auc(score[ok], ink[ok]) <= spread["high"]
+    assert spread["blocks"] == 49
