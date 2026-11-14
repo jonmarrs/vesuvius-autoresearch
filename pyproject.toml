@@ -106,6 +106,8 @@ target-version = "py310"
 line-length = 88
 extend-exclude = [
     "villa", # Submodules have their own configs
+    "scripts/archive/legacy_figures", # Byte-preserved historical source
+    "scripts/archive/legacy_launchers",
 ]
 
 [tool.ruff.lint]
