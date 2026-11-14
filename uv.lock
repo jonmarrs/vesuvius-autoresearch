@@ -2439,6 +2439,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pynrrd"
+version = "1.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d7/88/5cf97e319ca11a2983938e6e486011166a4e580678cfe575d980146c74af/pynrrd-1.1.3.tar.gz", hash = "sha256:a331263bc9f05c3168182e61d6098e256a34e0fadbb7427a1d086d8942fbcbe0", size = 21679, upload-time = "2025-01-23T05:13:58.448Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/21/84/34fa17e364f8332021d4b0f75beecd4b95a76a41449e96ed0ddac5a767e0/pynrrd-1.1.3-py3-none-any.whl", hash = "sha256:21f7e370045e7ef8a86841965b2ff3a18937efbb4e2078e346168463f8f34b7e", size = 23486, upload-time = "2025-01-23T05:13:56.716Z" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3438,6 +3451,7 @@ dependencies = [
     { name = "pre-commit" },
     { name = "pyarrow" },
     { name = "pybind11" },
+    { name = "pynrrd" },
     { name = "pytorch-lightning" },
     { name = "pytorch-optimizer" },
     { name = "requests" },
@@ -3497,6 +3511,7 @@ requires-dist = [
     { name = "pre-commit" },
     { name = "pyarrow", specifier = ">=21.0.0" },
     { name = "pybind11", specifier = ">=3.0.4" },
+    { name = "pynrrd", specifier = ">=1.1.3" },
     { name = "pytorch-lightning", specifier = ">=2.6.6" },
     { name = "pytorch-optimizer", specifier = ">=3.10.0" },
     { name = "requests", specifier = ">=2.32.0" },
