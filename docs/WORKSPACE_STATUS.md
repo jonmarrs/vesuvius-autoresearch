@@ -14,6 +14,11 @@ processes or write research state. Relative data paths are interpreted from
 `--repo`, as they are when the loop runs there. `--config` selects a different
 configuration file without changing `config.json`.
 
+Configuration checks reject unsupported `architecture` and `aug_mode` names;
+they do not build a model or validate its geometry. A legacy infinite
+`max_prize_skel_dist` normalizes to `null` because that gate is inactive. The
+configuration fingerprint still identifies the original captured bytes.
+
 It reports the registered process, watchdog pause state, unsupervised training
 processes, checkpoint presence, configuration parsing and configured data/label
 paths. It shares label selection with the trainer, including refined-label

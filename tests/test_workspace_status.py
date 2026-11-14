@@ -42,6 +42,30 @@ def save_config(workspace, **changes):
     return repo
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("architecture", "resenc_unett"),
+        ("architecture", None),
+        ("architecture", []),
+        ("architecture", 42),
+        ("aug_mode", "batchgeneratorv2"),
+        ("aug_mode", None),
+        ("aug_mode", []),
+        ("aug_mode", True),
+    ],
+)
+def test_unknown_training_choices_are_blocked_instead_of_using_another_recipe(
+    workspace, field, value
+):
+    repo = save_config(workspace, **{field: value})
+    before = (repo / "config.json").read_bytes()
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "blocked"
+    assert field in check(report, "config")["message"]
+    assert (repo / "config.json").read_bytes() == before
+
+
 @pytest.mark.parametrize("kind", ["split", "checkpoint"])
 def test_training_boundary_conflicts_are_reported_without_loading_data(workspace, kind):
     if kind == "split":

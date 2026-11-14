@@ -25,6 +25,8 @@ those.
 import torch
 import torch.nn as nn
 
+from .inference_constants import validate_architecture
+
 # The auxiliary outputs a model can return besides ink (see task_heads).
 TASK_OUTPUTS = frozenset({"fiber", "qc", "st"})
 
@@ -144,11 +146,14 @@ class GenericMultiTaskWrapper(nn.Module):
                     torch.zeros((x.shape[0], 1), device=x.device, dtype=ink_2d.dtype)
                 )
         if return_proj:
-            proj_in = (
-                out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
-            )
+            if out.dim() == 5:
+                proj_in = out
+            elif out.dim() == 4:
+                proj_in = out.unsqueeze(2)
+            else:
+                proj_in = out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
             projection = self.projector(proj_in)
-            # Enforce finiteness to prevent NaN propagation
+            # Bound the projection's magnitude before the auxiliary loss.
             results.append(torch.clamp(projection, min=-1e6, max=1e6))
         if return_st:
             if self.multi_task_heads:
@@ -251,16 +256,7 @@ def build_inference_model(
     Unknown architectures fail explicitly. Prediction callers must load complete
     weights; intentional partial warm starts belong to training.
     """
-    if not isinstance(architecture, str) or architecture not in {
-        "gated_unet",
-        "timesformer",
-        "resnet3d_decoder",
-        "lejepa_unet",
-        "resenc_unet",
-        "mednext",
-        "neural_tracing_vit",
-    }:
-        raise ValueError(f"unknown inference architecture: {architecture!r}")
+    validate_architecture(architecture)
     from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 
     v_config = VesuviusConfig(
