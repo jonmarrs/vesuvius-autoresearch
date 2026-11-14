@@ -347,3 +347,75 @@ def test_the_bundling_option_is_finding_108s_record_and_patch():
         f"ERLpen rises {pct(zg[0])} at τ = 4 over the trim, and {pct(zg[1])} over main"
         in option
     )
+
+
+def test_the_other_scrolls_section_is_finding_109s_record():
+    import afv_generator_seam_confirmation as sc
+
+    d = json.loads((ROOT / "reports/afv_generator_seam_confirmation.json").read_text())
+    assert d["verdict"] == sc.verdict(d["cubes"])
+    t = flat()
+    assert f"(2026-11-10, `{d['verdict']['decision']}`)" in t
+    option = t.split("## On other scrolls (finding 109)", 1)[1].split("## Option: bundle", 1)[0]  # fmt: skip
+    assert f"verdict is `{d['verdict']['decision']}`" in option
+    assert "It is not in the body above." in option
+    big = [c for c in sc.CUBES if d["cubes"][c]["block"] == 256]
+    small = [c for c in sc.CUBES if d["cubes"][c]["block"] == 128]
+    assert (len(big), len(small)) == (4, 6)
+    assert sorted(c[:2] for c in sc.CUBES).count("s1") == 3
+    med = statistics.median
+
+    def line(cubes: list[str], arm: str) -> str:
+        R = [d["cubes"][c]["rows"] for c in cubes]
+        g4 = [sc.gain(r, "main", arm, "tol4") for r in R]
+        g2 = [sc.gain(r, "main", arm, "tol2") for r in R]
+        assert all(x > 0 for x in g4 + g2)
+        m = [sum(r[f"real/{v}"]["tol2"]["merges"] for r in R) for v in ("main", arm)]
+        dup = [med(r[f"real/{v}"]["duplicated_share"] for r in R) for v in ("main", arm)]  # fmt: skip
+        return (f"up on {len(R)} of {len(R)}, by a median {pct(med(g4))} at τ = 4 ({pct(min(g4))} to {pct(max(g4))}) "
+                f"and {pct(med(g2))} at τ = 2; merges at τ = 2 {m[0]} → {m[1]}; the median written-twice share "
+                f"{dup[0]:.3f} → {dup[1]:.3f}")  # fmt: skip
+
+    trim, both = option.split("for the trim alone:**", 1)[1].split(
+        "both changes over main:**"
+    )
+    for part, arm in ((trim, "trim"), (both, "trim+dup")):
+        assert f"**The four cubes in blocks of 256:** merge-penalized ERL {line(big, arm)}" in part, arm  # fmt: skip
+        assert f"**All ten:** {line(list(sc.CUBES), arm)}" in part, arm
+    R = [d["cubes"][c]["rows"] for c in sc.CUBES]
+    over = [sc.gain(r, "trim", "trim+dup", "tol4") for r in R]
+    assert f"Over the trim alone, up on {sum(x > 0 for x in over)} of 10 at τ = 4, by a median {pct(med(over))}" in both  # fmt: skip
+
+    def frac(r: dict, v: str) -> float:
+        return r[f"real/{v}"]["tol4"]["erl_merge_penalized"] / r["one/main"]["tol4"]["erl_merge_penalized"]  # fmt: skip
+
+    f = {v: [frac(r, v) for r in R] for v in ("main", "trim+dup")}
+    assert (f"eight blocks reach {min(f['trim+dup']):.3f} to {max(f['trim+dup']):.3f} of the same cube's "
+            f"merge-penalized ERL at τ = 4 (main: {min(f['main']):.3f} to {max(f['main']):.3f})") in both  # fmt: skip
+    loss = {
+        v: [100 * (1 - r[f"real/{v}"]["tol4"]["coverage"] / r["real/main"]["tol4"]["coverage"]) for r in R]
+        for v in ("trim", "trim+dup")
+    }  # fmt: skip
+    assert all(x > 0 for xs in loss.values() for x in xs)
+    a, b = loss["trim"], loss["trim+dup"]
+    assert (f"Coverage at τ = 4 falls on every cube: by a median {med(a):.1f}% with the trim ({min(a):.1f}% to "
+            f"{max(a):.1f}%), and {med(b):.1f}% with both changes ({min(b):.1f}% to {max(b):.1f}%)") in option  # fmt: skip
+    lost = {v: sum(r[f"real/{v}"]["crossings"]["lost"] for r in R) for v in sc.VARIANTS}
+    n = sum(sum(r["real/main"]["crossings"].values()) for r in R)
+    assert (f"Of {n} face crossings, {lost['trim']} are lost with the trim and {lost['trim+dup']} with both, against "
+            f"{lost['main']} on main") in option  # fmt: skip
+    unseen = sorted(
+        sc.gain(d["cubes"][c]["rows"], "main", "trim+dup", "tol4")
+        for c in sc.BASE_MODEL_UNSEEN
+    )
+    assert len(sc.CUBES) - len(unseen) == 7
+    assert "The three that are not rose " + ", ".join(pct(x) for x in unseen[:2]) + f" and {pct(unseen[2])}" in option  # fmt: skip
+    worst = min(sc.CUBES, key=lambda c: frac(d["cubes"][c]["rows"], "trim+dup"))
+    w = d["cubes"][worst]["rows"]
+    assert (f"`{worst}` stays at {frac(w, 'trim+dup'):.3f} of its one-block ERL with both changes "
+            f"(main: {frac(w, 'main'):.3f})") in option  # fmt: skip
+    assert {d["cubes"][c]["block"] for c in sc.CUBES} == {128, 256}
+    assert "No cube ran at villa's default block size of 512." in option
+    body = t.split("## On other scrolls (finding 109)", 1)[0]
+    assert "One hand tracing per cube, and eight cubes, all Scroll 3." in body
+    assert "- [ ] I personally verified" in body and "- [x]" not in t
