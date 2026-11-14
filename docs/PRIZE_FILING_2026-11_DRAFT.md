@@ -88,6 +88,33 @@ What this means here:
     tolerance 4 and +5.4% at tolerance 2, with merges 386 → 384 at tolerance 2. With both changes, eight blocks reach
     0.905 to 1.026 of one block's ERLpen at tolerance 4. Bundling it into the seam-trim PR is the owner's decision.
 
+## Done here in November, not in villa: the PHerc. 343 recipe on one RTX 4090
+
+The prize page's \$1,000 tier names "spiral fitting on consumer GPUs" and an end-to-end First Letters attempt
+"published with its commands, failures and costs". This is that kind of work, on a 4-core, 31 GB host with one
+RTX 4090. Whether to file it, and at what length, is the owner's decision. Scripts: `repro/first_letters/`.
+
+* **The published PHerc. 343 image rebuilt from the published windings**
+  ([report](../reports/first_letters_343_reproduction.md)): 99.95% of pixels identical, none off by more than 5 of 255.
+* **The mesh step run here** ([report](../reports/first_letters_343_mesh_step.md)): distance field, 30,000-step
+  spiral fit, snap, flatten, render, ink.
+  * **Result:** 76% and 81% of the published windings' nodes within 2 voxels of ours; ink r = 0.86 over the letter
+    boxes against controls of 0.17.
+  * **Cost:** 3 h 31 min from inputs on disk, 3 h 09 min of it the fit, at 10.8 GB of host memory and 12.7 GB of GPU
+    memory.
+  * **A failure and its cause:** the first fit was killed for memory pressure. A track file fetched over HTTP loses
+    the nanosecond timestamp villa `0fb38c45` checks, so the fit unpickled 9 GiB in Python while it was also packing
+    a 5.9 GiB pool. villa main already validates by content digest (#2041); restoring the timestamp fixes the old
+    commit.
+* **The recipe's ink models on a scroll outside their training list**
+  ([report](../reports/first_letters_0841_surface_control.md)): on the team's three labelled PHerc. 0841
+  surfaces, AUC 0.75 and 0.72 against the labels on the two held-out segments, with a slid-map floor of 0.53 and the
+  team's own model at 0.92 and 0.87. One side of the stack reads the ink and the other is near chance.
+  * **Caution:** this is a measurement of released models. Under #2450 it counts only for what it changes: an
+    eligible-scroll band has to be swept on both sides, and a blank band is weak evidence.
+
+Not for this filing: anything made from a prize-eligible scroll.
+
 ## Filing-day checklist
 
 1. Re-read the **whole** Progress section at current upstream: deadline, form and criteria. They changed on 2026-11-05
