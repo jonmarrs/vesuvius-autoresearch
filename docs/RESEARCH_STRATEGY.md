@@ -100,7 +100,7 @@ Three further facts set the ranking:
 
 | Rank | Direction and next deliverable | Bounded first step | Continue / stop decision |
 | --- | --- | --- | --- |
-| 1 | **A First Letters campaign on unread scrolls with the published PHerc. 343 recipe.** Next deliverable: that repository's own image, reproduced on this machine from its `reproduce.sh`. | The reproduction is the kill test. It needs the 24 GB card to itself, so it waits for the owner's decision on pausing the training loop. After it, one band of one scroll at a time, with no training on the target. | If the known positive cannot be reproduced here, stop and report why: nothing found on an unread scroll would mean anything. After that, the controls and the kill criterion in [the campaign section](#the-first-letters-campaign) decide. Judged chance of letters on a given scroll: low, a single-digit percentage. Confidence that the by-products are prize-eligible work: high. |
+| 1 | **A First Letters campaign on unread scrolls with the published PHerc. 343 recipe.** Next deliverable: the first band on an eligible scroll, read as a detection test. | The kill test passed on November 10 for the chain from the published windings to the image: 99.95% of the published image's pixels rebuilt identically, none off by more than 5 of 255 ([report](../reports/first_letters_343_reproduction.md)). The mesh step (distance field, spiral fit, snap, flatten) ran here on November 12: windings fitted on this machine lie on the published sheets (76% and 81% of nodes within 2 voxels) and carry the published ink (r = 0.86 over the letter boxes against controls of 0.17), in about 3.5 hours, 3 h 09 min of it the fit ([report](../reports/first_letters_343_mesh_step.md)). Next, one band of one scroll at a time, with no training on the target. | The stop condition on the mesh step did not fire: it runs here and its windings show the published ink. From here the controls and the kill criterion in [the campaign section](#the-first-letters-campaign) decide. Judged chance of letters on a given scroll: low, a single-digit percentage. Confidence that the by-products are prize-eligible work: high. |
 | 2 | **Land the measured fiber fixes in Villa:** the seam trim (findings 106 and 107), cross-block duplicates (108), link splice (105) and seed heading (100 and 103). The aim is unchanged: fibers that reach farther without switching. | No new GPU work. Finding 109, the registered confirmation of both seam changes on ten cubes of Scrolls 1 and 5 that ScrollGT does not ship, returned `CONFIRMED` on November 10. Each Villa PR or issue is posted on the owner's decision, inside the limits of three open PRs and two code-fix PRs a week. | Propose only what held up on held-out cubes, and say where it does nothing: VC3D's default zone is one block, where the trim changes nothing, so the case rests on multi-block zones. Promise no reading gain; no geometry change measured here has produced one. Finding 109 confirmed both seam changes, so a PR can state both scrolls' figures: lead with the cubes cut at Scroll 3's block size, and state the coverage cost. Confidence of a merge: moderate. Of more than \$250 to \$500: low to moderate. |
 | 3 | **Fix the defects the campaign hits on a 4-core, 31 GB, one-4090 machine.** Deliverable: each fix as a small Villa PR with before/after logs from the real run, bundled monthly. | CPU only. A fix starts from a failure reproduced here on current Villa main, never from reading code. At most two code-fix PRs a week. | No queue exists in advance: of eight open issues checked as starting candidates on November 10, six already had an open PR that references them (see [reuse](#where-to-reuse-existing-work)). Do not compete with an open patch; validate it on real data if that is what its author asks for. Confidence: moderate, conditional on rank 1 running at all. |
 | 4 | **Dense winding inputs for scrolls other than PHerc. Paris 4.** | Parked, with no budget. | Start only if rank 1 shows that these inputs are the binding constraint on a fit. Two attempts argue for caution: a contributor's CT peak count was wrong on a quarter to a third of segments, and our ink-derived constraints were circular. Confidence: low. |
@@ -116,13 +116,13 @@ twelve of the thirteen Grand Prize volumes are also First Letters volumes.
 0211, 0257, 0268, 0358, 0483A, 0483B, 0490A, 0490B, 0800, 0813, 0826, 0846A, 0846B, 1203, 1218 and 1545. The
 Grand Prize list has 13; all but PHerc. 1447 are among the 20.
 
-**The recipe.** The [PHerc. 343 repository][recipe] (commit `e8370f1f`, MIT, read on November 10 and not yet run
-here) describes five steps. Villa's spiral chain at commit `0fb38c45` is run on the band z 9500 to 11000 with
-the author's own scroll axis, and the windings are snapped onto the m7 surface prediction and flattened with
-lasagna. Two adjacent windings are joined into one segment. VC3D `41701aa` renders 66 layers one voxel apart.
-Four released 9 µm ink models (dense_native, ink_9um seeds 42 and 43, Hecate 9.6 µm), none trained on that
-volume, run at every depth from −15 to +15. The image is the mean of the four models' z-scores. It asks for
-Linux and one 24 GB NVIDIA GPU.
+**The recipe.** The [PHerc. 343 repository][recipe] (commit `e8370f1f`, MIT, read on November 10; steps 2 to 5
+run here the same day, at one depth) describes five steps. Villa's spiral chain at commit `0fb38c45` is run on
+the band z 9500 to 11000 with the author's own scroll axis, and the windings are snapped onto the m7 surface
+prediction and flattened with lasagna. Two adjacent windings are joined into one segment. VC3D `41701aa` renders
+66 layers one voxel apart. Four released 9 µm ink models (dense_native, ink_9um seeds 42 and 43, Hecate 9.6 µm),
+none trained on that volume, run at every depth from −15 to +15. The image is the mean of the four models'
+z-scores. It asks for Linux and one 24 GB NVIDIA GPU.
 
 **What we already have.** A converged `fit_spiral` run and a lasagna render path on Scroll 1
 ([`repro/spiral_render/`](../repro/spiral_render/README.md)). Nothing on an eligible volume.
@@ -144,27 +144,44 @@ only. Recheck both before choosing a scroll.
   render the same papyrus twice and look like a result.
 - We are not first on these scrolls. The catalogue and winners page show recipe fits on PHerc. 0175A and 0800,
   an end-to-end attempt on PHerc. 0826 and a spiral fit of PHerc. 0211.
-- The PHerc. 343 author reports rented RTX 4090/5090 machines and a local RTX 3090. Whether the chain fits this
-  host's 4 cores and 31 GB of RAM is unmeasured.
+- The PHerc. 343 author reports rented RTX 4090/5090 machines and a local RTX 3090. The render and the ink models
+  fit this host (8 minutes, and 17 minutes for the eight jobs of one depth, at a peak of 3,174 MiB of GPU
+  memory). Whether the spiral fit and the flattening fit its 4 cores and 31 GB of RAM is unmeasured.
 
 **Controls, fixed before any eligible-scroll result is read.**
 
-1. The PHerc. 343 image reproduced here (the kill test).
-2. PHerc. 0841 through the identical pipeline, as a hard positive control: record what the recipe shows where
-   text is known and the models are unseen.
+1. The PHerc. 343 image reproduced here (the kill test). Passed on November 10 from the published windings
+   onward ([report](../reports/first_letters_343_reproduction.md)), and on November 12 for the mesh step
+   ([report](../reports/first_letters_343_mesh_step.md), finding 110).
+2. PHerc. 0841 as a hard positive control: record what the recipe shows where text is known and the models
+   are unseen. The ink half ran on November 13 on the team's three published, labelled surfaces
+   ([report](../reports/first_letters_0841_surface_control.md), finding 111): `BLOB_LEVEL_SIGNAL`. At a depth and
+   side chosen with labels on one segment, the four-model ensemble scores AUC 0.75 and 0.72 against the labels on
+   the other two, with a slid-map floor of 0.53 and the team's own model at 0.92 and 0.87. The maps show strokes
+   where the letters are and no readable letter. The mesh half cannot run on PHerc. 0841 from public inputs: its
+   lasagna normal and gradient volumes are not published.
 3. A stacked-winding check on every band before its image is read.
 4. Depth-shuffled renders through the same models, as the negative control for model-invented letterforms.
 5. No training on the target until a band shows row-aligned signal. If iterative labelling starts, training
    and prediction regions stay disjoint, as the rules require.
+
+**What the PHerc. 0841 control changes.** A band on an eligible scroll is a detection test: it is read with a
+depth sweep on both sides (on PHerc. 0841 one side scored 0.76 and the other at most 0.56), a blank band is weak
+evidence of no ink, and strokes are not letters until a sharper ink step than these four models says so.
+
+**Which scrolls the fit can run on.** Read on November 13: of the 26 scrolls with published spiral tracks, 14
+also have the lasagna volumes the fit requires. The eligible ones among them are PHerc. 0125, 0191, 0211, 0257,
+0268, 0358, 0800, 0813 and 0826.
 
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
 ## Proposed timeline
 
-- **November (to the 30th).** Finding 109 was reported on November 10. Run the kill test. File November with Villa #2258
+- **November (to the 30th).** Finding 109 was reported on November 10. The kill test ran on November 10; the recipe's
+  mesh step on the PHerc. 343 band ran on November 12. Both reproduced. File November with Villa #2258
   and whatever else has merged; expect \$0 to \$250.
-- **December.** Run the PHerc. 0841 control. Run the first band on an eligible scroll with published tracks and
+- **December.** The PHerc. 0841 ink control ran on November 13 (blob-level signal). Run the first band on an eligible scroll with published tracks and
   umbilicus: PHerc. 0125 first, with low confidence that it is untried, else 0211 or 0826. Turn each obstacle
   into a Villa fix. Submit the workflow as run on this machine, with scripts, costs, fixes and meshes.
 - **January and February.** Automate more bands and scrolls overnight. Apply the kill criterion at the end of
@@ -188,7 +205,8 @@ reproduced, stop, publish the nulls and meshes, and reassess.
 
 Accepting this strategy did not settle these:
 
-1. Whether the training loop is paused or shrunk for campaign GPU runs.
+1. Whether the training loop is paused or shrunk for campaign GPU runs. Answered on November 10: yes. The kill
+   test stopped it for 22 minutes.
 2. Where eligible-scroll outputs are kept, since this repository is public.
 3. Whether and when to post the Villa seam PR (with or without the duplicate change), the splice issue and the
    seed-heading proposal.
@@ -304,7 +322,8 @@ review (#2463 and #2465); no further merged credit or maintainer adoption is ass
 Use one RTX 4090 with 24 GB VRAM, 4 cores, 31 GB of RAM and the project's existing 500 GB storage budget.
 Stream bounded crops, cap cache sizes and profile memory before a larger run. Run one heavy side job at a
 time, each in its own systemd user unit, and stop or start the training loop only through `./stop.sh` and
-`./start.sh`. A campaign run that needs the whole card waits for the owner's decision on the loop.
+`./start.sh`. The owner allowed the loop to be stopped for campaign GPU runs (November 10); restart it as soon as
+the run ends.
 
 A completed campaign step should leave a pinned input/model/code manifest, the commands, both successful and
 failed cases, time and memory costs, and output that a Villa or VC3D user can consume. For an eligible volume

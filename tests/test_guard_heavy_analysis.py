@@ -108,3 +108,13 @@ def test_fail_if_any_passes_when_nothing_runs(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["x", "--fail-if-any"])
     assert gha.main() == 0
     assert "no villa job in flight" in capsys.readouterr().out
+
+
+def test_forced_exclusive_override_reports_the_still_running_job(monkeypatch, capsys):
+    monkeypatch.setattr(gha, "render_in_flight", lambda: [(7, "villa python")])
+    monkeypatch.setattr("sys.argv", ["x", "--fail-if-any", "--force"])
+    assert gha.main() == 0
+    output = capsys.readouterr().out
+    assert "OVERRIDDEN" in output
+    assert "1 villa job" in output
+    assert "no villa job in flight" not in output

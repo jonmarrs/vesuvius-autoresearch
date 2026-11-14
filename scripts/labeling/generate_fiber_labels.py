@@ -14,7 +14,7 @@ import argparse
 import json
 import re
 import sys
-from math import sqrt
+from math import dist, isfinite, sqrt
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +37,8 @@ from scripts.labeling.label_artifacts import (
 from vesuvius_autoresearch.fibers import detect_vesselness
 from vesuvius_autoresearch.fibers.detection import EIGENSOLVER_VERSION
 from vesuvius_autoresearch.fibers.provenance import file_sha256
+
+DEFAULT_MAX_EDGE_SAMPLES = 65_537
 
 # ---------------------------------------------------------------------------
 # Skeleton mode (original WebKnossos .nml → voxel labels pipeline)
@@ -65,23 +67,57 @@ def _classify_fiber_pca(
 
 
 def _interpolate_adaptive(
-    start_pos, end_pos, curvature_threshold=0.1, max_recursion=100
+    start_pos,
+    end_pos,
+    curvature_threshold=0.1,
+    max_recursion=100,
+    *,
+    max_points=DEFAULT_MAX_EDGE_SAMPLES,
 ):
-    segment_vector = end_pos - start_pos
-    segment_length = np.linalg.norm(segment_vector)
-    if max_recursion == 0 or segment_length < curvature_threshold:
-        return [start_pos, end_pos]
-    mid_pos = (start_pos + end_pos) / 2.0
-    left = _interpolate_adaptive(
-        start_pos, mid_pos, curvature_threshold, max_recursion - 1
+    """Keep legacy dyadic samples, with a hard point budget for each edge."""
+    max_points = integer(max_points, "max_edge_samples", 2)
+    max_recursion = integer(max_recursion, "max_recursion")
+    if not isfinite(curvature_threshold) or curvature_threshold <= 0:
+        raise ValueError("curvature_threshold must be finite and positive")
+    message = f"skeleton edge exceeds interpolation sample budget ({max_points} points)"
+    # Use the length shortcut only for ordinary pixel coordinates: coarse float
+    # spacing or norm underflow can make the legacy recursion stop much sooner
+    # than geometry predicts. Those cases rely on the exact counter below.
+    coordinates = np.asarray([start_pos, end_pos])
+    precise_pixels = (
+        curvature_threshold == 0.1
+        and (coordinates.dtype.kind in "iu" or coordinates.dtype == np.float64)
+        and np.max(np.abs(coordinates.astype(np.float64)))
+        <= curvature_threshold * 2**48
     )
-    right = _interpolate_adaptive(
-        mid_pos, end_pos, curvature_threshold, max_recursion - 1
-    )
-    return left[:-1] + right
+    if (
+        precise_pixels
+        and max_recursion >= max_points.bit_length()
+        and dist(start_pos, end_pos) > 2 * curvature_threshold * (max_points - 1)
+    ):
+        raise ValueError(message)
+    remaining = max_points - 1  # each leaf contributes one interval, plus one endpoint
+
+    def subdivide(start, stop, depth):
+        nonlocal remaining
+        segment_length = np.linalg.norm(stop - start)
+        if depth == 0 or segment_length < curvature_threshold:
+            remaining -= 1
+            if remaining < 0:
+                raise ValueError(message)
+            return [start, stop]
+        midpoint = (start + stop) / 2.0
+        left = subdivide(start, midpoint, depth - 1)
+        right = subdivide(midpoint, stop, depth - 1)
+        return left[:-1] + right
+
+    return subdivide(start_pos, end_pos, max_recursion)
 
 
-def _fill_volume_for_tree(tree, output_shape, origins=(0, 0, 0)):
+def _fill_volume_for_tree(
+    tree, output_shape, origins=(0, 0, 0), *, max_edge_samples=DEFAULT_MAX_EDGE_SAMPLES
+):
+    max_edge_samples = integer(max_edge_samples, "max_edge_samples", 2)
     temp_fiber = np.zeros(output_shape, dtype=np.uint8)
     origins = np.array(origins)
     bounds_xyz = np.asarray(output_shape[::-1])
@@ -90,7 +126,16 @@ def _fill_volume_for_tree(tree, output_shape, origins=(0, 0, 0)):
         node2_pos = np.array([node2.position.x, node2.position.y, node2.position.z])
         if not np.isfinite([node1_pos, node2_pos]).all():
             raise ValueError("skeleton coordinates must be finite")
-        for point in _interpolate_adaptive(node1_pos, node2_pos):
+        # An entire edge outside any cube axis cannot contribute a voxel.
+        # Cull before recursively allocating samples in surrounding annotation
+        # context; keep the existing interpolation for intersecting bounds.
+        if np.any(np.maximum(node1_pos, node2_pos) < origins) or np.any(
+            np.minimum(node1_pos, node2_pos) >= origins + bounds_xyz
+        ):
+            continue
+        for point in _interpolate_adaptive(
+            node1_pos, node2_pos, max_points=max_edge_samples
+        ):
             local = point - origins
             if np.all((local >= 0) & (local < bounds_xyz)):
                 voxel_coords = local.astype(int)
@@ -109,8 +154,12 @@ def _expand_and_vesselness(binary_volume: np.ndarray, radius: int = 3) -> np.nda
     return (combined > 0.5).astype(np.uint8)
 
 
-def _process_tree_worker(tree, output_shape, origins, radius):
-    temp_fiber = _fill_volume_for_tree(tree, output_shape, origins)
+def _process_tree_worker(
+    tree, output_shape, origins, radius, max_edge_samples=DEFAULT_MAX_EDGE_SAMPLES
+):
+    temp_fiber = _fill_volume_for_tree(
+        tree, output_shape, origins, max_edge_samples=max_edge_samples
+    )
     processed = _expand_and_vesselness(temp_fiber, radius)
     fiber_voxels = np.argwhere(processed > 0)
     orientation = _classify_fiber_pca(fiber_voxels)
@@ -123,10 +172,19 @@ def _process_tree_worker(tree, output_shape, origins, radius):
     return accum_h, accum_v
 
 
-def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=1):
+def _voxelize_skeleton(
+    annotation,
+    output_shape,
+    origins,
+    radius=3,
+    n_workers=1,
+    *,
+    max_edge_samples=DEFAULT_MAX_EDGE_SAMPLES,
+):
     from concurrent.futures import ProcessPoolExecutor, as_completed
     from itertools import islice
 
+    max_edge_samples = integer(max_edge_samples, "max_edge_samples", 2)
     all_trees = list(annotation.skeleton.flattened_trees())
 
     accum_h = np.zeros(output_shape, dtype=np.uint8)
@@ -142,7 +200,12 @@ def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=1)
             # and completed results instead of retaining every tree's arrays.
             futures = {
                 executor.submit(
-                    _process_tree_worker, tree, output_shape, origins, radius
+                    _process_tree_worker,
+                    tree,
+                    output_shape,
+                    origins,
+                    radius,
+                    max_edge_samples,
                 )
                 for tree in batch
             }
@@ -167,6 +230,11 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
     output_dir = new_output(args.output_dir, nml_path)
     radius = integer(args.radius, "radius")
     workers = integer(args.n_workers, "n_workers", 1)
+    max_edge_samples = integer(
+        getattr(args, "max_edge_samples", DEFAULT_MAX_EDGE_SAMPLES),
+        "max_edge_samples",
+        2,
+    )
     match = re.fullmatch(
         r".+_s\d+a?_(\d+)z_(\d+)y_(\d+)x_(\d+)_v\d+\.nml", nml_path.name
     )
@@ -186,6 +254,7 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
                     "shape_zyx": [size] * 3,
                     "radius": radius,
                     "workers": workers,
+                    "max_edge_samples": max_edge_samples,
                     "scope": "Filename/settings/output checks only; annotation not loaded",
                 }
             )
@@ -207,6 +276,7 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
         origins=(x_start, y_start, z_start),
         radius=radius,
         n_workers=workers,
+        max_edge_samples=max_edge_samples,
     )
     if (
         labels.shape != (size,) * 3
@@ -237,6 +307,7 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
                 "shape_zyx": [size] * 3,
                 "radius": radius,
                 "workers": workers,
+                "max_edge_samples": max_edge_samples,
                 "label_file_sha256": file_sha256(label_path),
             },
         )
@@ -325,6 +396,13 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         help="Skeleton CPU workers; each holds whole-cube temporaries",
+    )
+    parser.add_argument(
+        "--max-edge-samples",
+        type=int,
+        default=DEFAULT_MAX_EDGE_SAMPLES,
+        help="Maximum interpolated points per skeleton edge (default: 65537); "
+        "an over-budget edge fails the run without publishing labels",
     )
     return parser
 

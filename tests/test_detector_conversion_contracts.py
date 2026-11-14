@@ -34,6 +34,53 @@ def run_conversion(tmp_path, **kwargs):
     )
 
 
+@pytest.mark.parametrize("name", ["surface_volume/00.tif", "inklabels.png", "mask.png"])
+@pytest.mark.parametrize("orientation", [3, 6])
+def test_oriented_source_does_not_replace_a_previous_conversion(
+    tmp_path, name, orientation
+):
+    src = source(tmp_path)
+    run_conversion(tmp_path)
+    previous = tree(tmp_path / "dst")
+    path = src / name
+    with Image.open(path) as image:
+        values = np.array(image)
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.fromarray(values).save(path, exif=exif)
+    with pytest.raises(ValueError, match="identity orientation"):
+        run_conversion(tmp_path)
+    assert tree(tmp_path / "dst") == previous
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_oriented_converted_labels_are_not_ready_even_with_matching_hashes(
+    tmp_path, legacy
+):
+    source(tmp_path)
+    run_conversion(tmp_path)
+    output = tmp_path / "dst/fragment"
+    path = output / "fragment_inklabels.png"
+    with Image.open(path) as image:
+        values = np.array(image)
+    exif = Image.Exif()
+    exif[274] = 3
+    Image.fromarray(values).save(path, exif=exif)
+    manifest_path = output / conversion.MANIFEST
+    if legacy:
+        manifest_path.unlink()
+    else:
+        manifest = json.loads(manifest_path.read_text())
+        data = path.read_bytes()
+        manifest["outputs"][path.name] = {
+            "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        }
+        manifest_path.write_text(json.dumps(manifest))
+    ready, reason = status(tmp_path)
+    assert not ready and "identity orientation" in reason
+
+
 def tree(root):
     return {
         str(p.relative_to(root)): p.read_bytes() for p in root.rglob("*") if p.is_file()

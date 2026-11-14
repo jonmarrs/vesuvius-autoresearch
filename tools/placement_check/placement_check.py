@@ -41,6 +41,7 @@ import argparse
 import os
 import sys
 from dataclasses import asdict, dataclass
+from numbers import Integral
 
 import numpy as np
 
@@ -75,6 +76,10 @@ def _binarise(x, what: str) -> np.ndarray:
     x = np.asarray(x)
     if x.ndim != 2:
         raise ValueError(f"placement_offset: {what} must be 2-D, got shape {x.shape}")
+    if not x.size or x.dtype.kind not in "buif" or not np.isfinite(x).all():
+        raise ValueError(
+            f"placement_offset: {what} must be a nonempty finite real image"
+        )
     # Bool is taken as-is. Thresholding a bool array at >127 yields all-False, which makes
     # every comparison degenerate and returns a PERFECT (0, 0): a check that silently
     # passes on garbage. That bug is exactly the failure mode this module exists to stop,
@@ -102,6 +107,11 @@ def _scan(fixed, moving, margin, lo, hi):
     """
     h, w = fixed.shape
     core = fixed[margin : h - margin, margin : w - margin]
+    if not core.any():
+        raise ValueError(
+            "placement_offset: no foreground in the common interior crop; "
+            "reduce the search/crop or provide interior signal"
+        )
     best = (-1.0, 0, 0)
     for dy in range(lo[0], hi[0] + 1):
         for dx in range(lo[1], hi[1] + 1):
@@ -115,8 +125,20 @@ def _scan(fixed, moving, margin, lo, hi):
 
 
 def _downsample(mask: np.ndarray, factor: int) -> np.ndarray:
-    """Nearest-neighbour decimation. Numpy only, so this has no OpenCV dependency."""
-    return mask[::factor, ::factor] if factor > 1 else mask
+    """Match the registration gate's OpenCV nearest lattice using only NumPy.
+
+    Stride decimation differs when an image dimension is not divisible by the
+    factor: resize uses floor-sized output and scales across the whole axis.
+    """
+    if factor <= 1:
+        return mask
+    h, w = mask.shape
+    small_h, small_w = h // factor, w // factor
+    if min(small_h, small_w) < 1:
+        raise ValueError("placement_offset: coarse exceeds the image dimensions")
+    rows = np.arange(small_h) * h // small_h
+    columns = np.arange(small_w) * w // small_w
+    return mask[rows[:, None], columns[None, :]]
 
 
 def placement_offset(
@@ -126,8 +148,21 @@ def placement_offset(
 
     Returns (0, 0) for a correctly placed label. `max_shift` bounds the search in input
     pixels and must exceed the error you are willing to detect: a peak pinned to the
-    search boundary is under-reported, and this raises rather than returning it.
+    coarse, refinement or requested search boundary is under-reported, and this
+    raises rather than returning it. Empty evaluation crops cannot establish placement.
     """
+    for name, value, minimum in (
+        ("max_shift", max_shift, 1),
+        ("coarse", coarse, None),
+        ("refine", refine, 0),
+    ):
+        if (
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, Integral)
+            or (minimum is not None and value < minimum)
+        ):
+            raise ValueError(f"placement_offset: invalid integer {name}: {value!r}")
+    max_shift, coarse, refine = int(max_shift), int(coarse), int(refine)
     a = _binarise(label, "label")
     b = _binarise(reference, "reference")
     if a.shape != b.shape:
@@ -139,22 +174,45 @@ def placement_offset(
     if min(a_s.shape) <= 2 * m_s + 2:
         m_s = max(min(a_s.shape) // 4, 1)
     _, cy, cx = _scan(a_s, b_s, m_s, (-m_s, -m_s), (m_s, m_s))
+    if max(abs(cy), abs(cx)) >= m_s:
+        raise ValueError(
+            "placement_offset: peak reached the coarse search boundary; "
+            "a larger usable image/search is required"
+        )
     cy, cx = cy * ds, cx * ds
 
     margin = max_shift + refine + 2
     if min(a.shape) <= 2 * margin + 2:
         margin = max(min(a.shape) // 4, 1)
-    cy = int(np.clip(cy, -margin + refine, margin - refine))
-    cx = int(np.clip(cx, -margin + refine, margin - refine))
+    if refine > margin:
+        raise ValueError(
+            "placement_offset: image is too small for refine; reduce refine/coarse"
+        )
+    clipped = (
+        int(np.clip(cy, -margin + refine, margin - refine)),
+        int(np.clip(cx, -margin + refine, margin - refine)),
+    )
+    if max(abs(clipped[0] - cy), abs(clipped[1] - cx)) > ds:
+        raise ValueError(
+            "placement_offset: coarse peak lies outside the full-resolution search boundary"
+        )
+    cy, cx = clipped
     peak, by, bx = _scan(
         a, b, margin, (cy - refine, cx - refine), (cy + refine, cx + refine)
     )
-
-    if max(abs(by), abs(bx)) >= max_shift:
+    if not peak > 0:
         raise ValueError(
-            f"placement_offset: peak reached the search boundary at ({by}, {bx}); the true "
-            f"offset is at least this and probably larger. Re-run with max_shift > "
-            f"{max_shift}."
+            "placement_offset: no shift agrees at all at full resolution; "
+            "the placement is unknown"
+        )
+
+    refinement_boundary = refine > 0 and (
+        abs(by - cy) == refine or abs(bx - cx) == refine
+    )
+    if max(abs(by), abs(bx)) >= max_shift or refinement_boundary:
+        raise ValueError(
+            f"placement_offset: peak reached a search boundary at ({by}, {bx}); "
+            "the offset is not established. Increase max_shift/refine or use a larger image."
         )
 
     h, w = a.shape
@@ -202,9 +260,13 @@ def main(argv=None) -> int:
     for p in (args.label, args.reference):
         if not os.path.exists(p):
             raise SystemExit(f"no such file: {p}")
-    r = placement_offset(
-        _load(args.label), _load(args.reference), max_shift=args.max_shift
-    )
+    try:
+        r = placement_offset(
+            _load(args.label), _load(args.reference), max_shift=args.max_shift
+        )
+    except (ValueError, OSError) as exc:
+        print(f"placement-check: {exc}", file=sys.stderr)
+        return 2
 
     if args.json:
         import json

@@ -328,6 +328,118 @@ def test_ct_sampled_at_a_tifxyz_cell_reads_that_voxel():
     assert np.isnan(holed[0, 0]).all()
 
 
+def test_tifxyz_reads_the_last_in_plane_cell():
+    """A sample on the far edge has no next cell, and that neighbour's weight is 0.
+
+    Requiring the missing corner returned NaN for a stored cell that is in the
+    plane, including a one-row plane and a scale that lands on an integer.
+    A point that still needs that corner stays outside. An in-plane hole still
+    makes the sample NaN when its weight is zero.
+    """
+    plane = np.arange(12, dtype=np.float64).reshape(3, 4)
+    z = plane + 20
+    y = plane + 40
+    x = plane + 60
+    got = sample_tifxyz(
+        z,
+        y,
+        x,
+        np.array([2.0, 2.0, 0.0]),
+        np.array([3.0, 1.25, 0.0]),
+        1.0,
+        1.0,
+    )
+    assert got[0, 0].tolist() == pytest.approx([31.0, 51.0, 71.0])
+    assert got[1, 1].tolist() == pytest.approx(
+        [0.75 * 29 + 0.25 * 30, 0.75 * 49 + 0.25 * 50, 0.75 * 69 + 0.25 * 70]
+    )
+    assert got[2, 2].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    thin = np.array([[4.0, 5.0, 6.0]])
+    one = sample_tifxyz(
+        thin + 1, thin + 2, thin + 3, np.array([0.0]), np.array([2.0]), 1.0, 1.0
+    )
+    assert one[0, 0].tolist() == pytest.approx([7.0, 8.0, 9.0])
+    wide = np.arange(16, dtype=np.float64).reshape(4, 4)
+    scaled = sample_tifxyz(wide, wide, wide, np.array([1.5]), np.array([1.5]), 2.0, 2.0)
+    assert scaled[0, 0].tolist() == pytest.approx([15.0, 15.0, 15.0])
+    past_row = sample_tifxyz(z, y, x, np.array([2.25, 3.0]), np.array([1.0]), 1.0, 1.0)
+    past_col = sample_tifxyz(z, y, x, np.array([1.0]), np.array([3.25, 4.0]), 1.0, 1.0)
+    missing = sample_tifxyz(z, y, x, np.array([np.nan]), np.array([0.0]), 1.0, 1.0)
+    negative = sample_tifxyz(
+        z, y, x, np.array([-1.0, -0.25, 0.0]), np.array([-0.5, 0.0]), 1.0, 1.0
+    )
+    infinite = sample_tifxyz(
+        z,
+        y,
+        x,
+        np.array([0.0, np.inf, -np.inf]),
+        np.array([0.0, np.inf]),
+        1.0,
+        1.0,
+    )
+    assert np.isnan(past_row).all()
+    assert np.isnan(past_col).all()
+    assert np.isnan(missing).all()
+    assert np.isnan(negative[:, 0]).all()
+    assert np.isnan(negative[:2, 1]).all()
+    assert negative[2, 1].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    assert infinite[0, 0].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    assert np.isnan(infinite[1:]).all()
+    assert np.isnan(infinite[:, 1]).all()
+    holed = plane.copy()
+    holed[1, 1] = -1
+    assert np.isnan(
+        sample_tifxyz(holed, holed, holed, np.array([0.0]), np.array([0.0]), 1.0, 1.0)
+    ).all()
+    z_hole = np.full((3, 4), 5.0)
+    z_hole[1, 1] = 0
+    assert np.isnan(
+        sample_tifxyz(z_hole, plane, plane, np.array([0.0]), np.array([0.0]), 1.0, 1.0)
+    ).all()
+
+
+def test_trilinear_reads_the_last_in_volume_voxel():
+    """A sample on the far face has no next voxel, and that neighbour's weight is 0.
+
+    Requiring the missing corner returned NaN for an in-volume centre, including
+    a one-slice volume and the last level-2 cell. A point that still needs that
+    corner, or that sits one voxel past the end, stays outside.
+    """
+    volume = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+    last = np.array([[1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [1.0, 0.25, 1.5]])
+    sampled = sample_volume_trilinear(volume, last, level=0)
+    assert sampled[0] == pytest.approx(float(volume[1, 2, 3]))
+    assert sampled[1] == pytest.approx(float(volume[0, 0, 0]))
+    expected = (
+        0.75 * 0.5 * volume[1, 0, 1]
+        + 0.75 * 0.5 * volume[1, 0, 2]
+        + 0.25 * 0.5 * volume[1, 1, 1]
+        + 0.25 * 0.5 * volume[1, 1, 2]
+    )
+    assert sampled[2] == pytest.approx(float(expected))
+    thin = volume[:1]
+    one = sample_volume_trilinear(thin, np.array([[0.0, 1.0, 2.0]]), level=0)
+    assert one[0] == pytest.approx(float(thin[0, 1, 2]))
+    cube = np.zeros((2, 2, 2), np.float32)
+    cube[1, 1, 1] = 9
+    far = sample_volume_trilinear(cube, np.array([[5.5, 5.5, 5.5]]), level=2)
+    assert far[0] == pytest.approx(9.0)
+    # The volume reader crops to corners that exist. The far cell is then a
+    # one-voxel box whose level-2 centre is level-0 coordinate 1.5.
+    cropped = sample_volume_trilinear(
+        cube[1:, 1:, 1:], np.array([[1.5, 1.5, 1.5]]), level=2
+    )
+    assert cropped[0] == pytest.approx(9.0)
+    raw = volume.astype(np.uint8)
+    assert sample_volume_trilinear(raw, last[:1], level=0)[0] == pytest.approx(
+        float(raw[1, 2, 3])
+    )
+    outside = np.array(
+        [[2.0, 2.0, 3.0], [1.0, 3.0, 3.0], [1.0, 2.0, 4.0], [1.5, 1.0, 1.0]]
+    )
+    assert np.isnan(sample_volume_trilinear(volume, outside, level=0)).all()
+
+
 def test_a_shift_on_the_search_boundary_is_not_reported():
     """A peak at exactly +/- max_shift may be larger still, so it is not a result."""
     canvas = _texture(120, 120, seed=5)
@@ -981,6 +1093,64 @@ def test_the_probe_tiff_reader_reads_float32_strips(monkeypatch, tmp_path):
     )
 
 
+def test_the_probe_tiff_reader_stops_at_the_file(monkeypatch, tmp_path):
+    """A 3x4 plane requested as rows [0, 5) and columns [0, 6) is the plane.
+
+    The old reader returned a 5x6 array whose extra rows and columns were NaN.
+    """
+    import tifffile
+
+    plane = np.arange(12, dtype=np.float32).reshape(3, 4) + 8
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=2)
+    _serve(monkeypatch, path.read_bytes())
+    reader = probe._Tiff("x")
+    np.testing.assert_array_equal(reader.rows(0, 5, 0, 6), plane)
+    np.testing.assert_array_equal(reader.rows(1, 8, 2, 9), plane[1:, 2:])
+    leading = reader.rows(-1, 9, -2, 4)
+    assert leading.shape == (plane.shape[0] + 1, plane.shape[1] + 2)
+    assert np.isnan(leading[0]).all()
+    assert np.isnan(leading[:, :2]).all()
+    np.testing.assert_array_equal(leading[1:, 2:], plane)
+
+
+def test_the_probe_reads_the_last_cell_of_a_nan_padded_crop(monkeypatch, tmp_path):
+    """Scale 2 lands on stored cell 3. The crop asks for [2, 6), past a 4x4 file.
+
+    Those extra rows used to be NaN inside the crop, so the last cell's unused
+    neighbour cleared the sample. The read stops at the file and the cell remains.
+    """
+    import tifffile
+
+    plane = np.arange(16, dtype=np.float32).reshape(4, 4)
+    path = tmp_path / "plane.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=2)
+    blob = path.read_bytes()
+    meta = json.dumps({"scale": [2.0, 2.0]}).encode()
+
+    def _fetch(url, rng=None):
+        data = meta if url.endswith("meta.json") else blob
+        if rng is None:
+            return data
+        return data[rng[0] : rng[1] + 1]
+
+    monkeypatch.setattr(probe, "_fetch", _fetch)
+    seen = []
+
+    def _volume(_base, points):
+        seen.append(np.array(points, copy=True))
+        return np.ones(len(points), np.float32)
+
+    monkeypatch.setattr(probe, "_volume_at", _volume)
+    surface, finite = probe._surface(
+        {"tifxyz": "mem://segment", "volume": "mem://volume"}, 0, 1, 0, 1
+    )
+    assert finite.shape == (1, 1)
+    assert bool(finite[0, 0])
+    assert surface[0, 0] == pytest.approx(1.0)
+    assert seen[0][0].tolist() == pytest.approx([15.0, 15.0, 15.0])
+
+
 @pytest.mark.parametrize(
     "kwargs, words",
     [
@@ -1036,3 +1206,69 @@ def test_the_probe_cache_refetches_a_short_ranged_entry(monkeypatch, tmp_path):
     assert probe._fetch(url, rng) == b"0123456789"
     assert (tmp_path / key[:2] / key).read_bytes() == b"0123456789"
     assert not list(tmp_path.glob("**/*.part"))
+
+
+def test_tifxyz_sampled_from_an_empty_crop_is_all_nan():
+    """No cell exists in an empty crop, so no sample has support."""
+    rows, cols = np.array([0.0, 1.5]), np.array([0.0, 2.0, 3.0])
+    for shape in ((0, 5), (5, 0), (0, 0)):
+        empty = np.empty(shape, np.float32)
+        out = sample_tifxyz(empty, empty, empty, rows, cols, 1.0, 1.0)
+        assert out.shape == (2, 3, 3) and np.isnan(out).all()
+
+
+def test_the_probe_tiff_reader_gives_an_empty_crop_past_the_file(monkeypatch, tmp_path):
+    """A window wholly past the file is an empty crop, which samples as no surface."""
+    import tifffile
+
+    plane = np.arange(40 * 30, dtype=np.float32).reshape(40, 30)
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=7)
+    _serve(monkeypatch, path.read_bytes())
+    reader = probe._Tiff("x")
+    below, right = reader.rows(41, 45, 0, 6), reader.rows(0, 5, 30, 33)
+    assert below.shape == (0, 6) and right.shape == (5, 0)
+    point = np.array([0.0])
+    for crop in (below, right):
+        assert np.isnan(sample_tifxyz(crop, crop, crop, point, point, 1.0, 1.0)).all()
+
+
+def _small_planes():
+    z = np.full((3, 3), 5.0)
+    y = np.arange(9.0).reshape(3, 3) * 10
+    x = np.arange(9.0).reshape(3, 3) + 100
+    return [z, y, x]
+
+
+def test_a_tifxyz_hole_in_one_plane_alone_is_a_hole():
+    """-1 or a non-finite value in any plane is a hole at any weight; only z must be positive."""
+    at = np.array([0.0, 0.5])
+    # y is 0 at cell (0, 0): a coordinate, not a hole
+    z, y, x = _small_planes()
+    assert np.isfinite(sample_tifxyz(z, y, x, at, at, 1.0, 1.0)).all()
+    for plane, bad in ((1, -1.0), (2, -1.0), (1, np.inf), (2, np.nan)):
+        planes = _small_planes()
+        planes[plane][1, 1] = bad
+        # (0.5, 0.5) interpolates cell (1, 1); (0, 0) holds it at weight zero
+        z, y, x = planes
+        assert np.isnan(sample_tifxyz(z, y, x, at, at, 1.0, 1.0)).all(), (plane, bad)
+
+
+def test_trilinear_gives_nan_for_an_unusable_point_without_a_cast_warning():
+    volume = np.arange(8, dtype=np.float32).reshape(2, 2, 2)
+    points = np.array(
+        [[np.nan, 0, 0], [0, np.inf, 0], [0, 0, -np.inf], [1e30, 0, 0], [1, 1, 1]]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        out = sample_volume_trilinear(volume, points)
+    assert np.isnan(out[:4]).all() and out[4] == 7
+
+
+def test_trilinear_does_not_read_a_zero_weight_neighbour():
+    """An exact voxel beside a NaN voxel is that voxel; a point between them is NaN."""
+    volume = np.arange(8, dtype=np.float32).reshape(2, 2, 2)
+    volume[1, 0, 0] = np.nan
+    points = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.0, 1.0, 1.0]])
+    out = sample_volume_trilinear(volume, points)
+    assert out[0] == 0 and np.isnan(out[1]) and out[2] == 3

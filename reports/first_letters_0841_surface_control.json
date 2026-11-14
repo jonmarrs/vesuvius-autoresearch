@@ -1,0 +1,382 @@
+{
+ "finding": 111,
+ "date": "2026-11-13",
+ "registration": "docs/preregistration/2026-11-13_first_letters_0841_surface_control.md",
+ "registration_commit": "3e3487f8",
+ "verdict": "BLOB_LEVEL_SIGNAL",
+ "chosen": {
+  "depth": -2,
+  "side": "reverse",
+  "auc": 0.7641
+ },
+ "development": {
+  "segment": "20260220213127-w00",
+  "lattice": [
+   1055,
+   1190
+  ],
+  "render_cells": 902985,
+  "supervised_cells": 98923,
+  "scored_cells": 97328,
+  "ink_cells": 22150,
+  "bare_cells": 75178,
+  "table": [
+   {
+    "depth": -8,
+    "side": "reverse",
+    "auc": 0.6448
+   },
+   {
+    "depth": -8,
+    "side": "forward",
+    "auc": 0.4895
+   },
+   {
+    "depth": -7,
+    "side": "reverse",
+    "auc": 0.6754
+   },
+   {
+    "depth": -7,
+    "side": "forward",
+    "auc": 0.5096
+   },
+   {
+    "depth": -6,
+    "side": "reverse",
+    "auc": 0.7078
+   },
+   {
+    "depth": -6,
+    "side": "forward",
+    "auc": 0.5253
+   },
+   {
+    "depth": -5,
+    "side": "reverse",
+    "auc": 0.7284
+   },
+   {
+    "depth": -5,
+    "side": "forward",
+    "auc": 0.5225
+   },
+   {
+    "depth": -4,
+    "side": "reverse",
+    "auc": 0.7435
+   },
+   {
+    "depth": -4,
+    "side": "forward",
+    "auc": 0.5389
+   },
+   {
+    "depth": -3,
+    "side": "reverse",
+    "auc": 0.7577
+   },
+   {
+    "depth": -3,
+    "side": "forward",
+    "auc": 0.5577
+   },
+   {
+    "depth": -2,
+    "side": "reverse",
+    "auc": 0.7641
+   },
+   {
+    "depth": -2,
+    "side": "forward",
+    "auc": 0.5529
+   },
+   {
+    "depth": -1,
+    "side": "reverse",
+    "auc": 0.7554
+   },
+   {
+    "depth": -1,
+    "side": "forward",
+    "auc": 0.5342
+   },
+   {
+    "depth": 0,
+    "side": "reverse",
+    "auc": 0.7543
+   },
+   {
+    "depth": 0,
+    "side": "forward",
+    "auc": 0.5429
+   },
+   {
+    "depth": 1,
+    "side": "reverse",
+    "auc": 0.7466
+   },
+   {
+    "depth": 1,
+    "side": "forward",
+    "auc": 0.5337
+   },
+   {
+    "depth": 2,
+    "side": "reverse",
+    "auc": 0.7261
+   },
+   {
+    "depth": 2,
+    "side": "forward",
+    "auc": 0.5495
+   },
+   {
+    "depth": 3,
+    "side": "reverse",
+    "auc": 0.7162
+   },
+   {
+    "depth": 3,
+    "side": "forward",
+    "auc": 0.5582
+   },
+   {
+    "depth": 4,
+    "side": "reverse",
+    "auc": 0.6901
+   },
+   {
+    "depth": 4,
+    "side": "forward",
+    "auc": 0.5489
+   },
+   {
+    "depth": 5,
+    "side": "reverse",
+    "auc": 0.6512
+   },
+   {
+    "depth": 5,
+    "side": "forward",
+    "auc": 0.5493
+   },
+   {
+    "depth": 6,
+    "side": "reverse",
+    "auc": 0.6327
+   },
+   {
+    "depth": 6,
+    "side": "forward",
+    "auc": 0.536
+   },
+   {
+    "depth": 7,
+    "side": "reverse",
+    "auc": 0.5985
+   },
+   {
+    "depth": 7,
+    "side": "forward",
+    "auc": 0.5342
+   },
+   {
+    "depth": 8,
+    "side": "reverse",
+    "auc": 0.578
+   },
+   {
+    "depth": 8,
+    "side": "forward",
+    "auc": 0.5347
+   }
+  ],
+  "chosen": {
+   "depth": -2,
+   "side": "reverse",
+   "auc": 0.7641
+  }
+ },
+ "held_out": {
+  "20260220214732-auto_grown_20260220144552896": {
+   "lattice": [
+    1160,
+    1180
+   ],
+   "render_cells": 907089,
+   "supervised_cells": 60529,
+   "scored_cells": 59074,
+   "ink_cells": 19876,
+   "bare_cells": 39198,
+   "auc": 0.7478,
+   "slid_floor": {
+    "down": 0.5263,
+    "up": 0.4263,
+    "right": 0.525,
+    "left": 0.4741,
+    "largest": 0.5263
+   },
+   "other_side_auc": 0.5561,
+   "p1": true,
+   "p2": false
+  },
+  "20260221022814-auto_grown_20260220174252405": {
+   "lattice": [
+    940,
+    1225
+   ],
+   "render_cells": 854381,
+   "supervised_cells": 78949,
+   "scored_cells": 77626,
+   "ink_cells": 18119,
+   "bare_cells": 59507,
+   "auc": 0.7194,
+   "slid_floor": {
+    "down": 0.4785,
+    "up": 0.529,
+    "right": 0.5043,
+    "left": 0.4958,
+    "largest": 0.529
+   },
+   "other_side_auc": 0.5399,
+   "p1": true,
+   "p2": false
+  }
+ },
+ "steps": {
+  "render_s20260220213127": {
+   "exit": 0,
+   "seconds": 791
+  },
+  "ink_s20260220213127": {
+   "exit": 0,
+   "seconds": 8499,
+   "depths": [
+    -8,
+    8
+   ],
+   "gpu_peak_mib_all_processes": 3426
+  },
+  "render_s20260220214732": {
+   "exit": 0,
+   "seconds": 110
+  },
+  "ink_s20260220214732": {
+   "exit": 0,
+   "seconds": 1051,
+   "depths": [
+    -2,
+    -2
+   ],
+   "gpu_peak_mib_all_processes": 3544
+  },
+  "render_s20260221022814": {
+   "exit": 0,
+   "seconds": 175
+  },
+  "ink_s20260221022814": {
+   "exit": 0,
+   "seconds": 969,
+   "depths": [
+    -2,
+    -2
+   ],
+   "gpu_peak_mib_all_processes": 2984
+  }
+ },
+ "host_peak_resident_gb": {
+  "ink_s20260220213127": 5.2,
+  "ink_s20260220214732": 5.6,
+  "ink_s20260221022814": 4.7
+ },
+ "not_registered": {
+  "chosen": {
+   "depth": -2,
+   "side": "reverse",
+   "auc": 0.7641
+  },
+  "block_cells": 64,
+  "segments": {
+   "20260220213127-w00": {
+    "auc": 0.7641,
+    "block_bootstrap": {
+     "blocks": 43,
+     "draws": 500,
+     "low": 0.711,
+     "high": 0.8176
+    },
+    "per_model": {
+     "dnative": 0.7644,
+     "hecate": 0.6965,
+     "hybrid_3d2d-seed42": 0.6728,
+     "hybrid_3d2d-seed43": 0.6824
+    },
+    "shift_scan": {
+     "best_auc": 0.7724,
+     "rows": 0,
+     "cols": 2
+    },
+    "figure_box_cells": [
+     109,
+     856,
+     667,
+     978
+    ]
+   },
+   "20260220214732-auto_grown_20260220144552896": {
+    "auc": 0.7478,
+    "block_bootstrap": {
+     "blocks": 28,
+     "draws": 500,
+     "low": 0.6817,
+     "high": 0.8005
+    },
+    "per_model": {
+     "dnative": 0.7815,
+     "hecate": 0.7001,
+     "hybrid_3d2d-seed42": 0.6517,
+     "hybrid_3d2d-seed43": 0.6566
+    },
+    "shift_scan": {
+     "best_auc": 0.756,
+     "rows": 2,
+     "cols": 2
+    },
+    "figure_box_cells": [
+     193,
+     794,
+     395,
+     834
+    ]
+   },
+   "20260221022814-auto_grown_20260220174252405": {
+    "auc": 0.7194,
+    "block_bootstrap": {
+     "blocks": 37,
+     "draws": 500,
+     "low": 0.642,
+     "high": 0.7724
+    },
+    "per_model": {
+     "dnative": 0.6916,
+     "hecate": 0.6777,
+     "hybrid_3d2d-seed42": 0.6529,
+     "hybrid_3d2d-seed43": 0.6733
+    },
+    "shift_scan": {
+     "best_auc": 0.731,
+     "rows": 2,
+     "cols": 2
+    },
+    "figure_box_cells": [
+     95,
+     559,
+     310,
+     811
+    ]
+   }
+  }
+ },
+ "run_dir_gb": 4.8
+}

@@ -28,10 +28,7 @@ from probe_scatter_estimator_calibration import (  # noqa: E402
     matched_sigma,
 )
 
-needs_data = pytest.mark.skipif(
-    not patch_dirs(),
-    reason="real patch data absent; see local_data/spiral_patches_phercparis4",
-)
+needs_data = pytest.mark.research_input("spiral_patches")
 
 from conftest import restore_cuda_env  # noqa: E402
 

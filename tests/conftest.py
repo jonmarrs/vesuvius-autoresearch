@@ -21,6 +21,47 @@ import sys
 from pathlib import Path
 
 import pytest
+from research_prerequisites import missing_study_inputs, missing_villa_refs
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--require-research-inputs",
+        action="store_true",
+        help="Fail rather than skip selected checks with missing declared study data or Villa history",
+    )
+
+
+@pytest.fixture(autouse=True)
+def declared_research_prerequisites(request, monkeypatch):
+    study = [
+        arg
+        for marker in request.node.iter_markers("research_input")
+        for arg in marker.args
+    ]
+    history = [
+        arg
+        for marker in request.node.iter_markers("villa_history")
+        for arg in marker.args
+    ]
+    root = Path(__file__).resolve().parents[1]
+    missing = []
+    try:
+        if request.node.get_closest_marker("research_input"):
+            missing.extend(missing_study_inputs(root, study))
+        if request.node.get_closest_marker("villa_history"):
+            # The historical assertions must not fetch promisor objects through
+            # git show implicitly. Provision history explicitly before testing.
+            monkeypatch.setenv("GIT_NO_LAZY_FETCH", "1")
+            missing.extend(missing_villa_refs(root, history))
+    except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+        pytest.fail(f"research prerequisite check failed: {exc}", pytrace=False)
+    if missing:
+        message = "; ".join(missing) + "; see docs/RESEARCH_TESTS.md"
+        if request.config.getoption("--require-research-inputs"):
+            pytest.fail(message, pytrace=False)
+        pytest.skip(message + "; use --require-research-inputs to require these checks")
+
 
 _AMBIENT_CUDA_VISIBLE_DEVICES = os.environ.get("CUDA_VISIBLE_DEVICES")
 

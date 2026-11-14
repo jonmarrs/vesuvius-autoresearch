@@ -71,6 +71,7 @@ def test_transform_rejects_non_monotonic_knots():
         EmpiricalRadialTransform([0.0, 1.0, 2.0], [0.0, 5.0, 3.0])
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_ray_filter_rejects_skipped_winding_levels():
     """A ray whose crossings skip a winding would fold two inter-winding gaps
     into one, corrupting the measured spacing sequence.
@@ -94,6 +95,7 @@ def test_ray_filter_rejects_skipped_winding_levels():
     assert ray_winding_radii(mutated, idx) is None
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_real_rays_are_actually_irregular():
     """Guard on the premise: if the measured gap sequences were nearly uniform,
     this probe would not be testing local irregularity at all."""
@@ -107,6 +109,7 @@ def test_real_rays_are_actually_irregular():
     assert worst > 0.1
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_zero_scatter_is_degenerate_and_is_labelled_as_such():
     """At zero scatter the delta is zero for ANY invertible transform by the
     section-1 algebra, so this row carries no information about the empirical
@@ -119,6 +122,7 @@ def test_zero_scatter_is_degenerate_and_is_labelled_as_such():
         )
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_invariance_breaks_under_real_warps_once_scatter_is_present():
     """The actual finding of this probe, and the opposite of what its first
     version reported. Under the reporting configuration at 6 voxels of scatter,
@@ -132,6 +136,7 @@ def test_the_invariance_breaks_under_real_warps_once_scatter_is_present():
     assert sum(1 for r in rows if r["ref_verdict"] != r["disp_verdict"]) >= 5
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_break_is_monotone_in_scatter():
     """Guard against a one-off: the departure should grow with scatter, not
     appear at a single cherry-picked level."""

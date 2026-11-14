@@ -3,6 +3,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -119,9 +120,12 @@ def test_direct_launch_freezes_all_helpers(tmp_path):
         str(root / "interp_windows")
     ] * 16
     assert (root / "interp_windows/interpolation_inputs.py").exists()
-    python = Path(__file__).resolve().parents[1] / ".venv/bin/python"
     probe = subprocess.run(
-        [str(python), str(root / "interp_windows/analyse_interp_windows.py"), "--help"],
+        [
+            sys.executable,
+            str(root / "interp_windows/analyse_interp_windows.py"),
+            "--help",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,

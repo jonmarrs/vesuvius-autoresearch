@@ -140,7 +140,12 @@ def main() -> int:
             for pid, cmd in procs[:3]:
                 print(f"         pid {pid}  {cmd}")
             return 1
-        print("guard: no villa job in flight")
+        if procs:
+            print(
+                f"guard: OVERRIDDEN with --force; {len(procs)} villa job(s) still in flight"
+            )
+        else:
+            print("guard: no villa job in flight")
         return 0
     return 0 if require_headroom(args.need_gb, args.force) else 1
 

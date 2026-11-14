@@ -68,20 +68,40 @@ def _digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def _image(data, path, max_pixels, dtype):
+def decode_fragment_image(
+    data,
+    path,
+    max_pixels,
+    dtype,
+    *,
+    formats=None,
+    modes=None,
+    require_identity_orientation=False,
+):
+    """Decode one captured scalar image within a caller's pixel/type contract."""
     try:
         with warnings.catch_warnings():
             # The explicit pixel budget governs, not Pillow's lower warning level.
             warnings.simplefilter("ignore", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(data)) as image:
                 if (
-                    getattr(image, "n_frames", 1) != 1
+                    (formats is not None and image.format not in formats)
+                    or (modes is not None and image.mode not in modes)
+                    or getattr(image, "n_frames", 1) != 1
                     or len(image.getbands()) != 1
                     or image.width * image.height > max_pixels
                     or min(image.size) <= 0
                 ):
                     raise ValueError(
                         f"expected one scalar image within pixel budget: {path}"
+                    )
+                # TIFF loading applies its orientation tag automatically. A 180°
+                # turn keeps the same shape and can silently misalign CT/labels.
+                # Check after header allocation guards, before NumPy conversion.
+                # PNG EXIF metadata can require a bounded pixel load to inspect.
+                if require_identity_orientation and image.getexif().get(274, 1) != 1:
+                    raise ValueError(
+                        f"image must have identity orientation (1) or no orientation tag: {path}"
                     )
                 array = np.array(image)
     # Pillow reports some damaged files as SyntaxError or TypeError.
@@ -90,6 +110,10 @@ def _image(data, path, max_pixels, dtype):
     if array.ndim != 2 or array.dtype.kind != "u" or array.dtype.itemsize != dtype:
         raise ValueError(f"expected uint{dtype * 8} grayscale image: {path}")
     return array
+
+
+# Retain the converter's private name for existing call sites and tests.
+_image = decode_fragment_image
 
 
 def convert_layer_u16_to_u8(array):
@@ -202,7 +226,13 @@ def convert_fragment(
         ]
         for path, relative, index in entries:
             data = _capture(path, limit)
-            array = _image(data, path, max_pixels, 2 if index is not None else 1)
+            array = _image(
+                data,
+                path,
+                max_pixels,
+                2 if index is not None else 1,
+                require_identity_orientation=True,
+            )
             if shape is not None and array.shape != shape:
                 raise ValueError(
                     f"image shape mismatch: {path}: {array.shape} != {shape}"
@@ -234,6 +264,7 @@ def convert_fragment(
             "z_range": [z_start, z_end],
             "shape_yx": list(shape),
             "scale": "uint16 // 256 -> uint8; no local normalization",
+            "source_orientation_policy": "identity_or_absent",
             "sources": sources,
             "outputs": outputs,
         }
@@ -331,7 +362,7 @@ def conversion_status(data_root, frag_id, z_start, z_end, *, max_pixels=MAX_PIXE
         shape = None
         for path in paths:
             data = _capture(path, 4 * max_pixels + 1024 * 1024)
-            array = _image(data, path, max_pixels, 1)
+            array = _image(data, path, max_pixels, 1, require_identity_orientation=True)
             if shape is not None and array.shape != shape:
                 raise ValueError(f"converted image shape mismatch: {path}")
             shape = array.shape

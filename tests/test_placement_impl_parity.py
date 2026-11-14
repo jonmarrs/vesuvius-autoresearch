@@ -82,3 +82,59 @@ def test_both_refuse_an_empty_mask():
     ):
         with pytest.raises(ValueError):
             impl()
+
+
+@requires_tool
+@pytest.mark.parametrize("impl", [ours, published])
+@pytest.mark.parametrize("value", [np.nan, np.inf, -np.inf])
+def test_both_refuse_nonfinite_pixels(impl, value):
+    a = speckle().astype(float)
+    a[200, 200] = value
+    with pytest.raises(ValueError, match="finite"):
+        impl(a, a, max_shift=32)
+
+
+@requires_tool
+@pytest.mark.parametrize("impl", [ours, published])
+def test_both_refuse_a_crop_without_any_foreground(impl):
+    a = np.zeros((128, 128), np.uint8)
+    a[0, 0] = 255
+    with pytest.raises(ValueError):
+        impl(a, a, max_shift=16)
+
+
+@requires_tool
+@pytest.mark.parametrize("shape", [(513, 525), (125, 127)])
+def test_standalone_coarse_lattice_matches_the_executed_opencv_lattice(shape):
+    import cv2
+    from placement_check import _downsample
+
+    mask = np.random.default_rng(12).random(shape) > 0.8
+    reference = cv2.resize(
+        mask.astype(np.uint8),
+        (shape[1] // 4, shape[0] // 4),
+        interpolation=cv2.INTER_NEAREST,
+    )
+    np.testing.assert_array_equal(_downsample(mask, 4), reference != 0)
+
+
+@requires_tool
+@pytest.mark.parametrize("impl", [ours, published])
+def test_both_refuse_a_peak_at_the_refinement_boundary(impl):
+    a = speckle(seed=3)
+    # Coarse pixels locate this near 4px. A 1px refinement can reach 5px but
+    # cannot establish whether agreement continues improving beyond it.
+    b = np.roll(a, 5, axis=1)
+    with pytest.raises(ValueError, match="search boundary"):
+        impl(a, b, max_shift=32, coarse=4, refine=1)
+
+
+@requires_tool
+@pytest.mark.parametrize("impl", [ours, published])
+def test_both_refuse_a_coarse_match_with_zero_full_resolution_agreement(impl):
+    fixed = np.zeros((136, 135), bool)
+    moving = np.zeros_like(fixed)
+    fixed[64, 40] = True
+    moving[64, 45] = True
+    with pytest.raises(ValueError, match="full resolution"):
+        impl(fixed, moving, max_shift=8, coarse=4, refine=0)

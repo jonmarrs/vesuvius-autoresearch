@@ -9,6 +9,8 @@ half of the rule that could not have fired.
 import os
 import sys
 
+import pytest
+
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
@@ -26,6 +28,7 @@ restore_cuda_env()  # do not leave the mask for other test modules
 ARTIFACT = os.path.join(_REPO, "reports", "exceedance_denominator.txt")
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_classes_partition_the_rays():
     """Exhaustive and disjoint, checked rather than asserted in prose. A ray that
     fell through would silently shrink whichever share it belonged to."""
@@ -35,6 +38,7 @@ def test_the_classes_partition_the_rays():
     assert set(labels) <= {"degenerate", "immune", "diverges"}
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_the_reference_is_satisfied_at_zero_scatter():
     """Why the degenerate class is empty: the test patch is built exactly on a
     winding, so the reference passes by construction. Pinned because it is the
@@ -46,6 +50,7 @@ def test_the_reference_is_satisfied_at_zero_scatter():
         assert ref, "the reference should pass at zero scatter by construction"
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_a_displaced_patch_at_zero_scatter_also_passes():
     """The core finding of the whole report, reachable from here: at zero scatter
     the whole-winding-displaced patch is satisfied too, which is why the classes
@@ -85,6 +90,7 @@ def test_the_split_is_reported_with_both_classes_nonzero():
     assert float(div.group(1)) > 5.0
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_immunity_is_surrogate_sensitive_at_a_short_ladder():
     """The qualification the report needed. A first version called the immune
     fraction free of the surrogate because no attenuation enters it. True, and
@@ -96,6 +102,7 @@ def test_immunity_is_surrogate_sensitive_at_a_short_ladder():
     assert white > aniso, "a white field should look far more immune at a short ladder"
 
 
+@pytest.mark.research_input("spiral_rays")
 def test_a_wider_ladder_cannot_raise_immunity():
     """The monotonicity that makes the wide column a lower bound: more rungs give
     more chances to flip, so immunity can only fall."""

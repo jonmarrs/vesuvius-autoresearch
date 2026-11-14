@@ -17,23 +17,23 @@ published one, surface in either corner, a patch villa does not reject, and a
 platform without a POSIX interval timer; and it refuses a voxel read before
 the geometry rejection whenever it happens.
 """
+
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import signal
 import sys
 import time
 import warnings
+from pathlib import Path
 
 from vesuvius.ink_detection.config import InkDataConfig
 from vesuvius.ink_detection.data import dataset as dataset_module
 from vesuvius.ink_detection.types import Patch, Segment
 from vesuvius.tifxyz import read_tifxyz
-
 
 HASHES = {
     "meta.json": "105c2716274077c3c832765ae6c0885cf679b2cbdef9f89a49875b1ee12fb84f",
@@ -75,7 +75,9 @@ def _probe():
     if os.path.lexists(args.out):
         raise Refused(f"{args.out} exists; records are never overwritten")
     if not args.out.parent.is_dir():
-        raise Refused(f"{args.out.parent} is not a directory; nowhere to write the record")
+        raise Refused(
+            f"{args.out.parent} is not a directory; nowhere to write the record"
+        )
     for name, expected in HASHES.items():
         if not (args.mesh / name).is_file():
             raise Refused(f"{name}: missing from {args.mesh}")
@@ -86,21 +88,38 @@ def _probe():
     height, width = surface.shape
     corners = [(0, 0), (0, width - 64)]
     for y, x in corners:
-        if surface[y:y+64, x:x+64][3].any():
-            raise Refused(f"the 64x64 region at y={y}, x={x} has surface; two empty ones are needed")
-    config = InkDataConfig.from_mapping({
-        "mode": "full_3d", "patch_size": [17, 64, 64],
-        "patch_overlap": 0.25, "patch_min_labeled_coverage": 0., "seed": 17,
-        "datasets": [{"segments_path": str(args.mesh.parent),
-                      "volume_path": "unused-volume", "volume_scale": 0}],
-    })
+        if surface[y : y + 64, x : x + 64][3].any():
+            raise Refused(
+                f"the 64x64 region at y={y}, x={x} has surface; two empty ones are needed"
+            )
+    config = InkDataConfig.from_mapping(
+        {
+            "mode": "full_3d",
+            "patch_size": [17, 64, 64],
+            "patch_overlap": 0.25,
+            "patch_min_labeled_coverage": 0.0,
+            "seed": 17,
+            "datasets": [
+                {
+                    "segments_path": str(args.mesh.parent),
+                    "volume_path": "unused-volume",
+                    "volume_scale": 0,
+                }
+            ],
+        }
+    )
     segment = Segment(
-        data_config=config, source=config.datasets[0], dataset_idx=0,
-        segment_relpath="mesh", segment_dir=args.mesh, segment_name="mesh",
-        image_volume="unused-volume", inklabels=Path("unused-labels"),
+        data_config=config,
+        source=config.datasets[0],
+        dataset_idx=0,
+        segment_relpath="mesh",
+        segment_dir=args.mesh,
+        segment_name="mesh",
+        image_volume="unused-volume",
+        inklabels=Path("unused-labels"),
         supervision_mask=Path("unused-supervision"),
     )
-    patches = [Patch(segment, (0, y, x, 17, y+64, x+64)) for y, x in corners]
+    patches = [Patch(segment, (0, y, x, 17, y + 64, x + 64)) for y, x in corners]
     data = dataset_module.InkDataset(config, do_augmentations=False, patches=patches)
     data._open = lambda *args: NoVoxelReads()
     data._tifxyz_cache[str(args.mesh)] = surface
@@ -121,7 +140,7 @@ def _probe():
     start = time.monotonic()
     outcome, message = "returned", ""
     try:
-        signal.setitimer(signal.ITIMER_REAL, 2.)
+        signal.setitimer(signal.ITIMER_REAL, 2.0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
             data[0]
@@ -130,7 +149,7 @@ def _probe():
     except RuntimeError as error:
         outcome, message = "runtime_error", str(error)
     finally:
-        signal.setitimer(signal.ITIMER_REAL, 0.)
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
         signal.signal(signal.SIGALRM, previous_handler)
     # Two attempts alone can also precede an unrelated dataset failure. Only
     # the measured native retry error establishes bounded rejection here.
@@ -139,15 +158,25 @@ def _probe():
         "for requested idx 0 (dataset size 2); "
         "check the native crop size, surface geometry and supervision masks"
     )
-    bounded = outcome == "runtime_error" and attempts == [0, 1] and message == expected_error
-    result = dict(
-        scope="deliberately supplied invalid mesh patches; no discovery, voxel reads or training",
-        source_url="https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercParis4/segments/20230702185753/mesh/20230702185753-on-20260411134726-2.4um.tifxyz/",
-        input_sha256=HASHES, mesh_shape=[height, width], corners_yx=corners,
-        dataset_source_sha256=hashlib.sha256(Path(dataset_module.__file__).read_bytes()).hexdigest(),
-        outcome=outcome, message=message, attempt_count=len(attempts),
-        first_attempts=attempts[:8], seconds=time.monotonic()-start, bounded=bounded,
+    bounded = (
+        outcome == "runtime_error" and attempts == [0, 1] and message == expected_error
     )
+    result = {
+        "scope": "deliberately supplied invalid mesh patches; no discovery, voxel reads or training",
+        "source_url": "https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercParis4/segments/20230702185753/mesh/20230702185753-on-20260411134726-2.4um.tifxyz/",
+        "input_sha256": HASHES,
+        "mesh_shape": [height, width],
+        "corners_yx": corners,
+        "dataset_source_sha256": hashlib.sha256(
+            Path(dataset_module.__file__).read_bytes()
+        ).hexdigest(),
+        "outcome": outcome,
+        "message": message,
+        "attempt_count": len(attempts),
+        "first_attempts": attempts[:8],
+        "seconds": time.monotonic() - start,
+        "bounded": bounded,
+    }
     with args.out.open("x") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

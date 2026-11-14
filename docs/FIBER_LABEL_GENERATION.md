@@ -133,6 +133,15 @@ memory before allowing it. One CPU worker is now the default because each
 worker holds whole-cube temporaries. Submitted trees and retained results are
 limited to one batch of at most that many workers, rather than every tree.
 
+Skeleton mode also limits each edge to `--max-edge-samples 65537` interpolated
+points. Edges wholly outside the cube are culled first. A crossing edge that
+needs more points fails the complete run before publication; it is not clipped,
+dropped or coarsened. The interpolation keeps the original midpoint samples for
+edges within the budget. The limit must be an integer of at least 2 and is
+recorded in dry-run plans and `labels_meta.json`. Dry run does not load the NML,
+so actual edge costs are checked during execution. Raising this limit increases
+possible memory and CPU use per worker; it is not a total RAM estimate.
+
 Trees at the skeleton root and inside groups at any nesting depth are included
 using the SDK's recursive traversal. Earlier versions visited only the root and
 one group level; deeper annotations could silently publish empty or incomplete

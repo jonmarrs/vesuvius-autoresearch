@@ -1,6 +1,6 @@
 """The preserved copies must stay byte-identical to the pin, and stay complete.
 
-Upstream deleted these between our pin and 2026-08-26. If a future pin bump lands
+Upstream moved these under deprecated/ after the historical source pin. If a future pin bump lands
 and these have drifted or gone missing, the GP-winner replication stops being
 reproducible and the only identified unblock path for the exhausted GT data
 closes. Both are silent failures, so they are pinned here.
@@ -21,10 +21,7 @@ PIN = "ced62390e"
 # names as the unblock path: labels exist, geometry absent from the open bucket.
 UNBLOCK_SEGMENTS = ("20230820203112", "20230826170124", "20230903193206")
 
-needs_villa = pytest.mark.skipif(
-    not (VILLA / ".git").exists() and not (VILLA / "ink-detection").exists(),
-    reason="villa submodule not checked out",
-)
+needs_villa = pytest.mark.villa_history(PIN)
 
 
 def _digest(data: bytes) -> str:
@@ -33,14 +30,14 @@ def _digest(data: bytes) -> str:
 
 def test_the_gp_winner_recipe_is_preserved():
     """train_timesformer_og.py is the recipe Phase 2 retrained to held-out AUC
-    0.905. Upstream deleted it; without this copy the replication is unrunnable."""
+    0.905. Its original path moved upstream; this copy retains the cited source."""
     assert (PRESERVED / "train_timesformer_og.py").exists()
     assert (PRESERVED / "train_timesformer_og.py").stat().st_size > 10_000
 
 
 def test_the_unblock_labels_are_preserved():
     """These three are the only identified route out of the GT exhaustion, and
-    upstream has deleted the directory they lived in."""
+    upstream has moved the directory they lived in."""
     for seg in UNBLOCK_SEGMENTS:
         p = PRESERVED / "all_labels" / f"{seg}_inklabels.png"
         assert p.exists(), f"{seg} label missing"
@@ -59,8 +56,9 @@ def test_every_preserved_file_matches_the_pin_byte_for_byte():
             ["git", "-C", str(VILLA), "show", f"{PIN}:ink-detection/{rel}"],
             capture_output=True,
         )
-        if out.returncode != 0:
-            pytest.skip(f"pin object unavailable for {rel}")
+        assert out.returncode == 0, (
+            f"historical source blob unavailable for {rel}; provision complete Villa history"
+        )
         assert _digest(path.read_bytes()) == _digest(out.stdout), f"{rel} drifted"
 
 
