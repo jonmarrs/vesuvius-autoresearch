@@ -9,6 +9,8 @@ import pytest
 import torch
 from test_volume_inference_contracts import setup_prediction
 
+from scripts.regional_prediction_artifacts import RegionalArtifactPlan
+
 
 def _tree(root):
     return {
@@ -355,3 +357,105 @@ def test_image_destination_preflight_in_both_entrypoints_without_loading_models(
     with pytest.raises(ValueError, match="artifact collision"):
         runner()
     assert _tree(tmp_path) == before
+
+
+def _plan(tmp_path, **changes):
+    """The plan alone, without a model: an OME group whose array is level 0, and one checkpoint."""
+    volume = tmp_path / "ct.zarr"
+    (volume / "0").mkdir(parents=True, exist_ok=True)
+    (volume / "0" / ".zarray").write_text("{}")
+    checkpoint = tmp_path / "model.pt"
+    checkpoint.write_bytes(b"weights")
+    options = {
+        "image": tmp_path / "out" / "region.png",
+        "metadata": None,
+        "uri": str(volume),
+        "checkpoints": [checkpoint],
+        **changes,
+    }
+    return RegionalArtifactPlan.create("region", **options)
+
+
+def test_the_plan_alone_accepts_a_new_output_directory(tmp_path):
+    plan = _plan(tmp_path)
+    assert plan.image == tmp_path / "out" / "region.png" and plan.image_format == "png"
+    assert plan.metadata == tmp_path / "out" / "region_meta.json"
+    assert plan.source == tmp_path / "ct.zarr"
+    assert plan.source_array == tmp_path / "ct.zarr" / "0"
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    "option, value",
+    [
+        ("image", ""),
+        ("image", " "),
+        ("image", "s3://bucket/region.png"),
+        # an empty metadata path selects the default name, so it is not a case here
+        ("metadata", " "),
+        ("metadata", "s3://bucket/region_meta.json"),
+    ],
+)
+def test_an_output_must_be_a_nonempty_local_path(tmp_path, option, value):
+    with pytest.raises(ValueError, match="nonempty local path"):
+        _plan(tmp_path, **{option: value})
+
+
+def test_an_output_inside_an_ome_group_but_outside_its_array_is_refused(tmp_path):
+    """The whole source is protected, not only the level the reader selects."""
+    with pytest.raises(ValueError, match="artifact collision"):
+        _plan(tmp_path, image=tmp_path / "ct.zarr" / "preview.png")
+
+
+def test_an_output_directory_that_links_into_the_source_is_refused(tmp_path):
+    _plan(tmp_path)
+    (tmp_path / "alias").symlink_to(tmp_path / "ct.zarr", target_is_directory=True)
+    with pytest.raises(ValueError, match="artifact collision"):
+        _plan(tmp_path, image=tmp_path / "alias" / "preview.png")
+
+
+def test_a_source_named_through_a_link_protects_the_real_volume(tmp_path):
+    _plan(tmp_path)
+    (tmp_path / "alias.zarr").symlink_to(tmp_path / "ct.zarr", target_is_directory=True)
+    linked = _plan(tmp_path, uri=str(tmp_path / "alias.zarr"))
+    assert linked.source == tmp_path / "ct.zarr"
+    assert linked.source_array == tmp_path / "ct.zarr" / "0"
+    with pytest.raises(ValueError, match="artifact collision"):
+        _plan(
+            tmp_path,
+            uri=str(tmp_path / "alias.zarr"),
+            image=tmp_path / "ct.zarr" / "preview.png",
+        )
+
+
+def test_a_checkpoint_named_through_a_link_protects_the_real_file(tmp_path):
+    _plan(tmp_path)
+    (tmp_path / "linked.pt").symlink_to(tmp_path / "model.pt")
+    linked = _plan(tmp_path, checkpoints=[tmp_path / "linked.pt"])
+    assert linked.checkpoints == (tmp_path / "model.pt",)
+    with pytest.raises(ValueError, match="artifact collision"):
+        _plan(
+            tmp_path,
+            checkpoints=[tmp_path / "linked.pt"],
+            metadata=tmp_path / "model.pt",
+        )
+
+
+def test_an_output_directory_that_is_a_file_is_refused(tmp_path):
+    (tmp_path / "out").write_bytes(b"not a directory")
+    with pytest.raises(ValueError, match="nonsymlink directory"):
+        _plan(tmp_path)
+    assert (tmp_path / "out").read_bytes() == b"not a directory"
+
+
+def test_existing_outputs_keep_their_kinds(tmp_path):
+    """The two arrays and the uncertainty mask are trees; every other artifact is a file."""
+    out = tmp_path / "out"
+    for name in ("region_ink.zarr", "region_fiber.zarr", "region_uncertain"):
+        (out / name).mkdir(parents=True)
+    (out / "region_ink.npy").write_bytes(b"old")
+    _plan(tmp_path)
+    (out / "region_ink.npy").unlink()
+    (out / "region_ink.npy").mkdir()
+    with pytest.raises(ValueError):
+        _plan(tmp_path)

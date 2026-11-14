@@ -255,6 +255,9 @@ def sample_tifxyz(
     height, width = planes[0].shape
     stored_row = np.asarray(rows, np.float64) * float(scale_y)
     stored_col = np.asarray(cols, np.float64) * float(scale_x)
+    if height == 0 or width == 0:
+        # No cell exists, so every point's support leaves the plane.
+        return np.full((len(stored_row), len(stored_col), 3), np.nan)
     # Floor of a non-finite coordinate warns and is not a cell index.
     row_ok = np.isfinite(stored_row)
     col_ok = np.isfinite(stored_col)
@@ -314,7 +317,8 @@ def sample_volume_trilinear(
     ``[2^k * i, 2^k * i + 2^k - 1]``, so its centre is
     ``(p0 - (2^k - 1) / 2) / 2^k``. A centre on the far face has no next
     voxel; that neighbour's weight is zero, so the sample is the voxel
-    itself. A point whose interpolation support leaves the volume is NaN.
+    itself. A point whose interpolation support leaves the volume is NaN, and
+    so is a non-finite point.
     """
     array = np.asarray(volume)
     if array.ndim != 3:
@@ -325,7 +329,10 @@ def sample_volume_trilinear(
     if points.ndim != 2 or points.shape[1] != 3:
         raise ValueError("zyx0 must have shape (N, 3)")
     factor = 2 ** int(level)
-    continuous = (points - (factor - 1) / 2.0) / factor
+    # A non-finite coordinate, or one too large for an index, warns when cast
+    # and is not a voxel index.
+    usable = np.all(np.isfinite(points) & (np.abs(points) < 2.0**62), axis=1)
+    continuous = (np.where(usable[:, None], points, 0.0) - (factor - 1) / 2.0) / factor
     base = np.floor(continuous)
     frac = continuous - base
     base_i = base.astype(np.int64)
@@ -333,7 +340,7 @@ def sample_volume_trilinear(
     # Finite samples only. A corner one step past an exact voxel has weight
     # zero, so the last in-volume plane does not need a neighbour that is
     # not there. Requiring every corner turned that plane into NaN.
-    support = np.all(np.isfinite(points), axis=1)
+    support = usable.copy()
     value = np.zeros(len(points), np.float64)
     for z_off, y_off, x_off in (
         (a, b, c) for a in (0, 1) for b in (0, 1) for c in (0, 1)

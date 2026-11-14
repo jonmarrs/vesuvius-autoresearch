@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import statistics
+from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -205,4 +206,55 @@ def test_the_strategy_reports_the_kill_test_as_passed():
     whole = PUB["whole_png"]
     share = 100 * whole["differing_pixels"] / whole["pixels"]
     assert f"{100 - share:.2f}% of the published image's pixels" in STRATEGY
-    assert "The spiral fit, snap and flatten were not run" in STRATEGY
+    # The mesh step was not part of the kill test; finding 110 ran it on 2026-11-12.
+    assert "reports/first_letters_343_mesh_step.md" in STRATEGY
+
+
+def test_the_host_the_jobs_and_the_render_shape_are_the_record_s():
+    host, jobs, render = D["host"], D["ink"]["jobs"], D["render"]
+    assert (
+        f"Host: {host['cpu_cores']} cores, {host['ram_gb']} GB of RAM, one RTX 4090."
+        in REPORT
+    )
+    assert host["gpu"].startswith("RTX 4090")
+    models = {job["model"] for job in jobs}
+    assert len(models) == 4 and len(jobs) == 2 * len(models)
+    assert {job["render"] for job in jobs} == {"plain", "padded"}
+    assert {job["depth"] for job in jobs} == {1}
+    assert (
+        f"| Ink, {len(jobs)} jobs ({len(models)} models × plain and padded render, depth +1) |"
+        in REPORT
+    )
+    layers, height, width = render["check"]["shape"]
+    assert f"| Render, {layers} layers of {height} × {width} |" in REPORT
+    assert f"| {layers}-layer render |" in REPORT
+    source = render["renderer_source"]
+    assert "75c79ac5f" in source and "identical to 41701aa" in source
+    assert (
+        "our source build of villa `75c79ac5f`, whose `volume-cartographer` tree is identical to `41701aa`"
+        in REPORT
+    )
+
+
+def test_the_strategy_s_costs_and_dates_are_the_record_s():
+    render, ink, loop = D["render"], D["ink"], D["training_loop"]
+    total = sum(ink["wall_seconds"].values())
+    assert ink["jobs_run"] == 8
+    assert (
+        f"({render['wall_seconds'] / 60:.0f} minutes, and {total / 60:.0f} minutes for the eight jobs of one depth, "
+        f"at a peak of {ink['gpu']['peak_memory_mib']:,} MiB of GPU memory)" in STRATEGY
+    )
+    stopped, started = (
+        datetime.fromisoformat(loop[key]) for key in ("stopped", "started")
+    )
+    paused = int((started - stopped).total_seconds() // 60)
+    assert f"The kill test stopped it for {paused} minutes." in STRATEGY
+    day = date.fromisoformat(D["date"])
+    on = f"on {day:%B} {day.day}"
+    for sentence in (
+        f"The kill test passed {on} for the chain from the published windings",
+        f"Passed {on} from the published windings onward",
+        f"The kill test ran {on};",
+        f"Answered {on}: yes.",
+    ):
+        assert sentence in STRATEGY

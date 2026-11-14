@@ -15,6 +15,7 @@ from vesuvius_autoresearch.fibers.trace import (
     StopReason,
     TraceParams,
     TraceResult,
+    _nearest_index,
     _trilinear,
     _walk,
     trace_fibers,
@@ -469,3 +470,36 @@ def test_trilinear_keeps_an_exact_voxel_beside_a_nan_neighbour():
     )
     assert stopped == []
     assert reason is StopReason.INVALID_DIRECTION
+
+
+def test_trilinear_is_nan_wherever_its_support_leaves_the_volume():
+    """Each axis and each side: a negative index must not wrap to the far face."""
+    vol = np.arange(3 * 4 * 5, dtype=float).reshape(3, 4, 5)
+    for axis in range(3):
+        last = vol.shape[axis] - 1
+        for bad in (-0.5, -1e-6, last + 1e-6, last + 0.5):
+            p = np.array([1.0, 1.0, 1.0])
+            p[axis] = bad
+            assert np.isnan(_trilinear(vol, p)), (axis, bad)
+
+
+def test_trilinear_is_nan_for_an_infinite_voxel_it_weighs():
+    vol = np.zeros((2, 2, 2))
+    for infinite in (np.inf, -np.inf):
+        vol[1, 1, 1] = infinite
+        assert np.isnan(_trilinear(vol, np.array([0.5, 0.5, 0.5])))
+        assert np.isnan(_trilinear(vol, np.array([1.0, 1.0, 1.0])))
+        assert _trilinear(vol, np.array([0.0, 0.0, 0.0])) == 0.0
+
+
+def test_the_nearest_voxel_of_a_point_outside_or_malformed_is_none():
+    shape = (3, 4, 5)
+    assert _nearest_index(np.array([1.4, 2.6, 3.5]), shape) == (1, 3, 4)
+    assert _nearest_index(np.array([-0.4, 0.0, 0.0]), shape) == (0, 0, 0)
+    for axis in range(3):
+        for bad in (-0.6, -1.0, shape[axis] - 0.4, np.nan, np.inf, 1e300):
+            p = np.array([1.0, 1.0, 1.0])
+            p[axis] = bad
+            assert _nearest_index(p, shape) is None, (axis, bad)
+    for malformed in (np.zeros(2), np.zeros(4), np.zeros((3, 1)), 1.0):
+        assert _nearest_index(malformed, shape) is None
