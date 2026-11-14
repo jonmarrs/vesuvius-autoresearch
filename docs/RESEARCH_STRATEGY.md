@@ -100,7 +100,7 @@ Three further facts set the ranking:
 
 | Rank | Direction and next deliverable | Bounded first step | Continue / stop decision |
 | --- | --- | --- | --- |
-| 1 | **A First Letters campaign on unread scrolls with the published PHerc. 343 recipe.** Next deliverable: the PHerc. 0841 positive control through the same chain. | The kill test passed on November 10 for the chain from the published windings to the image: 99.95% of the published image's pixels rebuilt identically, none off by more than 5 of 255 ([report](../reports/first_letters_343_reproduction.md)). The mesh step (distance field, spiral fit, snap, flatten) ran here on November 12: windings fitted on this machine lie on the published sheets (76% and 81% of nodes within 2 voxels) and carry the published ink (r = 0.86 over the letter boxes against controls of 0.17), in about 3.5 hours, 3 h 09 min of it the fit ([report](../reports/first_letters_343_mesh_step.md)). Next, one band of one scroll at a time, with no training on the target. | The stop condition on the mesh step did not fire: it runs here and its windings show the published ink. From here the controls and the kill criterion in [the campaign section](#the-first-letters-campaign) decide. Judged chance of letters on a given scroll: low, a single-digit percentage. Confidence that the by-products are prize-eligible work: high. |
+| 1 | **A First Letters campaign on unread scrolls with the published PHerc. 343 recipe.** Next deliverable: the first band on an eligible scroll, read as a detection test. | The kill test passed on November 10 for the chain from the published windings to the image: 99.95% of the published image's pixels rebuilt identically, none off by more than 5 of 255 ([report](../reports/first_letters_343_reproduction.md)). The mesh step (distance field, spiral fit, snap, flatten) ran here on November 12: windings fitted on this machine lie on the published sheets (76% and 81% of nodes within 2 voxels) and carry the published ink (r = 0.86 over the letter boxes against controls of 0.17), in about 3.5 hours, 3 h 09 min of it the fit ([report](../reports/first_letters_343_mesh_step.md)). Next, one band of one scroll at a time, with no training on the target. | The stop condition on the mesh step did not fire: it runs here and its windings show the published ink. From here the controls and the kill criterion in [the campaign section](#the-first-letters-campaign) decide. Judged chance of letters on a given scroll: low, a single-digit percentage. Confidence that the by-products are prize-eligible work: high. |
 | 2 | **Land the measured fiber fixes in Villa:** the seam trim (findings 106 and 107), cross-block duplicates (108), link splice (105) and seed heading (100 and 103). The aim is unchanged: fibers that reach farther without switching. | No new GPU work. Finding 109, a registered confirmation of both seam changes on ten cubes ScrollGT does not ship, was running at this review and is not reported here. Each Villa PR or issue is posted on the owner's decision, inside the limits of three open PRs and two code-fix PRs a week. | Propose only what held up on held-out cubes, and say where it does nothing: VC3D's default zone is one block, where the trim changes nothing, so the case rests on multi-block zones. Promise no reading gain; no geometry change measured here has produced one. If finding 109 does not confirm, propose only the part it supports. Confidence of a merge: moderate. Of more than \$250 to \$500: low to moderate. |
 | 3 | **Fix the defects the campaign hits on a 4-core, 31 GB, one-4090 machine.** Deliverable: each fix as a small Villa PR with before/after logs from the real run, bundled monthly. | CPU only. A fix starts from a failure reproduced here on current Villa main, never from reading code. At most two code-fix PRs a week. | No queue exists in advance: of eight open issues checked as starting candidates on November 10, six already had an open PR that references them (see [reuse](#where-to-reuse-existing-work)). Do not compete with an open patch; validate it on real data if that is what its author asks for. Confidence: moderate, conditional on rank 1 running at all. |
 | 4 | **Dense winding inputs for scrolls other than PHerc. Paris 4.** | Parked, with no budget. | Start only if rank 1 shows that these inputs are the binding constraint on a fit. Two attempts argue for caution: a contributor's CT peak count was wrong on a quarter to a third of segments, and our ink-derived constraints were circular. Confidence: low. |
@@ -153,12 +153,25 @@ only. Recheck both before choosing a scroll.
 1. The PHerc. 343 image reproduced here (the kill test). Passed on November 10 from the published windings
    onward ([report](../reports/first_letters_343_reproduction.md)), and on November 12 for the mesh step
    ([report](../reports/first_letters_343_mesh_step.md), finding 110).
-2. PHerc. 0841 through the identical pipeline, as a hard positive control: record what the recipe shows where
-   text is known and the models are unseen.
+2. PHerc. 0841 as a hard positive control: record what the recipe shows where text is known and the models
+   are unseen. The ink half ran on November 13 on the team's three published, labelled surfaces
+   ([report](../reports/first_letters_0841_surface_control.md), finding 111): `BLOB_LEVEL_SIGNAL`. At a depth and
+   side chosen with labels on one segment, the four-model ensemble scores AUC 0.75 and 0.72 against the labels on
+   the other two, with a slid-map floor of 0.53 and the team's own model at 0.92 and 0.87. The maps show strokes
+   where the letters are and no readable letter. The mesh half cannot run on PHerc. 0841 from public inputs: its
+   lasagna normal and gradient volumes are not published.
 3. A stacked-winding check on every band before its image is read.
 4. Depth-shuffled renders through the same models, as the negative control for model-invented letterforms.
 5. No training on the target until a band shows row-aligned signal. If iterative labelling starts, training
    and prediction regions stay disjoint, as the rules require.
+
+**What the PHerc. 0841 control changes.** A band on an eligible scroll is a detection test: it is read with a
+depth sweep on both sides (on PHerc. 0841 one side scored 0.76 and the other at most 0.56), a blank band is weak
+evidence of no ink, and strokes are not letters until a sharper ink step than these four models says so.
+
+**Which scrolls the fit can run on.** Read on November 13: of the 26 scrolls with published spiral tracks, 14
+also have the lasagna volumes the fit requires. The eligible ones among them are PHerc. 0125, 0191, 0211, 0257,
+0268, 0358, 0800, 0813 and 0826.
 
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
@@ -168,7 +181,7 @@ reproduced, stop, publish the nulls and meshes, and reassess.
 - **November (to the 30th).** Finish and report finding 109. The kill test ran on November 10; the recipe's
   mesh step on the PHerc. 343 band ran on November 12. Both reproduced. File November with Villa #2258
   and whatever else has merged; expect \$0 to \$250.
-- **December.** Run the PHerc. 0841 control. Run the first band on an eligible scroll with published tracks and
+- **December.** The PHerc. 0841 ink control ran on November 13 (blob-level signal). Run the first band on an eligible scroll with published tracks and
   umbilicus: PHerc. 0125 first, with low confidence that it is untried, else 0211 or 0826. Turn each obstacle
   into a Villa fix. Submit the workflow as run on this machine, with scripts, costs, fixes and meshes.
 - **January and February.** Automate more bands and scrolls overnight. Apply the kill criterion at the end of
