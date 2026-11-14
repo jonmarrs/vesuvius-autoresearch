@@ -87,6 +87,13 @@ What this means here:
     Suppressing such a copy (`catalog.py` +18/−2) raised ERLpen over the trim alone on every cube, a median +5.7% at
     tolerance 4 and +5.4% at tolerance 2, with merges 386 → 384 at tolerance 2. With both changes, eight blocks reach
     0.905 to 1.026 of one block's ERLpen at tolerance 4. Bundling it into the seam-trim PR is the owner's decision.
+  * **On other scrolls** is [finding 109](../reports/afv_generator_seam_confirmation.md) (`CONFIRMED`): ten
+    hand-traced cubes of Scrolls 1 and 5 that no step of the generator work had used.
+    * **The four cut as Scroll 3's were** (512³ in blocks of 256): both changes raised ERLpen over main on every cube,
+      a median +23.0% at tolerance 4 and +12.4% at tolerance 2, with merges 277 → 258 at tolerance 2.
+    * **All ten:** a median +31.2% at tolerance 4 and +36.2% at tolerance 2, up on every cube, with merges 325 → 297
+      at tolerance 2. The six 256³ cubes, in blocks of 128 that no villa user runs, carry these medians.
+    * **The cost:** coverage at tolerance 4 fell on every cube, a median −2.3%.
 
 ## Done here in November, not in villa: the PHerc. 343 recipe on one RTX 4090
 

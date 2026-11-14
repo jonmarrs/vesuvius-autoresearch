@@ -31,6 +31,7 @@ FINDINGS = {
     106: "afv_generator_block_seams",
     107: "afv_generator_default_zone",
     108: "afv_generator_cross_block_duplicates",
+    109: "afv_generator_seam_confirmation",
 }
 
 
@@ -331,3 +332,33 @@ def test_the_rest_of_the_seam_defect_is_finding_108s_record():
         f"eight blocks reach {min(f):.3f} to {max(f):.3f} of one block's ERLpen at tolerance 4"
         in section
     )
+
+
+def test_the_seam_changes_on_other_scrolls_are_finding_109s_record():
+    d = json.loads((ROOT / f"reports/{FINDINGS[109]}.json").read_text())
+    section = " ".join(_section("Queued, not posted").split())
+    assert d["verdict"]["decision"] == "CONFIRMED" and "(`CONFIRMED`)" in section
+    cubes = d["cubes"]
+    assert len(cubes) == 10 and sorted(c[:2] for c in cubes).count("s1") == 3
+
+    def figures(names):
+        rows = [cubes[c]["rows"] for c in names]
+        gain = {t: [r["real/trim+dup"][t]["erl_merge_penalized"] / r["real/main"][t]["erl_merge_penalized"] - 1
+                    for r in rows] for t in ("tol4", "tol2")}  # fmt: skip
+        assert all(x > 0 for x in gain["tol4"] + gain["tol2"])
+        m = [sum(r[f"real/{k}"]["tol2"]["merges"] for r in rows) for k in ("main", "trim+dup")]  # fmt: skip
+        return (f"a median +{100 * statistics.median(gain['tol4']):.1f}% at tolerance 4 and "
+                f"+{100 * statistics.median(gain['tol2']):.1f}% at tolerance 2"), f"with merges {m[0]} → {m[1]} at tolerance 2"  # fmt: skip
+
+    big = [c for c in cubes if cubes[c]["block"] == 256]
+    assert len(big) == 4 and all(cubes[c]["size"] == 512 for c in big)
+    assert sum(cubes[c]["block"] == 128 for c in cubes) == 6
+    gains, merges = figures(big)
+    assert f"both changes raised ERLpen over main on every cube, {gains}, {merges}" in section  # fmt: skip
+    gains, merges = figures(list(cubes))
+    assert f"**All ten:** {gains}, up on every cube, {merges}" in section
+    cov = [100 * (r["rows"]["real/trim+dup"]["tol4"]["coverage"] / r["rows"]["real/main"]["tol4"]["coverage"] - 1)
+           for r in cubes.values()]  # fmt: skip
+    assert all(x < 0 for x in cov)
+    assert (f"coverage at tolerance 4 fell on every cube, a median {statistics.median(cov):.1f}%"
+            .replace("median -", "median −")) in section  # fmt: skip
