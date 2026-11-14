@@ -264,14 +264,14 @@ each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
-| High | **Dependency advisories still need migrations and applicability review.** GitHub's latest observed push banner reported 151 alerts on the default branch (6 critical); its advisory API previously returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
+| High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the latest Pillow update. The [November 14 migration review](../reports/dependency_migration_review_2026-11-14.json) records the Pillow-only 12.1.1 → 12.3.0 lock update, CPU workflow validation and a same-service version lookup of 93 → 58 Pillow advisory records. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11; aiohttp/dotenv need a WEBKNOSSOS migration. Even Virtualenv 20.36.1 conflicts with the Windows WEBKNOSSOS/cluster-tools typing-extensions constraint, while newer SDKs conflict with Windows tensorstore. Decide Python/platform support before those migrations, and validate major/native updates separately. GitHub's advisory API previously returned HTTP 403; public matching does not replace alert access or GPU validation. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
 | Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
-| Medium | **Future research gates need an explicit precision contract.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. A [synthetic boundary probe](../reports/repository_audit_2026-11-13_integrated.json) produces raw AUC 0.74996, stores 0.75 and changes `BLOB_LEVEL_SIGNAL` to `LETTER_LEVEL_SIGNAL`. The published held-out rows remain below the line; this is not a retraction of their verdict. | For the next registered run, choose a versioned implementation that gates full-precision values and rounds only presentation. Preserve the as-run code/records and bind the new implementation to its registration before measurement; do not retroactively change the earlier method. |
+| Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 | Lower | **Legacy model and optional adapter support need an explicit scope.** The [shared architecture list](../src/vesuvius_autoresearch/core/inference_constants.py) retains `resnet3d` and `i3d` as training-only names; the inference factory rejects them. The optional [Villa TTA adapter](../src/vesuvius_autoresearch/core/villa_inference.py) has no maintained command caller, and its default concatenation expects matching task-tensor ranks, unlike the current ink/fiber/QC outputs. | Decide whether these are documented experiments, supported public interfaces or candidates for retirement. Preserve compatibility until that choice is made; support would need architecture-specific checkpoint reconstruction and a deliberate mixed-output TTA contract. |
 
@@ -1108,8 +1108,8 @@ calculator records **0.75** before evaluating P2 and therefore reports
 `BLOB_LEVEL_SIGNAL`. Its slid floor is 0.5083, so P1 holds in either case. The
 published held-out AUCs, 0.7478 and 0.7194, remain below 0.75 and are unaffected
 by this boundary example. The frozen method and its result were not rewritten.
-The tenth owner item calls for a versioned precision contract before a new
-registered run uses this logic.
+The precision owner item calls for a versioned precision contract before a new
+registered run uses this logic; the follow-up below prepares that successor.
 
 ### Verification
 
@@ -1137,3 +1137,67 @@ The outside selection used every `tests/**/test_*.py` absent from
 diagnostic. The ten current owner items above distinguish these software checks
 and the newly merged campaign evidence from remaining real-data/GPU, interface,
 dependency and future-method decisions.
+
+## Review-item follow-up (2026-11-14 UTC)
+
+This pass integrates main `bfbcae29`, including the owner's already measured
+Finding 109 seam-confirmation record. That integration is separate from the
+new engineering checks below. The live research checkout, historical
+registrations, as-run calculators and measured scroll artifacts remain unchanged.
+
+Two owner-review items advanced:
+
+- **Precision:** the separate [v2 surface-control calculator](SURFACE_CONTROL_V2.md)
+  compares full-precision AUCs for both sweep selection and P1/P2. JSON retains
+  those floats; only sweep console rows round them. It rejects historical sweeps,
+  recomputes the chosen row, binds the parsed choice bytes to their hash and
+  recalculates verdict flags. Missing step records fail before data loading;
+  invalid scores, undersized held-out classes and duplicate segment/gate names
+  cannot produce a successful measurement. Exclusive output creation preserves
+  an existing result even if it appears during calculation. Snapshot checks
+  preserve historical geometry/constants and guard the original calculator's
+  hash. This is a tested candidate for a new registration, not adoption or a
+  remeasurement of Finding 111.
+- **Dependencies:** the universal lock changes only Pillow **12.1.1 → 12.3.0**.
+  The [migration review](../reports/dependency_migration_review_2026-11-14.json)
+  binds both lock hashes and records a fresh, version-specific PyPI lookup:
+  **93 → 58 raw Pillow advisory records**, with 35 removed IDs and no added IDs.
+  Aliases can represent the same vulnerability. The November 10 whole-lock
+  snapshot used an earlier advisory feed and must not be arithmetically combined
+  with these counts. Remaining Pillow records include fixes requiring Python
+  3.11. No new exploitability or full-lock advisory result is claimed.
+
+The migration review also captures Python/platform blockers and the failed
+Virtualenv 20.36.1 universal solve. Windows' selected WEBKNOSSOS/cluster-tools
+requires typing-extensions below 4.13, while the candidate needs at least
+4.13.2 on Python 3.10. Newer WEBKNOSSOS requires Windows tensorstore 0.1.76,
+conflicting with this project's minimum 0.1.78. No markers, platform support or
+SDK constraints were removed to force a resolution. A scratch cryptography
+upgrade removed that package and downgraded its consumer instead of validating
+the proposed major release; that scratch result was discarded.
+
+### Verification
+
+- Method, boundary, launcher and newly integrated Finding 109 tests passed
+  **148 tests, 7 skipped** in 12.60 seconds. The missing study-input skips are
+  unavailable coverage, not reruns of the scientific studies.
+- Pillow 12.3.0 passed **486 workflow tests, 11 skipped** in 52.18 seconds and
+  **133 importer/artifact tests** in 14.44 seconds. The skips need the optional
+  WEBKNOSSOS SDK. Header/container checks passed for **247 tracked images**;
+  they do not establish complete pixel decoding or scientific image validity.
+- Mypy passed on **994 files**. Maintained Ruff and all three changed Python
+  files' formatting pass. Offline universal lock consistency passes with only
+  Pillow changed. The curated registry now has **218 modules**, with its
+  portable profile unchanged at fifteen.
+- The final v2, documentation/claim and file-mode guard selection passed
+  **191 tests, 1 original-corpus skip** in 34.32 seconds. These selections
+  overlap; their pass counts are not additive.
+- Smoke passed **9/11, 2 skipped, 0 failed** in 10.8 seconds; skips require
+  original CT/labels. The review interpreter uses Python 3.10.21, Torch 2.9.1
+  CPU and Pillow 12.3.0. No GPU experiment, original-data v2 measurement, or
+  Windows/macOS runtime validation was performed.
+
+The new method and dependency changes use focused checks; the previous full
+curated/outside-registry runs above remain the broader baseline. The ten owner
+items now distinguish completed engineering preparation from adoption, migration,
+physical registration, GPU profiling and new scientific measurements.

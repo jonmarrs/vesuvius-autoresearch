@@ -72,6 +72,7 @@ VALIDATION_TESTS = [
     "tests/test_check_patch_spatial_balance.py",
     "tests/test_execute_lasagna_pipeline_resume.py",
     "tests/test_surface_render_contracts.py",
+    "tests/test_surface_control_v2.py",
     "tests/test_render_surface.py",
     "tests/test_sota_convert.py",
     "tests/test_sota_conversion_contracts.py",
