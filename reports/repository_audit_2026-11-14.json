@@ -76,7 +76,7 @@
     "scripts/run_cross_scan_registration.py": "39d973b0f439f4d7788d83d9caf3cfddb8537f58495c720350838a1f34194029",
     "scripts/run_autoresearch_nnunet_bridge.py": "07be01464d705a1d4758f03e2bacc206b8194e4aa24fc18f1c1db3aa4cc4cd39",
     "scripts/vram_saturation_test.py": "2d101c6bef368719f2f701c75b4fa0e5687d985089120f12c3dacedd647520cd",
-    "scripts/run_validation_tests.py": "d7d1357ed7bc3a2cc6dccab94df92cb299e06e1105b0f27d77fe3551ea286e7e"
+    "scripts/run_validation_tests.py": "3820d27e125791291917132df0ac60b8a79fa26fc5656a51833b6abe5ba3e0a0"
   },
   "archived_source_sha256": {
     "scripts/run_cross_scan_registration.py": "1099f45104918d16f033442e238857a5e1b23b9eee26a48c15028f72269bf69f",
@@ -201,5 +201,54 @@
       "reports/scorer_tracking_gap_descriptive.json": 7
     },
     "working_tree_includes_review_changes": true
+  },
+  "initial_audit_source_sha256_after": {
+    "scripts/run_cross_scan_registration.py": "39d973b0f439f4d7788d83d9caf3cfddb8537f58495c720350838a1f34194029",
+    "scripts/run_autoresearch_nnunet_bridge.py": "07be01464d705a1d4758f03e2bacc206b8194e4aa24fc18f1c1db3aa4cc4cd39",
+    "scripts/vram_saturation_test.py": "2d101c6bef368719f2f701c75b4fa0e5687d985089120f12c3dacedd647520cd",
+    "scripts/run_validation_tests.py": "d7d1357ed7bc3a2cc6dccab94df92cb299e06e1105b0f27d77fe3551ea286e7e"
+  },
+  "pr_review": {
+    "pull_request": 424,
+    "integrated_main": "04c36b4666eebe4fc62bb772352d700c3be56515",
+    "initial_review_head": "899b3dcb65ad7a0cc2e71c0404411b8e458f9add",
+    "finding": "Byte-preserved legacy Python snapshots were selected by auto-fix hooks and default Ruff discovery. They currently match Ruff formatting, but selection left preservation unenforced. Exclude only the two frozen archive directories; retain active code and README checks.",
+    "reproduced_policy_checks": {
+      "failed": 5,
+      "passed": 10,
+      "seconds": 0.28
+    },
+    "focused_policy_and_runtime_checks": {
+      "passed": 81,
+      "skipped": 0,
+      "seconds": 5.2
+    },
+    "configuration_sha256": {
+      ".pre-commit-config.yaml": "b34e9b0dc7840a5da1ca5406d925b701aed09288c944fa22ac8145d49a8ba3f3",
+      "pyproject.toml": "5119df5701fd437b1d03e32adaa06c0ee04fb1f516756a0328315045158f2edf",
+      "tests/test_preserved_source_policy.py": "743cce40ad1985ebe99b8b811141886b1c3e5037ba72804b429ce2faf2a685cd"
+    },
+    "curated_modules_after_policy_fix": 221,
+    "portable_modules": 16,
+    "scope": "The full 6001-test audit run and its initial inventory predate the later main integration and this additional policy guard. Initial hashes remain recorded separately. Scientific scripts and retained source bytes were not changed.",
+    "final_validation": {
+      "focused_integration": {
+        "passed": 188,
+        "skipped": 7,
+        "seconds": 28.73
+      },
+      "mypy": {
+        "passed": true,
+        "source_files": 1003
+      },
+      "maintained_ruff": {
+        "passed": true
+      },
+      "offline_lock_check": {
+        "passed": true,
+        "dependencies_changed": false
+      },
+      "limits": "CPU and source/contract checks only; no original-data study rerun or CUDA capacity measurement."
+    }
   }
 }

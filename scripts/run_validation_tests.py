@@ -125,6 +125,7 @@ VALIDATION_TESTS = [
     "tests/test_training_checkpoint_paths.py",
     "tests/test_legacy_figure_retirement.py",
     "tests/test_unsupported_launchers.py",
+    "tests/test_preserved_source_policy.py",
     "tests/test_vram_probe_contracts.py",
     "tests/test_volume_read_contracts.py",
     "tests/test_detector_contracts.py",

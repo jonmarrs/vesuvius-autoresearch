@@ -1291,3 +1291,29 @@ their counts are not additive. The other research modules retain the earlier
 broader baseline; they were not all rerun in this pass. No GPU capacity result,
 GUI registration, nnUNet training, original-data scientific rerun or production
 training performance improvement is claimed.
+
+### PR 424 review and current-main integration
+
+The PR integrates main `04c36b46`, which adds the owner's Finding 112 band-fit
+record and scripts. These are upstream research artifacts, not new measurements
+performed by this software review. They remain unchanged in the PR diff.
+
+Review found that the four retained legacy Python snapshots were still selected
+by pre-commit auto-fix hooks and default Ruff discovery. They happen to match
+the current formatter; no formatting drift was observed. The preservation rule
+is now enforced by excluding the two frozen archive directories from default
+Ruff discovery and their Python files from hooks. Active code, other archives
+and the explanatory README files retain checks. Source bytes were preserved.
+
+Five policy guards failed before the correction and ten coverage controls
+already passed. The combined preservation, launcher, memory-probe and runner
+selection then passed **81 tests** in 5.20 seconds. The curated registry now
+contains **221 modules**, with **16 portable modules**. The review record retains
+the initial audit hashes separately from the updated registry/configuration
+hashes; the earlier full-run figures above retain their original scope.
+
+The final integration selection passed **188 tests, 7 skipped** in 28.73
+seconds, including Finding 112's source/report checks. Mypy passes on **1003
+files**, maintained Ruff/format checks pass, and offline lock consistency
+passes without changing dependency versions. These checks do not rerun
+Finding 112 or measure GPU capacity.

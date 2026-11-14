@@ -15,3 +15,7 @@ execute them. They are not measured registration/training evidence.
 
 See [migration and scope](../../../docs/UNSUPPORTED_LAUNCHERS.md). The upstream
 tools remain separate workflows and are not executed by the compatibility stubs.
+
+Pre-commit hooks and default Ruff directory discovery exclude these Python
+snapshots. The [preservation-policy checks](../../../tests/test_preserved_source_policy.py)
+also require that active code and these explanatory notes retain checks.
