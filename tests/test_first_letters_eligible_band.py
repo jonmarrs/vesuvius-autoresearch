@@ -102,3 +102,72 @@ def test_nothing_in_the_band_scripts_uploads():
         text = script.read_text()
         for word in ("aws s3 cp", "gh release", "curl -T", "--upload-file", "rsync "):
             assert word not in text, (script.name, word)
+
+
+def _load_verdict():
+    spec = importlib.util.spec_from_file_location(
+        "band_fit_verdict_under_test", HERE / "band_fit_verdict.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+bv = _load_verdict()
+OK = {"a": {"exit": 0}, "b": {"exit": 0}}
+
+
+def _summary(median, positive, scored=120):
+    return {
+        "excess_median": median,
+        "share_of_windings_with_positive_excess": positive,
+        "windings_scored": scored,
+    }
+
+
+def test_the_verdict_table_is_the_registered_one():
+    floor = _summary(0.0, 0.5)
+    assert bv.verdict(OK, floor, _summary(0.07, 0.80)) == "ON_SHEETS"
+    assert bv.verdict(OK, floor, _summary(0.069, 0.99)) == "PARTLY_ON_SHEETS"
+    assert bv.verdict(OK, floor, _summary(0.20, 0.79)) == "PARTLY_ON_SHEETS"
+    assert bv.verdict(OK, floor, _summary(0.03, 0.65)) == "PARTLY_ON_SHEETS"
+    assert bv.verdict(OK, floor, _summary(0.029, 0.99)) == "NOT_ON_SHEETS"
+    assert bv.verdict(OK, floor, _summary(0.20, 0.64)) == "NOT_ON_SHEETS"
+    assert (
+        bv.verdict(OK, _summary(0.031, 0.5), _summary(0.2, 0.9)) == "INSTRUMENT_FAILS"
+    )
+    assert bv.verdict(OK, floor, _summary(0.2, 0.9, scored=59)) == "DOES_NOT_RUN"
+    assert bv.verdict({"a": {"exit": 1}}, floor, _summary(0.2, 0.9)) == "DOES_NOT_RUN"
+    assert bv.verdict({"a": None}, floor, _summary(0.2, 0.9)) == "DOES_NOT_RUN"
+    assert bv.verdict(OK, floor, None) == "DOES_NOT_RUN"
+
+
+def test_the_verdict_constants_are_the_registrations():
+    assert "median excess of at least 0.07" in REGISTRATION and bv.P1["median"] == 0.07
+    assert "at least 80% of windings" in REGISTRATION and bv.P1["positive"] == 0.80
+    assert "median excess of at least 0.03" in REGISTRATION and bv.P2["median"] == 0.03
+    assert "at least 65% of windings" in REGISTRATION and bv.P2["positive"] == 0.65
+    assert "is above 0.03" in REGISTRATION and bv.FLOOR_MAX == 0.03
+    assert "fewer than 60 windings" in REGISTRATION and bv.MIN_WINDINGS == 60
+
+
+def test_the_by_index_summary_cuts_scored_windings_into_equal_parts_and_names_none():
+    windings = {
+        f"w{i:03d}": {
+            "excess": 0.1 if i < 14 else -0.1,
+            "on_sheet": 0.3,
+            "nodes_scored": 2000 + i,
+        }
+        for i in range(10, 22)
+    }
+    windings["w022"] = None
+    parts = bv.by_index({"windings": windings})
+    assert [(p["first"], p["last"], p["windings"]) for p in parts] == [
+        (10, 13, 4),
+        (14, 17, 4),
+        (18, 21, 4),
+    ]
+    assert [p["positive"] for p in parts] == [1.0, 0.0, 0.0]
+    assert parts[0]["at_least_p1_median"] == 4 and parts[0]["excess_median"] == 0.1
+    assert not any(key.startswith("w0") for part in parts for key in part)
