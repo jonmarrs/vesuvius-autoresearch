@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "review_date_utc": "2026-11-14",
+  "baseline_commit": "73c741a26b15fe19d3ec64973c0b94dba95ab184",
+  "scope": "Whole-tree structural inventory plus focused manual workflow review. This is not independent verification of every source line, historical result, or possible defect. Research records, originals, running state and GPU experiments were not changed.",
+  "initial_inventory": {
+    "tracked_regular_files": 3341,
+    "python_files": 1048,
+    "python_lines": 228725,
+    "shell_files": 185,
+    "json_files": 454,
+    "notebooks": 2,
+    "yaml_files": 10,
+    "image_headers": 247,
+    "npy_payloads": 10,
+    "zip_crcs": 2,
+    "structural_failures": [],
+    "duplicate_top_level_definitions": [],
+    "nonfinite_json_files": [
+      "reports/active_learning_queue.json",
+      "reports/detector/PHercParis2Fr143_scorecard.json",
+      "reports/interp_vs_labels.json",
+      "reports/scorer_tracking_gap_descriptive.json"
+    ]
+  },
+  "environment": {
+    "python": "3.10.21",
+    "torch": "2.9.1+cpu",
+    "cuda_available": false,
+    "scientific_scope": "CPU/synthetic checks only. No GPU memory-capacity measurement or original-data study rerun."
+  },
+  "reproductions": {
+    "method": "Registration uses importable stand-in zarr/registration modules to reach the original false-success path. nnUNet uses a tiny real YAML at its fixed output path. The CPU memory search uses the actual CPU Torch runtime. The original main functions returned normally; their script entrypoints therefore reported success.",
+    "before": {
+      "registration": {
+        "return": null,
+        "stdout": "Registering Moving Volume: moving\nTo Fixed Volume:         fixed\nStarting automated phase alignment...\nRegistration prototype complete. Transform saved to <temporary-directory>/registration/transform.json\n",
+        "transform_exists": false,
+        "parent_created": true
+      },
+      "nnunet_bridge": {
+        "return": null,
+        "input_overwritten": true,
+        "output": "configurations:\n- name: evolved_initial_lr_0p02\n  params:\n    initial_lr: 0.02\n"
+      },
+      "vram_cpu": {
+        "cuda_available": false,
+        "return": null,
+        "stdout": "--- Starting 24GB VRAM Saturation Search ---\nNote: The competition strictly limits window sizes to 64x64 for submissions.\nConfigs > 64 will be flagged as non-submittable.\n\nPhase 1: Max Batch Size for patch_size=64 (Submittable)\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\n=> Best submittable config: patch_size=64, batch_size=128\n\nPhase 2: Max Patch Size for batch_size=4 (Research Only)\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\nCUDA not available. Simulation only.\n=> Best research config: patch_size=384, batch_size=4\n\nVRAM Saturation Search Complete.\n"
+      },
+      "source_sha256": {
+        "scripts/run_cross_scan_registration.py": "1099f45104918d16f033442e238857a5e1b23b9eee26a48c15028f72269bf69f",
+        "scripts/run_autoresearch_nnunet_bridge.py": "e20dc659624a4bfabb2c5b3ea8a2ceb568214e4a1aecbd9dbbdd647c508afc37",
+        "scripts/vram_saturation_test.py": "7d4d758efcf27893656960612fd6cb886a89ea4580e06357f4319656932e549e"
+      }
+    },
+    "after": {
+      "registration": {
+        "exit_code": 2,
+        "stdout": "",
+        "stderr": "This registration launcher is retired. It never called align_zarrs or saved a transform, despite reporting success. No volume was opened and no output was created. For manual alignment, use the pinned Villa foundation/volume-registration/find_transform.py and its README; review voxel sizes, axis conventions and landmark residuals. See docs/UNSUPPORTED_LAUNCHERS.md for the source and migration limits.\n"
+      },
+      "nnunet_bridge": {
+        "exit_code": 2,
+        "stdout": "",
+        "stderr": "This nnUNet bridge is retired. It only wrote a fixed temporary YAML, discarded other template parameters and could overwrite its own input; it never generated trainers or ran training. No configuration was read or changed. Inspect the pinned Villa segmentation/model_optimization_framework README and use an explicitly reviewed configuration for that separate workflow. See docs/UNSUPPORTED_LAUNCHERS.md for retained source and limits.\n"
+      },
+      "vram_cpu": {
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Memory probe failed: CUDA is unavailable; no memory measurement was run\n"
+      }
+    }
+  },
+  "source_sha256_after": {
+    "scripts/run_cross_scan_registration.py": "39d973b0f439f4d7788d83d9caf3cfddb8537f58495c720350838a1f34194029",
+    "scripts/run_autoresearch_nnunet_bridge.py": "07be01464d705a1d4758f03e2bacc206b8194e4aa24fc18f1c1db3aa4cc4cd39",
+    "scripts/vram_saturation_test.py": "2d101c6bef368719f2f701c75b4fa0e5687d985089120f12c3dacedd647520cd",
+    "scripts/run_validation_tests.py": "d7d1357ed7bc3a2cc6dccab94df92cb299e06e1105b0f27d77fe3551ea286e7e"
+  },
+  "archived_source_sha256": {
+    "scripts/run_cross_scan_registration.py": "1099f45104918d16f033442e238857a5e1b23b9eee26a48c15028f72269bf69f",
+    "scripts/run_autoresearch_nnunet_bridge.py": "e20dc659624a4bfabb2c5b3ea8a2ceb568214e4a1aecbd9dbbdd647c508afc37"
+  },
+  "validation": {
+    "initial_regression_feature_selection": {
+      "failed": 15,
+      "passed": 0,
+      "seconds": 4.42,
+      "scope": "Includes retirement/help/archive guards as well as bug regressions; not fifteen distinct defects."
+    },
+    "focused_selection": {
+      "passed": 61,
+      "skipped": 0,
+      "seconds": 5.08,
+      "modules": [
+        "tests/test_unsupported_launchers.py",
+        "tests/test_vram_probe_contracts.py",
+        "tests/test_validation_runner.py"
+      ]
+    },
+    "limits": "The small CPU model test verifies real forward/backward. Allocator peak/reset, OOM cleanup and device-selection tests use a controlled fake backend, not physical CUDA measurements.",
+    "portable": {
+      "passed": 392,
+      "skipped": 0,
+      "seconds": 28.56,
+      "modules": 16,
+      "environment": "Fresh requirements/ci-cpu.txt hash-pinned environment; Torch and Zarr verified absent."
+    },
+    "documentation_and_research_source_guards": {
+      "passed": 98,
+      "skipped": 0,
+      "seconds": 20.17,
+      "modules": [
+        "tests/test_audit_doc_references.py",
+        "tests/test_audit_report_claims.py",
+        "tests/test_withdrawn_claims_stay_withdrawn.py",
+        "tests/test_afv_generator_seam_confirmation.py",
+        "tests/test_afv_generator_seam_confirmation_report.py",
+        "tests/test_villa_draft_afv_generator_seam_trim.py"
+      ]
+    },
+    "smoke": {
+      "passed": 9,
+      "skipped": 2,
+      "failed": 0,
+      "seconds": 11.7,
+      "limits": "Original CT/labels are unavailable."
+    },
+    "mypy": {
+      "passed": true,
+      "source_files": 998
+    },
+    "maintained_ruff": {
+      "passed": true,
+      "version": "0.9.10"
+    },
+    "uv_lock_consistency": {
+      "passed": true,
+      "offline": true,
+      "dependencies_changed": false
+    },
+    "curated": {
+      "modules": 220,
+      "passed": 6001,
+      "skipped": 42,
+      "xfailed": 1,
+      "seconds": 550.67,
+      "command": "env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short --junitxml=/tmp/vesuvius-audit-nov14-curated.xml -o faulthandler_timeout=90",
+      "limits": "Skips are unavailable coverage, including original study inputs/history or optional dependencies. This is the curated suite, not every test under tests/ and not a GPU/scientific rerun."
+    },
+    "selections_overlap": true
+  },
+  "owner_review": "The ten items in docs/REPOSITORY_AUDIT.md remain: dependency/Python/platform migrations; human-label feedback semantics; real source onboarding; representative GPU/ensemble profiling; package distribution scope; source-pinned scientific reruns; training read-failure policy; registration/adoption of v2 gates; archive/CI/dependency scope; legacy and experimental interfaces.",
+  "final_structural_inventory": {
+    "schema_version": 1,
+    "baseline_commit": "73c741a26b15fe19d3ec64973c0b94dba95ab184",
+    "scope": "Whole-tree structural inventory of tracked regular files, not independent validation of all scientific results or source lines. Image checks are header/container checks; JSON nonfinite constants are recorded separately.",
+    "tracked_regular_files": 3349,
+    "suffix_counts": {
+      "": 103,
+      ".0": 44,
+      ".32": 1,
+      ".cff": 1,
+      ".cpp": 1,
+      ".csv": 3,
+      ".diff": 1,
+      ".html": 1,
+      ".in": 1,
+      ".ipynb": 2,
+      ".json": 455,
+      ".lock": 1,
+      ".md": 1141,
+      ".npy": 10,
+      ".old": 1,
+      ".patch": 16,
+      ".png": 222,
+      ".pt": 1,
+      ".py": 1052,
+      ".sampler_src": 1,
+      ".sh": 185,
+      ".svg": 3,
+      ".tif": 25,
+      ".toml": 3,
+      ".tsv": 11,
+      ".txt": 52,
+      ".yaml": 7,
+      ".yml": 3,
+      ".zip": 2
+    },
+    "python_lines": 229188,
+    "checked_images": 247,
+    "checked_npy": 10,
+    "checked_zip": 2,
+    "structural_failures": [],
+    "duplicate_top_level_definitions": [],
+    "nonfinite_json_counts": {
+      "reports/active_learning_queue.json": 20,
+      "reports/detector/PHercParis2Fr143_scorecard.json": 1,
+      "reports/interp_vs_labels.json": 2,
+      "reports/scorer_tracking_gap_descriptive.json": 7
+    },
+    "working_tree_includes_review_changes": true
+  }
+}

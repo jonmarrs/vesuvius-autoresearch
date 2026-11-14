@@ -267,13 +267,13 @@ each has caused a measured scientific failure.
 | High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the latest Pillow update. The [November 14 migration review](../reports/dependency_migration_review_2026-11-14.json) records the Pillow-only 12.1.1 → 12.3.0 lock update, CPU workflow validation and a same-service version lookup of 93 → 58 Pillow advisory records. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11; aiohttp/dotenv need a WEBKNOSSOS migration. Even Virtualenv 20.36.1 conflicts with the Windows WEBKNOSSOS/cluster-tools typing-extensions constraint, while newer SDKs conflict with Windows tensorstore. Decide Python/platform support before those migrations, and validate major/native updates separately. GitHub's advisory API previously returned HTTP 403; public matching does not replace alert access or GPU validation. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
-| Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
+| Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The repaired [scratch CUDA probe](VRAM_PROBE.md) measures a separate gated_unet forward/backward path; it does not profile these regional commands or production training. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
 | Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
-| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
-| Lower | **Legacy model and optional adapter support need an explicit scope.** The [shared architecture list](../src/vesuvius_autoresearch/core/inference_constants.py) retains `resnet3d` and `i3d` as training-only names; the inference factory rejects them. The optional [Villa TTA adapter](../src/vesuvius_autoresearch/core/villa_inference.py) has no maintained command caller, and its default concatenation expects matching task-tensor ranks, unlike the current ink/fiber/QC outputs. | Decide whether these are documented experiments, supported public interfaces or candidates for retirement. Preserve compatibility until that choice is made; support would need architecture-specific checkpoint reconstruction and a deliberate mixed-output TTA contract. |
+| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+| Lower | **Legacy model and optional adapter support need an explicit scope.** The [shared architecture list](../src/vesuvius_autoresearch/core/inference_constants.py) retains `resnet3d` and `i3d` as training-only names; the inference factory rejects them. The optional [Villa TTA adapter](../src/vesuvius_autoresearch/core/villa_inference.py) has no maintained command caller, and its default concatenation expects matching task-tensor ranks, unlike the current ink/fiber/QC outputs. The unused [volumetric ink demo](../scripts/labeling/prototype_volumetric_ink.py) runs random features through a scratch head; its num_layers argument does not constrain depth and it supplies no trained 3D ink detector. | Decide whether these are documented experiments, supported public interfaces or candidates for retirement. Preserve compatibility until that choice is made; support would need architecture-specific checkpoint reconstruction and a deliberate mixed-output TTA contract. |
 
 The new First Letters image, mesh and surface controls are recorded in the
 [current strategy](RESEARCH_STRATEGY.md). They supply real-data evidence for
@@ -1201,3 +1201,93 @@ The new method and dependency changes use focused checks; the previous full
 curated/outside-registry runs above remain the broader baseline. The ten owner
 items now distinguish completed engineering preparation from adoption, migration,
 physical registration, GPU profiling and new scientific measurements.
+
+## Fresh audit after PR 422 (2026-11-14 UTC)
+
+This pass starts at main `73c741a2`. It repeats the whole-tree structural
+inventory and manually reviews data conversion/label preparation, detector
+measurement/reporting, fiber tools, checkpoint cleanup, command launchers and
+diagnostic scope. The [captured review](../reports/repository_audit_2026-11-14.json)
+records the starting tree and reproducible defects. This is not a claim that
+every line or historical scientific conclusion has been independently verified.
+
+The initial tree contains **3341 tracked regular files**, including **1048
+Python files (228725 lines), 185 shell scripts, 454 JSON files, two notebooks
+and ten YAML files**. Python/shell/JSON/YAML structural checks passed, including
+duplicate JSON members and duplicate top-level Python definitions. Header or
+payload checks passed for **247 images, ten NPY files and two ZIP archives**.
+Only the four already catalogued historical JSON files contain NaN constants;
+they remain preserved. The scientific inputs and live research checkout were
+not changed.
+
+### Confirmed corrections
+
+- **False registration success:** the cross-scan launcher imported an alignment
+  function but never called it or wrote a transform. With importable dependencies
+  it printed “Transform saved” and returned successfully; it also created the
+  output directory before dependency checks. It now refuses execution with
+  status 2 and directs users to the separate upstream manual-alignment workflow.
+- **Unsafe, unintegrated nnUNet bridge:** the command only wrote a fixed temporary
+  YAML. Evolving one parameter discarded unrelated template settings, and using
+  that temporary path as input overwrote the input. Trainer generation and
+  training existed only as comments; its default input was absent. It now
+  refuses before reads/writes rather than presenting a working loop integration.
+  Both launchers keep their flags, dependency-free help and
+  [byte-preserved original source](../scripts/archive/legacy_launchers/README.md).
+- **Invented CPU memory capacity and stale GPU peaks:** the memory search returned
+  True without CUDA and printed batch 128/patch 384 as passing sizes. The
+  [repaired probe](VRAM_PROBE.md) now requires CUDA, selects the requested device,
+  resets each trial's peak, releases failed trial objects before cleanup, and
+  distinguishes typed CUDA OOMs from other errors. Its scratch gated_unet
+  forward/backward result excludes optimizer/data-pipeline costs and cannot
+  establish production capacity or prize eligibility. No CUDA trial ran here.
+- **Scope corrections:** the archived sprint board no longer repeats the obsolete
+  global 64-pixel prize cap or treats the scratch probe as a production-capacity
+  measurement. The archived nnUNet status now identifies the missing integration.
+  Other historical results, registrations and measured artifacts are unchanged.
+
+Fifteen regression/feature cases initially failed, including retirement/help
+and preservation guards rather than fifteen distinct bugs. The focused
+post-change selection passed **61 tests** in 5.08 seconds. It includes a real
+small CPU model's forward/backward and controlled allocator/device/OOM tests;
+the latter are software-lifecycle checks, not physical CUDA measurements.
+
+### Verification and decisions still open
+
+Mypy passes on **998 files**, and maintained Ruff passes. The validation
+registry now has **220 curated modules** and **16 portable modules**; the new
+launcher checks need only the minimal CPU test tools. Broader final checks are
+recorded with the completion results below.
+
+The ten owner items above still require their stated decisions or measurements.
+This pass adds explicit scope for the unused random-feature volumetric ink
+demo; it was not promoted into training or deleted merely because it has no
+caller. The current limits remain original-data onboarding/reruns, human-label
+semantics, Python/platform/SDK migrations, package scope and representative GPU
+profiling. Fixing the scratch probe does not supply those measurements.
+
+Completion results for this pass:
+
+- All **220 curated modules** passed: **6001 tests, 42 skipped, 1 xfailed** in
+  550.67 seconds. Skips remain unavailable coverage, including original inputs,
+  history and optional dependencies.
+- A fresh hash-pinned minimal environment passed **392 portable tests** in
+  28.56 seconds, with Torch and Zarr verified absent. Maintained Ruff also passes
+  with that environment's pinned 0.9.10 tool.
+- Documentation, historical-claim and newly integrated research-source guards
+  passed **98 tests** in 20.17 seconds. These do not rerun the scientific studies.
+- Smoke passed **9/11, 2 skipped, 0 failed** in 11.7 seconds; skips need original
+  local CT/labels. Mypy passes on **998 files**; changed Python formatting and
+  offline lock consistency pass. No dependency version changed in this pass.
+- The final staged-tree inventory covers **3349 regular files** and **1052 Python
+  files (229188 lines)**, including the new tests and retained launcher sources.
+  Python/shell/JSON/YAML/TOML/CFF/SVG parsing, duplicate checks, image headers,
+  NPY payloads and ZIP CRC checks found no new failures. The same four historical
+  JSON files retain their catalogued NaN values.
+
+The curated command and captured source hashes are in the
+[review record](../reports/repository_audit_2026-11-14.json). Selections overlap;
+their counts are not additive. The other research modules retain the earlier
+broader baseline; they were not all rerun in this pass. No GPU capacity result,
+GUI registration, nnUNet training, original-data scientific rerun or production
+training performance improvement is claimed.
