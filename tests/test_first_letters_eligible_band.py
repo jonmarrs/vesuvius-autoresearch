@@ -171,3 +171,30 @@ def test_the_by_index_summary_cuts_scored_windings_into_equal_parts_and_names_no
     assert [p["positive"] for p in parts] == [1.0, 0.0, 0.0]
     assert parts[0]["at_least_p1_median"] == 4 and parts[0]["excess_median"] == 0.1
     assert not any(key.startswith("w0") for part in parts for key in part)
+
+
+def _load_spacing():
+    spec = importlib.util.spec_from_file_location(
+        "band_fit_spacing_under_test", HERE / "band_fit_spacing.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+bs = _load_spacing()
+
+
+def test_sheet_spacing_is_where_the_profile_rises_again_and_none_when_it_does_not():
+    offsets = list(bs.OFFSETS)
+    # finding 112's profile of the PHerc. 0211 fit: peak at 0, neighbours near 14
+    share = [0.189, 0.1887, 0.1904, 0.195, 0.2006, 0.2061, 0.2036, 0.1928, 0.1796, 0.169, 0.1731, 0.2199,
+             0.2674, 0.2278, 0.1785, 0.1736, 0.1829, 0.1975, 0.2104, 0.2154, 0.2122, 0.2077, 0.2056, 0.2057,
+             0.2069]  # fmt: skip
+    assert bs.sheet_spacing(offsets, share) == 14.0
+    summary = bs.summarise(offsets, share, [9.0, 9.5, 10.0])
+    assert summary["peak_offset"] == 0 and summary["ratio"] == round(9.5 / 14.0, 3)
+    falling = [0.3 - 0.004 * abs(o) for o in offsets]
+    assert bs.sheet_spacing(offsets, falling) is None
+    assert bs.summarise(offsets, falling, [9.0])["ratio"] is None
