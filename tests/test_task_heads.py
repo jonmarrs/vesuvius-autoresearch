@@ -38,6 +38,32 @@ def _headless():
     return GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 3, padding=1))
 
 
+@pytest.mark.parametrize("rank", [2, 4, 5])
+def test_wrapper_projection_supports_each_ink_output_rank_and_backpropagates(rank):
+    class Backbone(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv = torch.nn.Conv3d(1, 1, 1)
+
+        def forward(self, x):
+            out = self.conv(x)
+            return (
+                out.mean((2, 3, 4)) if rank == 2 else out.mean(2) if rank == 4 else out
+            )
+
+    torch.manual_seed(3)
+    model = GenericMultiTaskWrapper(Backbone())
+    ink, projection = model(torch.rand(2, 1, 4, 8, 8), return_proj=True)
+    assert ink.shape == (2, 1, 8, 8)
+    assert projection.shape == (2, 128)
+    assert torch.isfinite(projection).all()
+    projection[:, 0].sum().backward()
+    for parameter in (model.model.conv.weight, model.projector[2].weight):
+        assert parameter.grad is not None
+        assert torch.isfinite(parameter.grad).all()
+        assert parameter.grad.abs().sum() > 0
+
+
 def test_a_headless_wrapper_returns_the_ink_logits_as_fiber():
     model = _headless()
     x = torch.rand(2, 1, 4, 8, 8)

@@ -7,7 +7,7 @@ not registrations or measured runtimes. The probabilities are judgements, not me
 was run for this review.
 
 The owner's goal is a Progress Prize every month while working towards a milestone prize. The record below
-bounds the first half: bundles of merged fixes earned us \$0, \$0 and \$250 in three months, comparable work by
+bounds the first half: September's confirmed award for merged fixes was \$250; comparable work by
 others earned \$250 to \$1,000, and the \$20,000 awards went to whole unwrapping capabilities shown at scale.
 More of the same work reaches neither goal. The one five-figure prize whose published winning method fits this
 machine is First Letters. So the main line is a
@@ -82,8 +82,9 @@ review.
 | \$1,000 | One coherent enabling capability or documented study: spiral fitting on consumer GPUs, `fit_spiral` fixes, Zarr 3 read fixes, and an end-to-end First Letters attempt on PHerc. 0826 published with its commands, failures and costs. |
 | \$250 to \$500 | A bundle of merged fixes, or one fix that bites: a renderer memory fix (\$500), a shared disk cache (\$250), spiralising PHerc. 0211 (\$250). |
 
-Ours: July \$0, August \$0, September \$250 for merged Villa PRs ([award record](PROGRESS_PRIZE_AWARDS.md)). The
-September award shows that this kind of work can be recognized. It does not establish an award probability.
+Our [local award record](PROGRESS_PRIZE_AWARDS.md) confirms September's \$250 for merged Villa PRs.
+It does not record July or August totals, so those months are unverified here rather than recorded as zero.
+The September award shows that this kind of work can be recognized. It does not establish an award probability.
 
 Three further facts set the ranking:
 
@@ -146,7 +147,9 @@ only. Recheck both before choosing a scroll.
   an end-to-end attempt on PHerc. 0826 and a spiral fit of PHerc. 0211.
 - The PHerc. 343 author reports rented RTX 4090/5090 machines and a local RTX 3090. The render and the ink models
   fit this host (8 minutes, and 17 minutes for the eight jobs of one depth, at a peak of 3,174 MiB of GPU
-  memory). Whether the spiral fit and the flattening fit its 4 cores and 31 GB of RAM is unmeasured.
+  memory). The mesh step subsequently ran on this host in about 3.5 hours
+  ([finding 110](../reports/first_letters_343_mesh_step.md)); that establishes capacity on the PHerc. 343 band,
+  not on other scrolls or larger bands.
 
 **Controls, fixed before any eligible-scroll result is read.**
 

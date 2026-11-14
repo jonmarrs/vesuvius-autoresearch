@@ -1,8 +1,11 @@
+import importlib
 import os
+import tracemalloc
 
 import cv2
 import numpy as np
 import pytest
+import torch
 
 from vesuvius_autoresearch.detector import data as D
 from vesuvius_autoresearch.detector.config import DetectorConfig
@@ -23,6 +26,108 @@ def _make_fake_fragment(root, frag, h=320, w=320, ink_box=(40, 40, 200, 200)):
     cv2.imwrite(
         os.path.join(root, frag, f"{frag}_mask.png"), np.full((h, w), 255, np.uint8)
     )
+
+
+def _legacy_volume_mask(cfg, fragment_id):
+    """Independent reference for the former padding/stacking recipe."""
+    layers = []
+    for index in range(cfg.start_idx, cfg.end_idx):
+        plane = cv2.imread(
+            str(os.path.join(cfg.data_root, fragment_id, "layers", f"{index:02d}.tif")),
+            0,
+        )
+        height, width = plane.shape
+        pad = (
+            (0, cfg.tile_size - height % cfg.tile_size),
+            (0, cfg.tile_size - width % cfg.tile_size),
+        )
+        layers.append(np.clip(np.pad(plane, pad), 0, 200))
+    mask = cv2.imread(
+        str(os.path.join(cfg.data_root, fragment_id, f"{fragment_id}_mask.png")), 0
+    )
+    return np.stack(layers, axis=2), np.pad(mask, pad), (height, width)
+
+
+@pytest.mark.parametrize("shape", [(256, 256), (256, 320), (320, 256), (320, 320)])
+def test_detector_uses_minimum_padding_and_preserves_clipped_ct(tmp_path, shape):
+    height, width = shape
+    _make_fake_fragment(str(tmp_path), "frag", h=height, w=width)
+    first = tmp_path / "frag/layers/17.tif"
+    values = cv2.imread(str(first), 0)
+    values[0, 0] = 255
+    assert cv2.imwrite(str(first), values)
+    cfg = DetectorConfig(data_root=str(tmp_path))
+    images, mask, original = D.read_volume_mask(cfg, "frag")
+    expected = tuple(
+        (size + cfg.tile_size - 1) // cfg.tile_size * cfg.tile_size for size in shape
+    )
+    assert images.shape == (*expected, cfg.in_chans)
+    assert mask.shape == expected
+    assert original == shape
+    assert images.dtype == np.uint8
+    for channel, layer in ((0, cfg.start_idx), (cfg.in_chans - 1, cfg.end_idx - 1)):
+        plane = cv2.imread(str(tmp_path / "frag/layers" / f"{layer:02d}.tif"), 0)
+        np.testing.assert_array_equal(
+            images[:height, :width, channel], np.clip(plane, 0, 200)
+        )
+    assert not images[height:].any() and not images[:, width:].any()
+    assert not mask[height:].any() and not mask[:, width:].any()
+
+
+def test_detector_loading_keeps_traced_buffer_peak_below_two_full_stacks(tmp_path):
+    # Unaligned dimensions isolate stacking overhead from the padding correction.
+    # This measures traced allocations, not OpenCV/native or whole-process RSS.
+    _make_fake_fragment(str(tmp_path), "frag", h=264, w=264)
+    cfg = DetectorConfig(data_root=str(tmp_path))
+    tracemalloc.start()
+    try:
+        images, _, _ = D.read_volume_mask(cfg, "frag")
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert images.shape == (512, 512, cfg.in_chans)
+    assert peak < images.nbytes * 1.5 + 1024**2, (peak, images.nbytes)
+
+
+@pytest.mark.parametrize("shape", [(256, 256), (256, 320), (320, 256), (320, 320)])
+@pytest.mark.parametrize("is_valid", [False, True])
+def test_detector_tiles_and_labels_match_legacy_padding(
+    tmp_path, monkeypatch, shape, is_valid
+):
+    _make_fake_fragment(str(tmp_path), "frag", h=shape[0], w=shape[1])
+    cfg = DetectorConfig(data_root=str(tmp_path))
+    actual = D._tiles_for_fragment(cfg, "frag", is_valid)
+    monkeypatch.setattr(D, "read_volume_mask", _legacy_volume_mask)
+    previous = D._tiles_for_fragment(cfg, "frag", is_valid)
+    assert actual[2:] == previous[2:]
+    for current, old in zip(actual[:2], previous[:2], strict=True):
+        assert len(current) == len(old) > 0
+        for first, second in zip(current, old, strict=True):
+            np.testing.assert_array_equal(first, second)
+
+
+def test_detector_inference_maps_and_coverage_match_legacy_padding(
+    tmp_path, monkeypatch
+):
+    inference = importlib.import_module("vesuvius_autoresearch.detector.infer")
+    _make_fake_fragment(str(tmp_path), "frag", h=256, w=320)
+    cfg = DetectorConfig(data_root=str(tmp_path))
+
+    class PatchMean(torch.nn.Module):
+        def forward(self, x):
+            return x.mean((2, 3, 4))[:, :, None, None]
+
+    model = PatchMean()
+    actual = inference.infer(
+        cfg, None, "frag", model=model, batch_size=7, return_details=True
+    )
+    monkeypatch.setattr(inference, "read_volume_mask", _legacy_volume_mask)
+    previous = inference.infer(
+        cfg, None, "frag", model=model, batch_size=7, return_details=True
+    )
+    for name in ("probability", "coverage", "fragment_mask"):
+        np.testing.assert_array_equal(getattr(actual, name), getattr(previous, name))
+    assert actual.summary == previous.summary
 
 
 def test_read_image_mask_stacks_26_depth(tmp_path):
@@ -72,7 +177,9 @@ def test_missing_layer_reports_the_path(tmp_path):
 
 def test_ambiguous_labels_are_rejected(tmp_path):
     _make_fake_fragment(str(tmp_path), "frag", h=64, w=64)
-    cv2.imwrite(str(tmp_path / "frag/other_inklabels.png"), np.zeros((64, 64), np.uint8))
+    cv2.imwrite(
+        str(tmp_path / "frag/other_inklabels.png"), np.zeros((64, 64), np.uint8)
+    )
     with pytest.raises(ValueError, match="exactly one inklabels"):
         D.read_image_mask(DetectorConfig(data_root=str(tmp_path)), "frag")
 
