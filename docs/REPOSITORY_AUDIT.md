@@ -259,7 +259,7 @@ decision for the missing-input failures identified above.
 
 ## Items for owner review
 
-The nine remaining items below are in suggested work order, not a claim that
+The ten remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
@@ -271,8 +271,18 @@ each has caused a measured scientific failure.
 | Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
+| Medium | **Future research gates need an explicit precision contract.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. A [synthetic boundary probe](../reports/repository_audit_2026-11-13_integrated.json) produces raw AUC 0.74996, stores 0.75 and changes `BLOB_LEVEL_SIGNAL` to `LETTER_LEVEL_SIGNAL`. The published held-out rows remain below the line; this is not a retraction of their verdict. | For the next registered run, choose a versioned implementation that gates full-precision values and rounds only presentation. Preserve the as-run code/records and bind the new implementation to its registration before measurement; do not retroactively change the earlier method. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 | Lower | **Legacy model and optional adapter support need an explicit scope.** The [shared architecture list](../src/vesuvius_autoresearch/core/inference_constants.py) retains `resnet3d` and `i3d` as training-only names; the inference factory rejects them. The optional [Villa TTA adapter](../src/vesuvius_autoresearch/core/villa_inference.py) has no maintained command caller, and its default concatenation expects matching task-tensor ranks, unlike the current ink/fiber/QC outputs. | Decide whether these are documented experiments, supported public interfaces or candidates for retirement. Preserve compatibility until that choice is made; support would need architecture-specific checkpoint reconstruction and a deliberate mixed-output TTA contract. |
+
+The new First Letters image, mesh and surface controls are recorded in the
+[current strategy](RESEARCH_STRATEGY.md). They supply real-data evidence for
+that campaign; they do not rerun the older surface-renderer/confidence studies
+or validate the separate training-data importer. Broader remote-URI identity
+normalization also remains a source-contract decision: the Python volume
+wrapper currently supports local inputs, and version/query distinctions must
+be considered before remote training is enabled.
+
 
 ## Verification record
 
@@ -1029,8 +1039,101 @@ Mypy passed on **978 files**; maintained Ruff passed. Smoke passed **9/11,
 2 skipped, 0 failed** in 12.3 seconds, with original-data skips. No new dependency
 versions, running research state, measured artifacts or frozen sources changed.
 
-The nine owner-review items above remain. Original-fragment/GPU runs,
+At that stage there were nine owner-review items; the current table includes
+later findings. This pass supplied no original-fragment/GPU runs,
 full-scroll resource profiles, standalone-wheel support and historical-artifact
 migrations were not supplied by this pass. In particular, old checkpoints whose
 stored configs contain Infinity are retained unchanged; normalizing a new
 training config is not a rewrite of an older artifact.
+
+## Current-main integration and detector-loader follow-up
+
+This pass integrated main `2a80588c` with the preceding audit fixes, yielding
+review baseline `761e24c5`. Main adds the recorded PHerc. 343 mesh reproduction,
+PHerc. 0841 surface control and further sampler/input tests. The roadmap now
+identifies those completed controls and the next eligible-scroll detection
+test. The strategy's older statement that the mesh stage's hardware capacity
+was unmeasured now points to finding 110. Existing registrations, as-run
+scripts, scientific records and the live research checkout were preserved.
+
+### Inventory and confirmed corrections
+
+The integrated starting tree contains **3328 tracked regular files**, including
+**1043 Python files (226526 lines), 184 shell scripts, 450 JSON files, two
+notebooks and ten YAML files**. Parsing, shell syntax, duplicate-definition and
+duplicate-JSON-member checks found no new structural failures. The same four
+catalogued historical JSON files retain NaN tokens. Structure/header checks
+passed for 247 images, ten NPY payloads and both ZIP archives. This remains a
+whole-tree inventory with focused manual workflow review, not independent
+verification of every historical result or every line of upstream code.
+
+Three defects were corrected:
+
+- The detector padded an aligned axis by a whole extra tile. It now pads only
+  to the next tile boundary. Original CT clipping, usable training tiles,
+  label values, probability maps and coverage match the former recipe in the
+  regression comparisons, including inputs aligned on one or both axes.
+- The loader retained every padded CT plane while allocating a second stacked
+  volume. It now fills one final zero-padded stack with per-plane temporaries.
+  The full padded CT still resides in host RAM; this is not streaming inference.
+- Coherence imports could select an already installed `vesuvius` module and
+  depended on import order. The diagnostic now uses the shared private leaf
+  loader for this checkout's Villa file. A missing pin raises ImportError for
+  the optional diagnostic rather than falling back to another implementation.
+  Ordinary imports preserve other callers' module/path state. Direct launches
+  bootstrap this checkout, and the CLI adds explicit `--device cpu` support.
+
+Seven new regression/feature cases failed before these changes; ten compatible-
+output controls already passed. After correction, seven affected modules passed
+**292 tests, 1 skipped** in 49.06 seconds. The detector-data module is now in the
+curated registry, raising it to 217 modules; the portable profile stays at fifteen.
+
+The [captured synthetic checks](../reports/repository_audit_2026-11-13_integrated.json)
+bind the baseline/current loader source hashes and describe the input recipe:
+
+| Input Y/X | Final CT array bytes, before → after | Traced peak bytes, before → after |
+| --- | --- | --- |
+| 256 × 256 | 6815744 → 1703936 | 13665025 → 1910991 |
+| 264 × 264 | 6815744 → 6815744 | 13654475 → 7227323 |
+
+The trace covers Python/NumPy allocations during loading. Package imports,
+OpenCV/native allocations, whole-process RSS and GPU memory are outside its
+scope. It is not a throughput measurement or a real-data GPU fit guarantee.
+
+### Research-method observation retained for review
+
+A valid synthetic rank-score field gives AUC **0.74996**. Finding 111's as-run
+calculator records **0.75** before evaluating P2 and therefore reports
+`LETTER_LEVEL_SIGNAL`; evaluating the threshold at raw precision gives
+`BLOB_LEVEL_SIGNAL`. Its slid floor is 0.5083, so P1 holds in either case. The
+published held-out AUCs, 0.7478 and 0.7194, remain below 0.75 and are unaffected
+by this boundary example. The frozen method and its result were not rewritten.
+The tenth owner item calls for a versioned precision contract before a new
+registered run uses this logic.
+
+### Verification
+
+- All **217 curated modules** passed: **5933 tests, 42 skipped, 1 xfailed** in
+  732.99 seconds.
+- The other **253 test modules** passed: **2607 tests, 155 skipped** in 658.04
+  seconds, with no collection errors. Original data, historical revisions and
+  external checkouts remain unavailable coverage. These checks include the
+  newly merged reproduction/analysis tests; they are not reruns of those studies.
+- Mypy passed on **989 files**. Maintained Ruff, all five changed Python files'
+  formatting and offline lock consistency pass. Dependency versions are unchanged.
+- A fresh hash-pinned minimal environment passed **380 portable tests** in
+  30.00 seconds, with Torch and Zarr absent. Smoke passed **9/11, 2 skipped,
+  0 failed** in 15.8 seconds; skips require original local CT/labels.
+
+The complete curated command used the existing CPU review interpreter:
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short --junitxml=/tmp/vesuvius-integrated-curated.xml -o faulthandler_timeout=90
+```
+
+The outside selection used every `tests/**/test_*.py` absent from
+`VALIDATION_TESTS`, with the same CPU/thread settings, `pytest -q --tb=short
+--continue-on-collection-errors`, a JUnit report and the 90-second faulthandler
+diagnostic. The ten current owner items above distinguish these software checks
+and the newly merged campaign evidence from remaining real-data/GPU, interface,
+dependency and future-method decisions.

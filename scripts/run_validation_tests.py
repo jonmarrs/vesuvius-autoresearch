@@ -125,6 +125,7 @@ VALIDATION_TESTS = [
     "tests/test_legacy_figure_retirement.py",
     "tests/test_volume_read_contracts.py",
     "tests/test_detector_contracts.py",
+    "tests/test_detector_data.py",
     "tests/test_detector_evaluation_inputs.py",
     "tests/test_detector_training_preflight.py",
     "tests/test_detector_train.py",

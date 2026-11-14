@@ -7,21 +7,31 @@ import math
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if __name__ == "__main__":
+    # Direct/isolated launches must use this checkout's helpers too.
+    sys.path[:0] = [str(ROOT), str(ROOT / "src")]
+
 import numpy as np
 import torch
 import zarr
 
-# Villa from this checkout, wherever the caller runs.
-VILLA_SRC = str(Path(__file__).resolve().parents[1] / "villa" / "vesuvius" / "src")
-if VILLA_SRC not in sys.path:
-    sys.path.append(VILLA_SRC)
+from vesuvius_autoresearch.core.villa_modules import load_villa_leaf
 
-# An ImportError reaches the caller (predict.py reports it); this exited the
-# whole process at import, after predict had written its outputs.
-from vesuvius.image_proc.geometry.structure_tensor import (  # noqa: E402
-    StructureTensorComputer,
-    eigendecompose,
-)
+# This file is a leaf: loading it privately neither selects an installed
+# vesuvius snapshot nor replaces another caller's vesuvius modules.
+try:
+    _structure_tensor = load_villa_leaf(
+        "vesuvius/src/vesuvius/image_proc/geometry/structure_tensor.py"
+    )
+except FileNotFoundError as exc:
+    # Keep the optional diagnostic's ImportError contract for callers/skips.
+    raise ImportError(
+        "pinned Villa structure-tensor source is unavailable; run "
+        "`git submodule update --init villa`"
+    ) from exc
+StructureTensorComputer = _structure_tensor.StructureTensorComputer
+eigendecompose = _structure_tensor.eigendecompose
 
 
 def compute_coherence(volume_data, sigma=1.0, device="cuda", integration=3.0):
@@ -100,6 +110,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Path to Zarr volume")
     parser.add_argument("--sigma", type=float, default=1.0)
+    parser.add_argument(
+        "--device",
+        default="cuda",
+        help="Torch device: cpu, cuda or cuda:N (default: cuda)",
+    )
     args = parser.parse_args()
 
     z = zarr.open(args.input, mode="r")
@@ -108,7 +123,7 @@ def main():
     else:
         data = np.array(z)
 
-    score = compute_coherence(data, sigma=args.sigma)
+    score = compute_coherence(data, sigma=args.sigma, device=args.device)
     print(f"Fiber Coherence Score: {score:.6f}")
 
 

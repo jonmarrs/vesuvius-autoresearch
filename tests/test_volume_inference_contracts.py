@@ -1,10 +1,13 @@
 """Regional CT inference must preserve geometry, features, and export provenance."""
 
+import importlib.util
 import json
+import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
+from types import ModuleType
 
 import numpy as np
 import pytest
@@ -22,6 +25,69 @@ from vesuvius_autoresearch.core.inference import (
     multitask_inference_recipe,
     multitask_probabilities,
 )
+
+
+def _fresh_coherence():
+    path = Path(__file__).resolve().parents[1] / "scripts/compute_fiber_coherence.py"
+    spec = importlib.util.spec_from_file_location("_coherence_source_probe", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_coherence_source_is_this_checkouts_villa_without_import_pollution(monkeypatch):
+    name = "vesuvius.image_proc.geometry.structure_tensor"
+    installed = ModuleType(name)
+
+    class WrongComputer:
+        def __init__(self, **kwargs):
+            pytest.fail("coherence used an unrelated installed vesuvius module")
+
+    installed.StructureTensorComputer = WrongComputer
+    installed.eigendecompose = lambda *args: pytest.fail(
+        "wrong eigendecomposition source"
+    )
+    monkeypatch.setitem(sys.modules, name, installed)
+    before = list(sys.path)
+    coherence = _fresh_coherence()
+    assert coherence.compute_coherence(np.ones((16, 24)), device="cpu") == 0
+    source = Path(sys.modules[coherence.StructureTensorComputer.__module__].__file__)
+    assert (
+        source.resolve()
+        == (
+            Path(__file__).resolve().parents[1]
+            / "villa/vesuvius/src/vesuvius/image_proc/geometry/structure_tensor.py"
+        ).resolve()
+    )
+    assert sys.modules[name] is installed
+    assert sys.path == before
+
+
+def test_coherence_requires_its_pinned_source_even_with_an_installed_package(
+    tmp_path, monkeypatch
+):
+    from vesuvius_autoresearch.core import villa_modules
+
+    monkeypatch.setattr(villa_modules, "VILLA_ROOT", tmp_path / "missing-villa")
+    with pytest.raises(ImportError, match="pinned.*[Vv]illa"):
+        _fresh_coherence()
+
+
+def test_coherence_cli_can_run_on_cpu_from_another_directory(tmp_path):
+    volume = tmp_path / "field.zarr"
+    zarr.open(str(volume), mode="w", shape=(16, 24), dtype="f4")[:] = np.indices(
+        (16, 24)
+    )[1]
+    script = Path(__file__).resolve().parents[1] / "scripts/compute_fiber_coherence.py"
+    process = subprocess.run(
+        [sys.executable, "-I", str(script), "--input", str(volume), "--device", "cpu"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert process.returncode == 0, process.stdout + process.stderr
+    assert float(process.stdout.rsplit(":", 1)[1]) > 0.99
 
 
 class ConstantHeads(torch.nn.Module):
