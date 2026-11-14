@@ -6,10 +6,5 @@ set -u
 . "$(dirname "$0")/env.sh"
 HERE=$(cd "$(dirname "$0")" && pwd)
 ARM=${1:?usage: run_quality.sh full|smoke}
-found=()
-for d in "$R/work/fit_$ARM"/*/meshes/*/; do
-  case "$d" in *_spliced/) continue ;; esac
-  [ -d "$d" ] && found+=("${d%/}")
-done
-[ "${#found[@]}" -eq 1 ] || { echo "expected one mesh folder under $R/work/fit_$ARM/*/meshes, found ${#found[@]}" >&2; exit 2; }
-"$PY" -I "$HERE/band_fit_quality.py" "$R/work/quality_$ARM.json" "$SDT" "${found[0]}"
+MESHES=$(fit_meshes "$ARM") || exit 2
+"$PY" -I "$HERE/band_fit_quality.py" "$R/work/quality_$ARM.json" "$SDT" "$MESHES"

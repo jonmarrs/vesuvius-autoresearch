@@ -39,6 +39,8 @@ UMBILICUS_KEY=$SCROLL/representations/umbilicus/$VOLUME_ID-umbilicus-$UMBILICUS_
 TRACKS_STEM=${SCROLL}_${VOLUME_ID}_surface_m7_L0_th0.2
 SDT=$R/work/surf_sdt/${SCROLL}_surf_sdt.ome.zarr
 RENDER_IMG=vc-render:sampler-75c79ac5f
+RENDER_SHA=75c79ac5f506d4b9a89bcfbef8e8c0f2f0c3acb3
+VILLA_SHA=0fb38c45b488e192566ea83ae36369cb6db92652
 export PYTHONPATH=$M/native/build PYTHONNOUSERSITE=1
 mkdir -p "$R/work" "$R/logs"
 
@@ -46,4 +48,15 @@ mkdir -p "$R/work" "$R/logs"
 gate() {  # ARM NAME EXIT SECONDS [EXTRA_JSON_FIELDS]
   mkdir -p "$R/work/gate_$1"
   printf '{"exit": %s, "seconds": %s%s}\n' "$3" "$4" "${5:+, $5}" > "$R/work/gate_$1/$2.json"
+}
+
+# The folder of raw windings a fit arm wrote: R/work/fit_ARM/<run>/meshes/<one folder>/wNNN.
+fit_meshes() {
+  local found=()
+  for d in "$R/work/fit_$1"/*/meshes/*/; do
+    case "$d" in *_spliced/) continue ;; esac
+    [ -d "$d" ] && found+=("${d%/}")
+  done
+  [ "${#found[@]}" -eq 1 ] || { echo "expected one mesh folder under $R/work/fit_$1/*/meshes, found ${#found[@]}" >&2; return 1; }
+  echo "${found[0]}"
 }
