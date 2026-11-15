@@ -117,6 +117,7 @@ VALIDATION_TESTS = [
     "tests/test_regional_artifact_plan.py",
     "tests/test_regional_resource_plan.py",
     "tests/test_regional_resource_preflight.py",
+    "tests/test_regional_memory_profile.py",
     "tests/test_research_prerequisites.py",
     "tests/test_recover_arm_precheck.py",
     "tests/test_proofreader_launcher.py",

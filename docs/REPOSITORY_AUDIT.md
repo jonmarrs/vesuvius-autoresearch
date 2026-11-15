@@ -267,7 +267,7 @@ each has caused a measured scientific failure.
 | High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the later migrations. The [November 14 review](../reports/dependency_migration_review_2026-11-14.json) records Pillow 12.1.1 → 12.3.0. The [November 15 review](../reports/dependency_migration_review_2026-11-15.json) records non-Windows WEBKNOSSOS 4.3.3, aiohttp 3.14.5, dotenv 1.2.4 and cryptography 50.0.2, with Python 3.10 workflow/native checks and unchanged Windows package selection. Fresh version-specific PyPI lookups report 89 → 0 raw records across the three latter packages. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize the remaining applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. Windows still selects the old SDK/aiohttp/dotenv chain because newer SDKs pin TensorStore below this project's minimum. Newer Virtualenv still conflicts with SDK typing-extensions constraints on Python 3.10. Decide Python/platform support before those migrations. GitHub's advisory API previously returned HTTP 403; public matching and CPU checks do not replace alert access, Windows execution or GPU validation. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
-| Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The repaired [scratch CUDA probe](VRAM_PROBE.md) measures a separate gated_unet forward/backward path; it does not profile these regional commands or production training. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
+| Medium | **Regional peak memory and ensemble residency still need representative GPU measurements.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) cap three persistent float32 blend planes and load saved state on CPU. The opt-in [regional profiler](VOLUME_INFERENCE.md#regional-memory-observations) now records process RSS, OS lifetime high-water RSS and selected-device PyTorch allocator peaks through the latest metadata observation. Synthetic CPU checks preserve output probabilities exactly; the CUDA path has only mocked API coverage. Whole-region arrays and all ensemble members remain resident. | Run `--profile_memory` on the 4090 with representative source/model/export settings before choosing streaming accumulators or sequential member residency. The 512 MiB cap remains an acceptance policy. CPU lifetime peaks include earlier process work; CUDA allocator peaks exclude other allocators/processes and device-context overhead, and are not independent phase peaks or fit guarantees. The [scratch CUDA probe](VRAM_PROBE.md) is a separate forward/backward path. [Production](../scripts/production_predict.py) remains outside the new regional profiling scope; no real GPU/full-scroll peak or throughput result was measured here. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
 | Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
@@ -1450,3 +1450,48 @@ An explicitly selected sibling checkout's `src` still takes precedence. Review
 found no additional code defects within this scope. The packaging guide now
 calls separately supplied trained checkpoints by name. The report retains this
 review separately from the earlier complete-run and wheel evidence.
+
+## Regional-memory follow-up (2026-11-15 UTC)
+
+This pass starts from merged main `3581fe40`. The regional resource item now
+has an opt-in [measurement path](VOLUME_INFERENCE.md#regional-memory-observations)
+for both single-model and ensemble commands. `--profile_memory` adds phased
+observations to the existing protected metadata sidecar. Default runs do not
+initialize the profiler or gain a memory-profile field. No allocation policy,
+probability recipe, model residency or scientific registration changed.
+
+The profiler starts after first-checkpoint configuration and accumulator-budget
+preflight, before constructing a model. It records process RSS and the OS's
+process-lifetime high-water RSS, keeping their distinct sources and units. On
+CUDA it records the selected device's name/capacity and Torch build, resets that
+device's PyTorch peak counters once, and synchronizes at phase observations.
+Those allocator peaks are cumulative and include already-live allocations;
+they exclude other allocators, device-context overhead and other processes.
+Sampling ends before the latest metadata JSON serialization. This is an
+observed-counter record, not a capacity estimate or fit guarantee.
+
+The [review record](../reports/regional_memory_review_2026-11-15.json) retains
+source/lock hashes, scope, commands and the raw synthetic CPU observations:
+
+- The regional/artifact/queue/runner/wheel selection passed **371 tests** in
+  77.62 seconds. The final memory-profile/production selection passed **60
+  tests** in 10.87 seconds, including optional uncertainty/coherence and the
+  production callers of the shared metadata writer. These selections overlap.
+- Tests verify opt-in behavior, unchanged probability arrays, byte units,
+  CPU lifetime-peak scope, null unavailable peaks, selected-device CUDA calls
+  with a single reset, unchanged memory refusal and absence of success metadata
+  after a primary measurement failure. CUDA behavior uses mocked APIs.
+- Fresh CPU CLI processes ran a small single-model case and two-member ensemble
+  with synthetic uint16 CT and random, untrained `gated_unet` checkpoints.
+  Profiling on/off produced exactly equal ink/fiber probability arrays. The
+  recorded RSS values validate the collection path, not representative capacity.
+- Mypy passes on **1007 files**; maintained Ruff, changed Python formatting and
+  offline lock consistency pass. Psutil is now a direct dependency; its locked
+  version remains **6.0.0**, and all resolved package versions are unchanged.
+  The curated registry now has **223 modules**, with **16 portable modules**.
+
+The nine owner-review items remain open. Actual CUDA counters and representative
+4090 source/model/export settings still need a GPU run before choosing streaming
+accumulators, sequential member residency or different limits. No full curated
+suite repeat, real-data accuracy measurement, production-path memory profile,
+Windows/macOS runtime check or GPU throughput result is supplied by this pass.
