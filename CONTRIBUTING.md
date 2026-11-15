@@ -67,6 +67,11 @@ fail selected checks when those inputs are absent. See the
 policies and research dependencies remain separate. Record these gaps explicitly.
 A smoke pass is not a full validation run.
 
+The complete `tests/` selection includes real model inference and small training
+runs on synthetic fragments, alongside data/history-dependent checks. On CPU it
+can take several minutes beyond the curated suite. The portable profile is the
+fast workflow check; missing original inputs remain unavailable coverage.
+
 Local training-data conversion has a maintained CPU
 [TIFF/PNG import workflow](docs/TRAINING_DATA_IMPORT.md) with pinned sources and
 new-directory publication. Its tests need the full project's CPU scientific

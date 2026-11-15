@@ -11,6 +11,26 @@ weights fail before dataset reads; partial warm starts remain a training concern
 Files without recorded input settings require verification of their training
 configuration before use, rather than guesses from a current experiment.
 
+## CT structure coherence
+
+For a bounded numeric Zarr field, use the project interpreter:
+
+```sh
+uv run python scripts/compute_fiber_coherence.py --input /path/to/small-field.zarr --device cpu
+```
+
+The default device remains `cuda`; `cuda:N` selects a particular GPU. This
+command loads this checkout's Villa structure-tensor file directly. Initialize
+the pinned Villa submodule before using it. It loads the complete selected
+array and reflected filter context, so choose a bounded crop that fits the
+selected device.
+
+The result is fractional anisotropy of a 2D or 3D field. Both fibres and sheets
+can score highly; this is a structural diagnostic, not ink accuracy or confidence.
+Singleton depth axes are dropped. Regional prediction's `--compute_coherence`
+scores the displayed CT slice using the prediction device and records its value
+in that run's metadata.
+
 ## Masked patch AUC
 
 ```bash

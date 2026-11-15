@@ -7,7 +7,24 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 
-from vesuvius_autoresearch.core.inference_constants import DEPTH_MARGIN
+from vesuvius_autoresearch.core.inference_constants import (
+    DEPTH_MARGIN,
+    validate_architecture,
+)
+
+
+def validate_augmentation_mode(value):
+    if not isinstance(value, str) or value not in {
+        "albumentations",
+        "batchgeneratorsv2",
+    }:
+        raise ValueError(f"unknown aug_mode: {value!r}")
+    return value
+
+
+def validate_training_choices(config):
+    validate_architecture(getattr(config, "architecture", "gated_unet"), training=True)
+    validate_augmentation_mode(getattr(config, "aug_mode", "albumentations"))
 
 
 def configuration_fingerprint(values: dict) -> str:
@@ -164,7 +181,8 @@ class ExperimentConfig:
     # branch-LENGTH histograms (villa's 3D fiber/surface track), blind to spatial location
     # and recall and hypersensitive to fragmentation, so it is uncorrelated with
     # ink-detection quality. See FINDINGS.md "Phase 4b" and scripts/probe_skel_dist_validity.py.
-    max_prize_skel_dist: float = float("inf")
+    # None records the inactive legacy gate without nonstandard JSON Infinity.
+    max_prize_skel_dist: float | None = None
     max_prize_cc_diff: float = 64.0
     min_prize_topology_samples: int = 1
 
@@ -185,6 +203,9 @@ class ExperimentConfig:
     strict_training_reads: bool = False
 
     def __post_init__(self):
+        validate_training_choices(self)
+        if self.max_prize_skel_dist == float("inf"):
+            self.max_prize_skel_dist = None
         if self.depth_band is not None:
             band = self.depth_band
             if (

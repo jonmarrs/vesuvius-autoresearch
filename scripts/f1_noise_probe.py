@@ -110,10 +110,6 @@ def make_plan(config_path, checkpoint, output, *, runs=4, timeout=None):
     ):
         raise ValueError("timeout must be positive and finite")
     config = asdict(cfg)
-    # The legacy, unused skeleton gate defaults to +inf. Omit that exact default
-    # so JSON stays strict; ExperimentConfig restores it when loading each trial.
-    if config["max_prize_skel_dist"] == math.inf:
-        config.pop("max_prize_skel_dist")
     json.dumps(config, allow_nan=False)
     sources = [config_path, checkpoint, RUNNER, TRAINER]
     sources.extend((REPO / "scripts", REPO / "src", VILLA))

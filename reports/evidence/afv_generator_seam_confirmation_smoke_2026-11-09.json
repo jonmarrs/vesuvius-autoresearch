@@ -1,0 +1,188 @@
+{
+ "cube": "s3_00994_00494_01994_512",
+ "identity_problems": [],
+ "reproduces": {
+  "one/main": true,
+  "real/main": true,
+  "real/trim": true,
+  "real/trim+dup": true
+ },
+ "rows": {
+  "one/main": {
+   "tol2": {
+    "scoring_version": 3,
+    "erl": 19.41,
+    "erl_merge_penalized": 17.63,
+    "erl_covered": 70.21,
+    "erl_merge_penalized_covered": 63.79,
+    "coverage": 0.2764,
+    "precision": 0.6952,
+    "splits": 3344,
+    "merges": 36,
+    "merged_instances": 30,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 494,
+    "gt_length": 228362.2,
+    "pred_length": 114567.0,
+    "tolerance": 2.0
+   },
+   "tol4": {
+    "scoring_version": 3,
+    "erl": 67.53,
+    "erl_merge_penalized": 48.47,
+    "erl_covered": 205.0,
+    "erl_merge_penalized_covered": 147.12,
+    "coverage": 0.3294,
+    "precision": 0.8224,
+    "splits": 509,
+    "merges": 135,
+    "merged_instances": 97,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 494,
+    "gt_length": 228362.2,
+    "pred_length": 114567.0,
+    "tolerance": 4.0
+   },
+   "written": 494,
+   "length": 87012.0,
+   "duplicated_share": 0.0001,
+   "crossings": {
+    "whole": 183,
+    "broken": 0,
+    "lost": 0
+   }
+  },
+  "real/main": {
+   "tol2": {
+    "scoring_version": 3,
+    "erl": 16.41,
+    "erl_merge_penalized": 15.11,
+    "erl_covered": 57.18,
+    "erl_merge_penalized_covered": 52.64,
+    "coverage": 0.2869,
+    "precision": 0.6839,
+    "splits": 6082,
+    "merges": 43,
+    "merged_instances": 37,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 639,
+    "gt_length": 228362.2,
+    "pred_length": 127306.0,
+    "tolerance": 2.0
+   },
+   "tol4": {
+    "scoring_version": 3,
+    "erl": 48.95,
+    "erl_merge_penalized": 37.67,
+    "erl_covered": 143.8,
+    "erl_merge_penalized_covered": 110.67,
+    "coverage": 0.3404,
+    "precision": 0.8127,
+    "splits": 3584,
+    "merges": 143,
+    "merged_instances": 112,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 639,
+    "gt_length": 228362.2,
+    "pred_length": 127306.0,
+    "tolerance": 4.0
+   },
+   "written": 639,
+   "length": 105864.0,
+   "duplicated_share": 0.2477,
+   "crossings": {
+    "whole": 118,
+    "broken": 36,
+    "lost": 29
+   }
+  },
+  "real/trim": {
+   "tol2": {
+    "scoring_version": 3,
+    "erl": 18.46,
+    "erl_merge_penalized": 16.75,
+    "erl_covered": 66.61,
+    "erl_merge_penalized_covered": 60.44,
+    "coverage": 0.2772,
+    "precision": 0.6908,
+    "splits": 3889,
+    "merges": 38,
+    "merged_instances": 32,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 524,
+    "gt_length": 228362.2,
+    "pred_length": 116422.0,
+    "tolerance": 2.0
+   },
+   "tol4": {
+    "scoring_version": 3,
+    "erl": 63.01,
+    "erl_merge_penalized": 46.5,
+    "erl_covered": 191.21,
+    "erl_merge_penalized_covered": 141.1,
+    "coverage": 0.3295,
+    "precision": 0.8155,
+    "splits": 1237,
+    "merges": 139,
+    "merged_instances": 106,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 524,
+    "gt_length": 228362.2,
+    "pred_length": 116422.0,
+    "tolerance": 4.0
+   },
+   "written": 524,
+   "length": 90873.5,
+   "duplicated_share": 0.0732,
+   "crossings": {
+    "whole": 123,
+    "broken": 15,
+    "lost": 45
+   }
+  },
+  "real/trim+dup": {
+   "tol2": {
+    "scoring_version": 3,
+    "erl": 19.21,
+    "erl_merge_penalized": 17.43,
+    "erl_covered": 68.75,
+    "erl_merge_penalized_covered": 62.36,
+    "coverage": 0.2794,
+    "precision": 0.6915,
+    "splits": 3443,
+    "merges": 37,
+    "merged_instances": 31,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 505,
+    "gt_length": 228362.2,
+    "pred_length": 116413.0,
+    "tolerance": 2.0
+   },
+   "tol4": {
+    "scoring_version": 3,
+    "erl": 67.04,
+    "erl_merge_penalized": 48.76,
+    "erl_covered": 201.68,
+    "erl_merge_penalized_covered": 146.7,
+    "coverage": 0.3324,
+    "precision": 0.8163,
+    "splits": 693,
+    "merges": 137,
+    "merged_instances": 104,
+    "n_gt_fibers": 649,
+    "n_pred_instances": 505,
+    "gt_length": 228362.2,
+    "pred_length": 116413.0,
+    "tolerance": 4.0
+   },
+   "written": 505,
+   "length": 88997.5,
+   "duplicated_share": 0.0174,
+   "crossings": {
+    "whole": 133,
+    "broken": 13,
+    "lost": 37
+   }
+  }
+ }
+}

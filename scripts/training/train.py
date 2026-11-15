@@ -61,7 +61,12 @@ from scripts.training.checkpoint_paths import (
     validate_checkpoint_writes,
     validate_training_checkpoint_writes,
 )
-from scripts.training.config import ExperimentConfig, data_read_policy
+from scripts.training.config import (
+    ExperimentConfig,
+    data_read_policy,
+    validate_augmentation_mode,
+    validate_training_choices,
+)
 from scripts.training.data_split import validate_training_split
 from scripts.training.ink_losses import (
     CONFIDENCE_INK_RECIPE,
@@ -1267,7 +1272,10 @@ except ImportError:
 
 from vesuvius_autoresearch.core.frangi_torch import frangi_vesselness_zcollapsed_torch
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
-from vesuvius_autoresearch.core.inference_constants import depth_band_for
+from vesuvius_autoresearch.core.inference_constants import (
+    depth_band_for,
+    validate_architecture,
+)
 from vesuvius_autoresearch.core.model_wrappers import (
     GenericMultiTaskWrapper,
     build_resenc_unet,
@@ -1308,8 +1316,6 @@ try:
     _HAS_ALBUMENTATIONS = True
 except ImportError:
     _HAS_ALBUMENTATIONS = False
-
-_villa_aug_cache = {}
 
 
 def _get_villa_aug(size: int, config: ExperimentConfig):
@@ -1603,7 +1609,7 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         # Ablation master switch: return inputs untouched (no rot90/flip/scroll/etc).
         return x, target_ink, target_fiber
 
-    aug_mode = getattr(config, "aug_mode", "albumentations")
+    aug_mode = validate_augmentation_mode(getattr(config, "aug_mode", "albumentations"))
 
     if aug_mode == "batchgeneratorsv2" and create_training_transforms is None:
         # This used to fall through to Albumentations without a word, so a cycle
@@ -1616,7 +1622,11 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
     if aug_mode == "batchgeneratorsv2":
         B, C, D, H, W = x.shape
         patch_size_3d = (D, H, W)
-        if patch_size_3d not in _bg2_aug_cache:
+        recipe_key = (
+            patch_size_3d,
+            *(getattr(config, name, 0.0) for name in _VILLA_SCROLL_AUGMENTATIONS),
+        )
+        if recipe_key not in _bg2_aug_cache:
             base_transform = create_training_transforms(patch_size_3d)
 
             from vesuvius.models.augmentation.transforms.noise.extranoisetransforms import (
@@ -1681,13 +1691,13 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
                 )
 
             if extra_transforms:
-                _bg2_aug_cache[patch_size_3d] = ComposeTransforms(
+                _bg2_aug_cache[recipe_key] = ComposeTransforms(
                     [base_transform] + extra_transforms
                 )
             else:
-                _bg2_aug_cache[patch_size_3d] = base_transform
+                _bg2_aug_cache[recipe_key] = base_transform
 
-        bg_aug = _bg2_aug_cache[patch_size_3d]
+        bg_aug = _bg2_aug_cache[recipe_key]
 
         # Batchgenerators expects: (C, Z, H, W) for per-sample call
         # but our wrapper handles (B, C, Z, H, W) if it's the official villa one.
@@ -1855,6 +1865,7 @@ def build_vconfig(config: ExperimentConfig) -> VesuviusConfig:
     Shared by train() and the --smoke preflight gate so both derive the
     architecture parameters identically.
     """
+    validate_training_choices(config)
     return VesuviusConfig(
         patch_size=config.patch_size,
         num_layers=config.num_layers,
@@ -1874,6 +1885,9 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
     Shared by train() and the --smoke preflight gate so the gate exercises the
     exact same construction path as the real run (no drift between them).
     """
+    validate_architecture(
+        getattr(v_config, "architecture", "gated_unet"), training=True
+    )
     if hasattr(v_config, "architecture") and v_config.architecture == "timesformer":
         print("Instantiating TimeSformer Architecture...")
         model = VesuviusTimeSformer(v_config).to(device)
@@ -2024,6 +2038,7 @@ def preflight_smoke(config: ExperimentConfig) -> None:
 
 
 def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None):
+    validate_training_choices(config)
     read_policy = data_read_policy(config)
     validate_training_split(config)
     validate_training_checkpoint_writes(config, config_path=config_path)

@@ -183,6 +183,11 @@ inputs before training and saving. `python3 scripts/workspace_status.py` reports
 these conflicts without loading arrays. Path checks cannot establish independence
 of copied crops or different remote URLs; verify the study split separately.
 
+Unknown `architecture` and `aug_mode` names are rejected instead of selecting a
+different implementation. The inactive legacy `max_prize_skel_dist` field now
+defaults to JSON `null`; loading its old `Infinity` sentinel normalizes it to
+`null` in new configurations/checkpoints without changing any active promotion gate.
+
 For new experiments, `"strict_training_reads": true` aborts on labeled/UA-MT
 read or requested preprocessing failures. The default retains legacy fallbacks;
 validation remains strict. Diagnostics and completed run artifacts record the

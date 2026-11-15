@@ -16,10 +16,31 @@ depth_band_for.
 
 import os
 import sys
-from urllib.parse import urlsplit
+
+from .volume_paths import volume_location
 
 DEPTH_MARGIN = 4
 INK_PROBABILITY = "sigmoid(ink)"
+INFERENCE_ARCHITECTURES = frozenset(
+    {
+        "gated_unet",
+        "timesformer",
+        "resnet3d_decoder",
+        "lejepa_unet",
+        "resenc_unet",
+        "mednext",
+        "neural_tracing_vit",
+    }
+)
+TRAINING_ARCHITECTURES = INFERENCE_ARCHITECTURES | {"resnet3d", "i3d"}
+
+
+def validate_architecture(value, *, training=False):
+    supported = TRAINING_ARCHITECTURES if training else INFERENCE_ARCHITECTURES
+    if not isinstance(value, str) or value not in supported:
+        context = "training" if training else "inference"
+        raise ValueError(f"unknown {context} architecture: {value!r}")
+    return value
 
 
 # config.json's relative paths are relative to the checkout the loop trains in.
@@ -32,18 +53,18 @@ def _volume_keys(uri, bases):
     """Comparable spellings of one volume: resolved against each base directory,
     file:// as its path, and an OME-Zarr group the same as its level 0 array
     (FastVesuviusVolume opens either)."""
-    parts = urlsplit(uri)
-    if parts.scheme and parts.scheme != "file":
-        uri = uri.rstrip("/")
-        return {uri[:-2] if uri.endswith("/0") else uri}
-    path = parts.path if parts.scheme == "file" else uri
-    keys = set()
+    local_keys, remote_keys = set(), set()
     for base in bases:
-        resolved = os.path.realpath(os.path.join(base, path))
-        if os.path.basename(resolved) == "0":
-            resolved = os.path.dirname(resolved)
-        keys.add(resolved)
-    return keys
+        local, remote = volume_location(uri, base)
+        if local is not None:
+            if local.name == "0":
+                local = local.parent
+            local_keys.add(str(local))
+        else:
+            remote_keys.add(remote)
+    # A URI-like path may exist under only one candidate checkout base. Do not
+    # also let its remote spelling identify a different resource.
+    return local_keys or remote_keys
 
 
 def depth_band_for(saved_config, volume_uri):

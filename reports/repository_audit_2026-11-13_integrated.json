@@ -1,0 +1,102 @@
+{
+  "scope": "Synthetic CPU software checks; no original scroll inputs or GPU used",
+  "review_date": "2026-11-13",
+  "date_timezone": "America/Los_Angeles",
+  "environment": {
+    "python": "3.10.21",
+    "numpy": "2.2.6",
+    "opencv-python-headless": "4.13.0.92",
+    "scipy": "1.15.3"
+  },
+  "detector_loading": {
+    "source_file": "src/vesuvius_autoresearch/detector/data.py",
+    "before_commit": "761e24c52868d86070844f10e7d606f8c20843fe",
+    "before_sha256": "946e941e7c56ab753d860cdc25f6b3cd1b38b26ff4cfef987c0f2106aee09582",
+    "after_sha256": "20164124569cd63cc452b323dcb59132d0af3f26f540be47915478866f584f1b",
+    "recipe": {
+      "layers": [
+        17,
+        43
+      ],
+      "input_dtype": "uint8",
+      "ct_value": 128,
+      "fragment_mask_value": 255,
+      "tile_size": 256
+    },
+    "method": "Load both implementations before tracing; run read_volume_mask on the same files; collect garbage and restart tracemalloc for each reading.",
+    "limitations": "Traced Python/NumPy allocations exclude package imports, OpenCV/native allocations, whole-process RSS and GPU memory; not a throughput measurement.",
+    "measurements": [
+      {
+        "source_size": 256,
+        "revision": "before",
+        "shape": [
+          512,
+          512,
+          26
+        ],
+        "array_bytes": 6815744,
+        "traced_peak_bytes": 13665025
+      },
+      {
+        "source_size": 256,
+        "revision": "after",
+        "shape": [
+          256,
+          256,
+          26
+        ],
+        "array_bytes": 1703936,
+        "traced_peak_bytes": 1910991
+      },
+      {
+        "source_size": 264,
+        "revision": "before",
+        "shape": [
+          512,
+          512,
+          26
+        ],
+        "array_bytes": 6815744,
+        "traced_peak_bytes": 13654475
+      },
+      {
+        "source_size": 264,
+        "revision": "after",
+        "shape": [
+          512,
+          512,
+          26
+        ],
+        "array_bytes": 6815744,
+        "traced_peak_bytes": 7227323
+      }
+    ]
+  },
+  "registered_gate_precision": {
+    "source_file": "repro/first_letters/pherc0841/surface_control.py",
+    "source_sha256": "809bffb85ac3b21006a0f80df66a194b69b3817e3a0c6aec17b4dce9b75f982a",
+    "kind": "Synthetic boundary case; the as-run calculator and historical results remain unchanged",
+    "recipe": {
+      "positive_scores": {
+        "33749.5": 4999,
+        "24749.5": 1
+      },
+      "negative_scores": "integers 0 through 44999",
+      "permutation_seed": 0,
+      "grid_shape": [
+        200,
+        250
+      ],
+      "all_cells_valid": true,
+      "depth": 0,
+      "side": "reverse"
+    },
+    "observed": {
+      "synthetic_raw_auc": 0.74996,
+      "stored_auc": 0.75,
+      "slid_floor": 0.5083,
+      "current_verdict": "LETTER_LEVEL_SIGNAL",
+      "raw_precision_verdict": "BLOB_LEVEL_SIGNAL"
+    }
+  }
+}
