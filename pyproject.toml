@@ -2,8 +2,18 @@
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = [
+    "vesuvius_autoresearch",
+    "vesuvius_autoresearch.core",
+    "vesuvius_autoresearch.detector",
+    "vesuvius_autoresearch.fibers",
+    "volume_cartographer_wrapper",
+]
+py-modules = ["vesuvius_model", "scroll_augmentations"]
+
+[tool.setuptools.package-dir]
+vesuvius_autoresearch = "src/vesuvius_autoresearch"
 
 [project]
 name = "vesuvius-autoresearch"
@@ -52,7 +62,9 @@ dependencies = [
     "volumentations>=0.1.9",
     "wandb>=0.26.1",
     "warmup-scheduler",
-    "webknossos>=2.5.0",
+    "webknossos>=4.3.3; sys_platform != 'win32'",
+    # Newer SDKs pin Windows TensorStore below this project's minimum.
+    "webknossos>=2.5.0; sys_platform == 'win32'",
     "zarr>=2.18.3",
     "pre-commit",
     "posix-ipc>=1.3.2",
