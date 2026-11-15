@@ -1408,6 +1408,13 @@ def test_a_fitted_slope_of_half_a_pixel_per_pixel_is_not_a_canvas_residual():
         fit_shift([{"y": y, "x": x, "dy": 0.6 * y, "dx": 0.0} for y, x in _GRID])
     with pytest.raises(ValueError, match=r"fitted x slope .* is outside \+/-0.5"):
         fit_shift([{"y": y, "x": x, "dy": 0.0, "dx": 0.6 * x} for y, x in _GRID])
+    # two windows fit each axis on its own, under the same bound
+    pair = [
+        {"y": 0.0, "x": 0.0, "dy": 0.0, "dx": 0.0},
+        {"y": 100.0, "x": 0.0, "dy": 60.0, "dx": 0.0},
+    ]
+    with pytest.raises(ValueError, match=r"fitted slope .* is outside \+/-0.5"):
+        fit_shift(pair)
 
 
 def test_centres_near_a_tilted_line_get_the_per_axis_fit():
