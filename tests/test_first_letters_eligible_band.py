@@ -244,3 +244,23 @@ def test_the_fit_launcher_sets_both_winding_settings_for_an_outer_arm():
     assert 'overrides["shell_outer_winding_idx"] = int(sys.argv[4])' in text
     assert 'overrides["model_gap_expander_num_windings"] = int(sys.argv[4]) + 3' in text
     assert "outer[1-9]*-smoke) KIND=smoke" in text and "outer[1-9]*) KIND=full" in text
+
+
+def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
+    text = (HERE / "run_fit.sh").read_text()
+    lines = text.splitlines()
+    first = next(
+        i
+        for i, line in enumerate(lines)
+        if "-otherhand-smoke) KIND=smoke; FLIP=1" in line
+    )
+    plain = next(
+        i for i, line in enumerate(lines) if "outer[1-9]*-smoke) KIND=smoke" in line
+    )
+    assert first < plain, (
+        "the otherhand patterns must be tried before the plain outer ones"
+    )
+    assert 'case "$SENSE" in ACW) SENSE=CW ;; CW) SENSE=ACW ;;' in text
+    assert 'spec["spiral_outward_sense"] = sys.argv[3]' in text
+    assert 'fit_spiral.py --dataset "$DATASET" --cache' in text
+    assert 'ln -s "$R/dataset/tracks" "$DATASET/tracks"' in text
