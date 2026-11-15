@@ -2,8 +2,18 @@
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = [
+    "vesuvius_autoresearch",
+    "vesuvius_autoresearch.core",
+    "vesuvius_autoresearch.detector",
+    "vesuvius_autoresearch.fibers",
+    "volume_cartographer_wrapper",
+]
+py-modules = ["vesuvius_model", "scroll_augmentations"]
+
+[tool.setuptools.package-dir]
+vesuvius_autoresearch = "src/vesuvius_autoresearch"
 
 [project]
 name = "vesuvius-autoresearch"

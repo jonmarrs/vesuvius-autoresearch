@@ -259,7 +259,7 @@ decision for the missing-input failures identified above.
 
 ## Items for owner review
 
-The ten remaining items below are in suggested work order, not a claim that
+The nine remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
@@ -268,7 +268,6 @@ each has caused a measured scientific failure.
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
 | Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The repaired [scratch CUDA probe](VRAM_PROBE.md) measures a separate gated_unet forward/backward path; it does not profile these regional commands or production training. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
-| Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
 | Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
@@ -1384,3 +1383,56 @@ Windows' SDK/TensorStore conflict remains; Virtualenv's newer Python 3.10
 typing-extensions requirement also exceeds the new cluster-tools pin. The
 previously inspected full-fix Tornado, Pillow and Filelock candidates require
 Python 3.11. No unsupported constraint overrides or platform removals were used.
+
+## Installed-package follow-up (2026-11-15 UTC)
+
+This pass continues from `aef38996`. It closes the package-boundary item with an
+explicit [wheel/checkout contract](PACKAGING.md). The research loop and pinned
+Villa integrations use an editable checkout; the wheel supplies the library
+modules, model definitions, augmentation module and local-volume wrapper.
+
+A wheel built from the previous configuration reproduced three failures from
+an empty directory: the inference factory could not import `vesuvius_model`,
+the volume wrapper was absent, and the TIFF/PNG importer could not import
+checkout-only `scripts`. Package configuration now includes the missing runtime
+sources. The importer uses shared publication helpers under `core`; script
+callers retain their existing import names. The five moved helper functions'
+ASTs match their prior implementations, preserving path checks, rollback,
+publication permissions and the requirement to serialize writers.
+
+The [installation regression](../tests/test_wheel_installation.py) builds an
+sdist, builds its wheel, installs into a fresh environment and launches isolated
+Python from an empty directory. It requires project modules to resolve inside
+that installation and verifies that `scripts` is unavailable. Raw third-party
+CPU dependency directories are appended without loading their editable-install
+hooks. The wheel's payload includes all runtime Python sources and the license;
+checkout scripts, reports, datasets, reproductions and Villa are excluded.
+
+The five installed-wheel checks passed in **16.85 seconds**. They exercise a
+small CPU model forward, strict uint16 CT reads, lossless TIFF/PNG import, the
+fiber CPU CLI and detector CLI help. An earlier focused selection passed
+**251 tests** in 17.40 seconds. These overlapping runs are not additive. Mypy
+passes on **1005 files**. The curated registry now contains **222 modules**;
+the portable profile remains at **16**.
+
+The [packaging review record](../reports/packaging_review_2026-11-15.json)
+retains artifact/source hashes, the old wheel's failures, validation scope and
+the final curated result. No dependency version, model architecture, research
+registration, original dataset or live research environment changed in this
+packaging pass. GPU execution, real-data scientific validation and broader
+CPU/GPU dependency extras remain separate work.
+
+The complete 222-module run finished with **6031 passed, 31 skipped, 1 xfailed
+and 1 failed** in 584.74 seconds. The failure was the source-preservation check
+invoking Ruff through the scratch interpreter: its Python module was visible
+through the CPU dependency fallback, but its executable was absent from that
+environment. After provisioning the locked Ruff 0.9.10 there, the final policy,
+wheel and publication-mode selection passed **31 tests** in 22.41 seconds.
+No product code changed after the full run; the full suite was not repeated.
+The skips and expected failure retain their original coverage limits.
+
+An sdist built directly from the actual checkout also builds a wheel. Its
+Python payload hashes match the installed-test wheel, and its 48 declared
+runtime requirements match the project manifest. These build/installation
+checks close the packaging defect within the documented library scope; the
+nine owner-review decisions above remain open.

@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "review_date_utc": "2026-11-15",
+  "baseline_commit": "aef389967b8515d87bbcaa56169b895c2428dddc",
+  "scope": "Runtime library wheel packaging and existing artifact-publication compatibility. Synthetic CPU installation/workflow validation; no standalone research-loop, Villa integration, GPU or original-data scientific validation.",
+  "decision": "Use editable checkouts for orchestration and pinned Villa source integrations. Package the library modules, model/augmentation modules and local-volume wrapper for installed use. Document the supported installation boundary.",
+  "root_manifest_sha256_before": "2d2796ef27f37e0f1faff3eff433b50d3ca744fd9c525a4c54e7afea5454c2d8",
+  "root_manifest_sha256_after": "6324df10f0cfe0b110c56aafa8fc51965cc772ca9b2d08e6b0a9abd0ebcef16e",
+  "unchanged_lock_sha256": "3ada19311ecf8de447595d96abcd48446f47411fc29c810ccb1190bd0a9524d6",
+  "dependency_versions_changed": false,
+  "baseline_wheel": {
+    "build_method": "uv build --wheel from a scratch copy of the baseline manifest, README and runtime sources; no editable install used for probing.",
+    "sha256": "e2cf8d30472a8a4b145f5dd7ea9c707a38e89f7105f8ebb2b536d0d11ae4399b",
+    "probe": "Python -I from /tmp, with the old wheel installed into a target directory before third-party dependencies on sys.path.",
+    "results": {
+      "volume_cartographer_wrapper": {
+        "result": "failed",
+        "error": "ModuleNotFoundError: No module named 'volume_cartographer_wrapper'"
+      },
+      "vesuvius_autoresearch.core.surface_volume_import": {
+        "result": "failed",
+        "error": "ModuleNotFoundError: No module named 'scripts'"
+      },
+      "vesuvius_autoresearch.core.model_wrappers": {
+        "result": "failed",
+        "error": "ModuleNotFoundError: No module named 'vesuvius_model'"
+      }
+    }
+  },
+  "implementation": [
+    "Explicit runtime package/module inventory includes vesuvius_model, scroll_augmentations and volume_cartographer_wrapper, retaining their public import paths.",
+    "Five existing publication/path functions moved unchanged into core.new_artifacts; legacy scripts re-export their existing entry points. surface_volume_import no longer imports scripts.",
+    "The wheel payload regression covers all runtime Python source files and the repository license, preventing silent omissions when new modules/subpackages are added."
+  ],
+  "moved_functions": {
+    "separate_paths": {
+      "ast_unchanged": true,
+      "ast_sha256": "644ceec442f552cb52252f0083ecc34dd5ecb8ff6fdd99ed80cece8766c7b6e4"
+    },
+    "staged_directory": {
+      "ast_unchanged": true,
+      "ast_sha256": "25564ebc55d0cd079cdc8abc2a18ca6826e42116240b6bd8f3f165026db11931"
+    },
+    "new_output": {
+      "ast_unchanged": true,
+      "ast_sha256": "4516f74121d29130f34b68ed205f8cc727d378ddf6fadd1833dd384c15264a7d"
+    },
+    "publish_new": {
+      "ast_unchanged": true,
+      "ast_sha256": "bc932ab069953cd9d723d380ae57f95ca3c7da31122a526cd034794852d936c9"
+    },
+    "publish_new_file": {
+      "ast_unchanged": true,
+      "ast_sha256": "d85a187c6183b84e44749b7357e46e3461c0977fc610bf50860be07cf3283dd5"
+    }
+  },
+  "validation_environment": {
+    "python": "3.10.21",
+    "torch": "2.9.1+cpu",
+    "numpy": "2.2.6",
+    "setuptools": "84.2.1",
+    "uv": "uv 0.12.19 (x86_64-unknown-linux-gnu)",
+    "runtime_dependencies": "The isolated SDK review environment plus read-only CPU ML fallback described in dependency_migration_review_2026-11-15.json. The fresh wheel runtime appends only raw third-party site-package directories, never their editable .pth hooks or checkout/src paths.",
+    "wheel_installation": "Offline sdist -> wheel -> uv pip install --no-deps into a fresh uv venv; Python -I from an empty directory, scripts unavailable, project module files asserted inside the installation.",
+    "test_environment": {
+      "CUDA_VISIBLE_DEVICES": "",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "MPLCONFIGDIR": "/tmp/vesuvius-wheel-mpl",
+      "XDG_CACHE_HOME": "/tmp/vesuvius-wheel-cache"
+    },
+    "initial_harness_correction": "The first harness copied a relocatable managed Python using stdlib venv; its /install prefix failed to find encodings. Changed the harness to uv venv with the same interpreter. This was test setup, before runtime assertions.",
+    "full_run_tooling_failure": "test_preserved_source_policy.py::test_default_ruff_discovery_skips_only_the_frozen_archive_sources failed because the read-only CPU dependency fallback exposed the Ruff Python module but not /tmp/vesuvius-sdk4-env/bin/ruff. Provisioned locked ruff 0.9.10 in the scratch environment and reran policy, wheel and file-mode checks. No product code changed after the full run.",
+    "live_research_environment_modified": false
+  },
+  "built_artifacts": {
+    "wheel_name": "vesuvius_autoresearch-0.1.0-py3-none-any.whl",
+    "wheel_sha256": "a357ea2a7ff191c67c928db68554c964d6119715eb1e1a5c0f433e1779898dd6",
+    "wheel_bytes": 186311,
+    "sdist_sha256": "233f002b220795b8880a095870edebe71b9f77d6fd6efc7436593895e238a472",
+    "python_payload_sha256": {
+      "scroll_augmentations.py": "06b1660a7dc61548ab431279feb37a432cc200052e62e2aba0122af2fb999192",
+      "vesuvius_model.py": "94a04dd415f3d9401f6777d9a87303755c2058d4146ae3accb2890f612cbfcb9",
+      "vesuvius_autoresearch/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "vesuvius_autoresearch/core/checkpoint_tools.py": "46ff22fce61e3a4bad24584ff0ddab58155a5758e1f0061c91d248f9963e7ed5",
+      "vesuvius_autoresearch/core/file_capture.py": "0c70a434fd167610ee1dd5eb4680196cef4dc3737a687c7c3350f1aceb2a8308",
+      "vesuvius_autoresearch/core/file_modes.py": "96dff3c1cf15d3abc2a94da890a2bf128f8342ba7ea3101d4faa566a2457a922",
+      "vesuvius_autoresearch/core/fragment_conversion.py": "5a334bd19b7cd75460068510bdbea987c86f7c184ae55e429073d127bfeb4fc9",
+      "vesuvius_autoresearch/core/frangi_torch.py": "28cc414313103697276fef69a837a5bae88abba6b934a1b73f8b85c6219c31a1",
+      "vesuvius_autoresearch/core/inference.py": "5e8dc3f97994f98a5cb79e39c27f14fce2e552010ad04079e13685dca7039d1c",
+      "vesuvius_autoresearch/core/inference_constants.py": "3c75b78004cd71c6ec2f16461bd3cf8bb85c177f147dcaa25a23af43bfb22018",
+      "vesuvius_autoresearch/core/model_wrappers.py": "f445c82907e0a4d4f2f4da2f7850ed1d407674f55ebd05ce60c79a4e636cea83",
+      "vesuvius_autoresearch/core/new_artifacts.py": "85ba38f4c6a2c6091cce9ff14ab453fe38fd7e4fe0e3d53c527c4f5240cd76b0",
+      "vesuvius_autoresearch/core/patch_catalog.py": "a411a19e2541528433adc45af182c3c2dc2fee21e45d58cafdc88c202fd7f070",
+      "vesuvius_autoresearch/core/prediction_artifacts.py": "d501374f599ee2223ca639998b132aa0e0ae7925cf5805ab22b3867625dc917f",
+      "vesuvius_autoresearch/core/regional_resources.py": "ff4e7a57fb4a43503aa44f842adc84ced7658ad264ff5ae3af04bcbb92b7b6f3",
+      "vesuvius_autoresearch/core/report_artifacts.py": "bd3998474040d5f0104bc6b2dcf99dba6e01d0e5486ace2d4679338f0d3716f8",
+      "vesuvius_autoresearch/core/surface_volume_import.py": "220e3bdbb3923c662ff85d832e157d4aa078d0bc4bf9ec91b750a5275f8ca60d",
+      "vesuvius_autoresearch/core/vesuvius_loader.py": "dff806544f8cf9eda44603bc135adc76abc9b74613061cefb8c50f07e35396b8",
+      "vesuvius_autoresearch/core/villa_inference.py": "0223c42a19b4a0e63b956358c693f1f33b62af3db4610b50c277c3eadc9e4ac8",
+      "vesuvius_autoresearch/core/villa_modules.py": "a9b35896b6baab672767ec55d73426f63afaed44f70c3b1dc4c39c4cf3f223f3",
+      "vesuvius_autoresearch/core/volume_paths.py": "0e9f6eeb30b2191f78fabec4f5479e29889b0a961eca7dfe864737fb7f773d4d",
+      "vesuvius_autoresearch/detector/__init__.py": "ed3184d7042b671ea4ad2197ac3f9094af970e155e9486a219133dcebe648c60",
+      "vesuvius_autoresearch/detector/checkpoint.py": "8b2543126c5bd7ae65a76b93a7278854e212aed32785cd94d809f22233ae2cf3",
+      "vesuvius_autoresearch/detector/cli.py": "64974d630d53c3c474bba8c2a944aff8fbf03b4a1b95f633f3d3a1bcdb8eaf09",
+      "vesuvius_autoresearch/detector/config.py": "039b34d48014d9acb1f2e981cbb00b5d01f2e07d96a1e8e25795f599fef998da",
+      "vesuvius_autoresearch/detector/data.py": "20164124569cd63cc452b323dcb59132d0af3f26f540be47915478866f584f1b",
+      "vesuvius_autoresearch/detector/eval.py": "cfee849c1d836544e6e6d30bd5f07e4690904070d2452e32a349f0af960a1d50",
+      "vesuvius_autoresearch/detector/infer.py": "12c45e32c84782816a6f93ca2b55c68425c54242614448982de6b1d93a7f3e8c",
+      "vesuvius_autoresearch/detector/measure.py": "f677f0b82d9909d4198f1e9e5203d8bc93928052bdcfc0a7b820a8d8e019aca3",
+      "vesuvius_autoresearch/detector/metrics.py": "0b8db462aa3e1c4b03059c89179c368d3c1406691dd2f38fc24111e38b0237ef",
+      "vesuvius_autoresearch/detector/model.py": "9d9a8ef222779f58ee345e3db3c969ad4360b3104122cd24cf22fbe7630e9525",
+      "vesuvius_autoresearch/detector/model_resenc.py": "53c003a54b3ed238e6762d527a08a3165441dbc29a4ad6025ab80d6e9caa5a02",
+      "vesuvius_autoresearch/detector/prediction.py": "c19303efbe4504be66ad5c84cba03eea4dd528d5bede41ba09961b4331e791b3",
+      "vesuvius_autoresearch/detector/scoring.py": "eaf63f8310cf2c61e79ad44da40fd8dfe9650f6cf581f4fcbda76ed2766ea0ab",
+      "vesuvius_autoresearch/detector/train.py": "b74fd9032a8a1a24cbbd4c8dbbf917421c50b7b62c129c69902ec07b1aa01f77",
+      "vesuvius_autoresearch/fibers/__init__.py": "c56629831855dc8184da7a5fa78d366ee99557a2b1645a397be98b7ba5a6b827",
+      "vesuvius_autoresearch/fibers/bench_cli.py": "aa875ba54496fc49136eb94c12ae0c92d6eec346df3be2d6e111834c6b02d06d",
+      "vesuvius_autoresearch/fibers/benchmark_artifacts.py": "5acff8ecfad34f7be67472cc0b26e985c3c2e8898cc43a86eb849a6639f0092a",
+      "vesuvius_autoresearch/fibers/cli.py": "1ffcb90c4136eaea95c595740c10515471ffa04a109529a1c9c15d4c53cc2e16",
+      "vesuvius_autoresearch/fibers/dataset_fetch.py": "c6d0ca84ee29a1c532361088dfde301bb1e2bf5db74ad6a3cea8aad84bd27e34",
+      "vesuvius_autoresearch/fibers/detection.py": "7020803e8070a7b8e18bc03a692f2dce9494f3cb1d81cb3601dcb579f1926b57",
+      "vesuvius_autoresearch/fibers/eval_trace.py": "89c4ac7122ef7ba0ed1965a2a34231a3782805403ca7635002b44833f7d1ab41",
+      "vesuvius_autoresearch/fibers/field_quality.py": "482837d755a0a88c8264924781ab884da9ac9307c1d5e0778adb5dd735ce4267",
+      "vesuvius_autoresearch/fibers/filter_artifacts.py": "270fcf415db0badc961be54181ce19f787e43ba74785781f288ca21c85259b5d",
+      "vesuvius_autoresearch/fibers/provenance.py": "dc4d1e7bd96b14ddc419c03ba2bf9efc84efbd9f48e1d22e39927539db4043a6",
+      "vesuvius_autoresearch/fibers/semantic.py": "1fc8e7b052e098db7dced826e79dd501bd87bc30a8c0153022a43da8e13166d2",
+      "vesuvius_autoresearch/fibers/skeleton_io.py": "6b3fd040fa4d440299b09e3c4bf0999be897b19c15a8337d2dd38a707cef4d6f",
+      "vesuvius_autoresearch/fibers/streaming.py": "71d75a22e31466cb68e57c1c9b1be4ef107c2b8220a1f130cf1a28a438dd404a",
+      "vesuvius_autoresearch/fibers/trace.py": "70f0752694bc62f66c1b4652a58916b294c37ed386b3bd0b70c751ab224350fe",
+      "volume_cartographer_wrapper/__init__.py": "272d43e23eaac069f37b135840b7099c92cac397c7866e5f2c7a856a0244ba18",
+      "volume_cartographer_wrapper/volume.py": "cd81053ac1858e5077ee75505d9ac366e4de39541759cd3bc3d0c6b35fdd0d07"
+    },
+    "installation_test_wheel_sha256": "f9b4295b1c7a87943edfc10984d1908daade7dc4361df02dc1077c693d1b4937",
+    "actual_checkout_build_matches_test_python_payload": true,
+    "actual_build_commands": [
+      "uv build --offline --no-build-isolation --python /tmp/vesuvius-sdk4-env/bin/python --sdist --out-dir /tmp/vesuvius-package-dist",
+      "uv build /tmp/vesuvius-package-dist/vesuvius_autoresearch-0.1.0.tar.gz --offline --no-build-isolation --python /tmp/vesuvius-sdk4-env/bin/python --wheel --out-dir /tmp/vesuvius-package-dist"
+    ]
+  },
+  "validation": [
+    {
+      "command": "/tmp/vesuvius-sdk4-env/bin/python -m pytest tests/test_wheel_installation.py tests/test_surface_volume_import.py tests/test_candidate_preprocessing_contracts.py tests/test_geometry_handoff_contracts.py tests/test_file_modes.py tests/test_validation_runner.py -q --tb=short",
+      "scope": "Earlier focused selection with the initial four wheel cases; overlaps later checks.",
+      "counts": {
+        "passed": 251
+      },
+      "duration_seconds": 17.381,
+      "junit_sha256": "130e5ab1c4e63a2d19db5f86395e8ea6a26a07ce084b654e2868ade31a0e2191"
+    },
+    {
+      "command": "/tmp/vesuvius-sdk4-env/bin/python -m pytest tests/test_wheel_installation.py -q --tb=short",
+      "scope": "Final five installed-wheel cases, including license preservation and detector CLI help.",
+      "counts": {
+        "passed": 5
+      },
+      "duration_seconds": 16.827,
+      "junit_sha256": "d616da03371c9afb59ffc6fa7019b0f02378fd6db0668550cf24312b7c57c3f0"
+    },
+    {
+      "command": "/tmp/vesuvius-sdk4-env/bin/python scripts/run_validation_tests.py -- --tb=short --junitxml=/tmp/vesuvius-wheel-curated.xml -o faulthandler_timeout=90",
+      "scope": "Full 222-module curated registry. One missing scratch Ruff executable caused a policy-check failure, corrected and rechecked below. Skips/expected failures are unavailable or explicitly expected coverage, not scientific passes.",
+      "counts": {
+        "passed": 6031,
+        "skipped": 31,
+        "xfailed": 1,
+        "failed": 1
+      },
+      "duration_seconds": 584.51,
+      "junit_sha256": "2dbf0e1b98e548717aa6452c1cf0a4d20b467f17e88f560cb609667fe789c76e"
+    },
+    {
+      "command": "/tmp/vesuvius-sdk4-env/bin/python -m pytest tests/test_preserved_source_policy.py tests/test_wheel_installation.py tests/test_file_modes.py -q --tb=short",
+      "scope": "Final policy, installation and publication-mode recheck after provisioning locked Ruff. The full suite was not repeated.",
+      "counts": {
+        "passed": 31
+      },
+      "duration_seconds": 22.398,
+      "junit_sha256": "6d0159486dc9b846693fb3c0db1f4ecc1fb2fdb1a129d593ebcf8951647da41e"
+    }
+  ],
+  "other_checks": {
+    "mypy": "1005 source files passed",
+    "ruff": "Maintained sources passed; preserved Villa/GP sources excluded as before.",
+    "format": "Seven changed Python files passed",
+    "lock": "Offline uv lock --check passed, 258 records, no dependency changes",
+    "diff": "git diff --check passed"
+  },
+  "changed_source_sha256_after": {
+    "pyproject.toml": "6324df10f0cfe0b110c56aafa8fc51965cc772ca9b2d08e6b0a9abd0ebcef16e",
+    "scripts/candidate_artifacts.py": "f9231b38c86672e07b8e9835e943b88282689535f3cb0d7d3a3591e1ddc94436",
+    "scripts/labeling/label_artifacts.py": "2b07a7a6914ef0dc1f4e2bfdb1232c55bd8d7b13f44c3821ad67df69d1883a8e",
+    "scripts/run_validation_tests.py": "76d6d70234206b8595687d3e8f846360182e93c2cff07bcb9e76b59543b4685a",
+    "src/vesuvius_autoresearch/core/new_artifacts.py": "85ba38f4c6a2c6091cce9ff14ab453fe38fd7e4fe0e3d53c527c4f5240cd76b0",
+    "src/vesuvius_autoresearch/core/surface_volume_import.py": "220e3bdbb3923c662ff85d832e157d4aa078d0bc4bf9ec91b750a5275f8ca60d",
+    "tests/test_file_modes.py": "19b7691072b3d8f1450dc621a3e7aa7fb017857949c82a20a0fdb3ace7aa824f",
+    "tests/test_wheel_installation.py": "213f44f24229e325d6fe0d54e98ced40f92679403cdd192726c15a4344d94bea"
+  },
+  "not_validated": [
+    "Real fragment registration or detector accuracy",
+    "CUDA/GPU training, throughput or VRAM capacity",
+    "Windows/macOS installation",
+    "All model architectures or optional Villa adapters",
+    "Fresh resolution/installation of every root dependency into a CUDA environment",
+    "Standalone research orchestration or automatic patch discovery outside an editable Villa checkout"
+  ],
+  "remaining_owner_review_items": 9
+}

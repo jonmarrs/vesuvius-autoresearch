@@ -15,11 +15,15 @@ from pathlib import Path
 import numpy as np
 import zarr
 
-from scripts.labeling.label_artifacts import new_output, publish_new, publish_new_file
 from vesuvius_autoresearch.core.file_capture import capture_bytes
 from vesuvius_autoresearch.core.fragment_conversion import (
     MAX_PIXELS,
     decode_fragment_image,
+)
+from vesuvius_autoresearch.core.new_artifacts import (
+    new_output,
+    publish_new,
+    publish_new_file,
 )
 
 DEFAULT_FILE_BYTES = 512 * 1024**2
