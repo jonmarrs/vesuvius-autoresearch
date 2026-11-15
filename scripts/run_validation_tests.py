@@ -22,6 +22,7 @@ VALIDATION_TESTS = [
     "tests/test_artifact_hashes.py",
     "tests/test_evaluate_villa_metrics.py",
     "tests/test_villa_modules.py",
+    "tests/test_experimental_interfaces.py",
     "tests/test_preprocessing_contracts.py",
     "tests/test_noise_probe_contracts.py",
     "tests/test_noise_probe_v3_report.py",

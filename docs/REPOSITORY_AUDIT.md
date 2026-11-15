@@ -259,7 +259,7 @@ decision for the missing-input failures identified above.
 
 ## Items for owner review
 
-The nine remaining items below are in suggested work order, not a claim that
+The eight remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
@@ -272,7 +272,6 @@ each has caused a measured scientific failure.
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
 | Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
-| Lower | **Legacy model and optional adapter support need an explicit scope.** The [shared architecture list](../src/vesuvius_autoresearch/core/inference_constants.py) retains `resnet3d` and `i3d` as training-only names; the inference factory rejects them. The optional [Villa TTA adapter](../src/vesuvius_autoresearch/core/villa_inference.py) has no maintained command caller, and its default concatenation expects matching task-tensor ranks, unlike the current ink/fiber/QC outputs. The unused [volumetric ink demo](../scripts/labeling/prototype_volumetric_ink.py) runs random features through a scratch head; its num_layers argument does not constrain depth and it supplies no trained 3D ink detector. | Decide whether these are documented experiments, supported public interfaces or candidates for retirement. Preserve compatibility until that choice is made; support would need architecture-specific checkpoint reconstruction and a deliberate mixed-output TTA contract. |
 
 The new First Letters image, mesh and surface controls are recorded in the
 [current strategy](RESEARCH_STRATEGY.md). They supply real-data evidence for
@@ -1495,3 +1494,49 @@ The nine owner-review items remain open. Actual CUDA counters and representative
 accumulators, sequential member residency or different limits. No full curated
 suite repeat, real-data accuracy measurement, production-path memory profile,
 Windows/macOS runtime check or GPU throughput result is supplied by this pass.
+
+## Experimental-interface follow-up (2026-11-15 UTC)
+
+This pass continues from local memory-profile commit `cd4a085f`. The interface
+scope decision is now explicit in [Experimental interfaces](EXPERIMENTAL_INTERFACES.md):
+retain the optional scalar-field TTA adapter and untrained shape demo, keep
+legacy names training-only, and keep the primary regional recipe unchanged.
+This closes that owner-review item; eight remain in the current list above.
+
+The [review record](../reports/experimental_interface_review_2026-11-15.json)
+captures before/after reproductions and source hashes:
+
+- **TTA geometry:** batched TTA accepted a `[B,1,1,4]` output for a `[B,1,2,2]`
+  input because the element counts matched, silently restoring the wrong grid.
+  Sequential TTA also turned two global-head values `[1.5, 5.5]` into `[3.5,
+  3.5]` by flipping the batch dimension. The adapter now validates spatial rank
+  and batch size before deaugmentation and the full grid for batched mirroring.
+  Valid sequential/coarser fields and axis-transpose paths are preserved.
+- **Task contract:** homogeneous scalar heads can still concatenate, with one
+  unsplit tensor returned. Mixed ink/fiber/global-QC ranks fail clearly without
+  broadcasting. Per-view shape records preserve upstream model/concatenator
+  call order, including custom callbacks and typed OOM fallback. Directional
+  vector/tensor reorientation remains outside this scalar-field contract.
+- **Gaussian safety:** zero/nonfinite or negative sigma and noninteger/nonpositive
+  patch edges now fail explicitly; unrepresentable float32 windows cannot cache
+  zeros/NaNs. Implicit CUDA cache keys resolve the current index, fixing reuse of
+  a previous GPU's tensor. The cache-routing check uses mocked device selection.
+  Default window arithmetic and all eight synthetic regional probability-array
+  files remain byte-identical; no speed or accuracy improvement is claimed.
+- **Volumetric demo:** a head declaring three layers previously returned four
+  when given that depth. It now validates channels/depth and retains its class,
+  parameter names, valid convolution and gradients. The smaller CPU demo prints
+  untrained logits shapes and no longer presents random outputs as an ink result.
+  `resnet3d`/`i3d` remain training-only names with unchanged inference rejection.
+
+The nine-module regression selection passed **437 tests, 1 skipped** in 70.88
+seconds. The skip requires CUDA for Villa's existing uint8-warp check; it is
+unavailable coverage. New cases compare valid scalar TTA exactly with the
+unchanged pinned implementation. Mypy passes on **1008 files**; maintained
+Ruff, changed Python formatting and offline lock consistency pass. The curated
+registry now has **224 modules**, with **16 portable modules**.
+
+The pinned Villa TTA file, model definitions, primary probability recipe,
+architecture dispatch/trainer and lock remain unchanged. No full curated suite,
+real CUDA execution, legacy-model training, original-data measurement or trained
+volumetric detector was supplied by this pass.
