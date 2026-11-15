@@ -135,7 +135,7 @@ NOT_CHECKED = {
     "scripts/resample_cube_pitch.py::write_ct",
     "scripts/resample_cube_pitch.py::write_prob",
     # They move a subdirectory they create with mkdir, never the temporary directory.
-    "scripts/candidate_artifacts.py::staged_directory",
+    "src/vesuvius_autoresearch/core/new_artifacts.py::staged_directory",
     "scripts/export_fiber_targets.py::main",
     "scripts/patch_dataset_artifacts.py::publish_dataset",  # tests/test_patch_dataset_artifacts.py checks its modes
     # Staging must stay writable even when replacing a read-only file. publish()
