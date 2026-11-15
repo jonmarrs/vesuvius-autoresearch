@@ -1,0 +1,1140 @@
+{
+  "schema_version": 1,
+  "review_date_utc": "2026-11-15",
+  "baseline_commit": "bf6e959682bdf5ab2f5810681dc417db022ddb94",
+  "scope": "Platform-specific Python 3.10 WEBKNOSSOS migration and narrow version-specific PyPI advisory lookup. Not a full root dependency audit, private GitHub alert inventory, exploitability assessment, Windows/macOS runtime test or GPU validation.",
+  "root_manifest_sha256_before": "5119df5701fd437b1d03e32adaa06c0ee04fb1f516756a0328315045158f2edf",
+  "root_manifest_sha256_after": "2d2796ef27f37e0f1faff3eff433b50d3ca744fd9c525a4c54e7afea5454c2d8",
+  "root_lock_sha256_before": "405a452c461709f7f10729620386e12e05ae1b06cfb75d305bb0fe63059b89fe",
+  "root_lock_sha256_after": "3ada19311ecf8de447595d96abcd48446f47411fc29c810ccb1190bd0a9524d6",
+  "project_requires_python": ">=3.10,<3.11",
+  "decision": "Require WEBKNOSSOS >=4.3.3 off Windows to unblock the SDK/auth dependency chain. Preserve the existing Windows SDK choice and TensorStore floor; do not downgrade consumers to evade upgrades.",
+  "lock_package_version_changes": {
+    "aiohttp": {
+      "before": [
+        {
+          "version": "3.10.11",
+          "resolution_markers": []
+        }
+      ],
+      "after": [
+        {
+          "version": "3.10.11",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "3.14.5",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ]
+    },
+    "cluster-tools": {
+      "before": [
+        {
+          "version": "2.5.0",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "3.4.1",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ],
+      "after": [
+        {
+          "version": "2.5.0",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "4.3.3",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ]
+    },
+    "cryptography": {
+      "before": [
+        {
+          "version": "45.0.7",
+          "resolution_markers": []
+        }
+      ],
+      "after": [
+        {
+          "version": "50.0.2",
+          "resolution_markers": []
+        }
+      ]
+    },
+    "python-dotenv": {
+      "before": [
+        {
+          "version": "1.0.1",
+          "resolution_markers": []
+        }
+      ],
+      "after": [
+        {
+          "version": "1.0.1",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "1.2.4",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ]
+    },
+    "scm-pims": {
+      "before": [
+        {
+          "version": "0.7.1",
+          "resolution_markers": []
+        }
+      ],
+      "after": []
+    },
+    "typing-extensions": {
+      "before": [
+        {
+          "version": "4.12.2",
+          "resolution_markers": []
+        }
+      ],
+      "after": [
+        {
+          "version": "4.12.2",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "4.15.0",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ]
+    },
+    "webknossos": {
+      "before": [
+        {
+          "version": "2.5.0",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "3.4.1",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ],
+      "after": [
+        {
+          "version": "2.5.0",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "4.3.3",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ]
+    },
+    "yarl": {
+      "before": [
+        {
+          "version": "1.23.0",
+          "resolution_markers": []
+        }
+      ],
+      "after": [
+        {
+          "version": "1.23.0",
+          "resolution_markers": [
+            "sys_platform == 'win32'"
+          ]
+        },
+        {
+          "version": "1.25.1",
+          "resolution_markers": [
+            "sys_platform != 'win32'"
+          ]
+        }
+      ]
+    }
+  },
+  "platform_export_comparison": [
+    {
+      "marker_environment": {
+        "implementation_name": "cpython",
+        "implementation_version": "3.10.21",
+        "os_name": "nt",
+        "platform_machine": "AMD64",
+        "platform_release": "6.18.57",
+        "platform_system": "Windows",
+        "platform_version": "#1 SMP Tue Oct 20 21:56:04 UTC 2026",
+        "python_full_version": "3.10.21",
+        "platform_python_implementation": "CPython",
+        "python_version": "3.10",
+        "sys_platform": "win32",
+        "extra": ""
+      },
+      "selected_version_changes": {},
+      "runtime_tested": false
+    },
+    {
+      "marker_environment": {
+        "implementation_name": "cpython",
+        "implementation_version": "3.10.21",
+        "os_name": "posix",
+        "platform_machine": "x86_64",
+        "platform_release": "6.18.57",
+        "platform_system": "Linux",
+        "platform_version": "#1 SMP Tue Oct 20 21:56:04 UTC 2026",
+        "python_full_version": "3.10.21",
+        "platform_python_implementation": "CPython",
+        "python_version": "3.10",
+        "sys_platform": "linux",
+        "extra": ""
+      },
+      "selected_version_changes": {
+        "aiohttp": {
+          "before": "==3.10.11",
+          "after": "==3.14.5"
+        },
+        "cluster-tools": {
+          "before": "==3.4.1",
+          "after": "==4.3.3"
+        },
+        "cryptography": {
+          "before": "==45.0.7",
+          "after": "==50.0.2"
+        },
+        "python-dotenv": {
+          "before": "==1.0.1",
+          "after": "==1.2.4"
+        },
+        "scm-pims": {
+          "before": "==0.7.1",
+          "after": null
+        },
+        "slicerator": {
+          "before": "==1.1.0",
+          "after": null
+        },
+        "typing-extensions": {
+          "before": "==4.12.2",
+          "after": "==4.15.0"
+        },
+        "webknossos": {
+          "before": "==3.4.1",
+          "after": "==4.3.3"
+        },
+        "yarl": {
+          "before": "==1.23.0",
+          "after": "==1.25.1"
+        }
+      },
+      "runtime_tested": true
+    },
+    {
+      "marker_environment": {
+        "implementation_name": "cpython",
+        "implementation_version": "3.10.21",
+        "os_name": "posix",
+        "platform_machine": "arm64",
+        "platform_release": "6.18.57",
+        "platform_system": "Darwin",
+        "platform_version": "#1 SMP Tue Oct 20 21:56:04 UTC 2026",
+        "python_full_version": "3.10.21",
+        "platform_python_implementation": "CPython",
+        "python_version": "3.10",
+        "sys_platform": "darwin",
+        "extra": ""
+      },
+      "selected_version_changes": {
+        "aiohttp": {
+          "before": "==3.10.11",
+          "after": "==3.14.5"
+        },
+        "cluster-tools": {
+          "before": "==3.4.1",
+          "after": "==4.3.3"
+        },
+        "cryptography": {
+          "before": "==45.0.7",
+          "after": "==50.0.2"
+        },
+        "python-dotenv": {
+          "before": "==1.0.1",
+          "after": "==1.2.4"
+        },
+        "scm-pims": {
+          "before": "==0.7.1",
+          "after": null
+        },
+        "slicerator": {
+          "before": "==1.1.0",
+          "after": null
+        },
+        "typing-extensions": {
+          "before": "==4.12.2",
+          "after": "==4.15.0"
+        },
+        "webknossos": {
+          "before": "==3.4.1",
+          "after": "==4.3.3"
+        },
+        "yarl": {
+          "before": "==1.23.0",
+          "after": "==1.25.1"
+        }
+      },
+      "runtime_tested": false
+    }
+  ],
+  "unchanged_version_checks": {
+    "torch": [
+      {
+        "version": "2.9.1+cu128",
+        "resolution_markers": []
+      }
+    ],
+    "numpy": [
+      {
+        "version": "2.2.6",
+        "resolution_markers": []
+      }
+    ],
+    "tensorstore": [
+      {
+        "version": "0.1.78",
+        "resolution_markers": []
+      }
+    ],
+    "cffi": [
+      {
+        "version": "2.0.0",
+        "resolution_markers": []
+      }
+    ],
+    "google-auth": [
+      {
+        "version": "2.49.2",
+        "resolution_markers": []
+      }
+    ],
+    "s3fs": [
+      {
+        "version": "2026.9.0",
+        "resolution_markers": []
+      }
+    ],
+    "aiobotocore": [
+      {
+        "version": "3.0.0",
+        "resolution_markers": []
+      }
+    ],
+    "virtualenv": [
+      {
+        "version": "20.33.1",
+        "resolution_markers": []
+      }
+    ],
+    "pillow": [
+      {
+        "version": "12.3.0",
+        "resolution_markers": []
+      }
+    ],
+    "tornado": [
+      {
+        "version": "6.5.10",
+        "resolution_markers": []
+      }
+    ],
+    "filelock": [
+      {
+        "version": "3.24.3",
+        "resolution_markers": []
+      }
+    ]
+  },
+  "metadata_retrieved_at_utc": "2026-11-15T05:48:37.420473+00:00",
+  "metadata": [
+    {
+      "name": "webknossos",
+      "version": "3.4.1",
+      "url": "https://pypi.org/pypi/webknossos/3.4.1/json",
+      "response_sha256": "701bcfeb69332d1a9e9020f05e7246a312e3909a3c192325fabb014667eaaad2",
+      "requires_python": "<3.14,>=3.10",
+      "requires_dist": [
+        "aiohttp~=3.10.5",
+        "attrs>=22.0.0",
+        "boltons>=21.0.0",
+        "cattrs>=22.0.0",
+        "certifi>=2023",
+        "click<8.2.0",
+        "cluster-tools==3.4.1",
+        "httpx~=0.27.0",
+        "lz4>=4.0.0",
+        "loxun~=2.0.0",
+        "natsort~=8.4.0",
+        "networkx~=3.2.1",
+        "numba~=0.61",
+        "numpy<3.0.0,>=2.0.0",
+        "scm-pims~=0.7.1",
+        "protobuf<7,>=3.12.0",
+        "google-api-python-client>=2.0.0",
+        "psutil~=6.0.0",
+        "python-dateutil>=2.9.0",
+        "python-dotenv~=1.0.1",
+        "rich~=13.8.0",
+        "scipy>=1.13",
+        "tensorstore==0.1.76; sys_platform == \"win32\"",
+        "tensorstore~=0.1.78; sys_platform != \"win32\"",
+        "typer~=0.12.5",
+        "typing-extensions~=4.0",
+        "universal-pathlib~=0.2",
+        "wkw==1.1.24",
+        "zipp<4.0.0,>=3.5.0",
+        "tifffile>=2024.8.24; extra == \"tifffile\"",
+        "imagecodecs>=2021.11.20; extra == \"imagecodecs\"",
+        "JPype1~=1.5.0; extra == \"bioformats\"",
+        "pylibCZIrw==5.1.1; extra == \"czi\"",
+        "s3fs>=2026.2.0; extra == \"s3\"",
+        "fastremap~=1.15.0; extra == \"examples\"",
+        "pandas~=2.2.0; extra == \"examples\"",
+        "pooch~=1.5.2; extra == \"examples\"",
+        "tabulate>=0.9.0; extra == \"examples\"",
+        "scikit-learn~=1.5.1; extra == \"examples\"",
+        "scikit-image~=0.25.0; extra == \"examples\"",
+        "webknossos[tifffile]; extra == \"all\"",
+        "webknossos[imagecodecs]; extra == \"all\"",
+        "webknossos[bioformats]; extra == \"all\"",
+        "webknossos[czi]; extra == \"all\"",
+        "webknossos[s3]; extra == \"all\"",
+        "webknossos[examples]; extra == \"all\""
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "webknossos",
+      "version": "4.3.3",
+      "url": "https://pypi.org/pypi/webknossos/4.3.3/json",
+      "response_sha256": "e2e1dad52bebd9ce6d2de210c52f6b9963c2adc2e7788edc32fbac896e547b4d",
+      "requires_python": "<3.15,>=3.10",
+      "requires_dist": [
+        "aiohttp~=3.14.1",
+        "attrs>=22.0.0",
+        "boltons>=21.0.0",
+        "cattrs>=22.0.0",
+        "certifi>=2023",
+        "click<8.2.0",
+        "cluster-tools==4.3.3",
+        "httpx~=0.27.0",
+        "imageio>=2.37.0",
+        "lz4>=4.0.0",
+        "loxun~=2.0.0",
+        "natsort~=8.4.0",
+        "networkx~=3.2.1",
+        "numpy<3.0.0,>=2.0.0",
+        "packaging>=21.0",
+        "protobuf<7,>=3.12.0",
+        "google-api-python-client>=2.0.0",
+        "psutil~=6.0.0",
+        "python-dateutil>=2.9.0",
+        "python-dotenv<2,>=1.2.2",
+        "rich~=13.8.0",
+        "scipy>=1.13",
+        "tensorstore==0.1.76; sys_platform == \"win32\"",
+        "tensorstore~=0.1.78; sys_platform != \"win32\"",
+        "typer~=0.12.5",
+        "typing-extensions~=4.0",
+        "universal-pathlib~=0.2",
+        "wkw==1.1.24",
+        "zipp<4.0.0,>=3.5.0",
+        "fastremap~=1.20.0; extra == \"fastremap\"",
+        "numba~=0.61; extra == \"numba\"",
+        "tifffile>=2024.8.24; extra == \"tifffile\"",
+        "imagecodecs>=2021.11.20; extra == \"imagecodecs\"",
+        "pylibCZIrw==5.1.1; python_version < \"3.14\" and extra == \"czi\"",
+        "mrcfile>=1.4.3; extra == \"mrcfile\"",
+        "imaris-ims-file-reader>=0.1.8; extra == \"ims\"",
+        "s3fs>=2026.2.0; extra == \"s3\"",
+        "gcsfs>=2026.2.0; extra == \"gcs\"",
+        "webknossos[fastremap]; extra == \"examples\"",
+        "pandas~=3.0.3; python_version >= \"3.11\" and extra == \"examples\"",
+        "pooch~=1.5.2; extra == \"examples\"",
+        "tabulate>=0.9.0; extra == \"examples\"",
+        "scikit-learn~=1.9.0; python_version >= \"3.11\" and extra == \"examples\"",
+        "scikit-image~=0.26.0; python_version >= \"3.11\" and extra == \"examples\"",
+        "webknossos[numba]; extra == \"all\"",
+        "webknossos[tifffile]; extra == \"all\"",
+        "webknossos[fastremap]; extra == \"all\"",
+        "webknossos[imagecodecs]; extra == \"all\"",
+        "webknossos[czi]; extra == \"all\"",
+        "webknossos[mrcfile]; extra == \"all\"",
+        "webknossos[ims]; extra == \"all\"",
+        "webknossos[s3]; extra == \"all\"",
+        "webknossos[gcs]; extra == \"all\"",
+        "webknossos[examples]; extra == \"all\""
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "cluster-tools",
+      "version": "3.4.1",
+      "url": "https://pypi.org/pypi/cluster-tools/3.4.1/json",
+      "response_sha256": "cff6651591e2f9b75e827fae69a740a64324d0b1def42434a2f2025eaf0aa680",
+      "requires_python": ">=3.10",
+      "requires_dist": [
+        "typing-extensions~=4.12.0",
+        "distributed~=2023.9.1; extra == \"dask\"",
+        "kubernetes~=27.2.0; extra == \"kubernetes\"",
+        "cluster_tools[kubernetes]; extra == \"all\"",
+        "cluster_tools[dask]; extra == \"all\""
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "cluster-tools",
+      "version": "4.3.3",
+      "url": "https://pypi.org/pypi/cluster-tools/4.3.3/json",
+      "response_sha256": "9879f3fceab9d84b8e711bd524306622ed1f7ef0af93258360ef6049a2613da8",
+      "requires_python": ">=3.10",
+      "requires_dist": [
+        "typing-extensions~=4.15.0",
+        "distributed~=2023.9.1; extra == \"dask\"",
+        "kubernetes~=27.2.0; extra == \"kubernetes\"",
+        "cluster_tools[kubernetes]; extra == \"all\"",
+        "cluster_tools[dask]; extra == \"all\""
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.10.11",
+      "url": "https://pypi.org/pypi/aiohttp/3.10.11/json",
+      "response_sha256": "02359ef0da4a817033494d630f1ff1cc62cc62208bfc93964642385809402e10",
+      "requires_python": ">=3.8",
+      "requires_dist": [
+        "aiohappyeyeballs>=2.3.0",
+        "aiosignal>=1.1.2",
+        "attrs>=17.3.0",
+        "frozenlist>=1.1.1",
+        "multidict<7.0,>=4.5",
+        "yarl<2.0,>=1.12.0",
+        "async-timeout<6.0,>=4.0; python_version < \"3.11\"",
+        "brotlicffi; platform_python_implementation != \"CPython\" and extra == \"speedups\"",
+        "Brotli; platform_python_implementation == \"CPython\" and extra == \"speedups\"",
+        "aiodns>=3.2.0; (sys_platform == \"linux\" or sys_platform == \"darwin\") and extra == \"speedups\""
+      ],
+      "advisory_record_count": 74,
+      "advisory_ids": [
+        "GHSA-p998-jp59-783m",
+        "GHSA-hcc4-c3v8-rx92",
+        "GHSA-m5qp-6w8w-w647",
+        "GHSA-3wq7-rqq7-wx6j",
+        "GHSA-mwh4-6h8g-pg8w",
+        "GHSA-966j-vmvw-g2g9",
+        "GHSA-63hf-3vf5-4wqf",
+        "PYSEC-2026-1100",
+        "PYSEC-2026-1101",
+        "PYSEC-2026-1104",
+        "GHSA-c427-h43c-vf67",
+        "GHSA-9548-qrrj-x5pj",
+        "GHSA-6mq8-rvhq-8wgg",
+        "GHSA-69f9-5gxw-wvc2",
+        "GHSA-6jhg-hg63-jvvf",
+        "GHSA-g84x-mcqj-x9qq",
+        "GHSA-fh55-r93g-j68g",
+        "GHSA-54jq-c3m8-4m76",
+        "GHSA-jj3x-wxrx-4x23",
+        "GHSA-mqqc-3gqh-h2x8",
+        "GHSA-w2fm-2cpv-w7v5",
+        "GHSA-2vrm-gr82-f7m5",
+        "PYSEC-2026-1106",
+        "PYSEC-2026-1107",
+        "PYSEC-2026-1099",
+        "PYSEC-2026-1105",
+        "GHSA-jg22-mg44-37j8",
+        "GHSA-hg6j-4rv6-33pg",
+        "GHSA-4fvr-rgm6-gqmc",
+        "GHSA-2fqr-mr3j-6wp8",
+        "GHSA-63hw-fmq6-xxg2",
+        "GHSA-m6qw-4cw2-hm4m",
+        "GHSA-hpj7-wq8m-9hgp",
+        "GHSA-g3cq-j2xw-wf74",
+        "GHSA-9x8q-7h8h-wcw9",
+        "GHSA-xcgm-r5h9-7989",
+        "GHSA-4m7w-qmgq-4wj5",
+        "PYSEC-2026-237",
+        "PYSEC-2026-1109",
+        "PYSEC-2026-1097",
+        "PYSEC-2026-2104",
+        "PYSEC-2026-2103",
+        "PYSEC-2026-2112",
+        "PYSEC-2026-2111",
+        "PYSEC-2026-2113",
+        "PYSEC-2026-2102",
+        "PYSEC-2026-2110",
+        "PYSEC-2026-2109",
+        "PYSEC-2026-2108",
+        "PYSEC-2026-2105",
+        "PYSEC-2026-2098",
+        "PYSEC-2026-2096",
+        "PYSEC-2026-2101",
+        "PYSEC-2026-2095",
+        "PYSEC-2026-2106",
+        "PYSEC-2026-2100",
+        "PYSEC-2026-2097",
+        "PYSEC-2026-2107",
+        "PYSEC-2026-2099",
+        "PYSEC-2026-2094",
+        "GHSA-mq44-7p77-q5h7",
+        "GHSA-mfx4-hv73-q22v",
+        "GHSA-cq5v-8q36-5273",
+        "PYSEC-2026-3545",
+        "PYSEC-2026-3546",
+        "PYSEC-2026-3547",
+        "GHSA-5wr8-gcqf-gqf3",
+        "GHSA-2g87-pp6c-29x5",
+        "GHSA-494j-54xm-rwp3",
+        "GHSA-pqxq-w44r-73xw",
+        "GHSA-9xw5-w5jj-pvcg",
+        "GHSA-gx76-c99x-2c96",
+        "GHSA-6cjc-53gc-5rqm",
+        "GHSA-f9xw-jh8m-3mwq"
+      ]
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.5",
+      "url": "https://pypi.org/pypi/aiohttp/3.14.5/json",
+      "response_sha256": "7deb2f0d6dc95c63a2b576236bbe3051f3c0b1d402bd5f59e7619c05684f499a",
+      "requires_python": ">=3.10",
+      "requires_dist": [
+        "aiohappyeyeballs>=2.5.0",
+        "aiosignal>=1.4.0",
+        "async-timeout<6.0,>=4.0; python_version < \"3.11\"",
+        "attrs>=17.3.0",
+        "frozenlist>=1.1.1",
+        "multidict<8.0,>=4.5",
+        "propcache>=0.2.0",
+        "typing_extensions>=4.4; python_version < \"3.13\"",
+        "yarl<2.0,>=1.25.1",
+        "aiodns>=3.3.0; (sys_platform != \"android\" and sys_platform != \"ios\") and extra == \"speedups\"",
+        "Brotli>=1.2; (platform_python_implementation == \"CPython\" and sys_platform != \"android\" and sys_platform != \"ios\") and extra == \"speedups\"",
+        "brotlicffi>=1.2; platform_python_implementation != \"CPython\" and extra == \"speedups\"",
+        "backports.zstd; (platform_python_implementation == \"CPython\" and python_version < \"3.14\" and sys_platform != \"android\" and sys_platform != \"ios\") and extra == \"speedups\""
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.0.1",
+      "url": "https://pypi.org/pypi/python-dotenv/1.0.1/json",
+      "response_sha256": "1ca351a80fa939e8e10a67af2ed102c06803fa430a52d807bf3db0aa1ac43c5b",
+      "requires_python": ">=3.8",
+      "requires_dist": [
+        "click >=5.0 ; extra == 'cli'"
+      ],
+      "advisory_record_count": 2,
+      "advisory_ids": [
+        "GHSA-mf9w-mj56-hr94",
+        "PYSEC-2026-2270"
+      ]
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.4",
+      "url": "https://pypi.org/pypi/python-dotenv/1.2.4/json",
+      "response_sha256": "89701376846132aefd76202d07dad6e84febe4a426a12973004e13018af15c41",
+      "requires_python": ">=3.10",
+      "requires_dist": [
+        "click>=5.0; extra == \"cli\""
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "cryptography",
+      "version": "45.0.7",
+      "url": "https://pypi.org/pypi/cryptography/45.0.7/json",
+      "response_sha256": "9fe2f5723d5cdf9416612323b1ea331787926c61d207164bc3975b2d28a36640",
+      "requires_python": "!=3.9.0,!=3.9.1,>=3.7",
+      "requires_dist": [
+        "cffi>=1.14; platform_python_implementation != \"PyPy\"",
+        "bcrypt>=3.1.5; extra == \"ssh\"",
+        "nox>=2024.4.15; extra == \"nox\"",
+        "nox[uv]>=2024.3.2; python_full_version >= \"3.8\" and extra == \"nox\"",
+        "cryptography-vectors==45.0.7; extra == \"test\"",
+        "pytest>=7.4.0; extra == \"test\"",
+        "pytest-benchmark>=4.0; extra == \"test\"",
+        "pytest-cov>=2.10.1; extra == \"test\"",
+        "pytest-xdist>=3.5.0; extra == \"test\"",
+        "pretend>=0.7; extra == \"test\"",
+        "certifi>=2024; extra == \"test\"",
+        "pytest-randomly; extra == \"test-randomorder\"",
+        "sphinx>=5.3.0; extra == \"docs\"",
+        "sphinx-rtd-theme>=3.0.0; python_full_version >= \"3.8\" and extra == \"docs\"",
+        "sphinx-inline-tabs; python_full_version >= \"3.8\" and extra == \"docs\"",
+        "pyenchant>=3; extra == \"docstest\"",
+        "readme-renderer>=30.0; extra == \"docstest\"",
+        "sphinxcontrib-spelling>=7.3.1; extra == \"docstest\"",
+        "build>=1.0.0; extra == \"sdist\"",
+        "ruff>=0.3.6; extra == \"pep8test\"",
+        "mypy>=1.4; extra == \"pep8test\"",
+        "check-sdist; python_full_version >= \"3.8\" and extra == \"pep8test\"",
+        "click>=8.0.1; extra == \"pep8test\""
+      ],
+      "advisory_record_count": 13,
+      "advisory_ids": [
+        "GHSA-r6ph-v2qm-q3c2",
+        "GHSA-m959-cc7f-wv43",
+        "GHSA-p423-j2cm-9vmq",
+        "PYSEC-2026-36",
+        "PYSEC-2026-35",
+        "GHSA-537c-gmf6-5ccf",
+        "PYSEC-2026-2141",
+        "GHSA-m2h6-j472-rp4c",
+        "GHSA-g6cj-pr64-35w5",
+        "GHSA-jwv3-5hgf-82ww",
+        "PYSEC-2026-3552",
+        "PYSEC-2026-3553",
+        "PYSEC-2026-3554"
+      ]
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.2",
+      "url": "https://pypi.org/pypi/cryptography/50.0.2/json",
+      "response_sha256": "7423990cc0948676ef47a71ea62a476ece4c76245e6bebd1c3a71f03c4ffc0f4",
+      "requires_python": "!=3.9.0,!=3.9.1,>=3.9",
+      "requires_dist": [
+        "cffi>=2.0.0; platform_python_implementation != \"PyPy\"",
+        "typing-extensions>=4.13.2; python_full_version < \"3.11\"",
+        "bcrypt>=3.1.5; extra == \"ssh\""
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "yarl",
+      "version": "1.23.0",
+      "url": "https://pypi.org/pypi/yarl/1.23.0/json",
+      "response_sha256": "4eed4a6e3af60db9b721b63ae3da3c76acfe58560fb421e609f8269db10be2de",
+      "requires_python": ">=3.10",
+      "requires_dist": [
+        "idna>=2.0",
+        "multidict>=4.0",
+        "propcache>=0.2.1"
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    },
+    {
+      "name": "yarl",
+      "version": "1.25.1",
+      "url": "https://pypi.org/pypi/yarl/1.25.1/json",
+      "response_sha256": "a07cf3b564a15e3be66faacf0c81a23497ebfbf1ec849a3a77b494ba4b60cf0f",
+      "requires_python": ">=3.10",
+      "requires_dist": [
+        "idna>=2.0",
+        "multidict>=4.0",
+        "propcache>=0.2.1"
+      ],
+      "advisory_record_count": 0,
+      "advisory_ids": []
+    }
+  ],
+  "advisory_version_comparison": [
+    {
+      "name": "aiohttp",
+      "before": "3.10.11",
+      "after": "3.14.5",
+      "raw_advisory_records_before": 74,
+      "raw_advisory_records_after": 0,
+      "removed_ids": [
+        "GHSA-2fqr-mr3j-6wp8",
+        "GHSA-2g87-pp6c-29x5",
+        "GHSA-2vrm-gr82-f7m5",
+        "GHSA-3wq7-rqq7-wx6j",
+        "GHSA-494j-54xm-rwp3",
+        "GHSA-4fvr-rgm6-gqmc",
+        "GHSA-4m7w-qmgq-4wj5",
+        "GHSA-54jq-c3m8-4m76",
+        "GHSA-5wr8-gcqf-gqf3",
+        "GHSA-63hf-3vf5-4wqf",
+        "GHSA-63hw-fmq6-xxg2",
+        "GHSA-69f9-5gxw-wvc2",
+        "GHSA-6cjc-53gc-5rqm",
+        "GHSA-6jhg-hg63-jvvf",
+        "GHSA-6mq8-rvhq-8wgg",
+        "GHSA-9548-qrrj-x5pj",
+        "GHSA-966j-vmvw-g2g9",
+        "GHSA-9x8q-7h8h-wcw9",
+        "GHSA-9xw5-w5jj-pvcg",
+        "GHSA-c427-h43c-vf67",
+        "GHSA-cq5v-8q36-5273",
+        "GHSA-f9xw-jh8m-3mwq",
+        "GHSA-fh55-r93g-j68g",
+        "GHSA-g3cq-j2xw-wf74",
+        "GHSA-g84x-mcqj-x9qq",
+        "GHSA-gx76-c99x-2c96",
+        "GHSA-hcc4-c3v8-rx92",
+        "GHSA-hg6j-4rv6-33pg",
+        "GHSA-hpj7-wq8m-9hgp",
+        "GHSA-jg22-mg44-37j8",
+        "GHSA-jj3x-wxrx-4x23",
+        "GHSA-m5qp-6w8w-w647",
+        "GHSA-m6qw-4cw2-hm4m",
+        "GHSA-mfx4-hv73-q22v",
+        "GHSA-mq44-7p77-q5h7",
+        "GHSA-mqqc-3gqh-h2x8",
+        "GHSA-mwh4-6h8g-pg8w",
+        "GHSA-p998-jp59-783m",
+        "GHSA-pqxq-w44r-73xw",
+        "GHSA-w2fm-2cpv-w7v5",
+        "GHSA-xcgm-r5h9-7989",
+        "PYSEC-2026-1097",
+        "PYSEC-2026-1099",
+        "PYSEC-2026-1100",
+        "PYSEC-2026-1101",
+        "PYSEC-2026-1104",
+        "PYSEC-2026-1105",
+        "PYSEC-2026-1106",
+        "PYSEC-2026-1107",
+        "PYSEC-2026-1109",
+        "PYSEC-2026-2094",
+        "PYSEC-2026-2095",
+        "PYSEC-2026-2096",
+        "PYSEC-2026-2097",
+        "PYSEC-2026-2098",
+        "PYSEC-2026-2099",
+        "PYSEC-2026-2100",
+        "PYSEC-2026-2101",
+        "PYSEC-2026-2102",
+        "PYSEC-2026-2103",
+        "PYSEC-2026-2104",
+        "PYSEC-2026-2105",
+        "PYSEC-2026-2106",
+        "PYSEC-2026-2107",
+        "PYSEC-2026-2108",
+        "PYSEC-2026-2109",
+        "PYSEC-2026-2110",
+        "PYSEC-2026-2111",
+        "PYSEC-2026-2112",
+        "PYSEC-2026-2113",
+        "PYSEC-2026-237",
+        "PYSEC-2026-3545",
+        "PYSEC-2026-3546",
+        "PYSEC-2026-3547"
+      ],
+      "added_ids": [],
+      "scope": "Non-Windows selected package versions only; Windows selections unchanged."
+    },
+    {
+      "name": "python-dotenv",
+      "before": "1.0.1",
+      "after": "1.2.4",
+      "raw_advisory_records_before": 2,
+      "raw_advisory_records_after": 0,
+      "removed_ids": [
+        "GHSA-mf9w-mj56-hr94",
+        "PYSEC-2026-2270"
+      ],
+      "added_ids": [],
+      "scope": "Non-Windows selected package versions only; Windows selections unchanged."
+    },
+    {
+      "name": "cryptography",
+      "before": "45.0.7",
+      "after": "50.0.2",
+      "raw_advisory_records_before": 13,
+      "raw_advisory_records_after": 0,
+      "removed_ids": [
+        "GHSA-537c-gmf6-5ccf",
+        "GHSA-g6cj-pr64-35w5",
+        "GHSA-jwv3-5hgf-82ww",
+        "GHSA-m2h6-j472-rp4c",
+        "GHSA-m959-cc7f-wv43",
+        "GHSA-p423-j2cm-9vmq",
+        "GHSA-r6ph-v2qm-q3c2",
+        "PYSEC-2026-2141",
+        "PYSEC-2026-35",
+        "PYSEC-2026-3552",
+        "PYSEC-2026-3553",
+        "PYSEC-2026-3554",
+        "PYSEC-2026-36"
+      ],
+      "added_ids": [],
+      "scope": "Non-Windows selected package versions only; Windows selections unchanged."
+    }
+  ],
+  "raw_advisory_records_in_compared_versions_before": 89,
+  "raw_advisory_records_in_compared_versions_after": 0,
+  "advisory_count_limits": "Service records can be aliased or duplicated. Do not add/subtract these counts from the older whole-lock snapshot. Absence of records does not establish absence of vulnerabilities. Windows keeps the old aiohttp/dotenv chain.",
+  "discarded_scratch_resolutions": [
+    "An upgrade-package-only cryptography request removed cryptography and downgraded google-auth instead of upgrading it.",
+    "Directly requiring google-auth 2.49.2 and cryptography 46.0.7 without changing SDK constraints failed: cluster-tools pins typing-extensions below 4.13; cryptography needs >=4.13.2 on Python 3.10.",
+    "An unconstrained WEBKNOSSOS upgrade removed the non-Windows 3.4.1 SDK/auth chain by selecting 2.5.0 everywhere. Discarded; explicit non-Windows SDK floor prevents this downgrade."
+  ],
+  "remaining_constraints": [
+    "New SDKs require Windows TensorStore ==0.1.76, conflicting with root >=0.1.78. Windows still selects WEBKNOSSOS/cluster-tools 2.5.0 and typing-extensions 4.12.2.",
+    "cluster-tools 4.3.3 pins typing-extensions ~=4.15.0; the previously inspected Virtualenv 21.14.10 needs >=4.16 on Python 3.10. No Virtualenv migration is claimed.",
+    "Previously inspected full-fix candidates Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. No Python support change is made here."
+  ],
+  "validation_setup": {
+    "scratch_only": true,
+    "live_research_environment_modified": false,
+    "clean_environment": "/tmp/vesuvius-sdk4-env (Python 3.10.21)",
+    "export_command": "uv export --directory /tmp/vesuvius-sdk4 --python /workspace/.vesuvius-review-env/bin/python --locked --no-dev --no-emit-project --no-hashes --output-file /tmp/vesuvius-sdk4-constraints.txt",
+    "export_sha256_before": "f224cb2185fa48e36b2e88bf2c1e71b3f15940fda2c9266b3fbff09ba5277616",
+    "export_sha256_after": "283e321648afa781cc19213b3b91607e9ea03e825aa756e31da7bb868b210d74",
+    "install": "uv pip install --python /tmp/vesuvius-sdk4-env/bin/python --constraint /tmp/vesuvius-sdk4-constraints.txt webknossos==4.3.3 cryptography==50.0.2 pytest==9.0.3 zarr==2.18.3 tifffile==2025.5.10 tqdm s3fs opencv-python-headless scikit-learn",
+    "clean_pip_check": "87 packages compatible, before adding the CPU fallback path",
+    "cpu_fallback": "For the six-module integration selection only, review_cpu_fallback.pth appends /workspace/.vesuvius-review-env/lib/python3.10/site-packages after the isolated environment. The new SDK/auth/typing/NumPy packages take precedence; existing CPU ML packages are read without changing that environment. This is not a fully synced CUDA environment.",
+    "cpu_modules": {
+      "python": "3.10.21 (main, Sep 24 2026, 17:54:40) [Clang 22.1.3 ]",
+      "modules": {
+        "webknossos": {
+          "version": "4.3.3",
+          "source": "/tmp/vesuvius-sdk4-env/lib/python3.10/site-packages/webknossos/__init__.py"
+        },
+        "cryptography": {
+          "version": "50.0.2",
+          "source": "/tmp/vesuvius-sdk4-env/lib/python3.10/site-packages/cryptography/__init__.py"
+        },
+        "google-auth": {
+          "version": "2.49.2",
+          "source": "/tmp/vesuvius-sdk4-env/lib/python3.10/site-packages/google/auth/__init__.py"
+        },
+        "typing-extensions": {
+          "version": "4.15.0",
+          "source": "/tmp/vesuvius-sdk4-env/lib/python3.10/site-packages/typing_extensions.py"
+        },
+        "numpy": {
+          "version": "2.2.6",
+          "source": "/tmp/vesuvius-sdk4-env/lib/python3.10/site-packages/numpy/__init__.py"
+        },
+        "aiohttp": {
+          "version": "3.14.5",
+          "source": "/tmp/vesuvius-sdk4-env/lib/python3.10/site-packages/aiohttp/__init__.py"
+        },
+        "python-dotenv": {
+          "version": "1.2.4",
+          "source": "/tmp/vesuvius-sdk4-env/lib/python3.10/site-packages/dotenv/__init__.py"
+        },
+        "torch": {
+          "version": "2.9.1+cpu",
+          "source": "/workspace/.vesuvius-review-env/lib/python3.10/site-packages/torch/__init__.py"
+        },
+        "pydantic": {
+          "version": "2.14.3",
+          "source": "/workspace/.vesuvius-review-env/lib/python3.10/site-packages/pydantic/__init__.py"
+        }
+      }
+    },
+    "test_environment": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "CUDA_VISIBLE_DEVICES": "",
+      "MPLCONFIGDIR": "/tmp/vesuvius-sdk4-mpl",
+      "XDG_CACHE_HOME": "/tmp/vesuvius-sdk4-cache"
+    },
+    "initial_setup_failures": [
+      "The initial three-module selection had 229 passes and nine failures because OpenCV was absent. Installed the locked OpenCV version.",
+      "The subsequent five-module selection had 369 passes and two failures from missing scikit-learn/ML imports. Installed locked scikit-learn; the clean four-module selection and separate CPU integration selection below passed."
+    ]
+  },
+  "tests": [
+    {
+      "command": "/tmp/vesuvius-sdk4-env/bin/python -m pytest tests/test_fiber_label_generation.py tests/test_nml_import_contracts.py tests/test_sota_download.py tests/test_sota_teacher_contracts.py -q --tb=short --junitxml=/tmp/vesuvius-sdk4-clean-tests.xml",
+      "environment": "Clean SDK-only environment; no CPU fallback path, no Torch needed.",
+      "counts": {
+        "passed": 291
+      },
+      "modules": {
+        "tests.test_fiber_label_generation": {
+          "passed": 81
+        },
+        "tests.test_nml_import_contracts": {
+          "passed": 70
+        },
+        "tests.test_sota_download": {
+          "passed": 87
+        },
+        "tests.test_sota_teacher_contracts": {
+          "passed": 53
+        }
+      },
+      "duration_seconds": 9.528,
+      "junit_sha256": "1658c842aed0ba4e7b73f893679f8cd7f8b6bc867184a364e8fa13605ed0d0f9"
+    },
+    {
+      "command": "/tmp/vesuvius-sdk4-env/bin/python -m pytest tests/test_surface_render_contracts.py tests/test_detector_contracts.py tests/test_detector_build_model.py tests/test_model_shapes.py tests/test_volume_inference_contracts.py tests/test_training_step_contracts.py -q --tb=short --junitxml=/tmp/vesuvius-sdk4-cpu-tests.xml",
+      "environment": "Isolated SDK environment plus read-only existing CPU ML fallback.",
+      "counts": {
+        "passed": 323
+      },
+      "modules": {
+        "tests.test_surface_render_contracts": {
+          "passed": 80
+        },
+        "tests.test_detector_contracts": {
+          "passed": 56
+        },
+        "tests.test_detector_build_model": {
+          "passed": 1
+        },
+        "tests.test_model_shapes.TestModelArchitectures": {
+          "passed": 4
+        },
+        "tests.test_volume_inference_contracts": {
+          "passed": 151
+        },
+        "tests.test_training_step_contracts": {
+          "passed": 31
+        }
+      },
+      "duration_seconds": 43.499,
+      "junit_sha256": "b93f6f1298f3d96e2c7a0e754adddc316fd59a3ab69bc3620056ef8c071a7e0c"
+    }
+  ],
+  "native_auth_probe": {
+    "status": "passed",
+    "packages": {
+      "cryptography": "50.0.2",
+      "google-auth": "2.49.2",
+      "cffi": "2.0.0",
+      "typing-extensions": "4.15.0"
+    },
+    "openssl": "OpenSSL 4.0.3 29 Sep 2026",
+    "signer": "google.auth.crypt.rsa.RSASigner",
+    "checks": [
+      "ephemeral 2048-bit RSA PKCS8 PEM load/sign",
+      "self-signed X509 PEM roundtrip and certificate-key verification",
+      "Google Auth signature roundtrip and tampered message rejection",
+      "Google Auth JWT audience/signature verification and wrong audience rejection"
+    ],
+    "external_requests": false,
+    "source_sha256": "a66c1b6764f792c618cb327567927c332c169e933c6b337ad1a297e90bbb4b62",
+    "source_lines": [
+      "\"\"\"Local, disposable compatibility probe; no account credentials or requests.\"\"\"",
+      "",
+      "import datetime",
+      "import importlib.metadata",
+      "import json",
+      "",
+      "from cryptography import x509",
+      "from cryptography.hazmat.backends.openssl.backend import backend",
+      "from cryptography.hazmat.primitives import hashes, serialization",
+      "from cryptography.hazmat.primitives.asymmetric import rsa",
+      "from cryptography.x509.oid import NameOID",
+      "from google.auth import crypt, jwt",
+      "",
+      "key = rsa.generate_private_key(public_exponent=65537, key_size=2048)",
+      "pem = key.private_bytes(",
+      "    serialization.Encoding.PEM,",
+      "    serialization.PrivateFormat.PKCS8,",
+      "    serialization.NoEncryption(),",
+      ")",
+      "name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, \"local migration probe\")])",
+      "now = datetime.datetime.now(datetime.timezone.utc)",
+      "certificate = (",
+      "    x509.CertificateBuilder()",
+      "    .subject_name(name)",
+      "    .issuer_name(name)",
+      "    .public_key(key.public_key())",
+      "    .serial_number(x509.random_serial_number())",
+      "    .not_valid_before(now - datetime.timedelta(minutes=1))",
+      "    .not_valid_after(now + datetime.timedelta(minutes=5))",
+      "    .sign(key, hashes.SHA256())",
+      ")",
+      "cert_pem = certificate.public_bytes(serialization.Encoding.PEM)",
+      "assert x509.load_pem_x509_certificate(cert_pem).public_key().public_numbers() == (",
+      "    key.public_key().public_numbers()",
+      ")",
+      "signer = crypt.RSASigner.from_string(pem, key_id=\"local-test\")",
+      "verifier = crypt.RSAVerifier.from_string(cert_pem)",
+      "signature = signer.sign(b\"migration probe\")",
+      "assert verifier.verify(b\"migration probe\", signature)",
+      "assert not verifier.verify(b\"modified message\", signature)",
+      "claims = {\"iss\": \"local-test\", \"aud\": \"migration-test\", \"iat\": int(now.timestamp())}",
+      "claims[\"exp\"] = claims[\"iat\"] + 60",
+      "token = jwt.encode(signer, claims)",
+      "assert jwt.decode(token, certs={\"local-test\": cert_pem}, audience=\"migration-test\") == claims",
+      "try:",
+      "    jwt.decode(token, certs={\"local-test\": cert_pem}, audience=\"wrong-audience\")",
+      "except ValueError:",
+      "    pass",
+      "else:",
+      "    raise AssertionError(\"wrong audience accepted\")",
+      "assert type(signer).__module__ == \"google.auth.crypt.rsa\"",
+      "print(json.dumps({",
+      "    \"status\": \"passed\",",
+      "    \"packages\": {p: importlib.metadata.version(p) for p in (",
+      "        \"cryptography\", \"google-auth\", \"cffi\", \"typing-extensions\"",
+      "    )},",
+      "    \"openssl\": backend.openssl_version_text(),",
+      "    \"signer\": type(signer).__module__ + \".\" + type(signer).__name__,",
+      "    \"checks\": [",
+      "        \"ephemeral 2048-bit RSA PKCS8 PEM load/sign\",",
+      "        \"self-signed X509 PEM roundtrip and certificate-key verification\",",
+      "        \"Google Auth signature roundtrip and tampered message rejection\",",
+      "        \"Google Auth JWT audience/signature verification and wrong audience rejection\",",
+      "    ],",
+      "    \"external_requests\": False,",
+      "}, indent=2))"
+    ],
+    "command": "/tmp/vesuvius-sdk4-env/bin/python /tmp/vesuvius-sdk4-native-auth.py"
+  },
+  "test_source_sha256": {
+    "tests/test_fiber_label_generation.py": "32ebbd2e967c7ea72ee44d538feae7a01765a0dc341c6d9bbe8291bcde46e122",
+    "tests/test_nml_import_contracts.py": "d3ad6267c62ba53e197d5b74458f4e66d4984a00538479a91bd24bfcfe92b272",
+    "tests/test_sota_download.py": "62ac36d7a699764873a3809480d518adacacd85d19b21ec2ffb119845dd8f809",
+    "tests/test_sota_teacher_contracts.py": "f30ebeb616e64dfa08d7c7cb5c82f3e1287e83a051ee7165a2a6d207a12fa28d",
+    "tests/test_surface_render_contracts.py": "09e00ffb4d5c2c10f0ec8af1a32d825164f6d19f15faf4f9ff300b4d109cc58c",
+    "tests/test_detector_contracts.py": "15a735f9c9699844923251974a464a2ccfd2079b519c2709aee3a87489c53ffd",
+    "tests/test_detector_build_model.py": "30315085288fe6d050aabe60a0afe450679a037fc4b59010fd68a06b2ff9e740",
+    "tests/test_model_shapes.py": "38688ffd59c3d44167c46fefabfbad7c230d946fa1c2cea51ae24510c356befa",
+    "tests/test_volume_inference_contracts.py": "b02b77e48cddae732292bd6a2bb3a219919e56b1bdc42aefdfb3a6646664ff13",
+    "tests/test_training_step_contracts.py": "f6e5ac8c5db5f1e8de42e135a84a7d659fa1b5eede45682e5b72622fc3a1a67f"
+  },
+  "not_validated": [
+    "GPU/CUDA/native model execution",
+    "Original CT/labels or scientific reruns",
+    "Windows or macOS runtime/wheel installation",
+    "Live WEBKNOSSOS service or real Google credentials",
+    "Optional CZI/MRC/IMS image readers",
+    "Full curated suite or all root dependencies installed together"
+  ]
+}
