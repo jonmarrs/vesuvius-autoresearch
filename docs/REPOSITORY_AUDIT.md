@@ -264,7 +264,7 @@ each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
-| High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the latest Pillow update. The [November 14 migration review](../reports/dependency_migration_review_2026-11-14.json) records the Pillow-only 12.1.1 → 12.3.0 lock update, CPU workflow validation and a same-service version lookup of 93 → 58 Pillow advisory records. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11; aiohttp/dotenv need a WEBKNOSSOS migration. Even Virtualenv 20.36.1 conflicts with the Windows WEBKNOSSOS/cluster-tools typing-extensions constraint, while newer SDKs conflict with Windows tensorstore. Decide Python/platform support before those migrations, and validate major/native updates separately. GitHub's advisory API previously returned HTTP 403; public matching does not replace alert access or GPU validation. |
+| High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the later migrations. The [November 14 review](../reports/dependency_migration_review_2026-11-14.json) records Pillow 12.1.1 → 12.3.0. The [November 15 review](../reports/dependency_migration_review_2026-11-15.json) records non-Windows WEBKNOSSOS 4.3.3, aiohttp 3.14.5, dotenv 1.2.4 and cryptography 50.0.2, with Python 3.10 workflow/native checks and unchanged Windows package selection. Fresh version-specific PyPI lookups report 89 → 0 raw records across the three latter packages. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize the remaining applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. Windows still selects the old SDK/aiohttp/dotenv chain because newer SDKs pin TensorStore below this project's minimum. Newer Virtualenv still conflicts with SDK typing-extensions constraints on Python 3.10. Decide Python/platform support before those migrations. GitHub's advisory API previously returned HTTP 403; public matching and CPU checks do not replace alert access, Windows execution or GPU validation. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
 | High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
 | Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The repaired [scratch CUDA probe](VRAM_PROBE.md) measures a separate gated_unet forward/backward path; it does not profile these regional commands or production training. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
@@ -1317,3 +1317,70 @@ seconds, including Finding 112's source/report checks. Mypy passes on **1003
 files**, maintained Ruff/format checks pass, and offline lock consistency
 passes without changing dependency versions. These checks do not rerun
 Finding 112 or measure GPU capacity.
+
+## Dependency-review follow-up (2026-11-15 UTC)
+
+This pass starts from main `bf6e9596`. The first owner-review item advances
+without changing Python support, the TensorStore minimum or the live research
+environment. The [migration record](../reports/dependency_migration_review_2026-11-15.json)
+binds the before/after manifests and locks, platform export comparisons, public
+metadata responses and validation commands.
+
+The non-Windows WEBKNOSSOS floor is now 4.3.3. Its cluster-tools dependency
+allows typing-extensions 4.15.0, unblocking the following selected versions:
+
+| Package | Before | After (non-Windows) |
+| --- | --- | --- |
+| WEBKNOSSOS / cluster-tools | 3.4.1 | 4.3.3 |
+| aiohttp | 3.10.11 | 3.14.5 |
+| python-dotenv | 1.0.1 | 1.2.4 |
+| cryptography | 45.0.7 | 50.0.2 |
+| typing-extensions | 4.12.2 | 4.15.0 |
+| yarl | 1.23.0 | 1.25.1 |
+
+The SDK no longer brings in scm-pims on these platforms; slicerator is also
+absent from their resolved export. No maintained project caller imports either
+package. Torch, NumPy, TensorStore, Google Auth and the AWS SDK retain their
+locked versions. A marker-evaluated Windows export has **no selected package
+version changes**. This is a resolver comparison, not Windows execution.
+
+An upgrade request alone was insufficient: scratch resolutions removed
+cryptography and downgraded its consumer, or selected the old SDK everywhere.
+Those results were discarded. The explicit non-Windows SDK floor keeps the
+consumer chain present; Google Auth remains 2.49.2.
+
+Today's version-specific PyPI lookup reports **89 → 0 raw advisory records**
+across the compared aiohttp, dotenv and cryptography versions. The record keeps
+their IDs and response hashes. These are service records that can include
+aliases, not a count of distinct reachable vulnerabilities or a fresh whole-lock
+audit. Windows retains its older aiohttp/dotenv versions. Do not combine these
+figures arithmetically with the November 10 or November 14 snapshots.
+
+### Verification and remaining work
+
+- A clean Python 3.10.21 environment installed the SDK/auth/data dependencies
+  constrained to the candidate lock. Its dependency check passed on **87
+  packages**. Four maintained modules passed **291 tests with no skips** in
+  9.55 seconds, including all **81 fiber-label tests** with the real SDK,
+  nested NML round trips, CLI publication and stubbed AWS transport failures.
+- A separate six-module selection passed **323 tests with no skips** in 43.52
+  seconds, including surface rendering, model construction, training-step and
+  volume-inference checks. This run appended the existing CPU ML environment
+  after the isolated environment's packages; the new SDK/auth/typing packages
+  remained selected, while Torch 2.9.1 CPU came from that read-only fallback.
+  It is not a fully installed CUDA environment. Initial setup failures from
+  missing OpenCV and ML imports are retained in the migration record.
+- A local native compatibility probe passed PKCS8 RSA signing, X509 PEM
+  round trips, Google Auth signature/JWT verification and tampered-message /
+  wrong-audience rejection with cryptography 50.0.2 and OpenSSL 4.0.3. It used
+  an ephemeral key, no real credentials and no service requests. The report
+  retains the probe source for replay.
+- Maintained Ruff and offline universal lock consistency pass. No GPU, original
+  data, Windows/macOS runtime, live WEBKNOSSOS service or optional microscopy
+  image reader was validated. The complete curated suite was not repeated.
+
+The owner-review row remains open for applicability and the other migrations.
+Windows' SDK/TensorStore conflict remains; Virtualenv's newer Python 3.10
+typing-extensions requirement also exceeds the new cluster-tools pin. The
+previously inspected full-fix Tornado, Pillow and Filelock candidates require
+Python 3.11. No unsupported constraint overrides or platform removals were used.
