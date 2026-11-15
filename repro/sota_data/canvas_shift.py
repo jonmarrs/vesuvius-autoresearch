@@ -610,7 +610,8 @@ def _affine_terms(
     coefficient whose own change across the span is under ``COEF_FLOOR_PX``
     is dropped. Zeroing it and keeping the joint intercept would leave that
     term's mean in the intercept, about a tenth of a pixel, so the remaining
-    terms are fit again.
+    terms are fit again. If what remains wanders by under a pixel, the axis
+    collapses to the mean as well.
     """
     names: list[str] = []
     columns: list[np.ndarray] = []
@@ -642,7 +643,12 @@ def _affine_terms(
         reduced = [np.ones(len(ys))]
         for name in keep:
             reduced.append(ys if name == "y" else xs)
-        coef = np.linalg.lstsq(np.column_stack(reduced), shifts, rcond=None)[0]
+        design = np.column_stack(reduced)
+        coef = np.linalg.lstsq(design, shifts, rcond=None)[0]
+        # The refit model is the one returned, so the one-pixel rule applies
+        # to it as it does to the full model.
+        if _span(design @ coef) < DRIFT_PX:
+            return float(shifts.mean()), 0.0, 0.0
     intercept = float(coef[0])
     by = 0.0
     bx = 0.0
