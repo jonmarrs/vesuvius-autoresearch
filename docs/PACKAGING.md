@@ -7,8 +7,9 @@ setup installs the local package alongside those checkout files.
 The wheel includes `vesuvius_autoresearch.core`, `detector` and `fibers`, plus
 `vesuvius_model`, `scroll_augmentations` and `volume_cartographer_wrapper`.
 It supports library use and the packaged detector/fiber module entry points
-from another working directory. Configuration files, models, datasets, reports,
-research reproductions, orchestration scripts and Villa are supplied separately.
+from another working directory. Configuration files, trained checkpoints,
+datasets, reports, research reproductions, orchestration scripts and Villa are
+supplied separately.
 
 Build distributions with Python 3.10 and uv:
 

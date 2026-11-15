@@ -205,5 +205,38 @@
     "Fresh resolution/installation of every root dependency into a CUDA environment",
     "Standalone research orchestration or automatic patch discovery outside an editable Villa checkout"
   ],
-  "remaining_owner_review_items": 9
+  "remaining_owner_review_items": 9,
+  "pull_request_review": {
+    "url": "https://github.com/jonmarrs/vesuvius-autoresearch/pull/428",
+    "integrated_main_commit": "c0eeecca4c3c90a6c0b6cddff5bf34a42911f02b",
+    "reviewed_code_commit": "b966edd57339c1d8697f1996b7d2770796092396",
+    "code_findings": [],
+    "documentation_clarification": "Separately supplied assets are called trained checkpoints; model definitions are included in the wheel.",
+    "integration_command": "/tmp/vesuvius-sdk4-env/bin/python -m pytest tests/test_wheel_installation.py tests/test_surface_volume_import.py tests/test_file_modes.py tests/test_preserved_source_policy.py tests/test_checkout_imports_its_own_code.py tests/test_canvas_shift.py tests/test_canvas_artifact_contracts.py -q --tb=short --junitxml=/tmp/vesuvius-pr428-integration.xml",
+    "integration_passed": 215,
+    "integration_skipped": 0,
+    "integration_duration_seconds": 38.258,
+    "integration_junit_sha256": "e99668da519dfd4b03b73e1d9acb64557380bc9037c96b53f92c742949436b43",
+    "editable_probe": {
+      "result": "passed",
+      "setup": "Fresh uv venv; offline --no-deps --editable install of a scratch runtime source copy; raw third-party dependency directories; Python -I from /tmp.",
+      "resolved_modules": {
+        "vesuvius_model": "/tmp/vesuvius-pr428-editable-source/vesuvius_model.py",
+        "scroll_augmentations": "/tmp/vesuvius-pr428-editable-source/scroll_augmentations.py",
+        "volume_cartographer_wrapper.volume": "/tmp/vesuvius-pr428-editable-source/volume_cartographer_wrapper/volume.py",
+        "vesuvius_autoresearch.core.model_wrappers": "/tmp/vesuvius-pr428-editable-source/src/vesuvius_autoresearch/core/model_wrappers.py",
+        "vesuvius_autoresearch.core.new_artifacts": "/tmp/vesuvius-pr428-editable-source/src/vesuvius_autoresearch/core/new_artifacts.py",
+        "vesuvius_autoresearch.core.surface_volume_import": "/tmp/vesuvius-pr428-editable-source/src/vesuvius_autoresearch/core/surface_volume_import.py"
+      },
+      "explicit_sibling_checkout_src_takes_precedence": true
+    },
+    "other_checks": [
+      "Mypy passed on 1005 files",
+      "Maintained Ruff passed",
+      "Offline uv lock --check passed, 258 records",
+      "Unchanged package versions retain source/artifact hashes",
+      "Original report source bindings remain correct"
+    ],
+    "limits": "Earlier full-run and migration evidence retains its recorded scope. No full-suite repeat after main integration, GPU run, real-data measurement or Windows/macOS runtime validation."
+  }
 }

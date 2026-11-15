@@ -1436,3 +1436,17 @@ Python payload hashes match the installed-test wheel, and its 48 declared
 runtime requirements match the project manifest. These build/installation
 checks close the packaging defect within the documented library scope; the
 nine owner-review decisions above remain open.
+
+### PR 428 review and current-main integration
+
+The PR integrates main `c0eeecca`, including the accepted canvas-shift estimator
+fix from PR 426. The combined wheel/importer/publication, checkout-import and
+canvas selection passed **215 tests** in 38.28 seconds. Maintained Ruff, Mypy
+on **1005 files** and offline lock consistency pass.
+
+A separate fresh editable installation also resolves the model, augmentation,
+volume and core helpers from its source tree when launched outside that tree.
+An explicitly selected sibling checkout's `src` still takes precedence. Review
+found no additional code defects within this scope. The packaging guide now
+calls separately supplied trained checkpoints by name. The report retains this
+review separately from the earlier complete-run and wheel evidence.
