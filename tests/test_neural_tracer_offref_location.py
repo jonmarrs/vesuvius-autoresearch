@@ -5,6 +5,7 @@ import importlib.util
 import json
 import sys
 import types
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -214,6 +215,18 @@ def test_trilinear_returns_nan_for_a_nonfinite_coordinate():
     hole[1, 0, 0] = np.nan
     assert ol.trilinear(hole, np.array([[0.0, 0.0, 0.0]]))[0] == pytest.approx(5)
     assert np.isnan(ol.trilinear(hole, np.array([[0.25, 0.0, 0.0]]))[0])
+
+
+def test_trilinear_does_not_cast_a_nonfinite_coordinate():
+    """A non-finite coordinate is replaced before it is floored, so no cast warning is raised."""
+    v = np.arange(8, dtype=float).reshape(2, 2, 2)
+    points = np.array(
+        [[np.nan, 0.0, 0.0], [0.0, np.inf, 1.0], [1.0, 0.0, -np.inf], [1.0, 1.0, 1.0]]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        got = ol.trilinear(v, points)
+    assert np.isnan(got[:3]).all() and got[3] == 7
 
 
 RECORD = json.loads(

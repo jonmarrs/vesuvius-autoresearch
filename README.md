@@ -126,6 +126,10 @@ See [award history and source](docs/PROGRESS_PRIZE_AWARDS.md).
 
 **Requirements:** A single NVIDIA GPU (tested on RTX 4090/H100), Python 3.10, [uv](https://docs.astral.sh/uv/).
 
+The research workflows use an editable checkout. Library wheels include the
+model and local-volume helpers; see [package scope and installation checks](docs/PACKAGING.md)
+for the supported installed APIs and workflows that require the pinned Villa tree.
+
 ```bash
 # 1. Install uv project manager (if you don't already have it)
 curl -LsSf https://astral.sh/uv/install.sh | sh
