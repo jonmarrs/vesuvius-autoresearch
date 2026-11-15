@@ -190,6 +190,14 @@ read of that fit; the next step there is a fit with the winding count set to wha
 separately. A score taken over all 130 windings mixes "do the windings follow sheets" with "is 130 the right
 number", so later registrations score the windings the fit is asked for.
 
+**PHerc. 0826, refitted with 80 windings on November 15.** With villa's outer winding set to 80 the same band
+gave `PARTLY_ON_SHEETS` (median excess 0.103, 78.6% of 70 windings positive;
+[report](../reports/first_letters_0826_winding_count.md)). That is 0.020 above the same windings in the
+130-winding fit, enough for the registered `HELPS` and not enough to tell from seed noise (one seed each; 42 of
+70 windings higher, sign test p = 0.12). The band has 45 windings at 0.07 or above that can be read for ink once
+finding 113 has shown whether the blinded protocol works. A new scroll needs its winding count before its fit
+is scored; so far that has taken a first fit with the default.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
