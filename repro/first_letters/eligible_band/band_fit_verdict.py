@@ -1,6 +1,7 @@
 """Finding 112's registered table, applied to the gate files and the two score files of one run directory.
 
-usage: band_fit_verdict.py RUN_DIR OUT.json
+usage: band_fit_verdict.py RUN_DIR OUT.json [SMOKE_ARM FULL_ARM]
+       the arms default to smoke and full
 
 The record carries summary numbers only: no geometry and no score of a single winding.
 """
@@ -15,7 +16,6 @@ MIN_WINDINGS = 60
 FLOOR_MAX = 0.03  # smoke fit's median excess above this: the score reads something else
 P1 = {"median": 0.07, "positive": 0.80}
 P2 = {"median": 0.03, "positive": 0.65}
-STEPS = (("setup", "distance_field"), ("smoke", "fit"), ("full", "fit"))
 
 
 def holds(summary: dict, line: dict) -> bool:
@@ -81,14 +81,21 @@ def _median(ordered: list) -> float:
 
 
 def main(argv: list[str] | None = None) -> int:
-    run, out = (Path(p) for p in (argv if argv is not None else sys.argv[1:]))
+    args = list(argv if argv is not None else sys.argv[1:])
+    if len(args) not in (2, 4):
+        print(__doc__, file=sys.stderr)
+        return 2
+    run, out = Path(args[0]), Path(args[1])
+    arms = tuple(args[2:]) or ("smoke", "full")
     steps = {
         f"{arm}/{name}": _read(run / "work" / f"gate_{arm}" / f"{name}.json")
-        for arm, name in STEPS
+        for arm, name in (
+            ("setup", "distance_field"),
+            (arms[0], "fit"),
+            (arms[1], "fit"),
+        )
     }
-    smoke, full = (
-        _read(run / "work" / f"quality_{arm}.json") for arm in ("smoke", "full")
-    )
+    smoke, full = (_read(run / "work" / f"quality_{arm}.json") for arm in arms)
     smoke_summary = smoke and smoke["summary"]
     full_summary = full and full["summary"]
     record = {
