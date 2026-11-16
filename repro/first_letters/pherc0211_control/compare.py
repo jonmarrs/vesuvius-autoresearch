@@ -12,7 +12,10 @@ on one raster: our render of the winner's surface and the winner's probability m
     r          Pearson over the cells; controls: our other side against theirs, and ours slid by 64 pixels
 
 usage: compare.py OUT.json --mesh DIR --maps DIR --render ZARR --studio TIF --studio-mask PNG --winner-ct TIF
-                  [--image PNG]
+                  [--image PNG] [--recheck RECORD.json]
+
+--recheck measures again into a new OUT.json after a fix to code the unregistered numbers use, and records whether
+the registered numbers and verdict in RECORD.json came out the same. RECORD.json is never written.
 """
 
 from __future__ import annotations
@@ -245,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--studio-mask", required=True, type=Path)
     ap.add_argument("--winner-ct", required=True, type=Path)
     ap.add_argument("--image", type=Path)
+    ap.add_argument("--recheck", type=Path)
     args = ap.parse_args(argv)
     if Path(args.out).exists():
         print(f"{args.out} exists: this is measured once", file=sys.stderr)
@@ -321,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
                 analysis.highpass(studio, cells),
                 cells,
             )
+    if args.recheck:
+        first = json.loads(Path(args.recheck).read_text())
+        result["recheck_of"] = str(args.recheck)
+        result["registered_reproduces"] = first.get("registered") == result.get(
+            "registered"
+        ) and first.get("verdict") == result.get("verdict")
     Path(args.out).write_text(json.dumps(result, indent=1) + "\n")
     print(
         json.dumps(

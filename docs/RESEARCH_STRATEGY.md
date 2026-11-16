@@ -220,6 +220,13 @@ neighbouring sheet. So the score fails at how the turns join and works at the sc
 needs, on one round scroll. Choosing tiles of PHerc. 0826's band by tile excess is the next read, registered
 separately, if the owner agrees.
 
+**PHerc. 0211 was awarded on November 15 and is now a positive control.** On the winner's published surface our
+four ink models put ink where the winning reader put it (`READER_AGREES`: r 0.53 against controls of 0.09 and
+below, the same at every depth tried; [report](../reports/first_letters_0211_reader_control.md), finding 118), and
+no letter can be read from our map, where the winner's shows letters. Our reader finds ink and does not draw
+letters; a reader that does is the missing piece, and whether the winning reader's CC BY-NC weights may be used in
+a submission is the owner's question. Whether the recipe's own fit lands on the winner's sheet is finding 119.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 

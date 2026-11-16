@@ -188,6 +188,22 @@ def _write_inputs(root: Path, other_side_same: bool = False) -> list[str]:
     ]  # fmt: skip
 
 
+def test_the_other_side_is_read_at_the_depth_asked_for(tmp_path):
+    """transfer_maps.side read the other side at depth +1 whatever depth it was given (found in finding 118's
+    table of depths, where all six other-side numbers came out the same)."""
+    args = dict(zip(*[iter(_write_inputs(tmp_path))] * 2, strict=False))
+    mesh, maps, render = (Path(args[k]) for k in ("--mesh", "--maps", "--render"))
+    deep = cmp.tm.side(mesh, maps, render, blind_too=True, depth=-2)
+    registered = cmp.tm.side(mesh, maps, render, blind_too=True, depth=1)
+    assert deep["blind_files"]["dnative"].endswith("__dnative__L66s23.tif")
+    assert deep["blind_files"]["hecate"].endswith("__hecate__L66zc30.50.png")
+    assert registered["blind_files"]["dnative"].endswith("__dnative__L66s26.tif")
+    for model in MODELS:
+        assert not np.array_equal(
+            deep["blind_maps"][model], registered["blind_maps"][model]
+        )
+
+
 def test_the_script_agrees_on_matching_maps_and_writes_its_record(tmp_path):
     import json
 
@@ -206,6 +222,20 @@ def test_the_script_agrees_on_matching_maps_and_writes_its_record(tmp_path):
     assert (tmp_path / "both.png").exists()
     # measured once
     assert cmp.main([str(out), *args]) == 2
+    # a recheck writes a new record, says whether the registered numbers came out the same, and leaves the first
+    first = out.read_bytes()
+    again = tmp_path / "compare_recheck.json"
+    assert cmp.main([str(again), *args, "--recheck", str(out)]) == 0
+    assert json.loads(again.read_text())["registered_reproduces"] is True
+    assert out.read_bytes() == first
+    assert cmp.main([str(again), *args, "--recheck", str(out)]) == 2
+    edited = json.loads(first)
+    edited["registered"]["r"] = 0.1
+    changed = tmp_path / "changed.json"
+    changed.write_text(json.dumps(edited))
+    third = tmp_path / "compare_recheck2.json"
+    assert cmp.main([str(third), *args, "--recheck", str(changed)]) == 0
+    assert json.loads(third.read_text())["registered_reproduces"] is False
 
 
 def test_the_script_refuses_agreement_when_both_sides_carry_the_strokes(tmp_path):
