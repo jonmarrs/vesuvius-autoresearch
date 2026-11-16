@@ -1,0 +1,121 @@
+{
+  "kind": "proofreader_session_input_review",
+  "date_utc": "2026-11-16",
+  "baseline_commit": "72dcb445f7e3ea70d69774b07623cc2d9832c1f5",
+  "review_scope": "Advance input/progress provenance for existing 3D categorical proofreading. Keep resume and ink-training ingestion disabled.",
+  "before": {
+    "launcher_sha256": "f020b6c478ee31a2caf263b4d17908512fa8d6ec300bc52ce7b7f4cec04217ab",
+    "observation": "Launcher safely refuses nonempty outputs but retains no full-content input record. Pinned load_progress accepts a log even when its metadata identifies different CT; reproduced by executing that unchanged function in isolation."
+  },
+  "source_sha256_after": {
+    "src/vesuvius_autoresearch/core/proofreader_session.py": "0d18abef71b94b68f0e7c38e422f9af1bf05a52c9c3edb251612a3766c16e268",
+    "scripts/launch_proofreader.py": "6888d64ef153985b82db804b59e5857d3b634f175ebf3e4c1f6ac82a5e76f580",
+    "scripts/check_proofreader_session.py": "91d484d847ad8b22b174373380862f2c1ce3866f709a5df628cc3dc2ca8463dc",
+    "scripts/run_validation_tests.py": "f801844abdd8a9ce838af4879add58e580c891eafd61bff3f70dc672450bf4bf",
+    "tests/test_proofreader_session.py": "d2876fc6824e2fd322b4c5a44934ea143a50d7628cce76c16ed5133bc436aed2",
+    "docs/PROOFREADER_SESSION_RECORDS.md": "540888113aa3b2e6536a8873f0ea689b16878a07c8789c9b18911a9e21a770da"
+  },
+  "pinned_proofreader_sha256": "967b2103ce6faa1bde27f2e26f7ff1e1207c03022f054e36501bd272acfa9b50",
+  "implementation": {
+    "opt_in_flag": "--record-session",
+    "receipt": "autoresearch_session.json",
+    "explicit_progress": "progress.json",
+    "explicit_edited_labels": "edited_labels.zarr",
+    "fingerprint_scope": "All encoded files in each selected local array directory, including chunks and metadata; ordinary mutation checks before/after capture.",
+    "parse_hash_binding": "Receipt/progress hashes use the same captured bytes that are parsed.",
+    "default_source_byte_limit": 8589934592,
+    "default_file_byte_limit": 67108864,
+    "default_entry_limit_including_root": 100000,
+    "json_and_proofreader_source_byte_limit": 2097152,
+    "resume_supported": false,
+    "approved_patch_files_verified": false,
+    "ink_training_ingestion_supported": false
+  },
+  "validation": {
+    "integration": {
+      "passed": 332,
+      "skipped": 0,
+      "seconds": 75.1,
+      "modules": [
+        "tests/test_proofreader_session.py",
+        "tests/test_proofreader_launcher.py",
+        "tests/test_uncertainty_handoff.py",
+        "tests/test_validation_suite_covers_the_loop.py",
+        "tests/test_validation_runner.py",
+        "tests/test_file_modes.py",
+        "tests/test_wheel_installation.py",
+        "tests/test_volume_inference_contracts.py"
+      ],
+      "phase": "Before the final JSON-capture hash fields and two additional snapshot/pinned-loader tests; later source changes covered by final focused checks."
+    },
+    "final_focused": {
+      "passed": 62,
+      "skipped": 0,
+      "seconds": 1.24,
+      "modules": [
+        "tests/test_proofreader_session.py",
+        "tests/test_proofreader_launcher.py"
+      ]
+    },
+    "document_guards": {
+      "passed": 138,
+      "skipped": 1,
+      "seconds": 39.89,
+      "skip": "Real arm coverage requires absent local spiral_out artifacts."
+    },
+    "mypy": {
+      "source_files": 1014,
+      "result": "pass",
+      "scope": "Existing CPU dependency view, not a complete locked CUDA installation."
+    },
+    "ruff_version": "0.9.10",
+    "ruff": "pass; maintained sources, preserved reproductions excluded",
+    "offline_lock_check": {
+      "resolved_packages": 258,
+      "result": "pass",
+      "dependency_changes": false
+    },
+    "curated_modules": 225,
+    "portable_modules": 16,
+    "counts_are_additive": false,
+    "final_registry_mode_preservation_guards": {
+      "passed": 33,
+      "skipped": 0,
+      "seconds": 11.64,
+      "modules": [
+        "tests/test_validation_suite_covers_the_loop.py",
+        "tests/test_file_modes.py",
+        "tests/test_preserved_source_policy.py"
+      ]
+    },
+    "changed_document_reference_check": "All three changed Markdown documents have no missing extracted repository-path references."
+  },
+  "fresh_cli_smoke": {
+    "scope": "Synthetic local Zarrs; real checker subprocesses from /tmp, no GUI or original data.",
+    "valid_exit_code": 0,
+    "verification_writes_files": false,
+    "valid_report": {
+      "input_record_matches": true,
+      "input_record_sha256": "cc53c4c981315f5685370c72f695aa9df7cdc06204c729fb4d98b806006341af",
+      "progress": {
+        "present": false,
+        "status_counts": null
+      },
+      "resume_supported": false,
+      "approved_patch_files_verified": false,
+      "ink_training_ingestion_supported": false,
+      "scope": "Configured input bytes and logged context only; not GUI-setting history, approval provenance, physical registration or patch contents."
+    },
+    "changed_ct_exit_code": 1,
+    "changed_ct_diagnostic": "Proofreader session check failed: ct source differs from the proofreader input record\n"
+  },
+  "fresh_cli_smoke_replay_source": "import hashlib\nimport json\nimport subprocess\nimport sys\nfrom pathlib import Path\nfrom tempfile import TemporaryDirectory\n\nROOT = Path('/workspace/vesuvius-repository-audit')\nsys.path[:0] = [str(ROOT), str(ROOT / 'src')]\nimport zarr\nfrom scripts import launch_proofreader as launch\nfrom vesuvius_autoresearch.core import proofreader_session as session\n\nassert Path(session.__file__).resolve().is_relative_to(ROOT)\nwith TemporaryDirectory(prefix='vesuvius-session-cli-') as temporary:\n    work = Path(temporary)\n    ct, labels, output = (work / name for name in ('ct.zarr', 'labels.zarr', 'session'))\n    for path, dtype in ((ct, 'u2'), (labels, 'u1')):\n        array = zarr.open(str(path), mode='w', shape=(8, 16, 16), chunks=(4, 8, 8), dtype=dtype)\n        array[:] = 7 if path == ct else 1\n    ct, labels = launch._inputs(ct, labels, output, 8)\n    config = session.recorded_config(ct, labels, output, 8)\n    receipt = session.create_record(config, ROOT / 'villa/segmentation/vc_proofreader/main.py', session.DEFAULT_LIMITS)\n    command = [sys.executable, str(ROOT / 'scripts/check_proofreader_session.py'), '--session', str(output)]\n    before = {str(p.relative_to(work)): hashlib.sha256(p.read_bytes()).hexdigest() for p in work.rglob('*') if p.is_file()}\n    valid = subprocess.run(command, cwd='/tmp', text=True, capture_output=True, timeout=30)\n    after = {str(p.relative_to(work)): hashlib.sha256(p.read_bytes()).hexdigest() for p in work.rglob('*') if p.is_file()}\n    assert valid.returncode == 0, valid.stderr\n    assert before == after\n    report = json.loads(valid.stdout)\n    assert report['input_record_matches'] and not report['resume_supported']\n    assert report['input_record_sha256'] == hashlib.sha256(receipt.read_bytes()).hexdigest()\n    zarr.open(str(ct), mode='r+')[0, 0, 0] = 8\n    invalid = subprocess.run(command, cwd='/tmp', text=True, capture_output=True, timeout=30)\n    assert invalid.returncode == 1 and 'ct source differs' in invalid.stderr\n    evidence = {\n        'scope': 'Synthetic local Zarrs; real checker subprocesses from /tmp, no GUI or original data.',\n        'valid_exit_code': valid.returncode,\n        'verification_writes_files': before != after,\n        'valid_report': report,\n        'changed_ct_exit_code': invalid.returncode,\n        'changed_ct_diagnostic': invalid.stderr,\n    }\nPath('/tmp/vesuvius-session-smoke.json').write_text(json.dumps(evidence, indent=2) + '\\n')\nprint(json.dumps(evidence))\n",
+  "limitations": [
+    "No Napari launch, interactive edit, original-data/GPU measurement or fully synced CUDA environment.",
+    "No full curated-suite repeat or hosted CI in this local follow-up.",
+    "Input receipts are initial configuration/content snapshots, not success/completion/approval records or authenticated evidence.",
+    "Missing or mismatched sources/progress fail, but matching sources do not prove physical registration, CT acquisition completeness, GUI-setting history or approved-output contents.",
+    "Source stability and serialized writers/readers are required; no concurrency or crash-durability guarantee.",
+    "All eight owner-review items remain open; this advances the human-feedback provenance subtask only."
+  ]
+}
