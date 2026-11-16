@@ -202,6 +202,52 @@ def test_sheet_spacing_is_where_the_profile_rises_again_and_none_when_it_does_no
     assert bs.summarise(offsets, falling, [9.0])["ratio"] is None
 
 
+def test_the_verdict_reads_the_arms_it_is_given(tmp_path):
+    import json
+
+    work = tmp_path / "work"
+    for arm, name in (
+        ("setup", "distance_field"),
+        ("outer80-smoke", "fit"),
+        ("outer80", "fit"),
+    ):
+        (work / f"gate_{arm}").mkdir(parents=True)
+        (work / f"gate_{arm}" / f"{name}.json").write_text('{"exit": 0, "seconds": 1}')
+    for arm, excess in (("outer80-smoke", 0.0), ("outer80", 0.1)):
+        windings = {
+            f"w{i:03d}": {"excess": excess, "on_sheet": 0.3, "nodes_scored": 2000}
+            for i in range(10, 80)
+        }
+        summary = {
+            "windings": 70,
+            "windings_scored": 70,
+            "excess_median": excess,
+            "share_of_windings_with_positive_excess": float(excess > 0),
+        }
+        (work / f"quality_{arm}.json").write_text(
+            json.dumps({"summary": summary, "windings": windings})
+        )
+    out = tmp_path / "verdict.json"
+    assert bv.main([str(tmp_path), str(out), "outer80-smoke", "outer80"]) == 0
+    record = json.loads(out.read_text())
+    assert record["verdict"] == "ON_SHEETS" and set(record["steps"]) == {
+        "setup/distance_field",
+        "outer80-smoke/fit",
+        "outer80/fit",
+    }
+    assert bv.main([str(tmp_path), str(tmp_path / "other.json")]) == 0
+    assert (
+        json.loads((tmp_path / "other.json").read_text())["verdict"] == "DOES_NOT_RUN"
+    )
+
+
+def test_the_fit_launcher_sets_both_winding_settings_for_an_outer_arm():
+    text = (HERE / "run_fit.sh").read_text()
+    assert 'overrides["shell_outer_winding_idx"] = int(sys.argv[4])' in text
+    assert 'overrides["model_gap_expander_num_windings"] = int(sys.argv[4]) + 3' in text
+    assert "outer[1-9]*-smoke) KIND=smoke" in text and "outer[1-9]*) KIND=full" in text
+
+
 # Added by the design review of 2026-11-16: guards of the two scripts that the tests above do not reach.
 
 
