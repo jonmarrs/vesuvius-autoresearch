@@ -104,10 +104,14 @@ def side(
         "mesh": str(mesh),
     }
     if blind_too:
-        out["blind_maps"] = {
-            model: read_map(map_file(maps, name, model, False), model, canvas)
+        blind = {
+            model: map_file(maps, name, model, False, depth=depth)
             for model in analysis.MODELS
         }
+        out["blind_maps"] = {
+            model: read_map(blind[model], model, canvas) for model in blind
+        }
+        out["blind_files"] = {model: str(path) for model, path in blind.items()}
     return out
 
 

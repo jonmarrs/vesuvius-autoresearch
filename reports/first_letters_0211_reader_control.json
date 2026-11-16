@@ -1,0 +1,113 @@
+{
+ "finding": 118,
+ "registration": "docs/preregistration/2026-11-16_first_letters_0211_reader_control.md",
+ "registration_commit": "11ba1c41",
+ "surface": "PHerc0211-crop1711-lines123-manual-20261028-1316-legacyuv20-v9",
+ "volume": "20250821151803-9.362um-1.2m-113keV-masked.zarr",
+ "steps": {
+  "render": {
+   "exit": 0,
+   "seconds": 337,
+   "flipped": false
+  },
+  "ink": {
+   "exit": 0,
+   "seconds": 2183,
+   "depths": [
+    -3,
+    2
+   ],
+   "gpu_peak_mib_all_processes": 2914
+  },
+  "compare": {
+   "exit": 0
+  }
+ },
+ "inputs_sha256": {
+  "studio": "527c6fbbc5ac2d5a81d7cfb7ccc2925f2dc4b4d74627a0e7b08200d6874f071c",
+  "studio_mask": "f4fa02d4e7aa92541079293db2a069eb6ef919f946503426f6dcfa804e1b7f7c",
+  "winner_ct": "9c4bd4f56df9743d77e775e84be57d3cf9f3c2d6e75eb9dee614bb85b8f1e9c4"
+ },
+ "depth": 1,
+ "alignment": {
+  "layer": 33,
+  "shift_pixels": [
+   0,
+   0
+  ],
+  "r_at_shift": 0.8128,
+  "aligned": true
+ },
+ "shift_applied_pixels": [
+  0,
+  0
+ ],
+ "mask_cells": 550482,
+ "cells": 550480,
+ "cell_share": 1.0,
+ "registered": {
+  "r": 0.53,
+  "control_wrong_side": -0.0059,
+  "control_slid": {
+   "down": 0.093,
+   "up": 0.0838,
+   "right": 0.0274,
+   "left": 0.0402,
+   "largest_absolute": 0.093
+  }
+ },
+ "verdict": "READER_AGREES",
+ "predicted": "READER_PARTLY",
+ "not_registered": {
+  "per_model_r": {
+   "dnative": 0.5109,
+   "hecate": 0.4254,
+   "hybrid_3d2d-seed42": 0.3079,
+   "hybrid_3d2d-seed43": 0.3137
+  },
+  "our_models_pairwise_r": {
+   "dnative|hecate": 0.3687,
+   "dnative|hybrid_3d2d-seed42": 0.472,
+   "dnative|hybrid_3d2d-seed43": 0.4862,
+   "hecate|hybrid_3d2d-seed42": 0.2536,
+   "hecate|hybrid_3d2d-seed43": 0.2307,
+   "hybrid_3d2d-seed42|hybrid_3d2d-seed43": 0.4237
+  },
+  "by_depth_and_side": {
+   "-3_reading": 0.522,
+   "-3_other": 0.0049,
+   "-2_reading": 0.5277,
+   "-2_other": 0.0016,
+   "-1_reading": 0.5346,
+   "-1_other": -0.0131,
+   "+0_reading": 0.5423,
+   "+0_other": -0.0096,
+   "+1_reading": 0.53,
+   "+1_other": -0.0059,
+   "+2_reading": 0.4962,
+   "+2_other": -0.0067
+  },
+  "other_side_as_first_recorded": {
+   "-3_other": -0.0059,
+   "-2_other": -0.0059,
+   "-1_other": -0.0059,
+   "+0_other": -0.0059,
+   "+1_other": -0.0059,
+   "+2_other": -0.0059
+  },
+  "r_with_background": 0.6063,
+  "control_slid_256px": {
+   "down": 0.0023,
+   "up": 0.0043,
+   "right": 0.0581,
+   "left": 0.0477,
+   "largest_absolute": 0.0581
+  },
+  "row_profile_r": 0.8525,
+  "rows_in_profile": 424,
+  "recheck": {
+   "why": "transfer_maps.side read the other side at depth +1 whatever depth it was given; fixed, and the comparison run again into a new record",
+   "registered_reproduces": true
+  }
+ }
+}
