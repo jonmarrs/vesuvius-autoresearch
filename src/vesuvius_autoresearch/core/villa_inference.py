@@ -149,8 +149,9 @@ class VillaTTAWrapper(nn.Module):
         ``'mirroring'`` (default) for flip-based TTA, ``'rotation'`` for
         axis-transpose TTA (not arbitrary angular rotations).
     use_batched : bool, optional
-        If ``True`` (default), the batched TTA path is tried first (faster
-        but uses more VRAM).  Falls back to sequential on OOM.
+        If ``True`` (default), mirroring first tries one forward with stacked
+        views, using more VRAM. Falls back to sequential on OOM. Throughput
+        depends on the model and device and is not established by this adapter.
     is_multi_task : bool, optional
         Set to ``True`` to concatenate task outputs before deaugmentation. The
         default requires three matching spatial heads, unlike ink/fiber/global-QC.
