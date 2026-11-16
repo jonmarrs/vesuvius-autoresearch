@@ -176,9 +176,11 @@ auxiliary losses. To prepare a **new** fragment from already-downloaded uint16
 TIFFs and aligned binary PNG labels, use the maintained CPU
 [local data importer](docs/TRAINING_DATA_IMPORT.md). It pins source hashes and
 preserves CT values; verify alignment and the output-relative depth band before
-using its output. A pinned download recipe and verified real-fragment example
-remain open. The downloaders in `scripts/archive/` are unmaintained and are not
-a supported way to prepare this training layout.
+using its output. The [pinned official Frag1 example](docs/OFFICIAL_FRAGMENT_EXAMPLE.md)
+fetches and verifies two original layers, labels and mask through that importer
+and the strict reader. It is a bounded data-plumbing check, not the full depth
+context for this training recipe. The downloaders in `scripts/archive/` are
+unmaintained and are not a supported way to prepare this training layout.
 
 Training refuses observable overlap between validation and labeled or active
 UA-MT inputs, including local symlinks and group/array paths. It also checks
