@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / "repro/first_letters/eligible_band"
@@ -244,6 +246,248 @@ def test_the_fit_launcher_sets_both_winding_settings_for_an_outer_arm():
     assert 'overrides["shell_outer_winding_idx"] = int(sys.argv[4])' in text
     assert 'overrides["model_gap_expander_num_windings"] = int(sys.argv[4]) + 3' in text
     assert "outer[1-9]*-smoke) KIND=smoke" in text and "outer[1-9]*) KIND=full" in text
+
+
+# Added by the design review of 2026-11-16: guards of the two scripts that the tests above do not reach.
+
+
+def _field(tmp_path, group="1"):
+    """A distance field as the score reads it: cell (z, y, x) holds 1 + 100 z + 10 y + x, and one cell holds no value."""
+    import zarr
+
+    z, y, x = np.indices((6, 8, 10))
+    values = (1 + 100 * z + 10 * y + x).astype(np.uint16)
+    values[1, 1, 1] = bq.NODATA
+    store = tmp_path / f"sdt_{group}.zarr"
+    root = zarr.open_group(str(store), mode="w")
+    root.attrs.update(
+        {"offset": 100.0, "unit_working_voxels": 0.5, "scale_vs_working": 4.0}
+    )
+    root.create_dataset(group, data=values, chunks=(4, 4, 4))
+    return bq.DistanceField(store, group)
+
+
+def test_the_distance_field_is_read_at_x_y_z_points_in_working_voxels(tmp_path):
+    field = _field(tmp_path)
+    points = np.array(
+        [
+            [28.0, 12.0, 8.0],  # cell z 2, y 3, x 7: (238 - 100) * 0.5
+            [30.4, 12.0, 8.0],  # the nearest cell is x 8
+            [4.0, 4.0, 4.0],  # the cell without a value
+            [40.0, 12.0, 8.0],  # one cell past the far x face
+            [-4.0, 12.0, 8.0],  # one cell before the near x face
+            [0.0, 0.0, 0.0],
+        ]
+    )
+    assert field.at(points).tolist() == pytest.approx(
+        [69.0, 69.5, np.nan, np.nan, np.nan, -49.5], nan_ok=True
+    )
+    assert np.isnan(field.at(points[3:5])).all()
+
+
+def test_a_coarser_group_of_the_distance_field_has_cells_twice_the_size(tmp_path):
+    field = _field(tmp_path, group="2")
+    assert field.at(np.array([[56.0, 24.0, 16.0]])).tolist() == [69.0]
+
+
+def test_a_winding_is_scored_from_a_thousand_nodes():
+    assert bq.score(Sheets(), *_plane(160.0, shape=(22, 52)))["nodes_scored"] == 1000
+    assert bq.score(Sheets(), *_plane(160.0, shape=(22, 51))) is None
+
+
+def test_a_node_on_the_face_of_a_sheet_is_inside_it():
+    # one voxel off a sheet's middle the distance is exactly zero
+    on_face = bq.score(Sheets(), *_plane(161.0))
+    assert on_face["on_sheet"] == 1.0 and on_face["displaced"] == 0.0
+    # six voxels above the face only the copy moved back down reaches it
+    above = bq.score(Sheets(), *_plane(167.0))
+    assert (above["on_sheet"], above["displaced"], above["excess"]) == (0.0, 0.5, -0.5)
+    assert bq.score(Sheets(), *_plane(160.5))["abs_distance_median"] == 0.5
+
+
+class Gap(Sheets):
+    """The sheets, with no value where `hole(points)` says so."""
+
+    def __init__(self, hole):
+        self.hole = hole
+
+    def at(self, xyz):
+        out = super().at(xyz)
+        out[self.hole(xyz)] = np.nan
+        return out
+
+
+@pytest.mark.parametrize(
+    "hole",
+    [
+        lambda p: (p[:, 0] >= 150) & (p[:, 2] > 163),  # the copies moved up
+        lambda p: (p[:, 0] >= 150) & (p[:, 2] < 157),  # the copies moved down
+        lambda p: (p[:, 0] >= 150) & (np.abs(p[:, 2] - 160) < 3),  # the nodes
+    ],
+)
+def test_a_node_is_scored_only_where_it_and_both_copies_have_a_value(hole):
+    result = bq.score(Gap(hole), *_plane(160.0))
+    assert (result["nodes"], result["nodes_scored"]) == (58 * 58, 58 * 29)
+    assert result["on_sheet"] == 1.0 and result["displaced"] == 0.0
+
+
+def test_an_invalid_node_is_not_scored():
+    xyz, valid = _plane(160.0, shape=(90, 90))
+    valid[1::3, 1::3] = False
+    xyz[~valid, 2] = 168.0  # between two sheets
+    whole = (
+        valid[1:-1, 1:-1]
+        & valid[1:-1, :-2]
+        & valid[1:-1, 2:]
+        & valid[:-2, 1:-1]
+        & valid[2:, 1:-1]
+    )
+    result = bq.score(Sheets(), xyz, valid)
+    assert result["nodes"] == int(whole.sum()) > bq.MIN_NODES
+    assert result["on_sheet"] == 1.0
+
+
+def test_the_summary_gives_both_percentiles_and_does_not_count_zero_as_positive():
+    windings = {
+        f"w{i:03d}": {"excess": i / 10, "on_sheet": (i / 10) ** 2} for i in range(11)
+    }
+    summary = bq.summarise(windings)
+    assert summary["excess_p10"] == 0.1 and summary["excess_p90"] == 0.9
+    assert summary["excess_median"] == 0.5 and summary["on_sheet_median"] == 0.25
+    assert summary["share_of_windings_with_positive_excess"] == round(10 / 11, 4)
+
+
+def test_the_score_command_reads_raw_windings_once(tmp_path, monkeypatch, capsys):
+    planes = {"w010": 160.0, "w011": 168.0, "w012_spliced": 160.0, "w013": 160.0}
+    meshes = tmp_path / "meshes"
+    for name in [*planes, "x999"]:
+        (meshes / name).mkdir(parents=True)
+        if name != "w013":  # a folder that holds no mesh
+            (meshes / name / "x.tif").write_bytes(b"")
+    opened = []
+
+    class Field(Sheets):
+        def __init__(self, store, group):
+            opened.append((str(store), group))
+
+    monkeypatch.setattr(bq, "DistanceField", Field)
+    monkeypatch.setattr(
+        bq.analysis, "load_tifxyz", lambda folder: _plane(planes[Path(folder).name])
+    )
+    out = tmp_path / "quality.json"
+    assert bq.main([str(out), "sdt.zarr", str(meshes)]) == 0
+    result = json.loads(out.read_text())
+    assert opened == [("sdt.zarr", "1")]
+    assert list(result["windings"]) == ["w010", "w011"]
+    assert result["summary"] == bq.summarise(result["windings"])
+    assert result["summary"]["windings_scored"] == 2
+    assert result["displace_voxels"] == 6.0
+
+    before = out.read_text()
+    assert bq.main([str(out), "sdt.zarr", str(meshes)]) == 2
+    assert "measured once" in capsys.readouterr().err
+    assert out.read_text() == before and len(opened) == 1
+
+
+def test_the_table_rows_apply_in_the_registered_order_and_at_their_bounds():
+    floor, good = _summary(0.0, 0.5), _summary(0.2, 0.9)
+    one_failed = {"a": {"exit": 0}, "b": {"exit": 1}, "c": {"exit": 0}}
+    assert bv.verdict(one_failed, floor, good) == "DOES_NOT_RUN"
+    assert bv.verdict(OK, None, good) == "DOES_NOT_RUN"
+    # sixty scored windings are enough, in the smoke fit and in the full fit
+    sixty = _summary(0.0, 0.5, scored=60), _summary(0.2, 0.9, scored=60)
+    assert bv.verdict(OK, *sixty) == "ON_SHEETS"
+    assert bv.verdict(OK, _summary(0.0, 0.5, scored=59), good) == "DOES_NOT_RUN"
+    # the floor fails above 0.03, not at it
+    assert bv.verdict(OK, _summary(0.03, 0.5), good) == "ON_SHEETS"
+    # a run that did not run is not an instrument failure
+    high_floor = _summary(0.5, 0.5)
+    assert bv.verdict(one_failed, high_floor, good) == "DOES_NOT_RUN"
+    assert bv.verdict(OK, _summary(0.5, 0.5, scored=59), good) == "DOES_NOT_RUN"
+    assert bv.verdict(OK, high_floor, _summary(0.2, 0.9, scored=59)) == "DOES_NOT_RUN"
+
+
+def test_the_by_index_summary_rounds_part_sizes_up_and_counts_at_the_lines():
+    excess = [0.07, 0.0, -0.02, 0.3, 0.07, 0.01, 0.2, 0.069, 0.5, 0.1]
+    windings = {
+        f"w{10 + i:03d}": {
+            "excess": value,
+            "on_sheet": 0.1 * (i + 1),
+            "nodes_scored": 1000 + i,
+        }
+        for i, value in enumerate(excess)
+    }
+    thirds = bv.by_index({"windings": windings})
+    assert [(p["first"], p["last"], p["windings"]) for p in thirds] == [
+        (10, 13, 4),
+        (14, 17, 4),
+        (18, 19, 2),
+    ]
+    # 0.07 is on the P1 line and counts; a winding at exactly zero is not positive
+    assert (thirds[0]["positive"], thirds[0]["at_least_p1_median"]) == (0.5, 2)
+    assert thirds[0]["excess_median"] == 0.035
+    halves = bv.by_index({"windings": windings}, parts=2)
+    assert [p["windings"] for p in halves] == [5, 5]
+    assert halves[0]["excess_median"] == 0.07 and halves[0]["on_sheet_median"] == 0.3
+    assert halves[0]["nodes_scored_median"] == 1002
+
+
+GATES = {"setup/distance_field": 0, "smoke/fit": 0, "full/fit": 0}
+
+
+def _quality(median, positive, scored=120):
+    """A score file whose every winding has the same excess."""
+    winding = {"excess": median, "on_sheet": 0.3, "nodes_scored": 2000}
+    return {
+        "summary": {**_summary(median, positive, scored), "windings": scored},
+        "windings": {f"w{10 + i:03d}": winding for i in range(scored)},
+    }
+
+
+def _judge(run, smoke, full, gates=GATES):
+    """The verdict command on a run directory; a gate or an arm given as None has no file."""
+    for step, code in gates.items():
+        arm, name = step.split("/")
+        (run / "work" / f"gate_{arm}").mkdir(parents=True, exist_ok=True)
+        if code is not None:
+            record = json.dumps({"exit": code})
+            (run / "work" / f"gate_{arm}" / f"{name}.json").write_text(record)
+    for arm, quality in (("smoke", smoke), ("full", full)):
+        if quality is not None:
+            (run / "work" / f"quality_{arm}.json").write_text(json.dumps(quality))
+    out = run / "verdict.json"
+    assert bv.main([str(run), str(out)]) == 0
+    return json.loads(out.read_text())
+
+
+def test_the_verdict_command_reads_the_three_gates_and_both_arms(tmp_path):
+    record = _judge(tmp_path, _quality(0.0, 0.5), _quality(0.05, 0.9))
+    assert record["verdict"] == "PARTLY_ON_SHEETS"
+    assert (record["p1"], record["p2"]) == (False, True)
+    assert record["steps"] == {step: {"exit": 0} for step in GATES}
+    assert record["smoke"]["excess_median"] == 0.0
+    assert record["full"]["excess_median"] == 0.05
+    assert [part["windings"] for part in record["full_by_index"]] == [40, 40, 40]
+
+
+@pytest.mark.parametrize("step", sorted(GATES))
+@pytest.mark.parametrize("code", [None, 1])
+def test_the_verdict_command_does_not_run_on_a_missing_or_failed_gate(
+    tmp_path, step, code
+):
+    gates = {**GATES, step: code}
+    record = _judge(tmp_path, _quality(0.0, 0.5), _quality(0.2, 0.9), gates)
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert record["steps"][step] == (None if code is None else {"exit": 1})
+    # the reading is still recorded
+    assert (record["p1"], record["p2"]) == (True, True)
+
+
+def test_the_verdict_command_does_not_run_without_the_full_arm(tmp_path):
+    record = _judge(tmp_path, _quality(0.0, 0.5), None)
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert record["full"] is None and record["full_by_index"] is None
+    assert (record["p1"], record["p2"]) == (False, False)
 
 
 def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():

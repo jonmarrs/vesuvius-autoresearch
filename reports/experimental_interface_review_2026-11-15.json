@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "review_date_utc": "2026-11-15",
+  "baseline_commit": "cd4a085f4206456c7d844076c9438f7cb7d1ef20",
+  "scope": "Constrain retained experimental interfaces and repair Gaussian validation/device caching. Synthetic CPU validation only; no upstream Villa edits, model/training/probability-recipe changes, trained volumetric detector, real-data accuracy claim or GPU measurement.",
+  "scope_decision": {
+    "GaussianBlender": "Maintained regional float32 window; positive finite weights and parameters, per-resolved-device cache. Default arithmetic unchanged.",
+    "VillaTTAWrapper": "Retained experimental scalar-field adapter using pinned upstream algorithms. Validate batch/rank for all views and input/output grid for batched mirroring; retain sequential/coarser output behavior and custom callback timing. Current mixed ink/fiber/global-QC serving uses the existing regional path.",
+    "VolumetricInkHead": "Retained untrained shape example; require declared channels/depth. Class/conv3d parameter names, valid convolution and gradients unchanged. CLI labels logits and uses a small random demo.",
+    "resnet3d_i3d": "Retain existing training-only names and inference rejection. No reconstruction/adoption added."
+  },
+  "before_reproductions": {
+    "batched_wrong_grid": {
+      "accepted": true,
+      "input_shape": [
+        2,
+        1,
+        2,
+        2
+      ],
+      "raw_model_shape": [
+        2,
+        1,
+        1,
+        4
+      ],
+      "wrapper_shape": [
+        2,
+        1,
+        2,
+        2
+      ]
+    },
+    "volumetric_depth_mismatch": {
+      "accepted": true,
+      "declared_depth": 3,
+      "returned_depth": 4
+    },
+    "gaussian_0.0": {
+      "accepted": true,
+      "finite": false,
+      "positive": false
+    },
+    "gaussian_-0.125": {
+      "accepted": true,
+      "finite": true,
+      "positive": true
+    },
+    "gaussian_inf": {
+      "accepted": true,
+      "finite": true,
+      "positive": true
+    },
+    "gaussian_1e-05": {
+      "accepted": true,
+      "finite": false,
+      "positive": false
+    },
+    "source_sha256": {
+      "src/vesuvius_autoresearch/core/villa_inference.py": "0223c42a19b4a0e63b956358c693f1f33b62af3db4610b50c277c3eadc9e4ac8",
+      "scripts/labeling/prototype_volumetric_ink.py": "569df46ca30e02c76b7fc91960cc861982a9f8fed2ffd278aca2d1bb0bb4ee0b",
+      "villa/vesuvius/src/vesuvius/models/run/tta.py": "ac99cf3c585ba78d64cc28b232d2327fb4d930f339e6f6726c47a2d7568d8470"
+    },
+    "implicit_cuda_cache": {
+      "scope": "mocked device-selection/build only; no CUDA hardware used",
+      "built_requests": [
+        "cuda"
+      ],
+      "expected_marker_after_switch": 1,
+      "actual_marker_after_switch": 0,
+      "reused_previous_tensor": true
+    },
+    "global_head_batch_mixing": {
+      "accepted": true,
+      "raw_values": [
+        [
+          1.5
+        ],
+        [
+          5.5
+        ]
+      ],
+      "tta_values": [
+        [
+          3.5
+        ],
+        [
+          3.5
+        ]
+      ]
+    }
+  },
+  "after_reproductions": {
+    "batched_wrong_grid": {
+      "accepted": false,
+      "error": "batched TTA output must use the input spatial grid; use_batched=False supports coarser scalar fields"
+    },
+    "global_head_batch_mixing": {
+      "accepted": false,
+      "error": "TTA output must preserve the view's batch size and spatial rank"
+    },
+    "volumetric_depth_mismatch": {
+      "accepted": false,
+      "error": "volumetric feature channels/depth must match in_channels/num_layers"
+    },
+    "gaussian_0.0": {
+      "accepted": false,
+      "error": "sigma must be finite and positive"
+    },
+    "gaussian_-0.125": {
+      "accepted": false,
+      "error": "sigma must be finite and positive"
+    },
+    "gaussian_inf": {
+      "accepted": false,
+      "error": "sigma must be finite and positive"
+    },
+    "gaussian_1e-05": {
+      "accepted": false,
+      "error": "sigma cannot produce a finite positive float32 Gaussian window; choose a larger sigma"
+    },
+    "implicit_cuda_cache": {
+      "scope": "mocked device selection/build only",
+      "built_requests": [
+        "cuda:0",
+        "cuda:1"
+      ],
+      "actual_marker_after_switch": 1,
+      "reused_previous_tensor": false
+    }
+  },
+  "validation": {
+    "counts": {
+      "passed": 437,
+      "skipped": 1
+    },
+    "skips": [
+      {
+        "test": "tests.test_villa_modules::test_lasagna_uint8_warp_runs_outside_the_repository_root[cuda]",
+        "reason": "villa's uint8 kernel takes CUDA tensors"
+      }
+    ],
+    "duration_seconds": 70.853,
+    "junit_sha256": "28e037e644db143a839dabe3799ed7da7585d60df0a3e2d719edfee5bc1f4dfb"
+  },
+  "validation_command": "env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/tmp/vesuvius-experimental-mpl XDG_CACHE_HOME=/tmp/vesuvius-experimental-cache /tmp/vesuvius-sdk4-env/bin/python -m pytest tests/test_experimental_interfaces.py tests/test_villa_modules.py tests/test_volume_inference_contracts.py tests/test_regional_memory_profile.py tests/test_regional_artifact_plan.py tests/test_regional_resource_preflight.py tests/test_checkpoint_tool_contracts.py tests/test_validation_runner.py tests/test_wheel_installation.py -q --tb=short --junitxml=/tmp/vesuvius-experimental-regression.xml",
+  "validation_details": [
+    "2D/3D scalar fields, mirroring/axis transpose, batched/sequential and homogeneous multi-task results match the unchanged pinned implementation exactly.",
+    "Sequential coarser grids, custom callback order, channel-concatenated return type, model state-dict names and typed OOM fallback are preserved.",
+    "Malformed equal-numel grids, changed batches, global/nonspatial heads, mixed project task ranks, invalid options and input shapes fail explicitly.",
+    "Gaussian invalid inputs/underflow fail before caching; valid windows remain positive/symmetric/peak-normalized. Implicit CUDA cache routing is exercised with mocks only.",
+    "Volumetric dimensions, negative logits, gradients, training-only architecture dispatch and accurate CLI/help behavior are covered."
+  ],
+  "native_regional_cpu_compatibility": {
+    "recipe": "Real single/ensemble CLI smoke from regional_memory_review_2026-11-15.json; seeded random untrained gated_unet models and synthetic uint16 CT, with profiling on/off. No study data.",
+    "probe_script_sha256": "ee3addec9345c1e195e0ce88f7d31f231d239ac44a51f6c010cb78a04477db04",
+    "array_file_comparison": {
+      "ensemble_plain_fiber.npy": {
+        "array_equal": true,
+        "before_file_sha256": "6fa51d1c530212c4e23f83199c153d318305e9e1ea4854eb7dfe5be0b56087db",
+        "after_file_sha256": "6fa51d1c530212c4e23f83199c153d318305e9e1ea4854eb7dfe5be0b56087db"
+      },
+      "ensemble_plain_ink.npy": {
+        "array_equal": true,
+        "before_file_sha256": "198fe21a86ef66220f3c4c594b2b32552cf645add346a0ee723633a2f76c6392",
+        "after_file_sha256": "198fe21a86ef66220f3c4c594b2b32552cf645add346a0ee723633a2f76c6392"
+      },
+      "ensemble_profiled_fiber.npy": {
+        "array_equal": true,
+        "before_file_sha256": "6fa51d1c530212c4e23f83199c153d318305e9e1ea4854eb7dfe5be0b56087db",
+        "after_file_sha256": "6fa51d1c530212c4e23f83199c153d318305e9e1ea4854eb7dfe5be0b56087db"
+      },
+      "ensemble_profiled_ink.npy": {
+        "array_equal": true,
+        "before_file_sha256": "198fe21a86ef66220f3c4c594b2b32552cf645add346a0ee723633a2f76c6392",
+        "after_file_sha256": "198fe21a86ef66220f3c4c594b2b32552cf645add346a0ee723633a2f76c6392"
+      },
+      "single_plain_fiber.npy": {
+        "array_equal": true,
+        "before_file_sha256": "ab126aab87ccd6df064c02f9e5671797e62de272243333b016e2fa004e8b6586",
+        "after_file_sha256": "ab126aab87ccd6df064c02f9e5671797e62de272243333b016e2fa004e8b6586"
+      },
+      "single_plain_ink.npy": {
+        "array_equal": true,
+        "before_file_sha256": "c66851bcea7ea05163ab341f70647a9affe66206749c5b33994adde14e54963e",
+        "after_file_sha256": "c66851bcea7ea05163ab341f70647a9affe66206749c5b33994adde14e54963e"
+      },
+      "single_profiled_fiber.npy": {
+        "array_equal": true,
+        "before_file_sha256": "ab126aab87ccd6df064c02f9e5671797e62de272243333b016e2fa004e8b6586",
+        "after_file_sha256": "ab126aab87ccd6df064c02f9e5671797e62de272243333b016e2fa004e8b6586"
+      },
+      "single_profiled_ink.npy": {
+        "array_equal": true,
+        "before_file_sha256": "c66851bcea7ea05163ab341f70647a9affe66206749c5b33994adde14e54963e",
+        "after_file_sha256": "c66851bcea7ea05163ab341f70647a9affe66206749c5b33994adde14e54963e"
+      }
+    },
+    "result": "Eight probability array files are byte-identical before/after Gaussian changes."
+  },
+  "other_checks": {
+    "mypy": "1008 source files passed",
+    "ruff": "Maintained source and four changed Python files formatting passed",
+    "lock": "No lock or dependency version changes; offline lock check passed",
+    "full_curated_rerun": false
+  },
+  "source_sha256_before": {
+    "src/vesuvius_autoresearch/core/villa_inference.py": "0223c42a19b4a0e63b956358c693f1f33b62af3db4610b50c277c3eadc9e4ac8",
+    "scripts/labeling/prototype_volumetric_ink.py": "569df46ca30e02c76b7fc91960cc861982a9f8fed2ffd278aca2d1bb0bb4ee0b",
+    "scripts/run_validation_tests.py": "fef1fd1050163effcd8fd40e4c29c1c8ab97e2bf7550f4046e1af230d18ea774"
+  },
+  "source_sha256_after": {
+    "src/vesuvius_autoresearch/core/villa_inference.py": "a624d6267482c1dee52fb914211e15381504f1323169643d4725dd920ddaef75",
+    "scripts/labeling/prototype_volumetric_ink.py": "2a162172d9a34b362c6f37a534cf4f3cc818389b0bec5cd547da38b942158a6b",
+    "tests/test_experimental_interfaces.py": "c360cf75aa3d32befef2b09ad53e08ac1b4b7e8bae94d44806aad2d2c431a45c",
+    "scripts/run_validation_tests.py": "fb4d843d1a889db41335ad6e7c8950a3ad88351dc1c6f4bb3bf9abbf35fe49ba"
+  },
+  "unchanged_source_sha256": {
+    "vesuvius_model.py": "94a04dd415f3d9401f6777d9a87303755c2058d4146ae3accb2890f612cbfcb9",
+    "src/vesuvius_autoresearch/core/inference.py": "5e8dc3f97994f98a5cb79e39c27f14fce2e552010ad04079e13685dca7039d1c",
+    "src/vesuvius_autoresearch/core/inference_constants.py": "3c75b78004cd71c6ec2f16461bd3cf8bb85c177f147dcaa25a23af43bfb22018",
+    "scripts/training/train.py": "7300abdfcb541270979abaa4fd4d388a8be7ed31140062e260050f34dd8bf3ad",
+    "uv.lock": "5a125ea8ea9d0067151a5fd544682e6517bdb6e56add6a479b69772529eee431",
+    "villa/vesuvius/src/vesuvius/models/run/tta.py": "ac99cf3c585ba78d64cc28b232d2327fb4d930f339e6f6726c47a2d7568d8470"
+  },
+  "owner_review_items_before": 9,
+  "owner_review_items_after": 8,
+  "not_validated": [
+    "CUDA runtime/TTA/window validation cost; CUDA cache and OOM paths use mocks",
+    "Windows/macOS runtime behavior",
+    "Real legacy-model training or checkpoint inference reconstruction",
+    "Scientific accuracy or benefit from the optional TTA",
+    "A trained volumetric ink detector or label semantics/registration"
+  ],
+  "final_guards": {
+    "command": "python -m pytest tests/test_validation_suite_covers_the_loop.py tests/test_file_modes.py tests/test_preserved_source_policy.py -q --tb=short",
+    "passed": 33,
+    "duration_seconds": 10.321,
+    "junit_sha256": "42f9cad6dfd297861c54a72496e5c7044a91f616c2aa3b99e193caab4ced599f"
+  }
+}
