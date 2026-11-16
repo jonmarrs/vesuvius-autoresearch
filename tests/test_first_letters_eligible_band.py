@@ -508,3 +508,191 @@ def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
     assert 'spec["spiral_outward_sense"] = sys.argv[3]' in text
     assert 'fit_spiral.py --dataset "$DATASET" --cache' in text
     assert 'ln -s "$R/dataset/tracks" "$DATASET/tracks"' in text
+
+
+# Added by the design review of 2026-11-16: guards of the spacing description that the tests above do not reach.
+
+
+def _profile(values, default):
+    """A share at each of the spacing script's offsets: `values[o]` where given, else `default`."""
+    return [values.get(o, default) for o in bs.OFFSETS]
+
+
+def _symmetric(values):
+    return {**values, **{-o: v for o, v in values.items()}}
+
+
+@pytest.mark.parametrize(
+    ("values", "default", "expected"),
+    [
+        # the neighbouring sheet can be at exactly 8, and 6 is still the winding's own sheet
+        (_symmetric({0: 1.0, 2: 0.1, 4: 0.1, 6: 0.6, 8: 0.5}), 0.2, 8.0),
+        # a dip at 8 is a candidate, not part of what the rise must clear
+        (_symmetric({0: 1.0, 2: 0.3, 4: 0.3, 6: 0.3, 8: 0.1}), 0.25, None),
+        # nor is a trough at 0
+        (_symmetric({0: 0.05, 2: 0.3, 4: 0.3, 6: 0.3}), 0.25, None),
+        # the two directions are averaged
+        (
+            {**_symmetric({0: 1.0, 2: 0.1, 4: 0.1, 6: 0.1}), -10: 0.5, 14: 0.5},
+            0.2,
+            12.0,
+        ),
+        # a tie goes to the nearer offset, on the negative side too
+        (
+            {
+                **_symmetric({0: 1.0, 2: 0.1, 4: 0.1, 6: 0.1}),
+                -16: 0.5,
+                -10: 0.5,
+                12: 0.5,
+            },
+            0.2,
+            11.0,
+        ),
+        # a rise only as high as the dip before it is no rise
+        (_symmetric({0: 1.0}), 0.2, None),
+    ],
+)
+def test_sheet_spacing_takes_each_side_from_eight_voxels_out(values, default, expected):
+    assert bs.sheet_spacing(list(bs.OFFSETS), _profile(values, default)) == expected
+
+
+def test_sheet_spacing_needs_offsets_between_zero_and_eight():
+    assert bs.sheet_spacing([-16, -8, 0, 8, 16], [0.5, 0.1, 1.0, 0.1, 0.5]) is None
+
+
+def test_the_spacing_summary_names_its_percentiles_and_rounds_the_profile():
+    falling = [0.3 - 0.004 * abs(o) for o in bs.OFFSETS]
+    falling[0] = 0.123456
+    summary = bs.summarise(list(bs.OFFSETS), falling, [*range(1, 11), 100.0])
+    assert summary["share_inside"][0] == 0.1235
+    assert summary["pairs"] == 11
+    assert summary["winding_spacing_median"] == 6.0
+    assert (summary["winding_spacing_p10"], summary["winding_spacing_p90"]) == (
+        2.0,
+        10.0,
+    )
+
+
+def _spacing_command(tmp_path, monkeypatch, windings, field):
+    """The spacing command on stand-in windings; a winding given as None is a folder that holds no mesh."""
+    meshes = tmp_path / "meshes"
+    for name, nodes in windings.items():
+        (meshes / name).mkdir(parents=True)
+        if nodes is not None:
+            (meshes / name / "x.tif").write_bytes(b"")
+    opened = []
+
+    def open_field(store, group):
+        opened.append((str(store), group))
+        return field
+
+    monkeypatch.setattr(bs.quality, "DistanceField", open_field)
+    monkeypatch.setattr(
+        bs.analysis, "load_tifxyz", lambda folder: windings[Path(folder).name]
+    )
+    out = tmp_path / "spacing.json"
+    return bs.main([str(out), "sdt.zarr", str(meshes)]), out, opened
+
+
+def test_the_spacing_command_pools_raw_windings_and_measures_consecutive_ones(
+    tmp_path, monkeypatch, capsys
+):
+    windings = {
+        "w010": _plane(160.0),
+        "w011": _plane(176.0),
+        "w012_spliced": _plane(168.0),
+        "w013": None,
+        "w014": _plane(192.0),
+    }
+    code, out, opened = _spacing_command(tmp_path, monkeypatch, windings, Sheets())
+    assert code == 0 and opened == [("sdt.zarr", "1")]
+    result = json.loads(out.read_text())
+    # every winding is on a sheet, and the sheets are 16 voxels apart
+    assert result["share_inside"] == [1.0 if o % 16 == 0 else 0.0 for o in bs.OFFSETS]
+    assert result["sheet_spacing"] == 16.0 and result["pairs"] == 2
+    assert result["winding_spacing_median"] == 16.0 and result["ratio"] == 1.0
+
+    before = out.read_text()
+    assert bs.main([str(out), "sdt.zarr", str(tmp_path / "meshes")]) == 2
+    assert "measured once" in capsys.readouterr().err
+    assert out.read_text() == before and len(opened) == 1
+
+
+class Recording:
+    def __init__(self):
+        self.asked = []
+
+    def at(self, xyz):
+        self.asked.append(xyz.copy())
+        return np.zeros(len(xyz))
+
+
+def test_the_profile_reads_every_fourth_node_with_a_normal_along_its_own_normal(
+    tmp_path, monkeypatch
+):
+    rows, cols = np.indices((30, 40)).astype(float)
+    x = 5 * cols
+    curved = np.stack([x, 5 * rows, 160 + 0.01 * (x - 100) ** 2], -1)
+    valid = np.ones(rows.shape, dtype=bool)
+    valid[10, 10] = False
+    curved[10, 10] = -1.0
+    field = Recording()
+    code, _, _ = _spacing_command(
+        tmp_path, monkeypatch, {"w010": (curved, valid)}, field
+    )
+    assert code == 0
+    normals, has_normal = bs.analysis.grid_normals(curved, valid)
+    use = valid & has_normal
+    points, n = curved[use][::4], normals[use][::4]
+    assert len(field.asked) == len(bs.OFFSETS)
+    for asked, offset in zip(field.asked, bs.OFFSETS, strict=True):
+        assert np.array_equal(asked, points + offset * n)
+
+
+class Halves:
+    """Inside at and above z 160 where x < 150. Where x >= 150: outside, with no value 12 or more voxels below."""
+
+    def at(self, xyz):
+        x, z = xyz[:, 0], xyz[:, 2]
+        out = np.where(x < 150, 160.0 - z, 5.0)
+        out[(x >= 150) & (z <= 148)] = np.nan
+        return out
+
+
+def test_the_profile_counts_a_node_only_where_every_offset_has_a_value(
+    tmp_path, monkeypatch
+):
+    code, out, _ = _spacing_command(
+        tmp_path, monkeypatch, {"w010": _plane(160.0)}, Halves()
+    )
+    assert code == 0
+    # the nodes at x 150 and beyond are left out; the rest are inside from offset 0 up, the face included
+    share = json.loads(out.read_text())["share_inside"]
+    assert share == [1.0 if o >= 0 else 0.0 for o in bs.OFFSETS]
+
+
+def test_a_pair_of_windings_too_far_apart_sideways_has_no_spacing(
+    tmp_path, monkeypatch
+):
+    far, valid = _plane(176.0)
+    far[..., 0] += 5000.0
+    windings = {"w010": _plane(160.0), "w011": (far, valid)}
+    code, out, _ = _spacing_command(tmp_path, monkeypatch, windings, Sheets())
+    result = json.loads(out.read_text())
+    assert code == 0 and result["pairs"] == 0
+    assert result["winding_spacing_median"] is None and result["ratio"] is None
+
+
+class Nowhere:
+    def at(self, xyz):
+        return np.full(len(xyz), np.nan)
+
+
+def test_the_spacing_command_writes_nothing_when_no_node_is_in_the_field(
+    tmp_path, monkeypatch, capsys
+):
+    code, out, _ = _spacing_command(
+        tmp_path, monkeypatch, {"w010": _plane(160.0)}, Nowhere()
+    )
+    assert code == 1 and not out.exists()
+    assert "no node inside the distance field" in capsys.readouterr().err
