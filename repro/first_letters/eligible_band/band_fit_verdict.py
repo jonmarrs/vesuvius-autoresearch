@@ -51,6 +51,8 @@ def by_index(quality: dict, parts: int = 3) -> list[dict]:
     scored = sorted(
         (int(name[1:]), w) for name, w in quality["windings"].items() if w is not None
     )
+    if not scored:
+        return []
     size = -(-len(scored) // parts)
     out = []
     for start in range(0, len(scored), size):
@@ -98,12 +100,17 @@ def main(argv: list[str] | None = None) -> int:
     smoke, full = (_read(run / "work" / f"quality_{arm}.json") for arm in arms)
     smoke_summary = smoke and smoke["summary"]
     full_summary = full and full["summary"]
+    # summarise() omits the median when nothing was scored. The lines were not met;
+    # asking for the median there raises, and the DOES_NOT_RUN record is never written.
+    full_for_lines = (
+        full_summary if full_summary and full_summary.get("windings_scored") else None
+    )
     record = {
         "steps": steps,
         "smoke": smoke_summary,
         "full": full_summary,
-        "p1": bool(full_summary and holds(full_summary, P1)),
-        "p2": bool(full_summary and holds(full_summary, P2)),
+        "p1": bool(full_for_lines and holds(full_for_lines, P1)),
+        "p2": bool(full_for_lines and holds(full_for_lines, P2)),
         "verdict": verdict(steps, smoke_summary, full_summary),
         "full_by_index": full and by_index(full),
     }

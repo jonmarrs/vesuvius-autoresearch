@@ -490,6 +490,34 @@ def test_the_verdict_command_does_not_run_without_the_full_arm(tmp_path):
     assert (record["p1"], record["p2"]) == (False, False)
 
 
+def _unscored(written: int) -> dict:
+    """A score file that wrote windings and scored none of them."""
+    return {
+        "summary": {"windings": written, "windings_scored": 0},
+        "windings": {f"w{10 + i:03d}": None for i in range(written)},
+    }
+
+
+@pytest.mark.parametrize("written", [0, 2])
+def test_the_verdict_command_records_a_full_fit_that_scored_no_winding(
+    tmp_path, written
+):
+    record = _judge(tmp_path, _quality(0.0, 0.5), _unscored(written))
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert (record["p1"], record["p2"]) == (False, False)
+    assert record["full"]["windings_scored"] == 0
+    assert record["full_by_index"] == []
+    assert record["smoke"]["excess_median"] == 0.0
+    assert bv.by_index(_unscored(written)) == []
+
+
+def test_an_unscored_smoke_fit_still_records_the_full_arm(tmp_path):
+    record = _judge(tmp_path, _unscored(3), _quality(0.2, 0.9))
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert (record["p1"], record["p2"]) == (True, True)
+    assert [part["windings"] for part in record["full_by_index"]] == [40, 40, 40]
+
+
 def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
     text = (HERE / "run_fit.sh").read_text()
     lines = text.splitlines()
