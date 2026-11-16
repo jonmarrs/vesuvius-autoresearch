@@ -1,5 +1,10 @@
 # Research strategy: First Letters and biting fixes on one RTX 4090
 
+**November 16 status and independent assessment:** [dated strategy review](STRATEGY_REVIEW_2026-11-16.md).
+PHerc. 211 has since received its First Letters award; the announcement says seven prizes remain.
+The review proposes updated readers, validation gates and bounded compute allocation. It does not adopt
+new experiments, alter frozen records or resume paused work. The November 10 decision record below is retained.
+
 **Reviewed November 10, 2026 UTC and accepted by the owner that day.** This replaces the October 28 strategy,
 whose first rank (Villa #2141, #2258 and #2259) has merged. [FINDINGS](../FINDINGS.md), published measurements
 and registrations remain the record of results. The budgets, dates and gates below are proposals for new work,
