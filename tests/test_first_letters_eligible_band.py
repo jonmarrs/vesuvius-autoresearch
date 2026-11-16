@@ -696,3 +696,152 @@ def test_the_spacing_command_writes_nothing_when_no_node_is_in_the_field(
     )
     assert code == 1 and not out.exists()
     assert "no node inside the distance field" in capsys.readouterr().err
+
+
+# Added by the design review of 2026-11-16: the fit launcher's own blocks, run, and the verdict command's arguments.
+
+
+def _launcher_block(start, end):
+    text = (HERE / "run_fit.sh").read_text()
+    first = text.index(start)
+    return text[first : text.index(end, first)]
+
+
+def _arm(*argv):
+    """The fit launcher's handling of its arguments, run alone: kind, outer winding, flip and step count."""
+    import subprocess
+
+    block = _launcher_block("ARM=${1:?", "OUT=$R/work/fit_$ARM")
+    script = "set -u\n" + block + 'echo "$KIND|$OUTER|$FLIP|$STEPS"\n'
+    return subprocess.run(
+        ["bash", "-c", script, "run_fit.sh", *argv], capture_output=True, text=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("argv", "parsed"),
+    [
+        (("full",), "full|||30000"),
+        (("smoke", "300"), "smoke|||300"),
+        (("outer80",), "full|80||30000"),
+        (("outer80-smoke", "300"), "smoke|80||300"),
+        (("outer80-otherhand",), "full|80|1|30000"),
+        (("outer80-otherhand-smoke", "300"), "smoke|80|1|300"),
+    ],
+)
+def test_the_fit_launcher_reads_each_arm(argv, parsed):
+    result = _arm(*argv)
+    assert (result.returncode, result.stdout.strip()) == (0, parsed), result.stderr
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (("outer0",), "unknown arm"),
+        (("outer80x",), "unknown arm"),
+        (("outer8-0-smoke", "300"), "unknown arm"),
+        (("other",), "unknown arm"),
+        (("full", "300"), "takes no step count"),
+        (("outer80-otherhand", "300"), "takes no step count"),
+        (("smoke",), "a smoke arm needs a step count"),
+    ],
+)
+def test_the_fit_launcher_refuses_an_arm_it_does_not_know(argv, message):
+    result = _arm(*argv)
+    assert result.returncode != 0 and result.stdout == ""
+    assert message in result.stderr
+
+
+def _overrides(outer, steps="300"):
+    """The settings the fit launcher hands villa, from its own snippet."""
+    import subprocess
+
+    code = _launcher_block(
+        'FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c \'', '\' "$Z_BEGIN"'
+    ).split("'", 1)[1]
+    argv = [sys.executable, "-I", "-c", code, "10250", "11750", steps, outer]
+    return json.loads(
+        subprocess.run(argv, capture_output=True, text=True, check=True).stdout
+    )
+
+
+def test_the_fit_launcher_changes_the_winding_count_only_for_an_outer_arm():
+    recipe = {
+        "z_begin": 10250,
+        "z_end": 11750,
+        "input_disable_patches": True,
+        "loss_weight_shell_outer": 0,
+        "loss_weight_shell_patch_radius": 0,
+        "dense_spacing_mode": "phase",
+        "optimizer_num_training_steps": 300,
+    }
+    assert _overrides("") == recipe
+    assert _overrides("80", steps="30000") == {
+        **recipe,
+        "optimizer_num_training_steps": 30000,
+        "shell_outer_winding_idx": 80,
+        "model_gap_expander_num_windings": 83,
+    }
+
+
+def _flip(tmp_path, sense, flip="1"):
+    """The fit launcher's dataset step, run alone, on a band directory in `tmp_path`."""
+    import os
+    import subprocess
+
+    band = tmp_path / "band"
+    dataset = band / "dataset"
+    (dataset / "tracks").mkdir(parents=True)
+    spec = {"spiral_outward_sense": sense, "volume": "v"}
+    (dataset / "spiral-scroll.json").write_text(json.dumps(spec))
+    (dataset / "umbilicus.json").write_text('{"points": [1, 2]}')
+    out = band / "work" / "fit_outer80-otherhand"
+    out.mkdir(parents=True)
+    block = _launcher_block("DATASET=$R/dataset\n", "export FIT_SPIRAL_OUT_DIR=$OUT")
+    env = dict(os.environ, R=str(band), OUT=str(out), PY=sys.executable)
+    env.update(SENSE=sense, FLIP=flip)
+    script = "set -u\n" + block + 'echo "$DATASET|$SENSE"\n'
+    result = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env
+    )
+    return result, dataset, out / "dataset"
+
+
+@pytest.mark.parametrize(("sense", "other"), [("ACW", "CW"), ("CW", "ACW")])
+def test_an_otherhand_arm_fits_a_copy_of_the_dataset_turned_the_other_way(
+    tmp_path, sense, other
+):
+    result, published, copy = _flip(tmp_path, sense)
+    assert (result.returncode, result.stdout.strip()) == (0, f"{copy}|{other}")
+    assert json.loads((copy / "spiral-scroll.json").read_text()) == {
+        "spiral_outward_sense": other,
+        "volume": "v",
+    }
+    assert (copy / "tracks").resolve() == (published / "tracks").resolve()
+    umbilicus = (published / "umbilicus.json").read_text()
+    assert (copy / "umbilicus.json").read_text() == umbilicus
+    # the published description is left as it was
+    assert (
+        json.loads((published / "spiral-scroll.json").read_text())[
+            "spiral_outward_sense"
+        ]
+        == sense
+    )
+
+
+def test_an_arm_that_does_not_flip_fits_the_published_dataset(tmp_path):
+    result, published, copy = _flip(tmp_path, "ACW", flip="")
+    assert (result.returncode, result.stdout.strip()) == (0, f"{published}|ACW")
+    assert not copy.exists()
+
+
+def test_the_verdict_command_takes_both_arms_or_neither(tmp_path, capsys):
+    out = tmp_path / "verdict.json"
+    for argv in (
+        [str(tmp_path)],
+        [str(tmp_path), str(out), "outer80"],
+        [str(tmp_path), str(out), "outer80-smoke", "outer80", "extra"],
+    ):
+        assert bv.main(argv) == 2
+        assert "usage:" in capsys.readouterr().err
+    assert not out.exists()
