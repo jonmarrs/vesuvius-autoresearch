@@ -227,6 +227,15 @@ no letter can be read from our map, where the winner's shows letters. Our reader
 letters; a reader that does is the missing piece, and whether the winning reader's CC BY-NC weights may be used in
 a submission is the owner's question. Whether the recipe's own fit lands on the winner's sheet is finding 119.
 
+**The recipe's fit reaches the winner's sheet in two pieces (November 16).** Fitted unchanged on a band around the
+winner's surface and snapped, the chosen winding has 31% of the winner's nodes within 2 voxels (`PARTLY_ON_IT`, as
+predicted; [report](../reports/first_letters_0211_winner_band.md), finding 119). Described after the verdict: 88%
+of the winner's nodes lie within 2 voxels of some winding. One winding follows the winner's sheet for 34 mm, at
+finding 110's line, and a winding two further in follows the rest. The two windings between them sit between
+predicted sheets. So a read of one unrefined winding can follow a text-bearing sheet for a few centimetres and
+then leave it, and a blank read of one winding says little about the next. Which of the two surfaces changes sheets
+is not settled. The next step is our fit and reader together at this known place, registered separately.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 

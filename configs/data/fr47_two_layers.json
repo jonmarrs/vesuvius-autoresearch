@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "kind": "official_surface_fragment_example",
+  "fragment_id": "PHercParis2Fr47",
+  "base_url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/",
+  "source_z_range": [
+    16,
+    18
+  ],
+  "shape_zyx": [
+    2,
+    8181,
+    6330
+  ],
+  "voxel_size_um": 3.24,
+  "label_semantics": "black_background_white_ink",
+  "mask_semantics": "black_excluded_white_included",
+  "pin_observed_utc": "2026-11-16",
+  "pin_basis": "SHA256 of complete files fetched over HTTPS from the public fragment export; not separately published upstream checksums.",
+  "files": [
+    {
+      "relative_path": "inklabels.png",
+      "bytes": 88875,
+      "sha256": "bc36bd54e84b423faa44d3b62ca0d3a3c28403cb714b154acb382f94241d39b6"
+    },
+    {
+      "relative_path": "mask.png",
+      "bytes": 61652,
+      "sha256": "1fdc13f7dc149dc4e00272af597ba236b650e54bb2dca38865f211207cee069f"
+    },
+    {
+      "relative_path": "surface_volume/meta.json",
+      "bytes": 215,
+      "sha256": "6a33b57ae1f93dd52f93af3fc508d6969d4ddd013c81c8f87f769260994cd60f"
+    },
+    {
+      "relative_path": "surface_volume/16.tif",
+      "bytes": 103571722,
+      "sha256": "3113d8dbcc32e32dffe8b186508cddbc4c4588a9ef9c465043f6aa386e1707c0"
+    },
+    {
+      "relative_path": "surface_volume/17.tif",
+      "bytes": 103571722,
+      "sha256": "323e11499a6ea84ea4c551316c5756932687e3fe5607129c6bb73e032959c2d0"
+    }
+  ]
+}

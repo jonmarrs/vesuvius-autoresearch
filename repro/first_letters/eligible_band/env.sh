@@ -27,7 +27,14 @@ esac
 VOXEL_UM=9.362
 Z_BEGIN=${FL_Z_BEGIN:-10250}   # default: the middle 1,500 slices of the tracked range z 4500-17500
 Z_END=${FL_Z_END:-11750}
-R=$FL_ROOT/$(echo "$SCROLL" | tr "[:upper:]" "[:lower:]")_band
+# The z chunks of each input array that the band +/- 64 slices touches (setup/fetch_volumes.sh): the surface
+# prediction at level 1 (192-voxel chunks, one spare each side), the CT at level 1 (128-voxel chunks), lasagna
+# group 2 (4x, 32-voxel chunks). For the default band: 25 31, 39 46, 79 92.
+SURF_CHUNKS="$(( (Z_BEGIN - 64) / 384 - 1 )) $(( (Z_END + 64) / 384 + 1 ))"
+CT_CHUNKS="$(( (Z_BEGIN - 64) / 256 )) $(( (Z_END + 64) / 256 ))"
+LASAGNA_CHUNKS="$(( (Z_BEGIN - 64) / 128 )) $(( (Z_END + 64) / 128 ))"
+# A second band of one scroll gets its own run directory: FL_BAND=TAG puts it under <scroll>_band_TAG.
+R=$FL_ROOT/$(echo "$SCROLL" | tr "[:upper:]" "[:lower:]")_band${FL_BAND:+_$FL_BAND}
 BUCKET_SURF=$SCROLL/representations/predictions/surfaces
 SURF_NAME=$VOLUME_ID-surface-20260413222639-surface-m7-L0-th0.2.zarr
 SURF=$R/inputs/surface/$SURF_NAME
