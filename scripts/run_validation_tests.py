@@ -72,6 +72,9 @@ VALIDATION_TESTS = [
     "tests/test_check_patch_selection.py",
     "tests/test_check_patch_spatial_balance.py",
     "tests/test_execute_lasagna_pipeline_resume.py",
+    "tests/test_prepare_studio_input.py",
+    "tests/test_prepare_studio_input_zarr.py",
+    "tests/test_prepare_studio_input_model_smoke.py",
     "tests/test_surface_render_contracts.py",
     "tests/test_surface_control_v2.py",
     "tests/test_render_surface.py",
@@ -254,6 +257,7 @@ VALIDATION_TESTS = [
 
 
 PORTABLE_TESTS = [
+    "tests/test_prepare_studio_input.py",
     "tests/test_training_split.py",
     "tests/test_training_checkpoint_paths.py",
     "tests/test_legacy_figure_retirement.py",
