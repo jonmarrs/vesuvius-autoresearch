@@ -61,6 +61,8 @@ configuration files live in the checkout. Automatic training-patch discovery,
 Villa-backed model architectures and optional Villa transforms/TTA also read
 checkout-relative source files. Use an editable installation with the pinned
 Villa submodule for those paths; the wheel does not bundle upstream code.
+The [experimental-interface contracts](EXPERIMENTAL_INTERFACES.md) describe the
+optional TTA adapter, demo head and retained training-only architecture names.
 
 To run the installation checks in the full project environment:
 

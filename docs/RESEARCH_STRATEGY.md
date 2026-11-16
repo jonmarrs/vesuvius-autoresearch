@@ -1,5 +1,10 @@
 # Research strategy: First Letters and biting fixes on one RTX 4090
 
+**November 16 status and independent assessment:** [dated strategy review](STRATEGY_REVIEW_2026-11-16.md).
+PHerc. 211 has since received its First Letters award; the announcement says seven prizes remain.
+The review proposes updated readers, validation gates and bounded compute allocation. It does not adopt
+new experiments, alter frozen records or resume paused work. The November 10 decision record below is retained.
+
 **Reviewed November 10, 2026 UTC and accepted by the owner that day.** This replaces the October 28 strategy,
 whose first rank (Villa #2141, #2258 and #2259) has merged. [FINDINGS](../FINDINGS.md), published measurements
 and registrations remain the record of results. The budgets, dates and gates below are proposals for new work,
@@ -181,6 +186,22 @@ turns going outward, and villa derives that from two orientation flags in the op
 (`metadata.json`). They give anticlockwise for PHerc. 0211 and 0826; PHerc. 0125 has no z direction there, so
 its direction is unknown, and a 1,000-step trial fit does not tell the two directions apart (measured on
 PHerc. 343). PHerc. 0125's inputs are on disk for when its direction is known.
+
+**PHerc. 0826, fitted on November 14.** The same fit and score on PHerc. 0826's band gave `NOT_ON_SHEETS`
+(median excess 0.004; [report](../reports/first_letters_0826_band_fit.md)). The cause is villa's default of 130
+windings: in this band the papyrus ends near the 80th, and the 50 windings past it are not near any predicted
+sheet. The 60 windings before the edge score like PHerc. 0211's (median 0.083, unregistered). There is no ink
+read of that fit; the next step there is a fit with the winding count set to what the band holds, registered
+separately. A score taken over all 130 windings mixes "do the windings follow sheets" with "is 130 the right
+number", so later registrations score the windings the fit is asked for.
+
+**PHerc. 0826, refitted with 80 windings on November 15.** With villa's outer winding set to 80 the same band
+gave `PARTLY_ON_SHEETS` (median excess 0.103, 78.6% of 70 windings positive;
+[report](../reports/first_letters_0826_winding_count.md)). That is 0.020 above the same windings in the
+130-winding fit, enough for the registered `HELPS` and not enough to tell from seed noise (one seed each; 42 of
+70 windings higher, sign test p = 0.12). The band has 45 windings at 0.07 or above that can be read for ink once
+finding 113 has shown whether the blinded protocol works. A new scroll needs its winding count before its fit
+is scored; so far that has taken a first fit with the default.
 
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.

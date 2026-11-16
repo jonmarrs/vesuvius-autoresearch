@@ -175,6 +175,79 @@ def test_the_by_index_summary_cuts_scored_windings_into_equal_parts_and_names_no
     assert not any(key.startswith("w0") for part in parts for key in part)
 
 
+def _load_spacing():
+    spec = importlib.util.spec_from_file_location(
+        "band_fit_spacing_under_test", HERE / "band_fit_spacing.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+bs = _load_spacing()
+
+
+def test_sheet_spacing_is_where_the_profile_rises_again_and_none_when_it_does_not():
+    offsets = list(bs.OFFSETS)
+    # finding 112's profile of the PHerc. 0211 fit: peak at 0, neighbours near 14
+    share = [0.189, 0.1887, 0.1904, 0.195, 0.2006, 0.2061, 0.2036, 0.1928, 0.1796, 0.169, 0.1731, 0.2199,
+             0.2674, 0.2278, 0.1785, 0.1736, 0.1829, 0.1975, 0.2104, 0.2154, 0.2122, 0.2077, 0.2056, 0.2057,
+             0.2069]  # fmt: skip
+    assert bs.sheet_spacing(offsets, share) == 14.0
+    summary = bs.summarise(offsets, share, [9.0, 9.5, 10.0])
+    assert summary["peak_offset"] == 0 and summary["ratio"] == round(9.5 / 14.0, 3)
+    falling = [0.3 - 0.004 * abs(o) for o in offsets]
+    assert bs.sheet_spacing(offsets, falling) is None
+    assert bs.summarise(offsets, falling, [9.0])["ratio"] is None
+
+
+def test_the_verdict_reads_the_arms_it_is_given(tmp_path):
+    import json
+
+    work = tmp_path / "work"
+    for arm, name in (
+        ("setup", "distance_field"),
+        ("outer80-smoke", "fit"),
+        ("outer80", "fit"),
+    ):
+        (work / f"gate_{arm}").mkdir(parents=True)
+        (work / f"gate_{arm}" / f"{name}.json").write_text('{"exit": 0, "seconds": 1}')
+    for arm, excess in (("outer80-smoke", 0.0), ("outer80", 0.1)):
+        windings = {
+            f"w{i:03d}": {"excess": excess, "on_sheet": 0.3, "nodes_scored": 2000}
+            for i in range(10, 80)
+        }
+        summary = {
+            "windings": 70,
+            "windings_scored": 70,
+            "excess_median": excess,
+            "share_of_windings_with_positive_excess": float(excess > 0),
+        }
+        (work / f"quality_{arm}.json").write_text(
+            json.dumps({"summary": summary, "windings": windings})
+        )
+    out = tmp_path / "verdict.json"
+    assert bv.main([str(tmp_path), str(out), "outer80-smoke", "outer80"]) == 0
+    record = json.loads(out.read_text())
+    assert record["verdict"] == "ON_SHEETS" and set(record["steps"]) == {
+        "setup/distance_field",
+        "outer80-smoke/fit",
+        "outer80/fit",
+    }
+    assert bv.main([str(tmp_path), str(tmp_path / "other.json")]) == 0
+    assert (
+        json.loads((tmp_path / "other.json").read_text())["verdict"] == "DOES_NOT_RUN"
+    )
+
+
+def test_the_fit_launcher_sets_both_winding_settings_for_an_outer_arm():
+    text = (HERE / "run_fit.sh").read_text()
+    assert 'overrides["shell_outer_winding_idx"] = int(sys.argv[4])' in text
+    assert 'overrides["model_gap_expander_num_windings"] = int(sys.argv[4]) + 3' in text
+    assert "outer[1-9]*-smoke) KIND=smoke" in text and "outer[1-9]*) KIND=full" in text
+
+
 # Added by the design review of 2026-11-16: guards of the two scripts that the tests above do not reach.
 
 
