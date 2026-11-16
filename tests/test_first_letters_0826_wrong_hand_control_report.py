@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 REPORT = (ROOT / "reports/first_letters_0826_wrong_hand_control.md").read_text()
 RECORD = json.loads(
@@ -191,3 +193,31 @@ def test_the_record_holds_no_winding_and_no_geometry():
 def test_the_strategy_carries_the_verdict_and_links_the_report():
     assert "reports/first_letters_0826_wrong_hand_control.md" in STRATEGY
     assert f"`{RECORD['verdict']}`" in STRATEGY
+
+
+# Added by the design review of 2026-11-16: the registered table at its lines. The record's 0.0992 is far from both.
+
+
+def _control(median, scored=70, exit_code=0):
+    return {
+        "steps": {"setup/distance_field": {"exit": 0}, "fit": {"exit": exit_code}},
+        "full": {"windings_scored": scored, "excess_median": median},
+        "lines": RECORD["lines"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("record", "verdict"),
+    [
+        (_control(0.03), "SCORE_SEPARATES"),
+        (_control(0.0301), "SCORE_PARTLY_SEPARATES"),
+        (_control(0.0699), "SCORE_PARTLY_SEPARATES"),
+        (_control(0.07), "SCORE_BLIND_TO_DIRECTION"),
+        (_control(0.0, scored=60), "SCORE_SEPARATES"),
+        (_control(0.0, scored=59), "DOES_NOT_RUN"),
+        (_control(0.2, exit_code=1), "DOES_NOT_RUN"),
+        (_control(0.2, exit_code=-9), "DOES_NOT_RUN"),  # killed by a signal
+    ],
+)
+def test_the_registered_table_holds_at_its_lines(record, verdict):
+    assert registered_verdict(record) == verdict
