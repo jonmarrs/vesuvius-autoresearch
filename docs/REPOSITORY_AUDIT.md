@@ -259,14 +259,13 @@ decision for the missing-input failures identified above.
 
 ## Items for owner review
 
-The eight remaining items below are in suggested work order, not a claim that
+The seven remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
 | High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the later migrations. The [November 14 review](../reports/dependency_migration_review_2026-11-14.json) records Pillow 12.1.1 → 12.3.0. The [November 15 review](../reports/dependency_migration_review_2026-11-15.json) records non-Windows WEBKNOSSOS 4.3.3, aiohttp 3.14.5, dotenv 1.2.4 and cryptography 50.0.2, with Python 3.10 workflow/native checks and unchanged Windows package selection. Fresh version-specific PyPI lookups report 89 → 0 raw records across the three latter packages. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize the remaining applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. Windows still selects the old SDK/aiohttp/dotenv chain because newer SDKs pin TensorStore below this project's minimum. Newer Virtualenv still conflicts with SDK typing-extensions constraints on Python 3.10. Decide Python/platform support before those migrations. GitHub's advisory API previously returned HTTP 403; public matching and CPU checks do not replace alert access, Windows execution or GPU validation. |
 | High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). Opt-in [session records](PROOFREADER_SESSION_RECORDS.md) now bind complete configured source bytes and initial settings; a read-only checker detects source changes and mismatched logged context. | Choose whether the training feedback path should review 2D ink windows or 3D segmentation labels, then specify coordinate transforms, label semantics and reviewed-patch ingestion. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Resume remains disabled: pinned Villa's logged context omits GUI-setting history, can retain pending entries and snaps old coordinates to a new grid. Source records alone do not establish resume position, approved patch contents or physical registration. |
-| High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
 | Medium | **Regional peak memory and ensemble residency still need representative GPU measurements.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) cap three persistent float32 blend planes and load saved state on CPU. The opt-in [regional profiler](VOLUME_INFERENCE.md#regional-memory-observations) now records process RSS, OS lifetime high-water RSS and selected-device PyTorch allocator peaks through the latest metadata observation. Synthetic CPU checks preserve output probabilities exactly; the CUDA path has only mocked API coverage. Whole-region arrays and all ensemble members remain resident. | Run `--profile_memory` on the 4090 with representative source/model/export settings before choosing streaming accumulators or sequential member residency. The 512 MiB cap remains an acceptance policy. CPU lifetime peaks include earlier process work; CUDA allocator peaks exclude other allocators/processes and device-context overhead, and are not independent phase peaks or fit guarantees. The [scratch CUDA probe](VRAM_PROBE.md) is a separate forward/backward path. [Production](../scripts/production_predict.py) remains outside the new regional profiling scope; no real GPU/full-scroll peak or throughput result was measured here. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
@@ -1589,3 +1588,67 @@ in the review record match their captured files.
 Validation used the existing separate Python 3.10 CPU environments. No full
 curated-suite repeat, hosted CI, Napari/interactive edit, original annotation
 data, GPU measurement or automatic training ingestion was supplied by this pass.
+
+## Official-fragment onboarding follow-up (2026-11-16 UTC)
+
+This pass starts from main `798a546d`. The bounded source/example onboarding
+item is closed by a [pinned Frag1 recipe](OFFICIAL_FRAGMENT_EXAMPLE.md), its
+[download manifest](../configs/data/fr47_two_layers.json) and a
+[real-data review record](../reports/official_fragment_example_review_2026-11-16.json).
+Seven owner-review items remain. Scientific validation, independent physical
+registration and the training read-policy decision remain separate work.
+
+Five original files from the public PHercParis2Fr47 surface export total
+**207,294,186 bytes**: TIFF slices 16 and 17, labels, mask and metadata. HTTPS
+response sizes/digests are pinned; these are retrieved-file hashes, not separately
+published upstream checksums. The new acquisition command rejects partial,
+changed, oversized or redirected responses and publishes a new directory only
+after complete checks. It preserves all original file bytes.
+
+The actual official labels and mask are **palette PNGs** with indices 0/1 for
+black/white. The generic importer correctly refuses them. A separate explicit
+adapter verifies used palette RGB colors and prepares grayscale 0/255 labels;
+it refuses transparency, intermediate colors and invalid image contracts. Its
+synthetic reversed-palette case confirms that colors define classes, not index
+nonzeroness. The generic palette refusal remains unchanged.
+
+The real files passed the maintained importer plan/build and strict CPU reader:
+
+- Every CT value in the prepared **[2, 8181, 6330]** uint16 array equals its
+  original big-endian TIFF value. The stored array is little endian; both source
+  planes retain the full 0..65535 range. The decoded CT digest is in the record.
+- Both canonical PNGs match the original palette colors at every pixel, and
+  surface metadata and all image dimensions agree on the supplied export grid.
+  This does not independently prove physical registration or annotation truth.
+- A single explicitly label-conditioned 64×64 fixture patch passes the strict
+  labeled dataset, returning CT **[1, 2, 64, 64]**, matching binary labels and the
+  documented zero fiber placeholder. CT normalization agrees exactly with the
+  strict reader on this patch. This is a compatibility check, not a performance
+  estimate or independent scientific sample.
+- Source TIFF indices **[16, 18)** map to output depth **[0, 2)**, with origin
+  `[16, 0, 0]`. Passing the source indices as the output depth band is rejected.
+  The existing loop configuration and full-depth research recipe were not changed.
+
+The six-module synthetic integration selection passed **189 tests** in 44.72
+seconds. The final focused set, including bundled-manifest preflight, passed
+**95 tests** in 5.51 seconds. These overlapping counts are not additive. The live
+HTTP fetch preceded the final additional staged-byte readback check; that final
+helper was then verified on all five actual files, and the final acquisition
+path is covered by synthetic publication/failure tests. No extra full download
+was needed. The curated registry now contains **226 modules**, with **16 portable
+modules**. No dataset images or Zarr stores are committed.
+
+The source example has only two slices. It does not provide the default model's
+depth/context and must not replace the live loop's dataset. Source/grid provenance
+does not establish training/validation independence. No training, GPU run, accuracy
+measurement, full curated-suite repeat or Windows/macOS runtime check was supplied.
+
+The configured document/claim guards passed **138 tests, 1 skipped** in 38.98
+seconds; the skip requires absent local arm artifacts. After staging, registry,
+file-mode and preserved-source guards passed **33 tests** in 11.02 seconds.
+Mypy passes on **1021 files**, maintained Ruff and all four changed Python files'
+formatting pass, and the unchanged offline lock resolves **258 packages**.
+The real-data checks used Python 3.10.21, NumPy 2.2.6, Pillow 12.3.0, Zarr 2.18.3
+and Torch 2.9.1 CPU in the separate SDK/CPU dependency view. This is not a fully
+installed CUDA environment. All nine final source bindings match; extracted
+repository-path references in the four changed Markdown documents exist.
