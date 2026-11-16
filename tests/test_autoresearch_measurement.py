@@ -1895,8 +1895,22 @@ def test_a_hung_git_is_stopped_without_leaving_its_lock(tmp_path, monkeypatch):
 def _alive(pid):
     try:
         return Path(f"/proc/{pid}/stat").read_text().split()[2] not in "ZX"
-    except FileNotFoundError:
+    except (
+        FileNotFoundError,
+        ProcessLookupError,
+    ):  # gone before the open, or between open and read
         return False
+
+
+def test_a_process_that_exits_while_its_stat_is_read_is_not_alive(monkeypatch):
+    """/proc/PID/stat can open and then fail to read with ESRCH when the process is reaped in between; the
+    suite on 2026-11-16 failed here once with ProcessLookupError, after the hook had been killed as intended."""
+
+    def gone(self, *args, **kwargs):
+        raise ProcessLookupError(3, "No such process")
+
+    monkeypatch.setattr(Path, "read_text", gone)
+    assert _alive(12345) is False
 
 
 def test_a_hung_hook_does_not_hold_up_the_loop(tmp_path, monkeypatch):
