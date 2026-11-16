@@ -235,6 +235,12 @@ conversion is still needed before passing them to the proofreader; the launcher
 refuses incompatible shapes and floating-point labels. Approved patch TIFFs
 also need a separate conversion before use by the ink-training workflow.
 
+For an opt-in initial-input receipt, add `--record-session`. The
+[session-record guide](PROOFREADER_SESSION_RECORDS.md) explains complete source
+fingerprints, explicit progress/output paths, resource limits and the read-only
+`scripts/check_proofreader_session.py` command. A matching input check does not
+enable resume or verify approved patch contents.
+
 ## Incumbent re-evaluation
 
 ```bash
