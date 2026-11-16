@@ -182,6 +182,14 @@ turns going outward, and villa derives that from two orientation flags in the op
 its direction is unknown, and a 1,000-step trial fit does not tell the two directions apart (measured on
 PHerc. 343). PHerc. 0125's inputs are on disk for when its direction is known.
 
+**PHerc. 0826, fitted on November 14.** The same fit and score on PHerc. 0826's band gave `NOT_ON_SHEETS`
+(median excess 0.004; [report](../reports/first_letters_0826_band_fit.md)). The cause is villa's default of 130
+windings: in this band the papyrus ends near the 80th, and the 50 windings past it are not near any predicted
+sheet. The 60 windings before the edge score like PHerc. 0211's (median 0.083, unregistered). There is no ink
+read of that fit; the next step there is a fit with the winding count set to what the band holds, registered
+separately. A score taken over all 130 windings mixes "do the windings follow sheets" with "is 130 the right
+number", so later registrations score the windings the fit is asked for.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
