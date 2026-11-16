@@ -488,3 +488,23 @@ def test_the_verdict_command_does_not_run_without_the_full_arm(tmp_path):
     assert record["verdict"] == "DOES_NOT_RUN"
     assert record["full"] is None and record["full_by_index"] is None
     assert (record["p1"], record["p2"]) == (False, False)
+
+
+def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
+    text = (HERE / "run_fit.sh").read_text()
+    lines = text.splitlines()
+    first = next(
+        i
+        for i, line in enumerate(lines)
+        if "-otherhand-smoke) KIND=smoke; FLIP=1" in line
+    )
+    plain = next(
+        i for i, line in enumerate(lines) if "outer[1-9]*-smoke) KIND=smoke" in line
+    )
+    assert first < plain, (
+        "the otherhand patterns must be tried before the plain outer ones"
+    )
+    assert 'case "$SENSE" in ACW) SENSE=CW ;; CW) SENSE=ACW ;;' in text
+    assert 'spec["spiral_outward_sense"] = sys.argv[3]' in text
+    assert 'fit_spiral.py --dataset "$DATASET" --cache' in text
+    assert 'ln -s "$R/dataset/tracks" "$DATASET/tracks"' in text
