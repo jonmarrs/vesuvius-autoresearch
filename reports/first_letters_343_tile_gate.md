@@ -41,7 +41,7 @@ are usually right or wrong together:
 | AUC | 0.759 | 0.603 | 0.510 | 0.371 | 0.333 | 0.297 | 0.393 | 0.479 | 0.618 | 0.792 |
 
 Shifts 3 to 8 tiles, where the labels come from elsewhere on the winding, give 0.30 to 0.51. The registered floor
-is the 95th percentile over all ten, which the two nearest shifts set. The AUC clears it by 0.118 and clears the
+is the 95th percentile over all ten, which the two nearest shifts set. The AUC clears it by 0.117 and clears the
 distant shifts by about 0.4.
 
 ## What the wrong tiles are
