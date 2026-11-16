@@ -203,6 +203,15 @@ gave `PARTLY_ON_SHEETS` (median excess 0.103, 78.6% of 70 windings positive;
 finding 113 has shown whether the blinded protocol works. A new scroll needs its winding count before its fit
 is scored; so far that has taken a first fit with the default.
 
+**The sheet-following score fails its control (November 15).** The same band fitted with the spiral declared to
+turn the wrong way scored a median excess of 0.099 against 0.103, and would have passed finding 112's table as
+`ON_SHEETS` (`SCORE_BLIND_TO_DIRECTION`; [report](../reports/first_letters_0826_wrong_hand_control.md)). A
+wrong-handed spiral has to cross sheets twice a turn, so the score sees "near a predicted sheet, locally" and not
+"follows one sheet round the scroll". The `ON_SHEETS` and `PARTLY_ON_SHEETS` verdicts of findings 112 and 115 mean
+that and no more. No further band is read for ink on this score alone: the next step is a second instrument that
+a wrong-handed spiral fails, checked first on PHerc. 343, where published windings exist. Finding 113's read
+stands, with that caveat. The score cannot find PHerc. 0125's direction either.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
