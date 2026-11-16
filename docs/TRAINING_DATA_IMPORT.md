@@ -7,10 +7,12 @@ It needs the checkout's NumPy, Pillow, OpenCV and Zarr 2 dependencies; `--help`
 works without importing them. It does not use CUDA or train a model.
 
 This closes the local conversion gap in the [quick start](../README.md).
-Official download provenance, a pinned download manifest and a small verified
-real-fragment example remain open. Tests use synthetic fixtures and the existing
-volume reader; they do not establish scientific performance or physical alignment.
-Archived downloaders are not a supported preparation recipe.
+A [pinned official Frag1 example](OFFICIAL_FRAGMENT_EXAMPLE.md) now supplies
+download provenance, explicit palette-label preparation and a two-layer real-data
+check through this importer and the strict reader. Routine tests remain synthetic.
+Source/grid consistency does not independently establish physical alignment,
+annotation quality or scientific performance. Archived downloaders are not a
+supported preparation recipe.
 
 ## Input contract
 
