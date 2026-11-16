@@ -490,6 +490,19 @@ def test_the_verdict_command_does_not_run_without_the_full_arm(tmp_path):
     assert (record["p1"], record["p2"]) == (False, False)
 
 
+def test_the_verdict_command_does_not_run_when_the_full_arm_scored_no_winding(
+    tmp_path,
+):
+    """A full fit whose windings all miss the field: the summary has no median and the command raised KeyError
+    (found in the review of finding 117's PR)."""
+    windings = {"w010": None, "w011": None}
+    empty = {"summary": bq.summarise(windings), "windings": windings}
+    record = _judge(tmp_path, _quality(0.0, 0.5), empty)
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert (record["p1"], record["p2"]) == (False, False)
+    assert record["full_by_index"] == []
+
+
 def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
     text = (HERE / "run_fit.sh").read_text()
     lines = text.splitlines()

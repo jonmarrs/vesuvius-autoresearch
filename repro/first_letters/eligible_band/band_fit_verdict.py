@@ -19,6 +19,9 @@ P2 = {"median": 0.03, "positive": 0.65}
 
 
 def holds(summary: dict, line: dict) -> bool:
+    """A summary with no scored winding has no median and holds no line."""
+    if not summary.get("windings_scored"):
+        return False
     return (
         summary["excess_median"] >= line["median"]
         and summary["share_of_windings_with_positive_excess"] >= line["positive"]
@@ -51,6 +54,8 @@ def by_index(quality: dict, parts: int = 3) -> list[dict]:
     scored = sorted(
         (int(name[1:]), w) for name, w in quality["windings"].items() if w is not None
     )
+    if not scored:
+        return []
     size = -(-len(scored) // parts)
     out = []
     for start in range(0, len(scored), size):
