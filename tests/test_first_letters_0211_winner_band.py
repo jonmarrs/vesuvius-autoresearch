@@ -101,6 +101,56 @@ def test_the_choice_is_the_winding_on_the_winners_sheet_and_the_verdict_reads_it
     assert ws.main(["verdict", str(out), str(winner), str(chosen), str(snap)]) == 2
 
 
+def test_spliced_twins_are_not_raw_windings_and_are_never_chosen(tmp_path):
+    """villa writes a wNNN_spliced twin beside each winding. The dry run on the smoke fit counted 240 windings
+    (120 and their twins); finding 110's run_select.sh skipped the twins, and so does this."""
+    winner = tmp_path / "winner"
+    _write_tifxyz(winner, _plane(3000.0))
+    fit = tmp_path / "fit"
+    for name, y in (
+        ("w030", 2988.0),
+        ("w031", 3000.6),
+        ("w031_spliced", 3000.0),  # nearer than any raw winding
+        ("w032", 3013.0),
+    ):
+        _write_tifxyz(fit / name, _plane(y, rows=24, cols=34, z0=7960.0))
+    (fit / "w033").mkdir()  # a folder with no surface in it
+    chosen = tmp_path / "chosen.json"
+    snap_list = tmp_path / "snap.txt"
+    assert ws.main(["choose", str(chosen), str(winner), str(fit), str(snap_list)]) == 0
+    record = json.loads(chosen.read_text())
+    assert record["windings"] == 3
+    assert record["chosen"] == "w031"
+    assert snap_list.read_text().split() == ["w030", "w031", "w032"]
+    assert ws.raw_windings(fit) == ["w030", "w031", "w032"]
+
+
+def test_the_chain_after_the_fit_runs_the_registered_steps_in_order_and_uploads_nothing():
+    import os
+
+    path = ROOT / "repro/first_letters/pherc0211_control/run_after_fit.sh"
+    assert os.access(path, os.X_OK)
+    text = path.read_text()
+    order = [
+        'run_quality.sh" full',
+        'winner_sheet.py" choose',
+        'run_snap.sh" full',
+        'winner_sheet.py" verdict',
+    ]
+    places = [text.index(step) for step in order]
+    assert places == sorted(places)
+    # the snap reads the list that choose writes, and verdict reads choose's record and the snap's folder
+    assert '"$R/work/windings_full.txt" --sdt "$SDT"' in text
+    assert '"$R/work/winner_choose.json" "$R/work/snap_full"' in text
+    assert '[ "$rc" -eq 0 ] || exit' in text
+    # the winner's tifxyz is LZW-compressed: villa's environment cannot read it, this repository's can
+    assert '"$PYW" -I "$HERE/winner_sheet.py" choose' in text
+    assert '"$PYW" -I "$HERE/winner_sheet.py" verdict' in text
+    assert '"$PY" -I "$HERE/winner_sheet.py"' not in text
+    for word in ("aws s3 cp", "gh release", "curl -T", "--upload-file", "rsync "):
+        assert word not in text
+
+
 def test_a_winding_that_covers_too_little_of_the_winners_surface_is_not_chosen(
     tmp_path,
 ):

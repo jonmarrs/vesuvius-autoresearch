@@ -51,6 +51,19 @@ def winding_index(name: str) -> int:
     return index
 
 
+def raw_windings(fit: Path) -> list[str]:
+    """The fit's raw windings: wNNN folders holding a surface. villa's wNNN_spliced twins are skipped, as finding
+    110's run_select.sh and band_fit_quality.py skip them."""
+    return sorted(
+        p.name
+        for p in Path(fit).iterdir()
+        if p.is_dir()
+        and not p.name.endswith("_spliced")
+        and analysis.winding_index(p.name) is not None
+        and (p / "x.tif").exists()
+    )
+
+
 def neighbours(chosen: str, names: list[str]) -> list[str]:
     """The chosen winding and its index neighbours that exist, in index order."""
     i = winding_index(chosen)
@@ -115,11 +128,7 @@ def verdict(score: dict | None) -> str:
 def choose_cmd(args: argparse.Namespace) -> dict:
     winner, valid = analysis.load_tifxyz(args.winner)
     mask = in_band(winner, valid)
-    names = sorted(
-        p.name
-        for p in Path(args.fit).iterdir()
-        if p.is_dir() and analysis.winding_index(p.name) is not None
-    )
+    names = raw_windings(Path(args.fit))
     windings = {n: analysis.load_tifxyz(Path(args.fit) / n) for n in names}
     scores = {n: analysis.surface_distance(winner, mask, *windings[n]) for n in names}
     chosen = analysis.choose(scores)
