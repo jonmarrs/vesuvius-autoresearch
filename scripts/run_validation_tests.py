@@ -122,6 +122,7 @@ VALIDATION_TESTS = [
     "tests/test_research_prerequisites.py",
     "tests/test_recover_arm_precheck.py",
     "tests/test_proofreader_launcher.py",
+    "tests/test_proofreader_session.py",
     "tests/test_surface_volume_import.py",
     "tests/test_wheel_installation.py",
     "tests/test_training_split.py",

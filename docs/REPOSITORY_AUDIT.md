@@ -265,7 +265,7 @@ each has caused a measured scientific failure.
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
 | High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the later migrations. The [November 14 review](../reports/dependency_migration_review_2026-11-14.json) records Pillow 12.1.1 → 12.3.0. The [November 15 review](../reports/dependency_migration_review_2026-11-15.json) records non-Windows WEBKNOSSOS 4.3.3, aiohttp 3.14.5, dotenv 1.2.4 and cryptography 50.0.2, with Python 3.10 workflow/native checks and unchanged Windows package selection. Fresh version-specific PyPI lookups report 89 → 0 raw records across the three latter packages. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize the remaining applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. Windows still selects the old SDK/aiohttp/dotenv chain because newer SDKs pin TensorStore below this project's minimum. Newer Virtualenv still conflicts with SDK typing-extensions constraints on Python 3.10. Decide Python/platform support before those migrations. GitHub's advisory API previously returned HTTP 403; public matching and CPU checks do not replace alert access, Windows execution or GPU validation. |
-| High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
+| High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). Opt-in [session records](PROOFREADER_SESSION_RECORDS.md) now bind complete configured source bytes and initial settings; a read-only checker detects source changes and mismatched logged context. | Choose whether the training feedback path should review 2D ink windows or 3D segmentation labels, then specify coordinate transforms, label semantics and reviewed-patch ingestion. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Resume remains disabled: pinned Villa's logged context omits GUI-setting history, can retain pending entries and snaps old coordinates to a new grid. Source records alone do not establish resume position, approved patch contents or physical registration. |
 | High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
 | Medium | **Regional peak memory and ensemble residency still need representative GPU measurements.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) cap three persistent float32 blend planes and load saved state on CPU. The opt-in [regional profiler](VOLUME_INFERENCE.md#regional-memory-observations) now records process RSS, OS lifetime high-water RSS and selected-device PyTorch allocator peaks through the latest metadata observation. Synthetic CPU checks preserve output probabilities exactly; the CUDA path has only mocked API coverage. Whole-region arrays and all ensemble members remain resident. | Run `--profile_memory` on the 4090 with representative source/model/export settings before choosing streaming accumulators or sequential member residency. The 512 MiB cap remains an acceptance policy. CPU lifetime peaks include earlier process work; CUDA allocator peaks exclude other allocators/processes and device-context overhead, and are not independent phase peaks or fit guarantees. The [scratch CUDA probe](VRAM_PROBE.md) is a separate forward/backward path. [Production](../scripts/production_predict.py) remains outside the new regional profiling scope; no real GPU/full-scroll peak or throughput result was measured here. |
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
@@ -1540,3 +1540,52 @@ The pinned Villa TTA file, model definitions, primary probability recipe,
 architecture dispatch/trainer and lock remain unchanged. No full curated suite,
 real CUDA execution, legacy-model training, original-data measurement or trained
 volumetric detector was supplied by this pass.
+
+## Proofreader-input record follow-up (2026-11-16 UTC)
+
+This pass starts from main `72dcb445`, after the memory/interface PR and the
+concurrent PHerc. 0826 research merges. It advances the human-feedback provenance
+subtask without deciding between 2D ink review and 3D categorical-label feedback.
+All eight owner-review items remain open.
+
+The [session-record guide](PROOFREADER_SESSION_RECORDS.md) and
+[review record](../reports/proofreader_session_review_2026-11-16.json) describe
+the opt-in `--record-session` launch and read-only checker. New sessions can now
+retain hashes of every encoded file in their selected CT/label directories,
+initial settings and the pinned proofreader source. Recorded launches use
+explicit progress and edited-label paths. Source/entry/file budgets are checked
+before receipt publication or GUI launch; normal launches remain unchanged.
+Receipts precede the child and do not attest that the GUI ran or work completed.
+
+Executing the unchanged pinned `load_progress` in isolation reproduces its
+acceptance of a log naming different CT. The new checker rejects that mismatch,
+changed chunks/metadata/inventories, malformed records, invalid progress entries
+and changed proofreader source. Receipt/progress digests bind the exact captured
+bytes that are parsed. It reports logged pending/approval counts without
+authenticating approvals or verifying the TIFFs/edited-label output.
+
+Resume stays disabled. Pinned Villa snaps the last logged coordinate to a new
+grid, and its progress metadata omits complete GUI-setting history. Source
+fingerprints cannot establish a safe resume position or approved-patch contents.
+No regional window mask is broadcast through CT depth or adopted as an ink label.
+
+An eight-module integration selection passed **332 tests** in 75.10 seconds,
+including installed-wheel and regional inference/uncertainty checks. After
+adding exact JSON-capture hashes and two additional reproduction/snapshot tests,
+the final focused selection passed **62 tests** in 1.24 seconds. The document
+and claim guards gave **138 passed, 1 skipped** in 39.89 seconds; the skip needs
+absent local arm artifacts. These selections overlap. A fresh checker subprocess
+from outside the checkout exits zero without changing files on matching synthetic
+inputs and exits one after a CT chunk changes. Mypy passes on **1014 files**,
+maintained Ruff and changed-file formatting pass, and offline lock consistency
+resolves **258 packages** without dependency changes. The curated registry now
+contains **225 modules**, with **16 portable modules**.
+
+After staging the new sources, the registry, file-mode and preserved-source
+guards passed **33 tests** in 11.64 seconds. Extracted repository-path references
+in all three changed Markdown documents exist, and all six final source hashes
+in the review record match their captured files.
+
+Validation used the existing separate Python 3.10 CPU environments. No full
+curated-suite repeat, hosted CI, Napari/interactive edit, original annotation
+data, GPU measurement or automatic training ingestion was supplied by this pass.
