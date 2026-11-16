@@ -990,3 +990,152 @@ def test_the_run_scripts_parse():
     assert len(scripts) >= 9
     for script in scripts:
         subprocess.run(["bash", "-n", str(script)], check=True)
+
+
+# Added by the design review of 2026-11-16: guards of the decision path that the tests above do not reach.
+
+
+def test_p1_and_the_choice_hold_at_their_bounds():
+    assert an.p1_holds({"median": 3.0, "fraction_within": {"2": 0.50}})
+    assert not an.p1_holds({"median": 3.0, "fraction_within": {"2": 0.4999}})
+    assert not an.p1_holds({"median": 3.0001, "fraction_within": {"2": 0.50}})
+    # a candidate can be chosen from half of the published winding
+    assert an.choose({"w047": score(1.0, 0.9, covered=0.50)}) == "w047"
+    assert an.choose({"w047": score(1.0, 0.9, covered=0.45)}) is None
+
+
+def test_neighbours_are_one_apart_in_the_published_order_however_the_record_is_ordered():
+    assert an.consecutive({"w048": "w048", "w047": "w047"}) is True
+    assert an.consecutive({"w048": "w047", "w047": "w048"}) is False
+    assert an.consecutive({"w047": "w047", "w048": "w049"}) is False
+
+
+def lying_along(*cosines):
+    """A select record in which final winding `w` lies along published windings with these normal cosines."""
+    return {
+        "published": {
+            f"w{47 + k:03d}": {"scores": {"w": {"normal_cosine_median": cosine}}}
+            for k, cosine in enumerate(cosines)
+        }
+    }
+
+
+def test_orientation_is_the_weakest_cosine_and_refuses_one_of_exactly_zero():
+    assert an.orientation(lying_along(0.99, 0.5), "w") == 0.5
+    assert an.orientation(lying_along(-0.4, -0.99), "w") == -0.4
+    with pytest.raises(ValueError, match="no single orientation"):
+        an.orientation(lying_along(0.0), "w")
+    with pytest.raises(ValueError, match="no single orientation"):
+        an.orientation(lying_along(0.0, -0.9), "w")
+
+
+def test_select_wants_exactly_two_published_windings_and_unique_candidate_names(
+    tmp_path,
+):
+    three = {f"w04{k}": str(tmp_path / f"pub{k}") for k in (7, 8, 9)}
+    with pytest.raises(ValueError, match="exactly two published"):
+        an.select(three, [])
+    for folder in ("a", "b"):
+        write_tifxyz(tmp_path / folder / "w047", *cylinder(1000.0))
+    two = {"w047": str(tmp_path / "pub7"), "w048": str(tmp_path / "pub8")}
+    with pytest.raises(ValueError, match="not unique"):
+        an.select(two, [str(tmp_path / "a/w047"), str(tmp_path / "b/w047")])
+
+
+def test_a_step_killed_by_a_signal_did_not_run():
+    result = an.verdict(gate(fit=-9), None, None)
+    assert (result["verdict"], result["failed_steps"]) == ("DOES_NOT_RUN", ["fit"])
+
+
+def test_a_third_published_winding_is_refused():
+    three = final()
+    three["published"]["w049"] = three["published"]["w048"]
+    with pytest.raises(ValueError, match="both published"):
+        an.verdict(gate(), three, ink())
+
+
+def agreement_with(monkeypatch, r, wrong_side, slid, covered=1.0):
+    """`agreement` with its three deciding numbers set by hand, and this share of the letter cells accepted."""
+    shape = (120, 200)
+    ink_map, blind = unit(shape, 1), unit(shape, 7)
+    letters = np.zeros(shape, dtype=bool)
+    letters[30:60, 40:90] = True
+    accepted = np.ones(shape, dtype=bool)
+    accepted[30:60, 40 : 40 + round(50 * (1 - covered))] = False
+    deciding = iter([r, wrong_side])
+    monkeypatch.setattr(an, "pearson", lambda a, b: next(deciding, 0.0))
+    monkeypatch.setattr(
+        an, "slid_control", lambda *args, **kwargs: {"largest_absolute": slid}
+    )
+    return an.agreement(
+        four(ink_map, 2), four(blind, 4), four(ink_map, 3), accepted, letters
+    )
+
+
+@pytest.mark.parametrize(
+    ("r", "wrong_side", "slid", "p3"),
+    [
+        (0.50, 0.25, 0.25, True),  # on the floor, and on twice each control
+        (0.50, -0.25, 0.25, True),
+        (0.4999, 0.1, 0.1, False),
+        (0.50, 0.2501, 0.1, False),
+        (0.50, -0.2501, 0.1, False),
+        (0.50, 0.1, 0.2501, False),
+    ],
+)
+def test_p3_holds_on_its_floor_and_on_twice_each_control(
+    monkeypatch, r, wrong_side, slid, p3
+):
+    result = agreement_with(monkeypatch, r, wrong_side, slid)
+    assert result["p3"] is p3
+    assert (result["r"], result["control_wrong_side"]) == (r, wrong_side)
+
+
+def test_the_letters_are_evaluable_from_half_of_their_cells(monkeypatch):
+    half = agreement_with(monkeypatch, 0.9, 0.1, 0.1, covered=0.5)
+    assert half["letter_box_coverage"] == 0.5
+    assert half["evaluable"] is True and half["p3"] is True
+
+
+def verdict_command(tmp_path, gate_record, final_record=None, ink_record=None):
+    """The verdict command on records in `tmp_path`; a record given as None has no file."""
+    (tmp_path / "gate.json").write_text(json.dumps(gate_record))
+    for name, record in (("final", final_record), ("agreement", ink_record)):
+        if record is not None:
+            (tmp_path / f"{name}.json").write_text(json.dumps(record))
+    records = [
+        str(tmp_path / f"{name}.json") for name in ("gate", "final", "agreement")
+    ]
+    out = tmp_path / "verdict.json"
+    assert an.main(["verdict", *records, str(out)]) == 0
+    return json.loads(out.read_text())
+
+
+def test_the_verdict_command_does_not_read_the_records_of_a_run_that_failed(tmp_path):
+    assert verdict_command(tmp_path, gate(ink=1)) == {
+        "verdict": "DOES_NOT_RUN",
+        "failed_steps": ["ink"],
+        "fit_config": "recipe",
+    }
+
+
+def test_the_verdict_command_reads_both_records_of_a_run_that_passed(tmp_path):
+    result = verdict_command(tmp_path, gate(), final(), ink(True))
+    assert result["verdict"] == "REPRODUCED" and result["p2_consecutive"] is True
+
+
+def test_the_select_command_says_when_the_picks_are_not_neighbours(tmp_path):
+    write_tifxyz(tmp_path / "ours/w047", *cylinder(1000.0, theta0=0.004))
+    published = []
+    for name, radius in (("w047", 1000.0), ("w048", 1013.0)):
+        xyz, valid = cylinder(radius)
+        write_tifxyz(tmp_path / "pub" / name, xyz[1:-1, 2:-2], valid[1:-1, 2:-2])
+        published.append(f"{name}={tmp_path / 'pub' / name}")
+    out = tmp_path / "select.json"
+    candidates = ["--candidates", str(tmp_path / "ours/w047")]
+    assert an.main(["select", str(out), "--published", *published, *candidates]) == 0
+    result = json.loads(out.read_text())
+    chosen = {name: entry["chosen"] for name, entry in result["published"].items()}
+    # the one fitted winding is the nearest to both published ones
+    assert chosen == {"w047": "w047", "w048": "w047"}
+    assert result["consecutive"] is False
