@@ -207,6 +207,14 @@ that and no more. No further band is read for ink on this score alone: the next 
 a wrong-handed spiral fails, checked first on PHerc. 343, where published windings exist. Finding 113's read
 stands, with that caveat. The score cannot find PHerc. 0125's direction either.
 
+**The same score works per tile, on PHerc. 343 (November 15).** Taken over tiles of 3.6 mm within finding 110's
+raw fitted windings, the excess picks out the tiles that lie on the published windings (`LOCAL_GATE_WORKS`: AUC
+0.895 against a floor of 0.777; all 32 tiles at 0.07 or above right, against 76% of all tiles;
+[report](../reports/first_letters_343_tile_gate.md)). Every wrong tile scored below zero, and none lay on a
+neighbouring sheet. So the score fails at how the turns join and works at the scale a First Letters tile read
+needs, on one round scroll. Choosing tiles of PHerc. 0826's band by tile excess is the next read, registered
+separately, if the owner agrees.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
