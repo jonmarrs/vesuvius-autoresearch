@@ -23,6 +23,7 @@ def main(argv=None):
     parser.add_argument("--max-download-bytes", type=int, default=512 * 1024**2)
     parser.add_argument("--max-file-bytes", type=int, default=128 * 1024**2)
     args = parser.parse_args(argv)
+    import http.client
     import json
     import urllib.error
 
@@ -43,6 +44,8 @@ def main(argv=None):
         TypeError,
         KeyError,
         RuntimeError,
+        OverflowError,
+        http.client.HTTPException,
         urllib.error.URLError,
     ) as exc:
         print(f"fragment example fetch: {exc}", file=sys.stderr)

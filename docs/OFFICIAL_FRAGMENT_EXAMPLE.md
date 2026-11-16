@@ -102,6 +102,10 @@ truncated, oversized or changed responses fail the whole acquisition. Files
 are recaptured and checked against their pins before decoding. Requests have a
 30-second socket timeout; this is not a total job-duration limit.
 
+Invalid manifests/images and HTTP transfer failures exit with code 2 and a
+concise diagnostic. This includes interrupted chunked responses and malformed
+HTTP replies; a partial download is never published as a completed example.
+
 The complete directory is staged beside a new destination and published only
 after source and decoded-contract checks. Existing destinations are refused.
 Caught failures clean staging. Serialize writers; this is not a concurrent-writer

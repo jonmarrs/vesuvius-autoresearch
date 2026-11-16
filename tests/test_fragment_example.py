@@ -1,6 +1,7 @@
 """Pinned acquisition is transactional; palette colors, not IDs, define labels."""
 
 import hashlib
+import http.client
 import io
 import json
 import subprocess
@@ -91,6 +92,11 @@ def source(tmp_path, monkeypatch):
 
         def geturl(self):
             return self.url
+
+        def read(self, size=-1):
+            if "read_error" in behavior:
+                raise behavior["read_error"]
+            return super().read(size)
 
     def open_request(request, timeout):
         calls.append(request.full_url)
@@ -293,6 +299,32 @@ def test_new_directory_only_and_cli_failure(source, capsys):
     )
     assert "fragment example fetch:" in capsys.readouterr().err
     assert not source.calls and sentinel.read_text() == "existing"
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [http.client.IncompleteRead(b"partial", 100), http.client.BadStatusLine("invalid")],
+)
+def test_http_protocol_errors_exit_cleanly_without_publication(source, capsys, failure):
+    source.behavior["read_error"] = failure
+    assert (
+        cli.main(["--manifest", str(source.manifest), "--output", str(source.output)])
+        == 2
+    )
+    assert "fragment example fetch:" in capsys.readouterr().err
+    assert not source.output.exists()
+    assert not list(source.output.parent.glob(".download-*"))
+
+
+def test_unrepresentable_json_scale_exits_cleanly_before_network(source, capsys):
+    source.plan["voxel_size_um"] = 10**400
+    source.manifest.write_text(json.dumps(source.plan))
+    assert (
+        cli.main(["--manifest", str(source.manifest), "--output", str(source.output)])
+        == 2
+    )
+    assert "fragment example fetch:" in capsys.readouterr().err
+    assert not source.calls and not source.output.exists()
 
 
 def test_local_readback_corruption_refuses_publication(source, monkeypatch):
