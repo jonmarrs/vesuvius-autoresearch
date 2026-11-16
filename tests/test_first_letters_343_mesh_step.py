@@ -1139,3 +1139,160 @@ def test_the_select_command_says_when_the_picks_are_not_neighbours(tmp_path):
     # the one fitted winding is the nearest to both published ones
     assert chosen == {"w047": "w047", "w048": "w047"}
     assert result["consecutive"] is False
+
+
+# Added by the design review of 2026-11-16: guards of the measurements that the tests above do not reach.
+
+
+def test_the_loader_keeps_x_y_z_in_order_and_knows_which_nodes_exist(tmp_path):
+    import tifffile
+
+    layers = {
+        "x": [[0.0, 11.0, 12.0], [13.0, -1.0, np.inf]],
+        "y": [[20.0, 21.0, 22.0], [23.0, 24.0, 25.0]],
+        "z": [[30.0, 31.0, np.nan], [33.0, 34.0, 35.0]],
+    }
+    for axis, values in layers.items():
+        tifffile.imwrite(tmp_path / f"{axis}.tif", np.array(values, dtype=np.float32))
+    xyz, valid = an.load_tifxyz(tmp_path)
+    assert xyz[0, 1].tolist() == [11.0, 21.0, 31.0]
+    # zero is a position; -1 in any one coordinate, a NaN or an infinity is no node
+    assert valid.tolist() == [[True, True, False], [True, False, False]]
+
+
+def test_a_normal_is_not_taken_across_a_missing_node():
+    xyz, valid = plane(6, 7)
+    valid[3, 3] = False
+    xyz[3, 3] = -1.0
+    normals, ok = an.grid_normals(xyz, valid)
+    assert not (ok[3, 2] or ok[3, 4] or ok[2, 3] or ok[4, 3])
+    assert ok[2, 2] and normals[2, 2].tolist() == [0.0, -1.0, 0.0]
+
+
+def loose(*positions):
+    """Nodes of a surface A given one by one, as a grid of one row."""
+    return np.array([positions], dtype=float), np.ones((1, len(positions)), dtype=bool)
+
+
+def test_a_node_is_covered_up_to_thirty_voxels_sideways():
+    # the flat sheet's nodes with a normal span x 1020 to 1160 and z 520 to 620, at y 2000
+    b, b_valid = plane(8, 10)
+    beside = loose(
+        (1185.0, 2000.0, 560.0), (1190.0, 2000.0, 560.0), (1195.0, 2000.0, 560.0)
+    )
+    d = an.surface_distance(*beside, b, b_valid)
+    assert d["covered_fraction"] == round(2 / 3, 4)
+    assert d["b_nodes"] == 6 * 8
+    # 28 voxels sideways and 13 along the normal is covered, at a distance of 13
+    d = an.surface_distance(*loose((1188.0, 2013.0, 560.0)), b, b_valid)
+    assert d["covered_fraction"] == 1.0 and d["median"] == 13.0
+
+
+def test_the_distance_quantiles_are_what_they_are_named_and_within_includes_its_bound():
+    b, b_valid = plane(8, 10)
+    ladder = loose(*[(1100.0, 2000.0 + k / 10, 560.0) for k in range(101)])
+    d = an.surface_distance(*ladder, b, b_valid)
+    assert d["quantiles"] == {"p5": 0.5, "p25": 2.5, "p50": 5.0, "p75": 7.5, "p95": 9.5}
+    assert d["median"] == 5.0 and d["signed_median"] == -5.0
+    two_off = loose((1100.0, 2002.0, 560.0), (1100.0, 1998.0, 560.0))
+    d = an.surface_distance(*two_off, b, b_valid)
+    assert d["fraction_within"] == {"1": 0.0, "2": 1.0, "3": 1.0, "5": 1.0}
+
+
+def test_a_missing_node_of_the_other_surface_is_never_a_partner():
+    b, b_valid = plane(8, 10, y0=2010.0)
+    b_valid[3, 4] = False
+    b[3, 4, 1] = 2000.0  # the missing node's stored position lies on A
+    d = an.surface_distance(*plane(8, 10), b, b_valid)
+    assert d["median"] == 10.0 and d["fraction_within"]["5"] == 0.0
+
+
+def test_transfer_takes_the_nearest_source_and_the_earlier_one_on_a_tie():
+    points, ok = an.lattice_points(*plane(8, 10))
+    one_off = an.lattice_points(*plane(8, 10, y0=2001.0))
+    three_off = an.lattice_points(*plane(8, 10, y0=2003.0))
+    which, _, dist = an.transfer(points, ok, [one_off, three_off])
+    assert set(np.unique(which[ok])) == {0}
+    assert dist[ok].max() == pytest.approx(1.0)
+    # an exact tie: whole-number positions, one source two voxels above and one two below
+    rows, cols = np.indices((6, 7)).astype(float)
+    grid = np.stack([5 * cols, np.zeros_like(cols), 5 * rows], -1)
+    everywhere = np.ones((6, 7), dtype=bool)
+    up = np.array([0.0, 2.0, 0.0])
+    sources = [(grid + up, everywhere), (grid - up, everywhere)]
+    which, _, dist = an.transfer(grid, everywhere, sources)
+    assert (which == 0).all() and (dist == 2.0).all()
+
+
+def test_normals_agree_is_the_median_cosine():
+    rows, cols = np.indices((10, 20)).astype(float)
+    target = np.stack([cols, np.zeros_like(cols), rows], -1)
+    folded = target.copy()
+    folded[:, 14:, 0] = 26.0 - cols[:, 14:]  # the last six columns run backwards
+    which = np.zeros((10, 20), dtype=np.int64)
+    cell = np.arange(200).reshape(10, 20)
+    assert an.normals_agree(target, folded, which, cell, 0) == 1.0
+
+
+def test_the_ensemble_standardises_each_model_over_the_mask_and_weighs_them_equally():
+    rng = np.random.default_rng(11)
+    base = rng.standard_normal((40, 50))
+    mask = np.ones(base.shape, dtype=bool)
+    mask[:, :10] = False
+    maps = {model: 10.0**k * base + k for k, model in enumerate(an.MODELS)}
+    for values in maps.values():
+        values[~mask] = 1e6  # not read for the mean or the SD
+    ensemble = an.zscore_ensemble(maps, mask)
+    assert ensemble[mask].mean() == pytest.approx(0.0, abs=1e-9)
+    assert ensemble[mask].std() == pytest.approx(1.0)
+
+
+def test_pearson_has_no_value_for_a_constant_or_an_empty_side():
+    ramp = np.arange(5.0)
+    assert an.pearson(ramp, np.ones(5)) is None
+    assert an.pearson(np.ones(5), ramp) is None
+    assert an.pearson(np.array([]), np.array([])) is None
+    assert an.pearson(ramp, 2 * ramp + 1) == pytest.approx(1.0)
+
+
+def test_highpass_weighs_the_local_mean_by_the_cells_it_has():
+    mask = np.zeros((80, 100), dtype=bool)
+    mask[:, :50] = True
+    # a constant map has no strokes, up to the edge of the mask
+    assert np.abs(an.highpass(np.full(mask.shape, 5.0), mask)).max() < 1e-9
+
+
+def came_from(hole, dr, dc):
+    """Cells whose slid value comes from a cell of the map outside `hole`, and not from across its edge."""
+    rows, cols = np.indices(hole.shape)
+    from_row, from_col = rows - dr, cols - dc
+    inside = (
+        (from_row >= 0)
+        & (from_row < hole.shape[0])
+        & (from_col >= 0)
+        & (from_col < hole.shape[1])
+    )
+    out = np.zeros(hole.shape, dtype=bool)
+    out[inside] = ~hole[from_row[inside], from_col[inside]]
+    return out
+
+
+@pytest.mark.parametrize("sign", [1.0, -1.0])
+@pytest.mark.parametrize(
+    ("label", "down", "right"),
+    [("down", 1, 0), ("up", -1, 0), ("right", 0, 1), ("left", 0, -1)],
+)
+def test_each_slide_reads_only_the_cells_its_slid_map_covers(label, down, right, sign):
+    rng = np.random.default_rng(12)
+    target = rng.standard_normal((80, 100))
+    hole = np.zeros(target.shape, dtype=bool)
+    hole[30:40, 40:50] = True
+    dr, dc = down * an.SHIFT_CELLS, right * an.SHIFT_CELLS
+    # a map that, slid this way, is the target (or its negative) where it covers and the opposite elsewhere
+    covered = came_from(hole, dr, dc)
+    slid = np.where(covered, sign * target, -sign * target)
+    moved = np.roll(slid, (-dr, -dc), axis=(0, 1))
+    everywhere = np.ones(target.shape, dtype=bool)
+    control = an.slid_control(target, moved, everywhere, ~hole)
+    assert control[label] == pytest.approx(sign)
+    assert control["largest_absolute"] == pytest.approx(1.0)
