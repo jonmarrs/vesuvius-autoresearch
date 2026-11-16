@@ -236,6 +236,14 @@ predicted sheets. So a read of one unrefined winding can follow a text-bearing s
 then leave it, and a blank read of one winding says little about the next. Which of the two surfaces changes sheets
 is not settled. The next step is our fit and reader together at this known place, registered separately.
 
+**Reader V3, an MIT reader, is closer to the winning map and still not legible (November 16).** On the same render
+and cells it beats the four models in r by 0.097 and in overlap with the winner's ink by 0.10, at every depth tried,
+short of the registered r margin of 0.10 (`V3_NO_CLOSER`; [report](../reports/first_letters_0211_reader_v3.md),
+finding 120). Its map has a clean ground and a few letter shapes where the winner's has letters, and no word can be
+read from it. So the ensemble stays as the registered reader, Reader V3's map is cheap to make beside it (8
+minutes a surface), and the winning reader, CC BY-NC, is the only reader known to draw letters on this surface.
+Whether it may be used in a submission is the owner's decision.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
