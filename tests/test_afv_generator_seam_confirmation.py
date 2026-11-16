@@ -114,6 +114,21 @@ def test_the_decision_rule():
     ]
 
 
+def test_an_erlpen_that_did_not_move_is_not_higher():
+    """P1 and P4 count the cubes whose ERLpen is above the other arm's. Equal is not above."""
+    erl = lambda r, c, arm: r[c]["rows"][f"real/{arm}"]["tol4"]  # noqa: E731
+    r = results(n_up=7)
+    for c in sc.CUBES[7:]:
+        erl(r, c, "trim+dup")["erl_merge_penalized"] = erl(r, c, "main")["erl_merge_penalized"]  # fmt: skip
+    v = sc.verdict(r)
+    assert v["P1_both_tol4_up"] == [7, False] and v["decision"] == "NOT_CONFIRMED"
+    r = results(n_over=6)
+    for c in sc.CUBES[6:]:
+        erl(r, c, "trim")["erl_merge_penalized"] = erl(r, c, "trim+dup")["erl_merge_penalized"]  # fmt: skip
+    v = sc.verdict(r)
+    assert v["P4_over_trim_tol4_up"] == [6, False] and v["decision"] == "TRIM_ONLY"
+
+
 def test_the_registration_is_the_rule_and_names_its_inputs():
     t = flat(REGISTRATION)
     for rel in re.findall(
