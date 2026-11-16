@@ -166,6 +166,22 @@ def test_the_spacing_and_costs_are_the_records():
     assert "| fit, 30,000 steps | 3 h 21 min 44 s | 6.6 GB | 13.8 GB |" in REPORT
 
 
+def test_the_fit_to_fit_rows_are_the_records():
+    ff = RECORD["not_registered"]["fit_to_fit"]
+    wrong, same = ff["wrong_direction_to_finding_115"], ff["finding_115_to_finding_114"]
+    for i, part in enumerate(("20-39", "40-59", "60-79")):
+        a, b = wrong["shares"][part], same["shares"][part]
+        lo, hi = (int(x) for x in part.split("-"))
+        row = (
+            f"| w{lo:03d} to w{hi:03d} | {_pct(a[0])} | {_pct(a[0] + a[1])} | {wrong['median'][i]} | "
+            f"{_pct(b[0])} | {_pct(b[0] + b[1])} | {same['median'][i]} |"
+        )
+        assert row in REPORT, row
+        assert abs(sum(a) - 1) < 0.01 and abs(sum(b) - 1) < 0.01
+        assert a[0] >= b[0] - 0.02
+    assert min(wrong["covered"] + same["covered"]) > 0.9
+
+
 def test_the_record_holds_no_winding_and_no_geometry():
     text = json.dumps(RECORD)
     assert '"w0' not in text and '"w1' not in text

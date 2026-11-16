@@ -63,6 +63,29 @@ Not registered. The same indices, ten at a time:
 The published direction scores higher on 34 of the 70 windings. The two fits differ by less than either differs
 from the 130-winding fit of finding 114.
 
+## Where the two fits lie
+
+Not registered, and measured after the verdict. For every third node of one fit, the distance along the other
+fit's normal to its nearest node, the other fit's windings w010 to w079 taken together. As a reference, the same
+between two fits of the published direction: finding 115's (80 windings) against finding 114's (130).
+
+| windings of the first fit | wrong direction against finding 115: within 2 voxels | within 4 | median | finding 115 against finding 114: within 2 voxels | within 4 | median |
+|---|---|---|---|---|---|---|
+| w020 to w039 | 48.8% | 66.4% | 2.1 | 47.3% | 64.5% | 2.2 |
+| w040 to w059 | 47.5% | 61.5% | 2.2 | 38.7% | 57.1% | 3.1 |
+| w060 to w079 | 48.6% | 62.9% | 2.1 | 38.3% | 55.1% | 3.3 |
+
+Over 90% of nodes had a node of the other fit within 12 voxels sideways in every row.
+
+- **The wrong-direction fit lies on the same surfaces as the right one, about as often as two right-direction
+  fits do.** Its windings are other turns joined differently, not other surfaces. The labels differ: the
+  surface a node lies on belongs to a different winding in the other fit.
+- So whatever the excess misses, it is not local placement. Both fits put about half their area within
+  2 voxels of the same places, and the score cannot be expected to tell them apart there.
+- A first try at counting how often a winding slips across the predicted sheets as it goes round (the phase of
+  the stack along the normal, unwrapped along each row) found no difference between the wrong-direction fit and
+  PHerc. 343's correct fit on two windings each. It is too noisy as built, and I have not pursued it.
+
 ## What the fit did
 
 | | wrong direction | published direction (finding 115) |
@@ -111,6 +134,12 @@ By the registered consequences:
   PHerc. 343, where finding 110's fit was compared with published windings.
 - **Finding 113's read is not withdrawn.** Its strips are with the reader and what it can show is unchanged. Its
   four windings may cross sheets more often than its registration assumed, and its report will say so.
+- **My reading, not registered: for First Letters this matters less than the registered consequence says.** A
+  First Letters read looks for letters on tiles a few millimetres across. That needs the surface right
+  locally, which the table above says the wrong-direction fit gets as often as the right one. Which turn a
+  patch belongs to matters for reading text in order, which is the Grand Prize's problem and not this one's.
+  The second instrument I would register measures a winding's continuity across a tile, not its direction.
+  Whether to read further bands on the score alone until then is the owner's decision.
 - **The score cannot find PHerc. 0125's direction**, so PHerc. 0125 does not become the third scroll by this
   route. The converged track term is a lead (6% in favour of the published direction here, one seed); a
   1,000-step fit did not separate the directions on PHerc. 343.
@@ -119,7 +148,8 @@ By the registered consequences:
 
 1. That the published-direction windings cross sheets. The control shows the score cannot tell; it says nothing
    about how often the right-handed fit crosses.
-2. Where the wrong-direction fit crosses sheets. I have not looked.
+2. Where the wrong-direction fit crosses sheets. Half its area coincides with the right fit; I have not found the
+   places where its turns join differently.
 3. That the track term separates the directions. One pair of fits, one seed each.
 4. Anything about a round scroll. PHerc. 0826 is crushed; finding 110's PHerc. 343 fit, checked against
    published windings, is the one case where the score went with correct windings.
