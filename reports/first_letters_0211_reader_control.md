@@ -100,7 +100,10 @@ In practice:
 1. Anything about the geometry. The surface is the winner's, refined by hand until letters showed under the
    winning reader, which favours that reader's map over ours.
 2. Agreement with the letters themselves. The reference is the winner's probability map, not a transcription.
-3. That three of our four models had never seen PHerc. 211. dense_native's training configuration lists no
-   PHerc. 211 data; the ink_9um seeds' and Hecate's were not checked.
+3. That all four of our models had never seen PHerc. 211. dense_native's training configuration lists no
+   PHerc. 211 data, and the ink_9um model card names its training scrolls as PHerc. 0139, Scroll 1667,
+   PHerc. Paris 4 and PHerc. 0814 (read after the run). Hecate's card names Paris 4 and otherwise speaks of other
+   scrolls without listing them, so whether Hecate saw PHerc. 211 is unknown. Hecate alone scores 0.4254, below
+   dense_native and above the two ink_9um seeds.
 4. A measured legibility gap. The statement that our map shows no readable letter is my reading of one image.
 5. Variation between runs. Each map was made once.
