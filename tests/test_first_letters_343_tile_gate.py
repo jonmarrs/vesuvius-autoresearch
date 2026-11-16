@@ -123,3 +123,153 @@ def test_it_is_measured_once(tmp_path):
     out = tmp_path / "out.json"
     out.write_text(json.dumps({}))
     assert tg.main([str(out), "sdt", "fit", "published"]) == 2
+
+
+# Added by the design review of 2026-11-16: the table, the floor and the tile rules at their bounds.
+
+REGISTRATION = " ".join(
+    (ROOT / "docs/preregistration/2026-11-15_first_letters_343_tile_gate.md")
+    .read_text()
+    .split()
+)
+
+
+def test_the_registration_states_the_tile_and_the_lines_the_code_uses():
+    assert f"{tg.TILE} nodes of the fitted grid" in REGISTRATION
+    assert f"within {tg.WITHIN:g} voxels of the published winding" in REGISTRATION
+    assert f"at least {tg.EXCESS_LINE:g} that are right" in REGISTRATION
+
+
+BOUND = {
+    "right": 15,
+    "wrong": 15,
+    "auc": 0.80,
+    "share_right_overall": 0.5,
+    "share_right_at_line": 0.65,  # 0.5 + 0.15 is exactly 0.65 in floating point
+    "floor": {"p95": 0.55},
+}
+
+
+@pytest.mark.parametrize(
+    ("change", "verdict"),
+    [
+        ({}, "LOCAL_GATE_WORKS"),  # 15 of each label, and the share exactly 0.15 above
+        ({"right": 14}, "DOES_NOT_RUN"),
+        ({"auc": 0.55}, "LOCAL_GATE_FAILS"),  # on the floor
+        (
+            {"auc": 0.80, "floor": {"p95": 0.80}},
+            "LOCAL_GATE_FAILS",
+        ),  # on a floor above 0.75
+        ({"auc": 0.60, "floor": {"p95": 0.5}}, "LOCAL_GATE_WEAK"),
+        ({"auc": 0.5999, "floor": {"p95": 0.5}}, "LOCAL_GATE_FAILS"),
+        ({"auc": 0.75}, "LOCAL_GATE_WORKS"),
+        ({"auc": 0.7499}, "LOCAL_GATE_WEAK"),
+        ({"share_right_at_line": 0.6499}, "LOCAL_GATE_WEAK"),
+    ],
+)
+def test_the_table_at_its_bounds(change, verdict):
+    assert tg.verdict({**BOUND, **change}) == verdict
+
+
+def _tiles(rows):
+    """Tiles of winding w047 in one row: (tile_excess, within) for each column."""
+    return [
+        {"winding": "w047", "row": 0, "col": c, "tile_excess": s, "within": w}
+        for c, (s, w) in enumerate(rows)
+    ]
+
+
+def test_a_tile_half_on_the_sheet_is_right_and_one_at_the_line_is_counted():
+    summary = tg.summarise(_tiles([(0.07, 0.5), (0.0699, 0.4999), (0.2, 1.0)]))
+    assert (summary["right"], summary["wrong"]) == (2, 1)
+    assert summary["tiles_at_line"] == 2 and summary["share_right_at_line"] == 1.0
+
+
+def test_the_floor_slides_each_winding_by_its_own_width():
+    # worked by hand from the docstring: shifts 1 to 4; the two-tile winding sits out shifts 2 and 4
+    five = _tiles([(5, 1.0), (4, 1.0), (3, 0.5), (2, 0.0), (1, 0.0)])
+    two = [{**t, "winding": "w048"} for t in _tiles([(10, 1.0), (0, 0.0)])]
+    floor = tg.slid_floor(five + two)
+    assert floor == {"shifts": 4, "p95": 0.475, "max": 0.5}
+
+
+def _readings(scored):
+    return {
+        "inside": np.where(scored, 1.0, np.nan),
+        "displaced": np.where(scored, 0.0, np.nan),
+        "scored": scored.copy(),
+    }
+
+
+def test_a_tile_is_kept_from_200_scored_nodes_and_half_its_valid_nodes_covered():
+    valid = np.ones((tg.TILE, tg.TILE), bool)
+    scored = np.zeros(valid.shape, bool)
+    scored.flat[:200] = True
+    distance = np.zeros(valid.shape)
+    assert len(tg.tiles(_readings(scored), distance, valid)) == 1
+    valid.flat[-1] = False  # 360 valid nodes
+    distance.flat[:180] = np.nan  # 180 of them covered: exactly half
+    assert len(tg.tiles(_readings(scored), distance, valid)) == 1
+    distance.flat[180] = np.nan
+    assert tg.tiles(_readings(scored), distance, valid) == []
+
+
+def test_within_counts_the_line_and_only_the_covered_nodes():
+    valid = np.ones((tg.TILE, tg.TILE), bool)
+    distance = np.full(valid.shape, 2.0)
+    distance[:, :7] = np.nan  # 7 of 19 columns have no published partner
+    (tile,) = tg.tiles(_readings(valid), distance, valid)
+    assert tile["within"] == 1.0
+    distance[:, 7:9] = 2.0001
+    (tile,) = tg.tiles(_readings(valid), distance, valid)
+    assert tile["within"] == pytest.approx(10 / 12)
+
+
+def test_only_whole_tiles_are_read():
+    valid = np.ones((tg.TILE + 11, tg.TILE), bool)
+    ts = tg.tiles(_readings(valid), np.zeros(valid.shape), valid)
+    assert [(t["row"], t["col"]) for t in ts] == [(0, 0)]
+
+
+def test_a_partner_exactly_at_the_sideways_limit_counts():
+    fit = np.array([[[1.5, 90.0, 40.0]]])
+    pub, pub_valid = _grid(lambda c: np.zeros_like(c), rows=5, cols=5)
+    d = tg.distance_to(fit, np.ones((1, 1), bool), pub, pub_valid)
+    # the nearest published node with a normal is (0, 60, 40): 30 voxels sideways, 1.5 along
+    assert d[0, 0] == 1.5
+
+
+def test_the_distance_is_the_least_over_the_nearest_nodes_with_a_normal():
+    # two flat pieces of one published grid with a missing column between them: x = 0 left, x = 10 right
+    pub, pub_valid = _grid(lambda c: np.where(c < 5, 0, 10), rows=5, cols=11, step=5.0)
+    pub_valid[:, 5] = False
+    pub[:, 5] = -1.0
+    fit = np.array([[[9.0, 20.0, 10.0]]])
+    d = tg.distance_to(fit, np.ones((1, 1), bool), pub, pub_valid)
+    # the nearest node with a normal is on the left piece, 9 along; one on the right piece, 15 sideways, is 1
+    assert d[0, 0] == 1.0
+
+
+class Face:
+    """No distance where x is above 3; on the face (0) at x = 0; outside (1) everywhere else."""
+
+    def at(self, xyz):
+        x = xyz[:, 0]
+        return np.where(x > 3, np.nan, np.where(x == 0, 0.0, 1.0))
+
+
+def test_a_node_on_the_face_is_inside_and_a_node_needs_all_three_readings():
+    fit, valid = _grid(lambda c: np.zeros_like(c), rows=5, cols=6)
+    readings = tg.node_readings(Face(), fit, valid)
+    # the copies moved +6 along the normal have no distance, so no node is scored
+    assert not readings["scored"].any()
+
+    class Inside(Face):
+        def at(self, xyz):
+            return np.nan_to_num(super().at(xyz), nan=1.0)
+
+    readings = tg.node_readings(Inside(), fit, valid)
+    scored = readings["scored"]
+    assert scored.sum() == 3 * 4
+    assert (readings["inside"][scored] == 1.0).all()
+    assert (readings["displaced"][scored] == 0.0).all()
