@@ -47,6 +47,7 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
     prediction_paths,
     prediction_stem,
 )
+from vesuvius_autoresearch.core.regional_memory import RegionalMemoryProfile
 from vesuvius_autoresearch.core.regional_resources import (
     MAX_ACCUMULATOR_BYTES,
     plan_regional_accumulators,
@@ -212,6 +213,7 @@ def write_prediction_metadata(
     fiber_stats=None,
     fiber_coherence=None,
     extra_metadata=None,
+    memory_profile=None,
 ):
     voxel_size_um = float(
         config_dict.get(
@@ -261,6 +263,9 @@ def write_prediction_metadata(
         if getattr(args, "blend_weight_path", None)
         else None,
     }
+    if memory_profile is not None:
+        memory_profile.sample("metadata_ready")
+        metadata["memory_profile"] = memory_profile.report()
     if extra_metadata:
         if metadata.keys() & extra_metadata.keys():
             raise ValueError("extra metadata must not overwrite prediction facts")
@@ -324,6 +329,7 @@ class PredictionArgs(Tap):
     disable_tta: bool = False
     skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
     max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
+    profile_memory: bool = False  # Record process RSS and selected-device PyTorch allocator peaks in metadata
     compute_coherence: bool = (
         False  # Enable automated fiber coherence evaluation (Villa ST)
     )
@@ -431,6 +437,7 @@ def predict():
                 uncertainty_path, overwrite=True, sources=uncertainty_sources
             )
             args.uncertainty_export = {"status": "PLANNED", "path": None}
+    memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
@@ -440,6 +447,8 @@ def predict():
     # that was the ink map under the fiber prediction's name.
     heads = sorted(task_heads(model))
     has_fiber = "fiber" in heads
+    if memory_profile is not None:
+        memory_profile.sample("models_loaded")
 
     # Open the dataset
     dataset = FastVesuviusVolume(
@@ -518,6 +527,8 @@ def predict():
 
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
+    if memory_profile is not None:
+        memory_profile.sample("inference_complete")
 
     artifacts.validate()
     if args.uncertainty_export["status"] == "PLANNED":
@@ -685,6 +696,7 @@ def predict():
             else None,
             fiber_coherence=fiber_coherence,
             extra_metadata={"task_heads": heads},
+            memory_profile=memory_profile,
         )
 
     write_metadata()
