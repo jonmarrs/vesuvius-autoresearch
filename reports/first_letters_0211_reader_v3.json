@@ -1,0 +1,181 @@
+{
+ "finding": 120,
+ "registration": "docs/preregistration/2026-11-16_first_letters_0211_reader_v3.md",
+ "registration_commit": "24281615",
+ "surface": "PHerc0211-crop1711-lines123-manual-20261028-1316-legacyuv20-v9",
+ "checkpoint": {
+  "repository": "huggingface.co/domenicor046/reader-v3",
+  "revision": "aee1d64bced4eb35546348f3d276b9e2a0b99c46",
+  "file": "reader-v3.pth",
+  "sha256": "ea405417450abd8ace1b8ff79ebce3adb646c5e48ab95da46844d77efe984d8a",
+  "licence": "MIT",
+  "villa_load": "missing_keys=0 unexpected_keys=0 (villa's log, every depth)"
+ },
+ "steps": {
+  "reader_v3": {
+   "exit": 0,
+   "seconds": 499,
+   "depths": [
+    -3,
+    2
+   ],
+   "gpu_peak_mib_all_processes": 2011
+  },
+  "seconds_by_depth": {
+   "-3": 133,
+   "-2": 70,
+   "-1": 71,
+   "+0": 75,
+   "+1": 72,
+   "+2": 78
+  }
+ },
+ "records_sha256": {
+  "work/compare_readers.json": "a386548202ca1d3b5e92b0a9daa24a6c0bc5606669b3eaf4b1ccb80294882ae8"
+ },
+ "depth": 1,
+ "alignment": {
+  "layer": 33,
+  "r_at_zero_by_layer": {
+   "25": -0.0375,
+   "26": -0.0729,
+   "27": -0.1181,
+   "28": -0.1422,
+   "29": -0.0892,
+   "30": 0.0808,
+   "31": 0.3608,
+   "32": 0.6681,
+   "33": 0.8128,
+   "34": 0.7211,
+   "35": 0.506,
+   "36": 0.2782,
+   "37": 0.1136,
+   "38": 0.0339,
+   "39": 0.0114,
+   "40": 0.0087,
+   "41": 0.0058
+  },
+  "shift_pixels": [
+   0,
+   0
+  ],
+  "r_at_shift": 0.8128,
+  "aligned": true
+ },
+ "mask_cells": 550482,
+ "cells": 550480,
+ "cell_share": 1.0,
+ "winner_ink_cells": 121191,
+ "registered": {
+  "ensemble": {
+   "r": 0.53,
+   "control_wrong_side": -0.0059,
+   "control_slid": {
+    "down": 0.093,
+    "up": 0.0838,
+    "right": 0.0274,
+    "left": 0.0402,
+    "largest_absolute": 0.093
+   },
+   "overlap": 0.5076,
+   "control_overlap_slid": {
+    "down": 0.3315,
+    "up": 0.3177,
+    "right": 0.3023,
+    "left": 0.3193,
+    "largest": 0.3315
+   }
+  },
+  "reader_v3": {
+   "r": 0.6271,
+   "control_wrong_side": -0.0194,
+   "control_slid": {
+    "down": 0.1121,
+    "up": 0.1531,
+    "right": 0.0158,
+    "left": 0.0507,
+    "largest_absolute": 0.1531
+   },
+   "overlap": 0.6095,
+   "control_overlap_slid": {
+    "down": 0.3715,
+    "up": 0.3909,
+    "right": 0.3514,
+    "left": 0.376,
+    "largest": 0.3909
+   }
+  },
+  "delta_r": 0.0971,
+  "delta_overlap": 0.1019,
+  "margins": {
+   "r": 0.1,
+   "overlap": 0.05
+  }
+ },
+ "verdict": "V3_NO_CLOSER",
+ "predicted": "V3_CLOSER",
+ "described": {
+  "v3_by_depth": {
+   "-3": {
+    "r": 0.6321,
+    "control_wrong_side": -0.0026,
+    "overlap": 0.6126
+   },
+   "-2": {
+    "r": 0.6349,
+    "control_wrong_side": -0.0063,
+    "overlap": 0.6133
+   },
+   "-1": {
+    "r": 0.642,
+    "control_wrong_side": -0.0135,
+    "overlap": 0.6169
+   },
+   "+0": {
+    "r": 0.6412,
+    "control_wrong_side": -0.0177,
+    "overlap": 0.6176
+   },
+   "+1": {
+    "r": 0.6271,
+    "control_wrong_side": -0.0194,
+    "overlap": 0.6095
+   },
+   "+2": {
+    "r": 0.5942,
+    "control_wrong_side": 0.0013,
+    "overlap": 0.5894
+   }
+  },
+  "r_difference_bootstrap": {
+   "blocks": 168,
+   "low": 0.0728,
+   "high": 0.1225
+  },
+  "v3_r_with_ensemble": 0.6554
+ },
+ "not_registered": {
+  "note": "computed after the verdict from this record and finding 118's depth table",
+  "ensemble_r_by_depth_finding_118": {
+   "-3": 0.522,
+   "-2": 0.5277,
+   "-1": 0.5346,
+   "+0": 0.5423,
+   "+1": 0.53,
+   "+2": 0.4962
+  },
+  "delta_r_by_depth": {
+   "-3": 0.1101,
+   "-2": 0.1072,
+   "-1": 0.1074,
+   "+0": 0.0989,
+   "+1": 0.0971,
+   "+2": 0.098
+  },
+  "depths_with_delta_r_at_least_the_margin": [
+   "-1",
+   "-2",
+   "-3"
+  ]
+ }
+}
