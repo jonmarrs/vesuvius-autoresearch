@@ -131,7 +131,9 @@ standard sequential `DataLoader`, default collation and ordered workers.
 Duck-typed loaders must themselves guarantee that order. Changes to the catalog
 during scoring and invalid ink logits are rejected. The CLI validates
 catalog coordinates, passes checkpoint ridge sigma, and records applied model
-settings. Optional `--patches_json` must exist and contain valid coordinates.
+settings. Optional `--patches_json` must contain a valid list of origins for the
+checkpoint's patch size and the volume's YX grid. See the
+[catalog format and limits](TRAINING_DATA_IMPORT.md#supply-an-explicit-patch-catalog).
 `--max-eval-patches` accepts 1–5000 (default 5000). Larger catalogs use seed-42
 subsampling without replacement, restored to source-catalog order before scoring.
 The budget caps model evaluations, not catalog discovery, input loading, or peak
