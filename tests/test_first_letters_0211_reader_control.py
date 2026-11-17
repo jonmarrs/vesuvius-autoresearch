@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -245,3 +246,67 @@ def test_the_script_refuses_agreement_when_both_sides_carry_the_strokes(tmp_path
     out = tmp_path / "compare.json"
     assert cmp.main([str(out), *args]) == 0
     assert json.loads(out.read_text())["verdict"] == "READER_DISAGREES"
+
+
+# Added by the design review of 2026-11-17: the alignment at its edges, the overlap of a shift, and the high-pass.
+
+
+def _ct(seed=4, shape=(100, 160)):
+    return (_texture(shape, seed) * 40 + 128).clip(1, 255)
+
+
+def test_a_shift_of_one_pixel_is_aligned_and_of_two_is_not():
+    ct = _ct()
+    for columns, aligned in ((1, True), (2, False)):
+        out = cmp.alignment({27: np.roll(ct, (0, columns), axis=(0, 1))}, ct)
+        assert out["shift_pixels"] == [0, -columns] and out["aligned"] is aligned
+
+
+def test_the_alignment_searches_sixteen_pixels_each_way():
+    ct = _ct()
+    out = cmp.alignment({27: np.roll(ct, (16, 0), axis=(0, 1))}, ct)
+    assert out["shift_pixels"] == [-16, 0] and out["r_at_shift"] > 0.99
+
+
+def test_the_alignment_compares_only_pixels_with_ct_in_every_layer():
+    ct = _ct()
+    rng = np.random.default_rng(9)
+    half = ct.copy()
+    half[:, :80] = 0  # no CT in the left half of this layer
+    noisy = (ct + 25 * rng.standard_normal(ct.shape)).clip(1, 255)
+    out = cmp.alignment({30: half, 31: noisy}, ct)
+    # over the right half alone, the layer that is the CT matches it exactly
+    assert out["layer"] == 30 and out["r_at_zero_by_layer"]["30"] == 1.0
+
+
+def test_a_shifted_r_leaves_out_what_slid_in_from_outside_the_mask():
+    reference = _texture((50, 80), 5)
+    mask = np.zeros(reference.shape, bool)
+    mask[:, 10:70] = True
+    moving = np.roll(reference, (0, -5), axis=(0, 1))
+    moving[:, :10] = 1000.0  # outside the mask
+    moving[:, 70:] = 1000.0
+    assert cmp.shifted_r(reference, moving, mask, 0, 5) == pytest.approx(1.0)
+
+
+def test_roll_cells_blanks_the_columns_a_rightward_move_brings_in():
+    image = np.arange(30.0).reshape(5, 6)
+    moved = cmp.roll_cells(image, [0, 8])  # two cells right
+    assert np.isnan(moved[:, :2]).all() and not np.isnan(moved[:, 2:]).any()
+    assert moved[0, 2] == image[0, 0]
+
+
+def test_the_winners_map_loses_its_broad_background_before_it_is_compared():
+    shape = (120, 160)
+    strokes = _strokes(shape, 1)
+    cells = np.ones(shape, bool)
+    rows = np.indices(shape)[0]
+    studio = (
+        strokes + 20 * strokes.std() * rows / shape[0]
+    )  # a slope across the whole map
+    rng = np.random.default_rng(2)
+    ours = {
+        m: strokes + 0.1 * strokes.std() * rng.standard_normal(shape) for m in MODELS
+    }
+    blind = {m: _texture(shape, 20 + k) for k, m in enumerate(MODELS)}
+    assert cmp.measure(ours, blind, studio, cells)["r"] > 0.8
