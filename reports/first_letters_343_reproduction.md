@@ -3,7 +3,8 @@ The published PHerc. 343 First Letters image rebuilds on this machine from the p
 This is the kill test of the First Letters campaign in `docs/RESEARCH_STRATEGY.md`: before the published
 [PHerc. 343 recipe](https://github.com/Nieuwlaar/pherc343-first-letters) (commit `e8370f1f`) is tried on a scroll
 nobody has read, show that its compute chain gives its known result here. Host: 4 cores, 31 GB of RAM, one RTX 4090.
-Record: `reports/first_letters_343_reproduction.json`. Scripts as run: `repro/first_letters/pherc343/`.
+Record: `reports/first_letters_343_reproduction.json`. Scripts as run are preserved at commit `9fa747c5`;
+`repro/first_letters/pherc343/README.md` describes the later checkpoint-reporting correction.
 
 **Verdict `REPRODUCED`, for the part of the chain that was run.** The chain from the two published windings to the
 image was run here: mesh join, render from streamed CT, the four ink models at the one depth the image shows, map
@@ -71,8 +72,12 @@ Host memory of the ink jobs was not recorded. The render's container was sampled
   `$HOME/.VC3D/remote_cache`, so the container was given a persistent `HOME`.
 - **Ink environment.** A virtual environment built with villa `0fb38c45`'s own bootstrap script (Python 3.14.3,
   torch 2.13.0+cu130) instead of the recipe's draft Dockerfile.
-- **Checkpoints.** All four load with `torch.load(weights_only=True)`. Villa's loader at that commit calls
-  `torch.load` with `weights_only=False`.
+- **Checkpoints.** The historical record claims all four load with `torch.load(weights_only=True)`, but that
+  flag was hardcoded and the checker could return success after a refusal or no inputs. No identity-bound
+  load receipts are committed, so this claim is unverified, not a checkpoint safety certification.
+  The JSON now marks verification unknown and retains the original claim with immutable source provenance;
+  every other historical field is unchanged. This correction does not show that any checkpoint failed or was unsafe.
+  Villa's loader at that commit calls `torch.load` with `weights_only=False`.
 
 ## What this does not show
 
