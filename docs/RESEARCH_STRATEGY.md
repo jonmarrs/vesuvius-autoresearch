@@ -259,6 +259,12 @@ winner's surface it gives r 0.24 against the four models' 0.53 (`GP_FARTHER`, as
 letter shape. Of the permissive readers on this machine Reader V3 is the best, and none draws a readable word on
 this surface. The reader question rests on the owner's decision about the winning reader.
 
+**The owner approved the winning reader, and it runs here (November 16).** Studio (code MIT, weights CC BY-NC
+4.0) reproduces the winner's PHerc. 211 map on this RTX 4090 from the winner's own weights and input: r 1.0 over
+8.8 million pixels, differences of bfloat16 rounding (`REPRODUCED`, as predicted;
+[report](../reports/first_letters_0211_studio_reproduction.md), finding 123). It took 75 seconds at 14.5 GB of GPU
+memory. Next it reads our own geometry at the same place.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
