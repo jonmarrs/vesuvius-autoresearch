@@ -34,7 +34,7 @@ print(json.dumps({
     "z_begin": 9500, "z_end": 11000, "input_disable_patches": True,
     "loss_weight_shell_outer": 0, "loss_weight_shell_patch_radius": 0,
     "dense_spacing_mode": "phase", "optimizer_num_training_steps": int(sys.argv[1]),
-}))' "$STEPS")
+}))' "$STEPS") || exit 2
 export FIT_SPIRAL_CONFIG_OVERRIDES
 unset WANDB_MODE
 cd "$SPIRAL" || exit 2

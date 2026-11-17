@@ -793,6 +793,84 @@ def _overrides(outer, steps="300"):
     )
 
 
+def _settings_assignment(path: Path):
+    """The launcher's override assignment, through the export, and nothing after it."""
+    text = path.read_text()
+    start = text.index('FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY"')
+    export = "export FIT_SPIRAL_CONFIG_OVERRIDES\n"
+    end = text.index(export, start) + len(export)
+    return text[start:end]
+
+
+def _run_settings(path: Path, **variables):
+    """Run that assignment in a clean shell. A later line prints only if it returns."""
+    import os
+    import subprocess
+
+    script = "set -u\n" + _settings_assignment(path) + "echo CONTINUED\n"
+    env = {"PATH": os.environ["PATH"], "PY": sys.executable, **variables}
+    return subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "variables"),
+    [
+        (
+            HERE / "run_fit.sh",
+            {"Z_BEGIN": "10250", "Z_END": "11750", "STEPS": "300", "OUTER": ""},
+        ),
+        (HERE / "run_sense.sh", {"ZB": "10250", "ZE": "11750", "STEPS": "300"}),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            {"STEPS": "300"},
+        ),
+    ],
+)
+def test_a_fit_launcher_keeps_going_when_its_settings_are_whole_numbers(
+    path, variables
+):
+    result = _run_settings(path, **variables)
+    assert (result.returncode, result.stdout) == (0, "CONTINUED\n"), result.stderr
+
+
+@pytest.mark.parametrize(
+    ("path", "bad"),
+    [
+        (HERE / "run_fit.sh", {"Z_BEGIN": "10250x"}),
+        (HERE / "run_fit.sh", {"Z_END": "11750x"}),
+        (HERE / "run_fit.sh", {"STEPS": "300x"}),
+        (HERE / "run_fit.sh", {"OUTER": "80x"}),
+        (HERE / "run_sense.sh", {"ZB": "10250x"}),
+        (HERE / "run_sense.sh", {"ZE": "11750x"}),
+        (HERE / "run_sense.sh", {"STEPS": "300x"}),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            {"STEPS": "300x"},
+        ),
+    ],
+)
+def test_a_fit_launcher_stops_when_its_settings_snippet_fails(path, bad):
+    """A bad number used to leave the overrides empty and the fit still started."""
+    if path.name == "run_sense.sh":
+        variables = {"ZB": "10250", "ZE": "11750", "STEPS": "300"}
+    elif "pherc343" in path.parts:
+        variables = {"STEPS": "300"}
+    else:
+        variables = {
+            "Z_BEGIN": "10250",
+            "Z_END": "11750",
+            "STEPS": "300",
+            "OUTER": "80",
+        }
+    variables.update(bad)
+    result = _run_settings(path, **variables)
+    assert result.returncode == 2, result.stderr
+    assert result.stdout == ""
+    assert "invalid literal" in result.stderr
+
+
 def test_the_fit_launcher_changes_the_winding_count_only_for_an_outer_arm():
     recipe = {
         "z_begin": 10250,

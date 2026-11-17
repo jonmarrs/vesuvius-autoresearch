@@ -66,7 +66,7 @@ overrides = {
 if sys.argv[4]:
     overrides["shell_outer_winding_idx"] = int(sys.argv[4])
     overrides["model_gap_expander_num_windings"] = int(sys.argv[4]) + 3
-print(json.dumps(overrides))' "$Z_BEGIN" "$Z_END" "$STEPS" "$OUTER")
+print(json.dumps(overrides))' "$Z_BEGIN" "$Z_END" "$STEPS" "$OUTER") || exit 2
 export FIT_SPIRAL_CONFIG_OVERRIDES
 cd "$SPIRAL" || exit 2
 echo "FIT_START $(date -Is) scroll=$SCROLL sense=$SENSE arm=$ARM steps=$STEPS overrides=$FIT_SPIRAL_CONFIG_OVERRIDES"

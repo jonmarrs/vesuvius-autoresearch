@@ -29,7 +29,7 @@ print(json.dumps({
     "z_begin": int(sys.argv[1]), "z_end": int(sys.argv[2]), "input_disable_patches": True,
     "loss_weight_shell_outer": 0, "loss_weight_shell_patch_radius": 0,
     "dense_spacing_mode": "phase", "optimizer_num_training_steps": int(sys.argv[3]),
-}))' "$ZB" "$ZE" "$STEPS")
+}))' "$ZB" "$ZE" "$STEPS") || exit 2
 export FIT_SPIRAL_CONFIG_OVERRIDES
 cd "$SPIRAL" || exit 2
 echo "SENSE_START $(date -Is) sense=$SENSE steps=$STEPS overrides=$FIT_SPIRAL_CONFIG_OVERRIDES"
