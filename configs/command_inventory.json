@@ -158,7 +158,7 @@
     },
     {
       "id": "proofreader-check",
-      "summary": "Verify recorded proofreading input context",
+      "summary": "Verify recorded proofreading inputs and optional TIFF exports",
       "kind": "script",
       "argv": [
         "python",
@@ -169,7 +169,7 @@
       "layout": "checkout",
       "villa": "required",
       "guide": "docs/PROOFREADER_SESSION_RECORDS.md",
-      "needs": "NumPy/Zarr and the pinned proofreader source; checks recorded context without importing Napari.",
+      "needs": "NumPy/Zarr and the pinned proofreader source; --verify-approved-patches also needs tifffile. Napari is unnecessary for the checker.",
       "effects": "observe"
     },
     {

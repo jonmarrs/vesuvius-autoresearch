@@ -265,7 +265,7 @@ each has caused a measured scientific failure.
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
 | High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the later migrations. The [November 14 review](../reports/dependency_migration_review_2026-11-14.json) records Pillow 12.1.1 → 12.3.0. The [November 15 review](../reports/dependency_migration_review_2026-11-15.json) records non-Windows WEBKNOSSOS 4.3.3, aiohttp 3.14.5, dotenv 1.2.4 and cryptography 50.0.2, with Python 3.10 workflow/native checks and unchanged Windows package selection. Fresh version-specific PyPI lookups report 89 → 0 raw records across the three latter packages. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize the remaining applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. Windows still selects the old SDK/aiohttp/dotenv chain because newer SDKs pin TensorStore below this project's minimum. Newer Virtualenv still conflicts with SDK typing-extensions constraints on Python 3.10. Decide Python/platform support before those migrations. GitHub's advisory API previously returned HTTP 403; public matching and CPU checks do not replace alert access, Windows execution or GPU validation. |
-| High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). Opt-in [session records](PROOFREADER_SESSION_RECORDS.md) now bind complete configured source bytes and initial settings; a read-only checker detects source changes and mismatched logged context. | Choose whether the training feedback path should review 2D ink windows or 3D segmentation labels, then specify coordinate transforms, label semantics and reviewed-patch ingestion. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Resume remains disabled: pinned Villa's logged context omits GUI-setting history, can retain pending entries and snaps old coordinates to a new grid. Source records alone do not establish resume position, approved patch contents or physical registration. |
+| High | **The human-feedback loop is incomplete.** Regional uncertainty describes a single plane with a source offset, and the proofreader expects aligned 3D categorical labels. Opt-in [session records and export checks](PROOFREADER_SESSION_RECORDS.md) now bind input bytes and check each approved TIFF pair against the log and recorded CT crop. Labels pass a shape and categorical range check. | Choose whether feedback will use 2D ink windows or 3D segmentation labels, then define coordinate transforms, label semantics and ingestion into the [training inputs](../scripts/training/input_paths.py). Resume needs a separate contract for Villa's grid snapping, pending entries and incomplete GUI-setting history. Physical alignment and label correctness require their own review. |
 | Medium | **Regional peak memory and ensemble residency still need representative GPU measurements.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) cap three persistent float32 blend planes and load saved state on CPU. The opt-in [regional profiler](VOLUME_INFERENCE.md#regional-memory-observations) now records process RSS, OS lifetime high-water RSS and selected-device PyTorch allocator peaks through the latest metadata observation. Synthetic CPU checks preserve output probabilities exactly; the CUDA path has only mocked API coverage. Whole-region arrays and all ensemble members remain resident. | Run `--profile_memory` on the 4090 with representative source/model/export settings before choosing streaming accumulators or sequential member residency. The 512 MiB cap remains an acceptance policy. CPU lifetime peaks include earlier process work; CUDA allocator peaks exclude other allocators/processes and device-context overhead, and are not independent phase peaks or fit guarantees. The [scratch CUDA probe](VRAM_PROBE.md) is a separate forward/backward path. [Production](../scripts/production_predict.py) remains outside the new regional profiling scope; no real GPU/full-scroll peak or throughput result was measured here. |
 | Medium | **Broader scientific validation is still needed after earlier correctness changes.** The [registered renderer-v2 check](../reports/render_revalidation_review_2026-11-17.md) now supplies a new real-source compatibility measurement: one fixed PHerc1667 interior crop, center-plane NCC 0.78897, complete depth support, and a bitwise offline replay. This is not a repeat of the historical whole-segment/depth experiments. The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) retain those limits. Placement gates now decline additional boundary-limited results. | Use the new reading only within its fixed-crop compatibility scope. Rerun the confidence analysis and any broader renderer/placement comparison before using its historical number to justify a research direction. Preserve original artifacts and register new methods separately. No accuracy, independent registration, depth-direction or whole-scroll claim follows from the crop check. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
@@ -1753,3 +1753,38 @@ passed **138 tests, 1 skipped** in 38.66 seconds. All fifteen selected source,
 historical and additional file hashes match; 68 extracted local links exist
 across the four changed Markdown documents. The old scientific scripts and
 reports were checked byte for byte against the main baseline.
+
+## Approved proofreader export verification (2026-11-17 UTC)
+
+The input checker could report an approved log entry even when the image or
+label TIFF was missing or the image came from a different crop. The opt-in
+`--verify-approved-patches` check links the log to the complete saved TIFF pairs
+and verifies each image voxel and dtype against the recorded CT crop. The
+label check enforces the cubic patch shape and categorical range `0..255`.
+The report includes each pair's ZYX origin and hashes of the bytes it decoded.
+Repeated approvals at one origin fail because Villa uses one pair of filenames
+for that origin. The check also refuses unlisted files and incomplete TIFFs.
+The command and limits are in the [session-record guide](PROOFREADER_SESSION_RECORDS.md).
+
+The check runs after the GUI closes. It applies the existing receipt limits to
+the combined export directories and bounds the decoded TIFF, CT patch and CT
+chunk sizes. Source and export state checks detect ordinary changes during
+verification. The pinned Villa writer and serializer produced the TIFFs and
+progress JSON in the regression fixture. The fixture uses synthetic CT and an
+edited categorical patch. Approval authenticity, the edited-label Zarr and
+physical alignment remain outside this verification. Resume and reviewed-label
+ingestion still need design work. All seven broader audit items remain open.
+
+The CPU integration selection passed **193 tests** across proofreader sessions
+and launches, command discovery, volume reading and patch dataset artifacts.
+The portable profile passed **408 tests**. Registry, file-mode, preservation
+and document/claim guards passed **171 tests**, with one skip for absent local
+arm artifacts. CPU smoke passed **8 checks**, with three skips requiring a
+checkpoint or training inputs. Ruff, formatting and Mypy passed, and the offline
+lock resolved **258 packages**.
+
+PR review found that a contiguous TIFF could decode despite an incorrect
+strip byte count. The checker now requires declared bytes to match the stored
+page dimensions, including row padding for packed boolean images. The revised
+integration selection passed **194 tests**. A separate check decoded **24**
+default-writer TIFFs across packed boolean and numeric dtypes.
