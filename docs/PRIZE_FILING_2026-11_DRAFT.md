@@ -120,7 +120,40 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
   * **Caution:** this is a measurement of released models. Under #2450 it counts only for what it changes: an
     eligible-scroll band has to be swept on both sides, and a blank band is weak evidence.
 
-Not for this filing: anything made from a prize-eligible scroll.
+* **The same pipeline end to end, at the place where PHerc. 211's First Letters prize was won** (findings 118 to
+  121). The prize was announced on 2026-11-15 and the winner published the surface, the probability map and the CT
+  image under CC BY-NC 4.0. That gave a known text place to measure this pipeline against, for the first time on a
+  crushed scroll.
+  * **The reader on the winner's surface**
+    ([report](../reports/first_letters_0211_reader_control.md)): the recipe's four models put ink where the winning
+    reader did, r = 0.53 against controls of 0.09 and below, and no letter can be read from their map.
+  * **The fit** ([report](../reports/first_letters_0211_winner_band.md)): the recipe's 30,000-step fit of a
+    1,500-slice band around the surface (3 h 32 min, 12.3 GB of GPU memory) reaches the winner's sheet in two
+    pieces.
+    * 88% of the winner's nodes lie within 2 voxels of some winding.
+    * One winding follows the sheet for 34 mm and a winding two further in follows the rest, each at finding 110's
+      line.
+    * The two windings between them sit between predicted sheets.
+  * **A second, MIT-licensed reader** ([report](../reports/first_letters_0211_reader_v3.md)): Reader V3 on the
+    winner's surface gives r = 0.63, closer than the four models but short of the registered margin. Its map shows
+    a few letter shapes and no readable word.
+  * **End to end** ([report](../reports/first_letters_0211_end_to_end.md)): our own fit's four windings, snapped,
+    flattened, rendered, read and carried onto the winner's surface, give r = 0.52 on 83% of its cells, in 42
+    minutes unattended. The same models on the winner's own surface give 0.54 on those cells, and Reader V3 loses
+    nothing (0.629 against 0.627).
+  * **What it shows:** on one RTX 4090, the published recipe finds the ink at a known text place. The geometry
+    costs almost nothing there, and the reader is what separates it from letters.
+  * **Failures and fixes on the way:**
+    * a depth bug in finding 110's transfer code;
+    * the band verdict crashing on an unscored fit (also fixed in #441);
+    * villa's environment unable to read the winner's LZW surface files;
+    * villa's `_spliced` twins counted as windings;
+    * the need to render our windings with flipped normals.
+  * **Caution under #2450:** this measures the recipe and released readers. It counts only for what it changes:
+    which reader to use, and how to read a band.
+
+Not for this filing: anything made from a still-eligible scroll. PHerc. 211's prize was announced on 2026-11-15,
+so its results may be described.
 
 ## Filing-day checklist
 
