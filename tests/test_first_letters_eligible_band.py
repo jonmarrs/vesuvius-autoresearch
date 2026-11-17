@@ -868,7 +868,82 @@ def test_a_fit_launcher_stops_when_its_settings_snippet_fails(path, bad):
     result = _run_settings(path, **variables)
     assert result.returncode == 2, result.stderr
     assert result.stdout == ""
-    assert "invalid literal" in result.stderr
+    (value,) = bad.values()
+    assert f"={value}): not a whole number" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def _launch(tmp_path, path, *argv):
+    """The whole launcher, run with stand-ins for env.sh, nvidia-smi, /usr/bin/time and villa's fit."""
+    import os
+    import subprocess
+
+    band, bin_, spiral, here = (tmp_path / d for d in ("band", "bin", "spiral", "here"))
+    for d in (band / "dataset" / "tracks", bin_, spiral, here):
+        d.mkdir(parents=True, exist_ok=True)
+    (band / "dataset" / "spiral-scroll.json").write_text(
+        '{"spiral_outward_sense": "ACW"}'
+    )
+    (band / "dataset" / "umbilicus.json").write_text("{}")
+    (here / "env.sh").write_text(
+        f"R={band}; SPIRAL={spiral}; PY={sys.executable}; SCROLL=t; SENSE=ACW\n"
+        "Z_BEGIN=10250; Z_END=11750\n"
+        'mkdir -p "$R/work" "$R/logs"\n'
+        "gate() { :; }\n"
+    )
+    (bin_ / "nvidia-smi").write_text("#!/bin/sh\nexit 0\n")
+    (bin_ / "time").write_text('#!/bin/sh\n[ "$1" = -v ] && shift\nexec "$@"\n')
+    for stub in bin_.iterdir():
+        stub.chmod(0o755)
+    (spiral / "fit_spiral.py").write_text(
+        "import os, pathlib\n"
+        f"pathlib.Path({str(band / 'launched')!r}).write_text("
+        'os.environ["FIT_SPIRAL_CONFIG_OVERRIDES"])\n'
+    )
+    launcher = here / path.name
+    launcher.write_text(path.read_text().replace("/usr/bin/time", str(bin_ / "time")))
+    argv = [a.replace("ENV_SH", str(here / "env.sh")) for a in argv]
+    env = dict(os.environ, PATH=f"{bin_}:{os.environ['PATH']}")
+    result = subprocess.run(
+        ["bash", str(launcher), *argv], capture_output=True, text=True, env=env
+    )
+    return result, band
+
+
+@pytest.mark.parametrize(
+    ("path", "bad", "good", "folder"),
+    [
+        (HERE / "run_fit.sh", ("smoke", "300x"), ("smoke", "300"), "fit_smoke"),
+        (
+            HERE / "run_sense.sh",
+            ("ENV_SH", "10250x", "11750", "ACW", "300"),
+            ("ENV_SH", "10250", "11750", "ACW", "300"),
+            "sense_ACW_300",
+        ),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            ("smoke", "300x"),
+            ("smoke", "300"),
+            "fit_smoke",
+        ),
+    ],
+)
+def test_a_bad_setting_leaves_no_folder_so_the_corrected_rerun_starts(
+    tmp_path, path, bad, good, folder
+):
+    """The arm's folder used to be made first: a typo left it empty and the rerun was refused."""
+    result, band = _launch(tmp_path, path, *bad)
+    assert result.returncode == 2, result.stderr
+    assert "invalid settings" in result.stderr
+    assert not (band / "work" / folder).exists()
+    assert not (band / "launched").exists()
+
+    result, band = _launch(tmp_path, path, *good)
+    assert result.returncode == 0, result.stderr
+    assert "run once" not in result.stderr
+    assert (band / "work" / folder).is_dir()
+    launched = json.loads((band / "launched").read_text())
+    assert launched["optimizer_num_training_steps"] == 300
 
 
 def test_the_fit_launcher_changes_the_winding_count_only_for_an_outer_arm():

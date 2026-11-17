@@ -12,6 +12,20 @@ ENV=${1:?ENV_SH}; ZB=${2:?Z_BEGIN}; ZE=${3:?Z_END}; SENSE=${4:?CW|ACW}; STEPS=${
 case "$SENSE" in CW|ACW) ;; *) echo "sense is CW or ACW" >&2; exit 2 ;; esac
 OUT=$R/work/sense_${SENSE}_$STEPS
 [ -e "$OUT" ] && { echo "$OUT exists: a trial is run once" >&2; exit 2; }
+# The settings are checked before the trial's folder is made, so a typo leaves nothing behind to block the rerun.
+FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c '
+import json, sys
+for name, value in zip(("Z_BEGIN", "Z_END", "STEPS"), sys.argv[1:]):
+    try:
+        int(value or 0)
+    except ValueError:
+        sys.exit(f"run_sense.sh: invalid settings ({name}={value}): not a whole number")
+print(json.dumps({
+    "z_begin": int(sys.argv[1]), "z_end": int(sys.argv[2]), "input_disable_patches": True,
+    "loss_weight_shell_outer": 0, "loss_weight_shell_patch_radius": 0,
+    "dense_spacing_mode": "phase", "optimizer_num_training_steps": int(sys.argv[3]),
+}))' "$ZB" "$ZE" "$STEPS") || exit 2
+export FIT_SPIRAL_CONFIG_OVERRIDES
 mkdir -p "$OUT/dataset" "$R/work/cache"
 ln -s "$R/dataset/tracks" "$OUT/dataset/tracks"
 cp "$R/dataset/umbilicus.json" "$OUT/dataset/umbilicus.json"
@@ -19,18 +33,10 @@ cp "$R/dataset/umbilicus.json" "$OUT/dataset/umbilicus.json"
 import json, sys
 spec = json.load(open(sys.argv[1]))
 spec["spiral_outward_sense"] = sys.argv[3]
-json.dump(spec, open(sys.argv[2], "w"), indent=2)' "$R/dataset/spiral-scroll.json" "$OUT/dataset/spiral-scroll.json" "$SENSE"
+json.dump(spec, open(sys.argv[2], "w"), indent=2)' "$R/dataset/spiral-scroll.json" "$OUT/dataset/spiral-scroll.json" "$SENSE" || exit 2
 export FIT_SPIRAL_OUT_DIR=$OUT/fit
 unset FIT_SPIRAL_RUN_TAG WANDB_MODE
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c '
-import json, sys
-print(json.dumps({
-    "z_begin": int(sys.argv[1]), "z_end": int(sys.argv[2]), "input_disable_patches": True,
-    "loss_weight_shell_outer": 0, "loss_weight_shell_patch_radius": 0,
-    "dense_spacing_mode": "phase", "optimizer_num_training_steps": int(sys.argv[3]),
-}))' "$ZB" "$ZE" "$STEPS") || exit 2
-export FIT_SPIRAL_CONFIG_OVERRIDES
 cd "$SPIRAL" || exit 2
 echo "SENSE_START $(date -Is) sense=$SENSE steps=$STEPS overrides=$FIT_SPIRAL_CONFIG_OVERRIDES"
 /usr/bin/time -v "$PY" fit_spiral.py --dataset "$OUT/dataset" --cache "$R/work/cache"

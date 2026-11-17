@@ -22,20 +22,26 @@ OUT=$R/work/fit_$ARM
 if [ -e "$OUT" ] && [ -z "${FIT_SPIRAL_RESUME_PATH:-}" ]; then
   echo "$OUT exists: an arm is run once; move it aside or resume it explicitly" >&2; exit 2
 fi
-mkdir -p "$OUT" "$R/work/cache"
-# No FIT_SPIRAL_RUN_TAG: villa appends the tag to every winding folder (w047_TAG), and the published
-# windings carry plain names.
-export FIT_SPIRAL_OUT_DIR=$OUT
-unset FIT_SPIRAL_RUN_TAG
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# The settings are checked before the arm's folder is made, so a typo leaves nothing behind to block the rerun.
 FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c '
 import json, sys
+for name, value in zip(("STEPS",), sys.argv[1:]):
+    try:
+        int(value or 0)
+    except ValueError:
+        sys.exit(f"run_fit.sh: invalid settings ({name}={value}): not a whole number")
 print(json.dumps({
     "z_begin": 9500, "z_end": 11000, "input_disable_patches": True,
     "loss_weight_shell_outer": 0, "loss_weight_shell_patch_radius": 0,
     "dense_spacing_mode": "phase", "optimizer_num_training_steps": int(sys.argv[1]),
 }))' "$STEPS") || exit 2
 export FIT_SPIRAL_CONFIG_OVERRIDES
+mkdir -p "$OUT" "$R/work/cache"
+# No FIT_SPIRAL_RUN_TAG: villa appends the tag to every winding folder (w047_TAG), and the published
+# windings carry plain names.
+export FIT_SPIRAL_OUT_DIR=$OUT
+unset FIT_SPIRAL_RUN_TAG
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 unset WANDB_MODE
 cd "$SPIRAL" || exit 2
 echo "FIT_START $(date -Is) arm=$ARM steps=$STEPS overrides=$FIT_SPIRAL_CONFIG_OVERRIDES"
