@@ -254,11 +254,12 @@ def _fake_cuda(monkeypatch, current=1):
         "max_memory_allocated",
         "max_memory_reserved",
     ):
-        monkeypatch.setattr(
-            torch.cuda,
-            name,
-            lambda device, name=name: asked.append((name, str(device))) or 0,
-        )
+
+        def call(device, name=name):
+            asked.append((name, str(device)))
+            return 0
+
+        monkeypatch.setattr(torch.cuda, name, call)
     return asked
 
 
