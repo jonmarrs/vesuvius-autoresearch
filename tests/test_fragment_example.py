@@ -360,3 +360,209 @@ def test_bundled_source_manifest_passes_default_preflight_without_network():
     )
     assert plan["fragment_id"] == "PHercParis2Fr47"
     assert plan["source_z_range"] == [16, 18]
+
+
+# Added by the design review of 2026-11-17: each rule refuses with its own reason, and the guards are held one by
+# one rather than only through the check behind them.
+
+
+def _changed(plan, **changes):
+    import copy
+
+    out = copy.deepcopy(plan)
+    out.update(changes)
+    return out
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        ({"extra": 1}, "unsupported official fragment manifest"),
+        ({"schema_version": 2}, "unsupported official fragment manifest"),
+        ({"kind": "other"}, "unsupported official fragment manifest"),
+        ({"fragment_id": "Frag1/Example"}, "invalid fragment ID"),
+        ({"source_z_range": [-1, 1]}, "invalid source layer range"),
+        ({"source_z_range": [16, 16]}, "invalid source layer range"),
+        ({"source_z_range": [0, 513]}, "invalid source layer range"),
+        ({"shape_zyx": [3, 6, 8]}, "invalid or oversized source shape"),
+        ({"voxel_size_um": 0}, "voxel_size_um must be finite and positive"),
+        ({"voxel_size_um": True}, "voxel_size_um must be finite and positive"),
+        ({"label_semantics": "white_background"}, "unsupported binary label/mask"),
+        ({"pin_basis": "  "}, "source pin provenance is required"),
+    ],
+)
+def test_each_manifest_rule_refuses_with_its_own_reason(source, change, reason):
+    raw = json.dumps(_changed(source.plan, **change)).encode()
+    with pytest.raises(ValueError, match=reason):
+        example._manifest(
+            raw, example.DEFAULT_DOWNLOAD_BYTES, example.DEFAULT_FILE_BYTES
+        )
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "https://dl.ash2txt.org/fragments/Frag1/Example.volpkg/working//reference/",
+        "http://dl.ash2txt.org/fragments/Frag1/Example.volpkg/working/reference/",
+    ],
+)
+def test_the_source_directory_has_no_empty_component_and_is_https(source, base):
+    raw = json.dumps(_changed(source.plan, base_url=base)).encode()
+    with pytest.raises(ValueError, match="explicit official fragment export directory"):
+        example._manifest(
+            raw, example.DEFAULT_DOWNLOAD_BYTES, example.DEFAULT_FILE_BYTES
+        )
+
+
+def test_a_grid_of_the_largest_allowed_size_passes_and_one_more_pixel_does_not(source):
+    limits = example.DEFAULT_DOWNLOAD_BYTES, example.DEFAULT_FILE_BYTES
+    largest = _changed(source.plan, shape_zyx=[2, 1, example.MAX_PIXELS])
+    assert example._manifest(json.dumps(largest).encode(), *limits)
+    over = _changed(source.plan, shape_zyx=[2, 1, example.MAX_PIXELS + 1])
+    with pytest.raises(ValueError, match="invalid or oversized source shape"):
+        example._manifest(json.dumps(over).encode(), *limits)
+
+
+def test_a_manifest_with_a_repeated_key_or_a_nonfinite_token_is_refused(source):
+    limits = example.DEFAULT_DOWNLOAD_BYTES, example.DEFAULT_FILE_BYTES
+    text = json.dumps(source.plan)
+    repeated = text[:-1] + ', "kind": "official_surface_fragment_example"}'
+    with pytest.raises(ValueError, match="duplicate source manifest key: kind"):
+        example._manifest(repeated.encode(), *limits)
+    nan = text.replace('"voxel_size_um": 3.24', '"voxel_size_um": NaN')
+    assert nan != text
+    with pytest.raises(ValueError, match="nonfinite source manifest token"):
+        example._manifest(nan.encode(), *limits)
+
+
+def test_a_digest_must_be_lowercase(source):
+    plan = _changed(source.plan)
+    plan["files"][0]["sha256"] = plan["files"][0]["sha256"].upper()
+    with pytest.raises(ValueError, match="lowercase SHA256"):
+        example._manifest(json.dumps(plan).encode(), 1024**3, 1024**3)
+
+
+def test_the_byte_limits_are_inclusive(source):
+    raw = json.dumps(source.plan).encode()
+    sizes = [record["bytes"] for record in source.plan["files"]]
+    assert example._manifest(raw, sum(sizes), max(sizes))
+    with pytest.raises(ValueError, match="max_file_bytes"):
+        example._manifest(raw, sum(sizes), max(sizes) - 1)
+    with pytest.raises(ValueError, match="max_download_bytes"):
+        example._manifest(raw, sum(sizes) - 1, max(sizes))
+    plan = _changed(source.plan)
+    meta = next(
+        r for r in plan["files"] if r["relative_path"] == "surface_volume/meta.json"
+    )
+    meta["bytes"] = 2 * 1024**2
+    assert example._manifest(json.dumps(plan).encode(), 1024**3, 1024**3)
+    meta["bytes"] += 1
+    with pytest.raises(ValueError, match="source metadata JSON exceeds 2 MiB"):
+        example._manifest(json.dumps(plan).encode(), 1024**3, 1024**3)
+
+
+def _pinned(source, name):
+    return next(r for r in source.plan["files"] if r["relative_path"] == name)
+
+
+def test_the_download_stops_at_the_pinned_size(source, tmp_path):
+    expected = _pinned(source, "inklabels.png")
+    payload = source.payloads["inklabels.png"]
+    source.behavior.update(payload=payload + b"x" * 5_000_000, length=str(len(payload)))
+    path = tmp_path / "inklabels.png"
+    with pytest.raises(ValueError, match="exceeds pinned bytes"):
+        example._download(source.plan["base_url"] + "inklabels.png", path, expected)
+    assert path.stat().st_size <= expected["bytes"]
+
+
+def test_the_download_checks_the_digest_itself(source, tmp_path):
+    expected = _pinned(source, "inklabels.png")
+    payload = source.payloads["inklabels.png"]
+    source.behavior["payload"] = payload[:-1] + bytes([payload[-1] ^ 1])
+    with pytest.raises(ValueError, match="pinned size/SHA256"):
+        example._download(
+            source.plan["base_url"] + "inklabels.png", tmp_path / "x.png", expected
+        )
+
+
+def test_the_read_back_checks_the_digest_itself(tmp_path):
+    raw = b"pinned bytes"
+    expected = {
+        "relative_path": "inklabels.png",
+        "bytes": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }
+    (tmp_path / "raw").mkdir()
+    (tmp_path / "raw/inklabels.png").write_bytes(b"PINNED BYTES")  # same length
+    with pytest.raises(ValueError, match="captured download no longer matches"):
+        example._captured_source(tmp_path, expected, 1024)
+
+
+def test_a_redirect_is_refused_without_asking_for_its_target(tmp_path, monkeypatch):
+    import http.server
+    import threading
+
+    for name in ("no_proxy", "NO_PROXY"):
+        monkeypatch.setenv(name, "*")
+    seen = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.path)
+            if self.path == "/start":
+                self.send_response(302)
+                self.send_header("Location", "/target")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            else:
+                self.send_response(200)
+                self.send_header("Content-Length", "4")
+                self.end_headers()
+                self.wfile.write(b"data")
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}/start"
+        expected = {"bytes": 4, "sha256": hashlib.sha256(b"data").hexdigest()}
+        with pytest.raises(urllib.error.HTTPError) as error:
+            example._download(url, tmp_path / "x", expected)
+        assert error.value.code == 302
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert seen == ["/start"] and not (tmp_path / "x").exists()
+
+
+def _repin(source, name, raw):
+    source.payloads[name] = raw
+    _pinned(source, name).update(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+    source.manifest.write_text(json.dumps(source.plan))
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"height": 6, "width": 8, "slices": 65, "voxelsize": 3.25},
+        {"height": 6, "width": 8, "slices": 17, "voxelsize": 3.24},
+        {"height": 6, "width": 8, "slices": "65", "voxelsize": 3.24},
+        {"height": 6, "width": 9, "slices": 65, "voxelsize": 3.24},
+    ],
+)
+def test_the_official_metadata_must_match_the_pinned_scale_and_layers(source, metadata):
+    _repin(source, "surface_volume/meta.json", json.dumps(metadata).encode())
+    with pytest.raises(ValueError, match="metadata differs from pinned geometry/scale"):
+        example.fetch_example(source.manifest, source.output)
+    assert not source.output.exists()
+
+
+def test_a_layer_of_another_size_is_refused(source):
+    values = np.ones((6, 7), dtype=np.uint16).astype(">u2")
+    _repin(source, "surface_volume/17.tif", _image(values, fmt="TIFF"))
+    with pytest.raises(ValueError, match="TIFF shape differs from pinned grid"):
+        example.fetch_example(source.manifest, source.output)
+    assert not source.output.exists()
