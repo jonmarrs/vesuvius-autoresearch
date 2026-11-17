@@ -253,6 +253,12 @@ with this pipeline is a working detection test where its windings lie on sheets,
 separates it from letters is the reader. Neither reader we have draws a readable word there; the winning reader
 (CC BY-NC) is the owner's decision.
 
+**The 2023 Grand Prize TimeSformer is the weakest of the three permissive readers there (November 16).** On the
+winner's surface it gives r 0.24 against the four models' 0.53 (`GP_FARTHER`, as predicted;
+[report](../reports/first_letters_0211_gp_timesformer.md), finding 122): it finds the ink, weakly, and draws no
+letter shape. Of the permissive readers on this machine Reader V3 is the best, and none draws a readable word on
+this surface. The reader question rests on the owner's decision about the winning reader.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
