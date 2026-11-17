@@ -270,7 +270,7 @@ each has caused a measured scientific failure.
 | Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
 | Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
 | Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
-| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The [command inventory](COMMANDS.md) now declares runtime, checkout/wheel, Villa and side-effect boundaries for 27 reviewed entrypoints/modes. It is not an exhaustive inventory or a tested minimal dependency closure. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Use the inventory to design and test dependency closures, then decide Python/platform support before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
 The new First Letters image, mesh and surface controls are recorded in the
 [current strategy](RESEARCH_STRATEGY.md). They supply real-data evidence for
@@ -1652,3 +1652,52 @@ The real-data checks used Python 3.10.21, NumPy 2.2.6, Pillow 12.3.0, Zarr 2.18.
 and Torch 2.9.1 CPU in the separate SDK/CPU dependency view. This is not a fully
 installed CUDA environment. All nine final source bindings match; extracted
 repository-path references in the four changed Markdown documents exist.
+
+## Command/runtime inventory follow-up (2026-11-17 UTC)
+
+This pass starts from main `ee38dc92`. The dependency-scope item now has a
+[reviewed command inventory](COMMANDS.md) and a
+[review record](../reports/command_inventory_review_2026-11-17.json). All seven
+broader owner-review items remain open. No dependency extra, Python/platform
+policy, live environment or scientific default changed.
+
+The new stdlib-only discovery command lists 27 primary entrypoints/modes and
+their declared stacks, checkout/wheel layout, Villa requirements, side effects
+and usage guides. It validates a bounded JSON capture and reports the hash of
+the same bytes it parsed. It does not import targets, execute commands or check
+experiment readiness. A fresh `python -S` subprocess from another directory
+confirms discovery works without site packages and without file writes.
+Production prediction still requires Torch for dry-run imports; the live
+scroll-frames list CLI needs s3fs. These distinctions are recorded explicitly.
+
+The inventory review exposed unnecessary NumPy imports in repeatability
+planning: protocol metadata came through the array-based promotion module, and
+output-path validation came through the labeling wrapper. The planner now
+imports a stdlib-only metadata module and the existing core path helper directly.
+The moved protocol function is AST-identical to its original; all four constants
+are unchanged, and promotion reexports the existing API. Planning binds the new
+metadata source among its selected input hashes and refuses execution if it
+changes. This is not a fingerprint of the entire dependency/source closure.
+A fresh `python -S` subprocess now produces an actual dry-run plan without
+NumPy, a GPU, training data or output publication.
+
+The planning/promotion/inventory integration passed **251 tests** in 60.51 seconds.
+The portable profile passed **408 tests** across **17 modules** in 28.82 seconds.
+The configured document/claim guards gave **138 passed, 1 skipped** in 34.61
+seconds; the skip needs absent local arm artifacts. These selections overlap.
+The existing multiprocessing spawn check required local IPC permission in the
+sandbox; its initial EPERM was resolved without changing or skipping the test.
+CPU smoke from a new empty directory gave **8 passed, 3 skipped, 0 failed** in
+10.9 seconds. Its skips require a checkpoint or training CT/ink labels; the
+review checkout's checkpoint was not loaded.
+
+After staging, registry, file-mode, preserved-source and document-reference
+guards passed **46 tests** in 33.91 seconds. All ten recorded source hashes match,
+and 161 extracted local links exist across the six changed Markdown documents.
+Mypy passes on **1035 files**. Maintained Ruff, all eight changed Python files'
+formatting and offline lock consistency pass; the unchanged lock resolves
+**258 packages**. The curated
+registry now contains **227 modules**, with **17 portable modules**. Dependency
+closures, Windows/macOS execution, real-data scientific reruns, GPU capacity,
+interactive GUI behavior and a full curated-suite repeat remain unverified by
+this pass. Historical sources and scientific records were preserved.

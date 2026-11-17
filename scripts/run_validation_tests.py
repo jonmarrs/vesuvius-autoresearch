@@ -19,6 +19,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 VALIDATION_TESTS = [
+    "tests/test_command_inventory.py",
     "tests/test_artifact_hashes.py",
     "tests/test_evaluate_villa_metrics.py",
     "tests/test_villa_modules.py",
@@ -255,6 +256,7 @@ VALIDATION_TESTS = [
 
 
 PORTABLE_TESTS = [
+    "tests/test_command_inventory.py",
     "tests/test_training_split.py",
     "tests/test_training_checkpoint_paths.py",
     "tests/test_legacy_figure_retirement.py",
