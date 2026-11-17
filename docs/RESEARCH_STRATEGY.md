@@ -265,6 +265,14 @@ this surface. The reader question rests on the owner's decision about the winnin
 [report](../reports/first_letters_0211_studio_reproduction.md), finding 123). It took 75 seconds at 14.5 GB of GPU
 memory. Next it reads our own geometry at the same place.
 
+**Our own fit, read by Studio, draws the winner's letters at the known place (November 16).** Finding 121's four
+windings of our unrefined fit, read by Studio and carried onto the winner's surface, give r 0.82 against the
+winner's map (`STUDIO_E2E_CLOSE`, as predicted; [report](../reports/first_letters_0211_studio_e2e.md), finding 124).
+The controls are −0.05 (reversed planes) and 0.11 (slid). In my reading the image shows the winner's letters in all
+three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surface); the geometry costs the rest.
+On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
+step reads every winding of a still-eligible band that way, for the owner to inspect.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
