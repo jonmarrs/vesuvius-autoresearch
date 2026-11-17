@@ -873,3 +873,33 @@ def test_the_verdict_command_takes_both_arms_or_neither(tmp_path, capsys):
         assert bv.main(argv) == 2
         assert "usage:" in capsys.readouterr().err
     assert not out.exists()
+
+
+def _env(tmp_path, **extra):
+    """The variables env.sh sets, sourced in a clean shell with its run root under tmp_path."""
+    import subprocess
+
+    env = {"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path), **extra}
+    out = subprocess.run(
+        ["bash", "-c", '. "$0"; printf "%s\\n" "$R" "$SURF_CHUNKS" "$CT_CHUNKS" "$LASAGNA_CHUNKS"', str(HERE / "env.sh")],
+        env=env, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()  # fmt: skip
+    return dict(zip(("R", "surface", "ct", "lasagna"), out, strict=True))
+
+
+def test_the_default_band_fetches_the_chunks_it_always_did(tmp_path):
+    v = _env(tmp_path)
+    assert v["R"] == f"{tmp_path}/pherc0211_band"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("25 31", "39 46", "79 92")
+    assert _env(tmp_path, FL_SCROLL="PHerc0826")["R"] == f"{tmp_path}/pherc0826_band"
+
+
+def test_another_band_gets_its_own_directory_and_the_chunks_that_cover_it(tmp_path):
+    v = _env(tmp_path, FL_BAND="z7650", FL_Z_BEGIN="7650", FL_Z_END="9150")
+    assert v["R"] == f"{tmp_path}/pherc0211_band_z7650"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("18 24", "29 35", "59 71")
+    # every chunk range covers the band and the 64 slices either side, at its level and chunk size
+    lo, hi = 7650 - 64, 9150 + 64
+    for key, voxels_per_chunk in (("surface", 384), ("ct", 256), ("lasagna", 128)):
+        first, last = (int(x) for x in v[key].split())
+        assert first * voxels_per_chunk <= lo and (last + 1) * voxels_per_chunk > hi
