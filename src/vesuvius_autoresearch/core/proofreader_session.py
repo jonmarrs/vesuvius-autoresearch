@@ -350,10 +350,15 @@ def _capture_tiff(path, edge, limit, role):
         pixels = 0
         for page in tiff.pages:
             counts, offsets = page.databytecounts, page.dataoffsets
+            planes, depth, rows, width, samples = page.shaped
+            # TIFF pads each scanline of a packed boolean page to a whole byte.
+            row_bytes = (width * samples * page.bitspersample + 7) // 8
             if (
                 page.dtype != dtype
                 or page.compression != 1  # the pinned writer emits uncompressed TIFFs
+                or page.is_tiled
                 or not counts
+                or sum(counts) != planes * depth * rows * row_bytes
                 or any(
                     o <= 0 or n <= 0 or o + n > len(raw)
                     for o, n in zip(offsets, counts, strict=True)

@@ -233,6 +233,7 @@ def test_checker_verifies_pinned_writer_exports_read_only(inputs, monkeypatch, c
         ("float_label", "invalid label TIFF shape or dtype"),
         ("wide_label", "outside 0..255"),
         ("truncated", "incomplete proofreader TIFF"),
+        ("short_strip_count", "incomplete proofreader TIFF"),
         ("link", "nonsymlink regular file"),
         ("linked_directory", "directory must not be linked"),
         ("wrong_export", "patch list/count differs"),
@@ -264,6 +265,11 @@ def test_export_check_refuses_inconsistent_approval_artifacts(
         with tifffile.TiffFile(label) as tiff:
             end = tiff.pages[-1].dataoffsets[-1] + tiff.pages[-1].databytecounts[-1]
         label.write_bytes(label.read_bytes()[: end - 1])
+    elif change == "short_strip_count":
+        # A contiguous TIFF decode can ignore an incorrect strip byte count.
+        with tifffile.TiffFile(label, mode="r+") as tiff:
+            tag = tiff.pages[0].tags["StripByteCounts"]
+            tag.overwrite((tag.value[0] - 1,))
     elif change == "link":
         moved = label.rename(root / "moved.tif")
         label.symlink_to(moved)

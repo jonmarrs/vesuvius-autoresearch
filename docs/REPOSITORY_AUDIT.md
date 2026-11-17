@@ -1782,3 +1782,9 @@ and document/claim guards passed **171 tests**, with one skip for absent local
 arm artifacts. CPU smoke passed **8 checks**, with three skips requiring a
 checkpoint or training inputs. Ruff, formatting and Mypy passed, and the offline
 lock resolved **258 packages**.
+
+PR review found that a contiguous TIFF could decode despite an incorrect
+strip byte count. The checker now requires declared bytes to match the stored
+page dimensions, including row padding for packed boolean images. The revised
+integration selection passed **194 tests**. A separate check decoded **24**
+default-writer TIFFs across packed boolean and numeric dtypes.

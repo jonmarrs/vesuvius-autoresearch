@@ -77,8 +77,12 @@ The optional check requires a saved progress log. It derives the expected
 matches the export list and count against the log. It reports missing or
 unlisted files and refuses repeated approvals at the same coordinates because
 Villa uses the same filenames for both saves.
+Villa's **Previous Patch** control can rewind the log while leaving a saved
+pair on disk. If a rewound patch is later skipped, the checker reports the
+leftover files as unlisted. Review those files before using the exports.
 
-Each TIFF must be a complete uncompressed cube of the recorded patch size.
+Each TIFF must be a complete uncompressed cube of the recorded patch size,
+with strip byte counts that match the page dimensions.
 The image must match the recorded CT crop voxel for voxel and preserve its
 dtype. The labels must be integers or booleans in `0..255`. On success,
 `progress.approved_exports` reports the pair count, coordinates, relative
