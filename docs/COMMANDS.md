@@ -54,8 +54,8 @@ dependency availability checks or GPU capacity guarantees. For example:
   CuPy and working CUDA; neither follows from the catalog entry alone.
 - The scroll-frames parsing API is stdlib-only, while its live `list` CLI needs
   `s3fs` and network access. The inventory describes that CLI mode.
-- Proofreader verification requires the pinned source and NumPy/Zarr but does
-  not import Napari. GUI launch needs separately provisioned GUI packages.
+- Proofreader verification requires the pinned source and NumPy/Zarr. Optional
+  TIFF export checks also use tifffile. GUI launch needs Napari and its GUI dependencies.
 - Loop control uses Linux process facilities. A stdlib classification does not
   mean a process-control command is portable to every operating system.
 
