@@ -84,6 +84,18 @@ What each does to the campaign:
 - **`DIFFERS`:** the cause is found before Studio reads anything of ours: environment, GPU, or input order.
 - **`DOES_NOT_RUN`:** the failure and its fix are reported, then the run is registered again.
 
+## Amendment 1, 2026-11-16, before any inference ran
+
+The first run stopped at step 2 (`DOES_NOT_RUN`).
+- **What ran:** the fetch passed, with all three checksums (weights, input, `inference.py`) matching the record.
+- **What failed:** this machine's uv (0.11.18) has no download for CPython 3.11.16
+  (`No download found for request: cpython-3.11.16-linux-x86_64-gnu`).
+- **What was not reached:** nothing of the model ran.
+
+The winner's own helper (`reproduce_submission.sh`) bootstraps `uv==0.13.6` in a venv of its own when uv is not
+installed. Step 2 now does the same, in its own folder under the run directory, and is otherwise unchanged. The
+first attempt's records are kept beside the second's. Everything else in this registration stands.
+
 ## What the result cannot do
 
 - Anything about our geometry or our renders: input, weights and command are all the winner's.

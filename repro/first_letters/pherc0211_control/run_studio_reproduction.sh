@@ -54,10 +54,16 @@ fetch() {
 }
 
 environment() {
-  uv python install 3.11.16 || return 1
-  [ -x "$ENV/bin/python" ] || uv venv --python 3.11.16 "$ENV" || return 1
-  uv pip install --python "$ENV/bin/python" --index-url https://pypi.org/simple -r "$V9/requirements-inference-exact.txt" || return 1
-  uv pip install --python "$ENV/bin/python" 'numpy==2.4.6' 'safetensors==0.8.0' || return 1
+  # the winner's helper bootstraps uv 0.13.6 when none is installed; this machine's uv (0.11.18) does not know
+  # CPython 3.11.16, so the same bootstrap is used here, in its own folder (amendment 1 of the registration)
+  local uvb=$C/work/studio_bootstrap/bin/uv
+  if [ ! -x "$uvb" ]; then
+    python3 -m venv "$C/work/studio_bootstrap" && "$C/work/studio_bootstrap/bin/python" -m pip install 'uv==0.13.6' || return 1
+  fi
+  "$uvb" python install 3.11.16 || return 1
+  [ -x "$ENV/bin/python" ] || "$uvb" venv --python 3.11.16 "$ENV" || return 1
+  "$uvb" pip install --python "$ENV/bin/python" --index-url https://pypi.org/simple -r "$V9/requirements-inference-exact.txt" || return 1
+  "$uvb" pip install --python "$ENV/bin/python" 'numpy==2.4.6' 'safetensors==0.8.0' || return 1
   "$ENV/bin/python" -I -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0), torch.cuda.is_bf16_supported())"
 }
 
