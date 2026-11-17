@@ -194,6 +194,45 @@ def test_inputs_changed_while_the_dataset_reads_them_are_refused(tmp_path, monke
         train.build_validation_dataset(config)
 
 
+def test_validation_rejects_a_catalog_rewrite_reverted_after_parsing(
+    tmp_path, monkeypatch
+):
+    import zarr
+    from PIL import Image
+
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    frag = _fragment(tmp_path)
+    uri = str(frag / "surface_volume.zarr")
+    zarr.open(uri, mode="w", shape=(32, 32, 32), chunks=(8, 16, 16), dtype="u1")[:] = 17
+    Image.fromarray(np.full((32, 32), 255, dtype=np.uint8)).save(frag / "inklabels.png")
+    Image.fromarray(np.full((32, 32), 255, dtype=np.uint8)).save(frag / "mask.png")
+    catalog = frag / "patches.json"
+    raw = b'{"patches":[{"y":0,"x":0}]}'
+    catalog.write_bytes(raw)
+    config = ExperimentConfig(val_uri=uri, num_layers=16, patch_size=16)
+
+    original_fingerprint = promotion.validation_inputs_fingerprint(uri)
+    stable = train.build_validation_dataset(config)
+    assert stable.validation_inputs == original_fingerprint
+    assert stable.valid_coords.tolist() == [[0, 0]]
+    read_catalog = vesuvius_loader.read_patch_catalog
+
+    def read_replacement(path, *args):
+        catalog.write_bytes(b'{"patches":[{"y":16,"x":0}]}')
+        try:
+            coords, digest = read_catalog(path, *args)
+            assert coords == [(16, 0)]
+            return coords, digest
+        finally:
+            catalog.write_bytes(raw)
+
+    monkeypatch.setattr(vesuvius_loader, "read_patch_catalog", read_replacement)
+    with pytest.raises(RuntimeError, match="patch catalog changed"):
+        train.build_validation_dataset(config)
+    assert promotion.validation_inputs_fingerprint(uri) == original_fingerprint
+
+
 def test_training_stops_before_its_budget_on_other_inputs(tmp_path):
     diag = {"protocol": promotion.VALIDATION_PROTOCOL, "inputs_sha256": "a" * 64}
     path = _checkpoint(tmp_path / "best_model.pt", validation_diag=diag)
