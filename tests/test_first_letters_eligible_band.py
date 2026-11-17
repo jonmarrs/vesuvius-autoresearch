@@ -490,17 +490,32 @@ def test_the_verdict_command_does_not_run_without_the_full_arm(tmp_path):
     assert (record["p1"], record["p2"]) == (False, False)
 
 
-def test_the_verdict_command_does_not_run_when_the_full_arm_scored_no_winding(
-    tmp_path,
+def _unscored(written: int) -> dict:
+    """A score file that wrote windings and scored none of them."""
+    return {
+        "summary": {"windings": written, "windings_scored": 0},
+        "windings": {f"w{10 + i:03d}": None for i in range(written)},
+    }
+
+
+@pytest.mark.parametrize("written", [0, 2])
+def test_the_verdict_command_records_a_full_fit_that_scored_no_winding(
+    tmp_path, written
 ):
-    """A full fit whose windings all miss the field: the summary has no median and the command raised KeyError
-    (found in the review of finding 117's PR)."""
-    windings = {"w010": None, "w011": None}
-    empty = {"summary": bq.summarise(windings), "windings": windings}
-    record = _judge(tmp_path, _quality(0.0, 0.5), empty)
+    record = _judge(tmp_path, _quality(0.0, 0.5), _unscored(written))
     assert record["verdict"] == "DOES_NOT_RUN"
     assert (record["p1"], record["p2"]) == (False, False)
+    assert record["full"]["windings_scored"] == 0
     assert record["full_by_index"] == []
+    assert record["smoke"]["excess_median"] == 0.0
+    assert bv.by_index(_unscored(written)) == []
+
+
+def test_an_unscored_smoke_fit_still_records_the_full_arm(tmp_path):
+    record = _judge(tmp_path, _unscored(3), _quality(0.2, 0.9))
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert (record["p1"], record["p2"]) == (True, True)
+    assert [part["windings"] for part in record["full_by_index"]] == [40, 40, 40]
 
 
 def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
@@ -521,36 +536,6 @@ def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
     assert 'spec["spiral_outward_sense"] = sys.argv[3]' in text
     assert 'fit_spiral.py --dataset "$DATASET" --cache' in text
     assert 'ln -s "$R/dataset/tracks" "$DATASET/tracks"' in text
-
-
-def _env(tmp_path, **extra):
-    """The variables env.sh sets, sourced in a clean shell with its run root under tmp_path."""
-    import subprocess
-
-    env = {"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path), **extra}
-    out = subprocess.run(
-        ["bash", "-c", '. "$0"; printf "%s\\n" "$R" "$SURF_CHUNKS" "$CT_CHUNKS" "$LASAGNA_CHUNKS"', str(HERE / "env.sh")],
-        env=env, capture_output=True, text=True, check=True,
-    ).stdout.splitlines()  # fmt: skip
-    return dict(zip(("R", "surface", "ct", "lasagna"), out, strict=True))
-
-
-def test_the_default_band_fetches_the_chunks_it_always_did(tmp_path):
-    v = _env(tmp_path)
-    assert v["R"] == f"{tmp_path}/pherc0211_band"
-    assert (v["surface"], v["ct"], v["lasagna"]) == ("25 31", "39 46", "79 92")
-    assert _env(tmp_path, FL_SCROLL="PHerc0826")["R"] == f"{tmp_path}/pherc0826_band"
-
-
-def test_another_band_gets_its_own_directory_and_the_chunks_that_cover_it(tmp_path):
-    v = _env(tmp_path, FL_BAND="z7650", FL_Z_BEGIN="7650", FL_Z_END="9150")
-    assert v["R"] == f"{tmp_path}/pherc0211_band_z7650"
-    assert (v["surface"], v["ct"], v["lasagna"]) == ("18 24", "29 35", "59 71")
-    # every chunk range covers the band and the 64 slices either side, at its level and chunk size
-    lo, hi = 7650 - 64, 9150 + 64
-    for key, voxels_per_chunk in (("surface", 384), ("ct", 256), ("lasagna", 128)):
-        first, last = (int(x) for x in v[key].split())
-        assert first * voxels_per_chunk <= lo and (last + 1) * voxels_per_chunk > hi
 
 
 # Added by the design review of 2026-11-16: guards of the spacing description that the tests above do not reach.
@@ -739,3 +724,182 @@ def test_the_spacing_command_writes_nothing_when_no_node_is_in_the_field(
     )
     assert code == 1 and not out.exists()
     assert "no node inside the distance field" in capsys.readouterr().err
+
+
+# Added by the design review of 2026-11-16: the fit launcher's own blocks, run, and the verdict command's arguments.
+
+
+def _launcher_block(start, end):
+    text = (HERE / "run_fit.sh").read_text()
+    first = text.index(start)
+    return text[first : text.index(end, first)]
+
+
+def _arm(*argv):
+    """The fit launcher's handling of its arguments, run alone: kind, outer winding, flip and step count."""
+    import subprocess
+
+    block = _launcher_block("ARM=${1:?", "OUT=$R/work/fit_$ARM")
+    script = "set -u\n" + block + 'echo "$KIND|$OUTER|$FLIP|$STEPS"\n'
+    return subprocess.run(
+        ["bash", "-c", script, "run_fit.sh", *argv], capture_output=True, text=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("argv", "parsed"),
+    [
+        (("full",), "full|||30000"),
+        (("smoke", "300"), "smoke|||300"),
+        (("outer80",), "full|80||30000"),
+        (("outer80-smoke", "300"), "smoke|80||300"),
+        (("outer80-otherhand",), "full|80|1|30000"),
+        (("outer80-otherhand-smoke", "300"), "smoke|80|1|300"),
+    ],
+)
+def test_the_fit_launcher_reads_each_arm(argv, parsed):
+    result = _arm(*argv)
+    assert (result.returncode, result.stdout.strip()) == (0, parsed), result.stderr
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (("outer0",), "unknown arm"),
+        (("outer80x",), "unknown arm"),
+        (("outer8-0-smoke", "300"), "unknown arm"),
+        (("other",), "unknown arm"),
+        (("full", "300"), "takes no step count"),
+        (("outer80-otherhand", "300"), "takes no step count"),
+        (("smoke",), "a smoke arm needs a step count"),
+    ],
+)
+def test_the_fit_launcher_refuses_an_arm_it_does_not_know(argv, message):
+    result = _arm(*argv)
+    assert result.returncode != 0 and result.stdout == ""
+    assert message in result.stderr
+
+
+def _overrides(outer, steps="300"):
+    """The settings the fit launcher hands villa, from its own snippet."""
+    import subprocess
+
+    code = _launcher_block(
+        'FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c \'', '\' "$Z_BEGIN"'
+    ).split("'", 1)[1]
+    argv = [sys.executable, "-I", "-c", code, "10250", "11750", steps, outer]
+    return json.loads(
+        subprocess.run(argv, capture_output=True, text=True, check=True).stdout
+    )
+
+
+def test_the_fit_launcher_changes_the_winding_count_only_for_an_outer_arm():
+    recipe = {
+        "z_begin": 10250,
+        "z_end": 11750,
+        "input_disable_patches": True,
+        "loss_weight_shell_outer": 0,
+        "loss_weight_shell_patch_radius": 0,
+        "dense_spacing_mode": "phase",
+        "optimizer_num_training_steps": 300,
+    }
+    assert _overrides("") == recipe
+    assert _overrides("80", steps="30000") == {
+        **recipe,
+        "optimizer_num_training_steps": 30000,
+        "shell_outer_winding_idx": 80,
+        "model_gap_expander_num_windings": 83,
+    }
+
+
+def _flip(tmp_path, sense, flip="1"):
+    """The fit launcher's dataset step, run alone, on a band directory in `tmp_path`."""
+    import os
+    import subprocess
+
+    band = tmp_path / "band"
+    dataset = band / "dataset"
+    (dataset / "tracks").mkdir(parents=True)
+    spec = {"spiral_outward_sense": sense, "volume": "v"}
+    (dataset / "spiral-scroll.json").write_text(json.dumps(spec))
+    (dataset / "umbilicus.json").write_text('{"points": [1, 2]}')
+    out = band / "work" / "fit_outer80-otherhand"
+    out.mkdir(parents=True)
+    block = _launcher_block("DATASET=$R/dataset\n", "export FIT_SPIRAL_OUT_DIR=$OUT")
+    env = dict(os.environ, R=str(band), OUT=str(out), PY=sys.executable)
+    env.update(SENSE=sense, FLIP=flip)
+    script = "set -u\n" + block + 'echo "$DATASET|$SENSE"\n'
+    result = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env
+    )
+    return result, dataset, out / "dataset"
+
+
+@pytest.mark.parametrize(("sense", "other"), [("ACW", "CW"), ("CW", "ACW")])
+def test_an_otherhand_arm_fits_a_copy_of_the_dataset_turned_the_other_way(
+    tmp_path, sense, other
+):
+    result, published, copy = _flip(tmp_path, sense)
+    assert (result.returncode, result.stdout.strip()) == (0, f"{copy}|{other}")
+    assert json.loads((copy / "spiral-scroll.json").read_text()) == {
+        "spiral_outward_sense": other,
+        "volume": "v",
+    }
+    assert (copy / "tracks").resolve() == (published / "tracks").resolve()
+    umbilicus = (published / "umbilicus.json").read_text()
+    assert (copy / "umbilicus.json").read_text() == umbilicus
+    # the published description is left as it was
+    assert (
+        json.loads((published / "spiral-scroll.json").read_text())[
+            "spiral_outward_sense"
+        ]
+        == sense
+    )
+
+
+def test_an_arm_that_does_not_flip_fits_the_published_dataset(tmp_path):
+    result, published, copy = _flip(tmp_path, "ACW", flip="")
+    assert (result.returncode, result.stdout.strip()) == (0, f"{published}|ACW")
+    assert not copy.exists()
+
+
+def test_the_verdict_command_takes_both_arms_or_neither(tmp_path, capsys):
+    out = tmp_path / "verdict.json"
+    for argv in (
+        [str(tmp_path)],
+        [str(tmp_path), str(out), "outer80"],
+        [str(tmp_path), str(out), "outer80-smoke", "outer80", "extra"],
+    ):
+        assert bv.main(argv) == 2
+        assert "usage:" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def _env(tmp_path, **extra):
+    """The variables env.sh sets, sourced in a clean shell with its run root under tmp_path."""
+    import subprocess
+
+    env = {"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path), **extra}
+    out = subprocess.run(
+        ["bash", "-c", '. "$0"; printf "%s\\n" "$R" "$SURF_CHUNKS" "$CT_CHUNKS" "$LASAGNA_CHUNKS"', str(HERE / "env.sh")],
+        env=env, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()  # fmt: skip
+    return dict(zip(("R", "surface", "ct", "lasagna"), out, strict=True))
+
+
+def test_the_default_band_fetches_the_chunks_it_always_did(tmp_path):
+    v = _env(tmp_path)
+    assert v["R"] == f"{tmp_path}/pherc0211_band"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("25 31", "39 46", "79 92")
+    assert _env(tmp_path, FL_SCROLL="PHerc0826")["R"] == f"{tmp_path}/pherc0826_band"
+
+
+def test_another_band_gets_its_own_directory_and_the_chunks_that_cover_it(tmp_path):
+    v = _env(tmp_path, FL_BAND="z7650", FL_Z_BEGIN="7650", FL_Z_END="9150")
+    assert v["R"] == f"{tmp_path}/pherc0211_band_z7650"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("18 24", "29 35", "59 71")
+    # every chunk range covers the band and the 64 slices either side, at its level and chunk size
+    lo, hi = 7650 - 64, 9150 + 64
+    for key, voxels_per_chunk in (("surface", 384), ("ct", 256), ("lasagna", 128)):
+        first, last = (int(x) for x in v[key].split())
+        assert first * voxels_per_chunk <= lo and (last + 1) * voxels_per_chunk > hi

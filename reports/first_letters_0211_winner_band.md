@@ -103,7 +103,8 @@ miss a faint sheet, so "between sheets" may mean "on a sheet the prediction does
 ## Defects found before the measurement
 
 - **The band verdict crashed when the full fit scored no winding** (a `KeyError` in `band_fit_verdict.holds`, and
-  a zero step in `by_index`). It now says `DOES_NOT_RUN`, with a test.
+  a zero step in `by_index`). It now says `DOES_NOT_RUN`. This branch fixed it first; main fixed it independently
+  in #441, and this branch now uses main's fix and tests.
 - **A dry run of the choose step on the 300-step smoke fit**, writing only to a scratch folder, found two more.
   - villa's Python environment cannot read the winner's LZW-compressed surface files (`imagecodecs` missing), so
     `winner_sheet.py` runs on this repository's environment.
