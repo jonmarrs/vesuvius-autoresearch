@@ -38,6 +38,24 @@ fi
 OUT=$R/work/fit_$ARM
 [ -e "$OUT" ] && { echo "$OUT exists: an arm is run once" >&2; exit 2; }
 [ -s "$R/dataset/spiral-scroll.json" ] || { echo "no dataset: run setup/make_dataset.sh" >&2; exit 2; }
+# The settings are checked before the arm's folder is made, so a typo leaves nothing behind to block the rerun.
+FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c '
+import json, sys
+for name, value in zip(("Z_BEGIN", "Z_END", "STEPS", "OUTER"), sys.argv[1:]):
+    try:
+        int(value or 0)
+    except ValueError:
+        sys.exit(f"run_fit.sh: invalid settings ({name}={value}): not a whole number")
+overrides = {
+    "z_begin": int(sys.argv[1]), "z_end": int(sys.argv[2]), "input_disable_patches": True,
+    "loss_weight_shell_outer": 0, "loss_weight_shell_patch_radius": 0,
+    "dense_spacing_mode": "phase", "optimizer_num_training_steps": int(sys.argv[3]),
+}
+if sys.argv[4]:
+    overrides["shell_outer_winding_idx"] = int(sys.argv[4])
+    overrides["model_gap_expander_num_windings"] = int(sys.argv[4]) + 3
+print(json.dumps(overrides))' "$Z_BEGIN" "$Z_END" "$STEPS" "$OUTER") || exit 2
+export FIT_SPIRAL_CONFIG_OVERRIDES
 mkdir -p "$OUT" "$R/work/cache"
 DATASET=$R/dataset
 if [ -n "$FLIP" ]; then
@@ -56,18 +74,6 @@ fi
 export FIT_SPIRAL_OUT_DIR=$OUT
 unset FIT_SPIRAL_RUN_TAG WANDB_MODE
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c '
-import json, sys
-overrides = {
-    "z_begin": int(sys.argv[1]), "z_end": int(sys.argv[2]), "input_disable_patches": True,
-    "loss_weight_shell_outer": 0, "loss_weight_shell_patch_radius": 0,
-    "dense_spacing_mode": "phase", "optimizer_num_training_steps": int(sys.argv[3]),
-}
-if sys.argv[4]:
-    overrides["shell_outer_winding_idx"] = int(sys.argv[4])
-    overrides["model_gap_expander_num_windings"] = int(sys.argv[4]) + 3
-print(json.dumps(overrides))' "$Z_BEGIN" "$Z_END" "$STEPS" "$OUTER")
-export FIT_SPIRAL_CONFIG_OVERRIDES
 cd "$SPIRAL" || exit 2
 echo "FIT_START $(date -Is) scroll=$SCROLL sense=$SENSE arm=$ARM steps=$STEPS overrides=$FIT_SPIRAL_CONFIG_OVERRIDES"
 nvidia-smi --query-gpu=timestamp,memory.used,utilization.gpu --format=csv,noheader -l 5 \
