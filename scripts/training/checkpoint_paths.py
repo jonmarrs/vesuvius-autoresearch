@@ -11,10 +11,16 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
     validate_plan_paths,
 )
 
-# A colon starts a URL only as "://" or "scheme:/". urlsplit treats the text
-# before any colon as a scheme, so a local name such as run-08:00.pt would
-# otherwise be refused. A Windows drive (C:/...) is a local path.
-_URL_PREFIX = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:/")
+# A colon starts a URL as "://", "scheme:/", or a known scheme with no slash
+# (s3:bucket/x.pt). urlsplit treats the text before any colon as a scheme, so a
+# local name such as run-08:00.pt would otherwise be refused. A single letter
+# is a Windows drive, never a known scheme, so C:\x.pt is a local name; C:/x.pt
+# is local only where Path sees a drive.
+_SCHEME = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*):")
+_URL_SCHEMES = frozenset(
+    {"s3", "s3a", "s3n", "gs", "gcs", "az", "abfs", "abfss", "hf", "http", "https"}
+    | {"ftp", "sftp", "file", "data"}
+)
 
 LOOP_STATE = (
     "best_model.pt",
@@ -41,8 +47,16 @@ LOOP_STATE = (
 
 
 def _is_url(raw):
-    """True for ``s3://...`` and ``file:/...``, not for a colon inside a local name."""
-    return "://" in raw or bool(_URL_PREFIX.match(raw) and not Path(raw).drive)
+    """True for ``s3://...``, ``file:/...`` and ``s3:bucket``, not ``run-08:00.pt``."""
+    raw = raw.lstrip()
+    scheme = _SCHEME.match(raw)
+    return "://" in raw or bool(
+        scheme
+        and (
+            scheme[1].lower() in _URL_SCHEMES
+            or (raw[scheme.end() :].startswith("/") and not Path(raw).drive)
+        )
+    )
 
 
 def validate_checkpoint_writes(paths, *, inputs=(), base_dir=None):
