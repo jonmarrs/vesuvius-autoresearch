@@ -1,8 +1,8 @@
 """Read-only path checks for experiment checkpoints and learning-curve artifacts."""
 
 import os
+import re
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from scripts.training.data_split import local_volume_path
 from scripts.training.input_paths import VALIDATION_LABEL_FILES
@@ -10,6 +10,11 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
     validate_output_file,
     validate_plan_paths,
 )
+
+# A colon starts a URL only as "://" or "scheme:/". urlsplit treats the text
+# before any colon as a scheme, so a local name such as run-08:00.pt would
+# otherwise be refused. A Windows drive (C:/...) is a local path.
+_URL_PREFIX = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:/")
 
 LOOP_STATE = (
     "best_model.pt",
@@ -35,6 +40,11 @@ LOOP_STATE = (
 )
 
 
+def _is_url(raw):
+    """True for ``s3://...`` and ``file:/...``, not for a colon inside a local name."""
+    return "://" in raw or bool(_URL_PREFIX.match(raw) and not Path(raw).drive)
+
+
 def validate_checkpoint_writes(paths, *, inputs=(), base_dir=None):
     """Protect loop state and supplied inputs before creating or replacing files.
 
@@ -45,9 +55,9 @@ def validate_checkpoint_writes(paths, *, inputs=(), base_dir=None):
     writes = []
     for path in paths:
         raw = os.fspath(path)
-        if not raw.strip() or urlsplit(raw).scheme:
+        if not raw.strip() or _is_url(raw):
             raise ValueError(
-                "checkpoint outputs must be nonempty local filesystem paths"
+                "checkpoint outputs must be nonempty local filesystem paths, not URLs"
             )
         destination = base / raw
         try:
