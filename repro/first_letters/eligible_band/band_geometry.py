@@ -11,7 +11,10 @@ Described after a band read; geometry only, no ink. For each winding of the arm:
   covered are surface the flatten made where the snap had none;
 - the same inward share for the snapped winding, before the flatten;
 - `trusted`: the share of the final winding's nodes that lie on the snapped sheet (covered, and within 2 voxels
-  along its normal) and whose render layers run outward, as on PHerc. 211 where Studio drew the letters.
+  along its normal) and whose render layers run outward, as on PHerc. 211 where Studio drew the letters;
+- `off_sheet_by_radius_tercile`: the share of nodes off the snapped sheet among the winding's inner, middle and
+  outer third of radii from the axis. On a crushed scroll the outer third is the tips of the flattened cross-section,
+  where the sheet turns sharply.
 
 With --masks DIR, one 8-bit image per winding at grid resolution (one pixel per node, 20 render pixels):
 255 on the snapped sheet with layers running outward; 128 on the snapped sheet with layers running inward (Studio
@@ -133,7 +136,24 @@ def geometry(root: Path, arm: str, masks: Path | None = None) -> dict:
         if masks is not None:
             cv2.imwrite(str(masks / f"{n}.png"), classes)
         surface = int((classes > 0).sum())
+        radius = np.linalg.norm(
+            xyz[..., :2] - on_axis(xyz[..., 2].ravel()).reshape(xyz.shape[:2] + (2,)),
+            axis=-1,
+        )
+        terciles = []
+        if surface:
+            r = radius[classes > 0]
+            edges = np.percentile(r, [100 / 3, 200 / 3])
+            band_of = np.digitize(r, edges)
+            off = classes[classes > 0] == OFF_SHEET
+            terciles = [
+                round(float(off[band_of == k].mean()), 4)
+                if (band_of == k).any()
+                else None
+                for k in range(3)
+            ]
         out["windings"][n] = {
+            "off_sheet_by_radius_tercile": terciles,
             "render": orient[n]["render"],
             "trusted": round(float((classes == TRUSTED).sum()) / surface, 4)
             if surface
@@ -163,6 +183,9 @@ def geometry(root: Path, arm: str, masks: Path | None = None) -> dict:
         },
         "inward_against_band_centre_median": med(x["inward_against_band_centre"] for x in w),
         "trusted_median": med(x["trusted"] for x in w),
+        "off_sheet_by_radius_tercile_median": [
+            med(x["off_sheet_by_radius_tercile"][k] for x in w if x["off_sheet_by_radius_tercile"]) for k in range(3)
+        ],
         "other_side_median": med(x["other_side"] for x in w),
         "snapped_inward_against_axis_median": med(x["snapped_inward_against_axis"] for x in w),
         "final_on_snap_covered_median": med(x["final_on_snap"]["covered"] for x in w),

@@ -116,6 +116,10 @@ def test_the_record_counts_trusted_area_and_names_windings_rendered_against_the_
         w["w010"]["final_on_snap"]["covered"] == 1.0
     )  # nodes 20 voxels apart: the edges are covered too
     assert rec["summary"]["windings"] == 2
+    terciles = w["w010"]["off_sheet_by_radius_tercile"]
+    assert len(terciles) == 3 and {v for v in terciles if v is not None} == {
+        0.0
+    }  # a circle: all on the sheet
     import cv2
 
     mask = cv2.imread(str(tmp_path / "masks" / "w010.png"), cv2.IMREAD_GRAYSCALE)
