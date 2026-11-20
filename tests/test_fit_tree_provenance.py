@@ -8,6 +8,7 @@ later copy or upgrade cannot silently change what the arms ran on.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +26,143 @@ _needs = pytest.mark.skipif(
     not (_TREE.is_dir() and (_VILLA / ".git").exists()),
     reason="fit tree or villa submodule not present",
 )
+
+
+@pytest.fixture
+def synthetic_trees(tmp_path):
+    """Tiny local history; no Villa checkout or original research inputs."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+
+    git("init", "-q")
+    for sub in mod.SUBTREES:
+        (repo / sub).mkdir()
+        (repo / sub / "source.py").write_text("original\n")
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=Synthetic Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "-qm",
+        "original subtrees",
+    )
+    first = git("rev-parse", "HEAD")
+    (repo / "spiral-fitting" / "source.py").write_text("updated\n")
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=Synthetic Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "-qm",
+        "updated fit subtree",
+    )
+    second = git("rev-parse", "HEAD")
+    tree = tmp_path / "copy"
+    shutil.copytree(repo, tree, ignore=shutil.ignore_patterns(".git"))
+
+    def run(*commits):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(Path(mod.__file__).resolve()),
+                "--repo",
+                str(repo),
+                "--tree",
+                str(tree),
+                "--commits",
+                *commits,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.stdout
+
+    return tree, first, second, run
+
+
+@pytest.mark.parametrize("mixed_matches", [False, True])
+def test_partial_match_does_not_certify_the_whole_tree(synthetic_trees, mixed_matches):
+    tree, first, second, run = synthetic_trees
+    (tree / "lasagna" / "source.py").write_text("different\n")
+    output = run(first, second) if mixed_matches else run(second)
+    assert "Only 2/3 compared subtrees matched a candidate" in output
+    assert "lasagna          NONE of the candidates" in output
+    for sub, commit in (
+        ("spiral-fitting", second),
+        ("vesuvius", first if mixed_matches else second),
+    ):
+        assert f"{sub:16} {commit}" in output
+    assert "whole tree matches" not in output
+    assert "All 3 compared subtrees match" not in output
+
+
+def test_complete_match_is_scoped_to_compared_tracked_files(synthetic_trees):
+    tree, _, second, run = synthetic_trees
+    # Extra local files are outside this tool's tracked-file comparison.
+    (tree / "lasagna" / "extra.py").write_text("not in the candidate\n")
+    output = run(second)
+    assert f"All 3 compared subtrees match tracked files at {second}" in output
+    assert "extra local files and absent local subtrees were not checked" in output
+    assert "whole tree matches" not in output
+
+
+def test_absent_local_subtrees_are_not_certified(synthetic_trees):
+    tree, _, second, run = synthetic_trees
+    shutil.rmtree(tree / "lasagna")
+    shutil.rmtree(tree / "vesuvius")
+    output = run(second)
+    assert f"All 1 compared subtrees match tracked files at {second}" in output
+    assert "extra local files and absent local subtrees were not checked" in output
+    assert "whole tree matches" not in output
+
+
+def test_mixed_matches_remain_reported_per_subtree(synthetic_trees):
+    _, first, second, run = synthetic_trees
+    output = run(first, second)
+    assert "Compared subtrees selected different candidate matches" in output
+    for sub, commit in (
+        ("spiral-fitting", second),
+        ("lasagna", first),
+        ("vesuvius", first),
+    ):
+        assert f"{sub:16} {commit}" in output
+    assert "whole tree matches" not in output
+    # Choosing different first matches does not prove no common ref exists.
+    assert "THE TREE IS NOT ONE REF" not in output
+    assert f"All 3 compared subtrees match tracked files at {second}" in run(second)
+
+
+def test_no_matching_candidate_is_reported(synthetic_trees):
+    tree, _, second, run = synthetic_trees
+    for sub in mod.SUBTREES:
+        (tree / sub / "source.py").write_text("different\n")
+    output = run(second)
+    assert "Only 0/3 compared subtrees matched a candidate" in output
+    assert "whole tree matches" not in output
+
+
+def test_no_supported_local_subtrees_means_nothing_compared(synthetic_trees):
+    tree, _, second, run = synthetic_trees
+    for sub in mod.SUBTREES:
+        shutil.rmtree(tree / sub)
+    output = run(second)
+    assert "No supported local subtrees found; nothing compared" in output
+    assert "whole tree matches" not in output
 
 
 @_needs
