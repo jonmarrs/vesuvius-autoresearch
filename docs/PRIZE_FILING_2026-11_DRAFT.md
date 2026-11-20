@@ -131,8 +131,8 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     1,500-slice band around the surface (3 h 32 min, 12.3 GB of GPU memory) reaches the winner's sheet in two
     pieces.
     * 88% of the winner's nodes lie within 2 voxels of some winding.
-    * One winding follows the sheet for 34 mm and a winding two further in follows the rest, each at finding 110's
-      line.
+    * One winding follows the sheet for 34 mm and a winding two further in follows the rest, each at the PHerc. 343
+      mesh step's line (half the nodes within 2 voxels).
     * The two windings between them sit between predicted sheets.
   * **A second, MIT-licensed reader** ([report](../reports/first_letters_0211_reader_v3.md)): Reader V3 on the
     winner's surface gives r = 0.63, closer than the four models but short of the registered margin. Its map shows
@@ -144,7 +144,7 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
   * **What it shows:** on one RTX 4090, the published recipe finds the ink at a known text place. The geometry
     costs almost nothing there, and the reader is what separates it from letters.
   * **Failures and fixes on the way:**
-    * a depth bug in finding 110's transfer code;
+    * a depth bug in the PHerc. 343 mesh step's transfer code;
     * the band verdict crashing on an unscored fit (also fixed in #441);
     * villa's environment unable to read the winner's LZW surface files;
     * villa's `_spliced` twins counted as windings;
