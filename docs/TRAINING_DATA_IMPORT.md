@@ -120,6 +120,25 @@ separate decisions in the [audit](REPOSITORY_AUDIT.md#items-for-owner-review).
 The policy checks returned chunks; it does not prove that a Zarr store is
 complete or that a readable fill value represents acquired CT.
 
+## Supply an explicit patch catalog
+
+An optional `patches.json` beside the volume replaces automatic patch discovery
+for labeled training and validation. Generate one with `scripts/find_patches.py`
+when you want to reuse coordinates selected for a particular volume and patch size.
+The reader accepts catalogs up to 16 MiB. The JSON must contain a nonempty
+`patches` list, with integer `y` and `x` origins whose full patch fits on the CT
+grid. If present, `patch_size` must match the experiment and `num_patches`
+must match the list length. Order and repeated origins are preserved for the
+sampler. The source paths written by the generator are descriptive and can
+refer to an earlier checkout.
+
+The loader rejects malformed catalogs in both training read modes before
+sampling any patches. Check the named file and entry in the error. The existing
+jitter still applies to accepted origins. Validation checks the SHA-256 of the
+bytes parsed by the dataset against the catalog in its input fingerprint, even
+if a file was rewritten during construction and then restored. Keep the catalog
+and its source data together and confirm alignment as part of split review.
+
 ## Resource and publication limits
 
 Defaults apply separately to both subcommands:

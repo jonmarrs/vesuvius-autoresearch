@@ -22,6 +22,14 @@ checkpoint weights, GPU readiness or training data. Execution checks checkpoint
 compatibility before invoking the trainer; data/backend errors remain execution
 failures.
 
+Planning and `--help` require only Python's standard library in this editable
+checkout. Protocol constants/name formatting are shared with promotion through
+an array-free metadata module; their values and the full promotion API are
+preserved. Execution still requires the training environment. The Unix process
+control imports remain a platform condition even for planning.
+The selected input identities also bind that shared protocol metadata source;
+changing it after planning refuses execution.
+
 Config-relative local paths resolve against the config's directory. Remote URIs
 retain their spelling. `--runs` is an integer from 2 to 16. The config's positive
 integer time budget is at most 86,400 seconds. `--timeout` is a positive finite

@@ -300,7 +300,7 @@ def main(argv=None):
         "--patches-json",
         type=str,
         default=None,
-        help="Path to pre-computed optimal patches.json (from vesuvius.find_patches) to override runtime dataset scanning.",
+        help="Use a patches.json from scripts/find_patches.py instead of runtime patch discovery.",
     )
     parser.add_argument(
         "--min-distance",

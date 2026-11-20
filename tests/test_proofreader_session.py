@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+import tifffile
 import zarr
 
 from scripts import check_proofreader_session as check, launch_proofreader as launcher
@@ -60,8 +61,21 @@ def _launch(inputs, monkeypatch, child=None, extra=(), returncode=0):
     return result, configs
 
 
-def _pinned_progress(config):
-    """Execute only pinned update_progress, using its real serializer unchanged."""
+def _pinned_function(name, namespace):
+    node = next(
+        n
+        for n in ast.parse(PROOFREADER.read_text()).body
+        if isinstance(n, ast.FunctionDef) and n.name == name
+    )
+    exec(
+        compile(ast.Module(body=[node], type_ignores=[]), str(PROOFREADER), "exec"),
+        namespace,
+    )
+    return namespace[name]
+
+
+def _pinned_progress(config, *, save=False):
+    """Exercise the pinned writer/serializer without constructing a viewer."""
     root = Path(config["dataset_out_path"])
     root.mkdir(exist_ok=True)
     selected = config["volumes"]["Autoresearch_Prediction"]
@@ -85,12 +99,6 @@ def _pinned_progress(config):
             {"index": 1, "coords": (0, 0, 8), "percentage": 100.0, "status": "pending"},
         ],
     }
-    node = next(
-        n
-        for n in ast.parse(PROOFREADER.read_text()).body
-        if isinstance(n, ast.FunctionDef) and n.name == "update_progress"
-    )
-    module = ast.Module(body=[node], type_ignores=[])
     namespace = {
         "state": state,
         "json": json,
@@ -99,8 +107,25 @@ def _pinned_progress(config):
             volume_selection=SimpleNamespace(value="Autoresearch_Prediction")
         ),
     }
-    exec(compile(module, str(PROOFREADER), "exec"), namespace)
-    namespace["update_progress"]()
+    if save:
+        Path(state["images_out_dir"]).mkdir()
+        Path(state["labels_out_dir"]).mkdir()
+        state["current_patch"] = {
+            "coords": (0, 0, 0),
+            "image": state["image_volume"][:8, :8, :8],
+        }
+        namespace.update(
+            os=os,
+            tifffile=tifffile,
+            np=np,
+            viewer=SimpleNamespace(
+                layers={
+                    "patch_label": SimpleNamespace(data=np.full((8,) * 3, 42, "u2"))
+                }
+            ),
+        )
+        _pinned_function("save_current_patch", namespace)()
+    _pinned_function("update_progress", namespace)()
 
 
 def _all_bytes(root):
@@ -118,17 +143,8 @@ def test_pinned_progress_loader_accepts_wrong_source_but_checker_refuses(
     progress["metadata"]["image_zarr"] = "/different/ct.zarr"
     path.write_text(json.dumps(progress))
     state = {"save_progress": True, "progress_file": str(path)}
-    node = next(
-        n
-        for n in ast.parse(PROOFREADER.read_text()).body
-        if isinstance(n, ast.FunctionDef) and n.name == "load_progress"
-    )
     namespace = {"state": state, "json": json, "os": os}
-    exec(
-        compile(ast.Module(body=[node], type_ignores=[]), str(PROOFREADER), "exec"),
-        namespace,
-    )
-    namespace["load_progress"]()
+    _pinned_function("load_progress", namespace)()
     assert state["progress_log"] == progress["progress_log"]
     assert state["current_index"] == 2
     with pytest.raises(ValueError, match="context differs"):
@@ -181,6 +197,169 @@ def test_receipt_is_an_initial_record_even_if_gui_has_no_progress(
     assert "completion" not in json.loads(
         (inputs[2] / sessions.RECORD_NAME).read_text()
     )
+
+
+def test_checker_verifies_pinned_writer_exports_read_only(inputs, monkeypatch, capsys):
+    ct, _, root = inputs
+    zarr.open(str(ct), mode="r+")[:, :, 8:] = 123  # distinguish the pending crop
+    assert (
+        _launch(inputs, monkeypatch, lambda c: _pinned_progress(c, save=True))[0] == 0
+    )
+    before = _all_bytes(root.parent)
+    capsys.readouterr()
+    assert check.main(["--session", str(root), "--verify-approved-patches"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["approved_patch_files_verified"] is True
+    assert report["resume_supported"] is False
+    assert report["ink_training_ingestion_supported"] is False
+    verified = report["progress"]["approved_exports"]
+    assert verified["pairs_verified"] == 1
+    pair = verified["pairs"][0]
+    assert pair["coords_zyx"] == [0, 0, 0]
+    for role in ("image", "label"):
+        item = pair[role]
+        raw = (root / item["path"]).read_bytes()
+        assert item["sha256"] == hashlib.sha256(raw).hexdigest()
+        assert item["bytes"] == len(raw)
+    assert _all_bytes(root.parent) == before
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("missing", "missing approved TIFF"),
+        ("orphan", "unlisted proofreader export"),
+        ("wrong_crop", "differs from recorded CT"),
+        ("float_label", "invalid label TIFF shape or dtype"),
+        ("wide_label", "outside 0..255"),
+        ("truncated", "incomplete proofreader TIFF"),
+        ("short_strip_count", "incomplete proofreader TIFF"),
+        ("link", "nonsymlink regular file"),
+        ("linked_directory", "directory must not be linked"),
+        ("wrong_export", "patch list/count differs"),
+        ("duplicate_approval", "duplicate approval"),
+    ],
+)
+def test_export_check_refuses_inconsistent_approval_artifacts(
+    inputs, monkeypatch, change, message
+):
+    ct, _, root = inputs
+    volume = zarr.open(str(ct), mode="r+")
+    volume[:, :, 8:] = 123
+    assert (
+        _launch(inputs, monkeypatch, lambda c: _pinned_progress(c, save=True))[0] == 0
+    )
+    image = root / "imagesTr/z0_y0_x0_0000.tif"
+    label = root / "labelsTr/z0_y0_x0.tif"
+    if change == "missing":
+        label.unlink()
+    elif change == "orphan":
+        (root / "labelsTr/z0_y0_x8.tif").write_bytes(label.read_bytes())
+    elif change == "wrong_crop":
+        tifffile.imwrite(image, volume[:8, :8, 8:16])
+    elif change == "float_label":
+        tifffile.imwrite(label, np.full((8,) * 3, 1, "float32"))
+    elif change == "wide_label":
+        tifffile.imwrite(label, np.full((8,) * 3, 256, "uint16"))
+    elif change == "truncated":
+        with tifffile.TiffFile(label) as tiff:
+            end = tiff.pages[-1].dataoffsets[-1] + tiff.pages[-1].databytecounts[-1]
+        label.write_bytes(label.read_bytes()[: end - 1])
+    elif change == "short_strip_count":
+        # A contiguous TIFF decode can ignore an incorrect strip byte count.
+        with tifffile.TiffFile(label, mode="r+") as tiff:
+            tag = tiff.pages[0].tags["StripByteCounts"]
+            tag.overwrite((tag.value[0] - 1,))
+    elif change == "link":
+        moved = label.rename(root / "moved.tif")
+        label.symlink_to(moved)
+    elif change == "linked_directory":
+        moved = label.parent.rename(root / "moved")
+        label.parent.symlink_to(moved, target_is_directory=True)
+    else:
+        path = root / "progress.json"
+        progress = json.loads(path.read_bytes())
+        if change == "wrong_export":
+            progress["approved_patches"][0]["label_filename"] = "../moved.tif"
+        else:
+            progress["progress_log"].append(progress["progress_log"][0])
+        path.write_text(json.dumps(progress))
+
+    assert not sessions.verify_record(root, PROOFREADER, sessions.DEFAULT_LIMITS)[
+        "approved_patch_files_verified"
+    ]
+    with pytest.raises(ValueError, match=message):
+        sessions.verify_record(
+            root, PROOFREADER, sessions.DEFAULT_LIMITS, verify_approved_patches=True
+        )
+
+
+def test_absent_progress_differs_from_zero_approved_exports(inputs, monkeypatch):
+    assert _launch(inputs, monkeypatch)[0] == 0
+    root = inputs[2]
+    with pytest.raises(ValueError, match="requires progress.json"):
+        sessions.verify_record(
+            root, PROOFREADER, sessions.DEFAULT_LIMITS, verify_approved_patches=True
+        )
+    config = json.loads((root / sessions.RECORD_NAME).read_bytes())["config"]
+    _pinned_progress(config)
+    path = root / "progress.json"
+    progress = json.loads(path.read_bytes())
+    progress["metadata"]["total_approved"] = 0
+    progress["approved_patches"] = []
+    progress["progress_log"][0]["status"] = "skipped"
+    path.write_text(json.dumps(progress))
+    checked = sessions.verify_record(
+        root, PROOFREADER, sessions.DEFAULT_LIMITS, verify_approved_patches=True
+    )
+    assert checked["progress"]["approved_exports"] == {"pairs_verified": 0, "pairs": []}
+
+
+def test_ct_mutation_during_export_read_refuses_verification(inputs, monkeypatch):
+    from volume_cartographer_wrapper.volume import FastLocalVolume
+
+    assert (
+        _launch(inputs, monkeypatch, lambda c: _pinned_progress(c, save=True))[0] == 0
+    )
+    original = FastLocalVolume.get_chunk
+
+    def change_after_read(self, *args):
+        values = original(self, *args)
+        zarr.open(str(self.path), mode="r+")[0, 0, 0] = 22
+        return values
+
+    monkeypatch.setattr(FastLocalVolume, "get_chunk", change_after_read)
+    with pytest.raises(ValueError, match="recorded CT changed"):
+        sessions.verify_record(
+            inputs[2],
+            PROOFREADER,
+            sessions.DEFAULT_LIMITS,
+            verify_approved_patches=True,
+        )
+
+
+def test_export_check_bounds_decoded_ct_chunks_before_read(inputs, monkeypatch):
+    from volume_cartographer_wrapper.volume import FastLocalVolume
+
+    ct, _, root = inputs
+    zarr.open(str(ct), mode="w", shape=(8, 16, 16), chunks=(16, 32, 32), dtype="u2")[
+        :
+    ] = 7
+    assert (
+        _launch(inputs, monkeypatch, lambda c: _pinned_progress(c, save=True))[0] == 0
+    )
+    monkeypatch.setattr(
+        FastLocalVolume,
+        "get_chunk",
+        lambda *a: pytest.fail("decoded an over-budget chunk"),
+    )
+    with pytest.raises(ValueError, match="decoded CT patch or chunk exceeds"):
+        sessions.verify_record(
+            root,
+            PROOFREADER,
+            sessions.limits(max_file_bytes=8 * 1024),
+            verify_approved_patches=True,
+        )
 
 
 def test_progress_hash_and_counts_use_the_same_captured_bytes(inputs, monkeypatch):

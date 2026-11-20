@@ -440,12 +440,18 @@ class ChunkCachedZarrFetch:
     Missing chunk keys mean the declared fill_value (uninitialized chunks). Read errors
     propagate. Decoded cache storage and each dense bbox have a configurable byte cap;
     the default is 512 MiB for each, not a cap on total process memory.
+    An explicit cat-compatible ``fs`` may supply captured source bytes instead of
+    live S3; default transport and numerical behavior are unchanged.
     """
 
-    def __init__(self, volume_zarr_uri, level, max_cache_bytes=512 * 1024**2):
-        import s3fs
+    def __init__(
+        self, volume_zarr_uri, level, max_cache_bytes=512 * 1024**2, *, fs=None
+    ):
+        if fs is None:
+            import s3fs
 
-        self.fs = s3fs.S3FileSystem(anon=True)
+            fs = s3fs.S3FileSystem(anon=True)
+        self.fs = fs
         validate_level_sign(level, 1)
         self.root = os.fspath(volume_zarr_uri).removeprefix("s3://").rstrip("/")
         meta = json.loads(self.fs.cat(f"{self.root}/{level}/.zarray").decode())

@@ -1,0 +1,170 @@
+{
+  "kind": "command_runtime_inventory_review",
+  "date_utc": "2026-11-17",
+  "baseline_commit": "ee38dc92970ba95f53f1a14a02d161c98bb19708",
+  "scope": "Declared runtime boundaries for primary command families, stdlib-only command discovery, and removal of unnecessary array imports from repeatability planning. No dependency split or scientific policy change.",
+  "source_sha256_before": {
+    "scripts/training/promotion.py": "e1f76b143f6212041ed78d2f32f91fdd5a1434e7913e30c1e8078425800a96f3",
+    "scripts/f1_noise_probe.py": "8571e415af9dc39b8f5cf33fa4d2960deab5658aca61ddde9265e49f73363554",
+    "scripts/run_validation_tests.py": "a02def4f426276ba83e23bcdd96bc19ca4f02c2de1a6c70381fb08eb74dcf674",
+    "tests/test_noise_probe_contracts.py": "3af27a9f5245cde04b6147215a171650b3631b3a6121162dc3db051731cb31bb"
+  },
+  "source_sha256_after": {
+    "configs/command_inventory.json": "b8e1352be36fbde4f300a77ff225961a7915ee297146e26d991b1e982be62443",
+    "src/vesuvius_autoresearch/core/command_inventory.py": "fba08ade72f22ee47628dea0b9d0f8b905a08ba6c267a3b426782e7bc0d67bac",
+    "scripts/list_commands.py": "2742c8b720d59c1cfa4d5c1626c847edfb8943ac0ceb458f37442ed02c99df5f",
+    "scripts/training/validation_protocol.py": "d44ca30f9d4ba0166e5a87858ed6b51b74abff470420d1be56c8749b31c290d8",
+    "scripts/training/promotion.py": "7fbd5a31d00e53d09263bab98c6ea275d5feac5876b12f5e16e64abf14b3bb1d",
+    "scripts/f1_noise_probe.py": "c6da2804bd8e78a8254e1fc4ec518d30ce491c804fd10108ba1d9e48be342162",
+    "scripts/run_validation_tests.py": "669e29268065a902a2325177d9f14077788ccb5dca8511f8c240d2cc408586c2",
+    "tests/test_command_inventory.py": "5d90abcf77284357064f03a3527dc27a6ed5704762e9d3953e32faaeb4c8f724",
+    "tests/test_noise_probe_contracts.py": "fa8e552a8bfeb92bd77d63941126b15b105cc9065bd9bbeebcb4ccc2a4cd5e30",
+    "docs/COMMANDS.md": "2e114faa87d56c943156691e43394968ffbe234245d4b3ce492f9f867f687036"
+  },
+  "inventory": {
+    "reviewed_entrypoints_or_modes": 27,
+    "classifications": [
+      "stack",
+      "layout",
+      "villa",
+      "effects"
+    ],
+    "capture_limit_bytes": 1048576,
+    "identity": "SHA256 binds the same bounded raw JSON bytes parsed; duplicate JSON keys are refused.",
+    "discovery": "No command target imports, subprocess launches, model/data reads or CUDA probes. A fresh python -S subprocess outside the checkout checks no file writes.",
+    "requirements_are": "Declared capability boundaries; not a tested minimal dependency closure, exhaustive script catalog, installation extra or readiness check.",
+    "review_corrections": [
+      "Production inference imports Torch even in dry-run mode.",
+      "The scroll-frames list CLI requires s3fs/live S3; only its separate parsing API is stdlib-only.",
+      "Repeatability planning requires Unix process-control imports despite using no third-party Python packages."
+    ]
+  },
+  "planning_fix": {
+    "before": "python -S scripts/f1_noise_probe.py --help failed with ModuleNotFoundError: numpy through scripts.training.promotion. A fresh actual-plan regression then exposed another NumPy import through scripts.labeling.label_artifacts.",
+    "after": "Metadata moved to scripts.training.validation_protocol and reexported by promotion; planning imports the existing core new_output helper directly. Help and an actual dry-run plan work with site packages disabled.",
+    "protocol_function_ast_identical_to_baseline": true,
+    "constants_before_and_after": {
+      "VALIDATION_PROTOCOL": "seeded-sample-400-v3",
+      "INK_ONLY_PROTOCOL": "seeded-sample-400-v2",
+      "VALIDATION_SAMPLE_PATCHES": 400,
+      "VALIDATION_SAMPLE_SEED": 42
+    },
+    "compatibility_test": "Promotion reexports the same function object and unchanged constants/protocol strings.",
+    "metadata_source_identity": "The selected input hashes now include validation_protocol.py; changing it after planning refuses execution before launch/publication. This does not cover the entire dependency/source closure.",
+    "no_training_or_output_publication_in_stdlib_plan_test": true
+  },
+  "validation": {
+    "integration": {
+      "modules": [
+        "tests/test_command_inventory.py",
+        "tests/test_noise_probe_contracts.py",
+        "tests/test_autoresearch_measurement.py",
+        "tests/test_validation_runner.py"
+      ],
+      "passed": 251,
+      "skipped": 0,
+      "seconds": 60.51,
+      "log": "/tmp/vesuvius-command-inventory-integration.log"
+    },
+    "portable_profile": {
+      "modules": 17,
+      "passed": 408,
+      "skipped": 0,
+      "seconds": 28.82,
+      "log": "/tmp/vesuvius-command-inventory-portable.log"
+    },
+    "document_claim_guards": {
+      "passed": 138,
+      "skipped": 1,
+      "seconds": 34.61,
+      "skip": "Original local spiral_out arm artifacts unavailable.",
+      "log": "/tmp/vesuvius-command-inventory-docguards.log"
+    },
+    "cpu_smoke": {
+      "passed": 8,
+      "skipped": 3,
+      "failed": 0,
+      "seconds": 10.9,
+      "cwd": "New empty temporary directory, with checkout/src supplied on PYTHONPATH.",
+      "skips": [
+        "best_model_loads: checkpoint absent in empty cwd",
+        "dataloader_3tuple_sobel: training URI/inklabels absent",
+        "dataloader_frangi_target: training URI/inklabels absent"
+      ],
+      "checkpoint_in_review_checkout_loaded": false,
+      "log": "/tmp/vesuvius-command-inventory-smoke.log"
+    },
+    "curated_modules": 227,
+    "counts_are_additive": false,
+    "initial_failures_and_resolution": [
+      "The isolated discovery fixture assumed a nonexistent namespace-package __init__.py; corrected the fixture.",
+      "The actual stdlib planning test exposed eager NumPy via label_artifacts; changed to the same core helper directly.",
+      "An existing multiprocessing spawn Manager test hit sandbox EPERM at socket.setsockopt; allowed local IPC and reran without changing/skipping that test. The final 251-test integration passed."
+    ],
+    "mypy": {
+      "result": "pass",
+      "source_files": 1035,
+      "log": "/tmp/vesuvius-command-inventory-mypy.log"
+    },
+    "ruff": {
+      "version": "0.9.10",
+      "maintained_sources": "pass",
+      "changed_python_formatting": "pass",
+      "changed_python_files": 8
+    },
+    "offline_lock": {
+      "result": "pass",
+      "resolved_packages": 258,
+      "dependency_changes": false
+    },
+    "runtime": {
+      "python": "3.10.21",
+      "numpy": "2.2.6",
+      "torch": "2.9.1+cpu",
+      "pillow": "12.3.0",
+      "zarr": "2.18.3",
+      "environment": "/workspace/.vesuvius-review-env",
+      "scope": "Existing isolated CPU review environment; WEBKNOSSOS and setuptools absent. No new installation or live environment change."
+    },
+    "final_staged_guards": {
+      "passed": 46,
+      "skipped": 0,
+      "seconds": 33.91,
+      "modules": [
+        "tests/test_validation_suite_covers_the_loop.py",
+        "tests/test_file_modes.py",
+        "tests/test_preserved_source_policy.py",
+        "tests/test_audit_doc_references.py"
+      ],
+      "log": "/tmp/vesuvius-command-inventory-final-guards.log"
+    },
+    "source_bindings": {
+      "matching": 10,
+      "mismatched": 0
+    },
+    "changed_document_local_links": {
+      "documents": 6,
+      "existing_links": 161,
+      "missing_links": 0
+    }
+  },
+  "remaining_owner_review_items": 7,
+  "limitations": [
+    "No complete curated-suite repeat or hosted CI in this local follow-up.",
+    "No new GPU, representative memory, full-scroll throughput, training, accuracy or original-data scientific measurements.",
+    "No Windows/macOS runtime, interactive GUI or new wheel-install verification.",
+    "Dependency closures and Python/platform policy remain owner decisions; pyproject.toml and uv.lock unchanged.",
+    "Discovery validates metadata, not availability/readiness of every listed workflow.",
+    "Live research worktree files, data, checkpoint and process state were not modified; historical scientific sources and records preserved."
+  ],
+  "self_review": {
+    "scope": "Changed runtime boundaries, subprocess import isolation, selected-source identity, promotion API compatibility, documentation and preservation; reviewed by the implementing agent.",
+    "corrected_findings": [
+      "Removed both eager array import paths from actual repeatability planning.",
+      "Classified production dry-run and scroll-frames live list requirements accurately.",
+      "Preserved protocol constants/function behavior and added a changed-metadata refusal check."
+    ],
+    "unresolved_diff_findings": [],
+    "broader_owner_items_remain_open": 7
+  }
+}
