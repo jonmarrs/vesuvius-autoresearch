@@ -131,7 +131,9 @@ standard sequential `DataLoader`, default collation and ordered workers.
 Duck-typed loaders must themselves guarantee that order. Changes to the catalog
 during scoring and invalid ink logits are rejected. The CLI validates
 catalog coordinates, passes checkpoint ridge sigma, and records applied model
-settings. Optional `--patches_json` must exist and contain valid coordinates.
+settings. Optional `--patches_json` must contain a valid list of origins for the
+checkpoint's patch size and the volume's YX grid. See the
+[catalog format and limits](TRAINING_DATA_IMPORT.md#supply-an-explicit-patch-catalog).
 `--max-eval-patches` accepts 1–5000 (default 5000). Larger catalogs use seed-42
 subsampling without replacement, restored to source-catalog order before scoring.
 The budget caps model evaluations, not catalog discovery, input loading, or peak
@@ -238,8 +240,8 @@ also need a separate conversion before use by the ink-training workflow.
 For an opt-in initial-input receipt, add `--record-session`. The
 [session-record guide](PROOFREADER_SESSION_RECORDS.md) explains complete source
 fingerprints, explicit progress/output paths, resource limits and the read-only
-`scripts/check_proofreader_session.py` command. A matching input check does not
-enable resume or verify approved patch contents.
+`scripts/check_proofreader_session.py` command. Add `--verify-approved-patches`
+to verify saved TIFF pairs against the progress log and the recorded CT crops.
 
 ## Incumbent re-evaluation
 

@@ -23,6 +23,11 @@ measurements or access CUDA. Use `--json` for a structured report. A passing set
 check is not a GPU, model-compatibility or prize-eligibility check.
 See [status output, config budgets and next steps](docs/WORKSPACE_STATUS.md).
 
+**Find a tool before loading the research environment:**
+`python scripts/list_commands.py` lists reviewed command families;
+`--command ID` shows runtime, checkout/Villa requirements and its guide. The
+[command inventory](docs/COMMANDS.md) uses only stdlib and runs no listed command.
+
 The [repository audit](docs/REPOSITORY_AUDIT.md) records verified fixes, remaining
 architecture and cleanup decisions, and the limits of the available validation.
 The [historical artifact status catalogue](reports/HISTORICAL_ARTIFACTS.md)
