@@ -244,6 +244,15 @@ read from it. So the ensemble stays as the registered reader, Reader V3's map is
 minutes a surface), and the winning reader, CC BY-NC, is the only reader known to draw letters on this surface.
 Whether it may be used in a submission is the owner's decision.
 
+**End to end at the known place, our pipeline finds the ink and our geometry costs almost nothing (November 16).**
+Our own fit's four windings nearest the winner's surface were snapped, flattened, rendered and read, then carried
+onto the winner's surface. They give r 0.52 against the winning map (`E2E_AGREES`, as predicted;
+[report](../reports/first_letters_0211_end_to_end.md), finding 121), on 83% of its cells. On the same cells the
+same models on the winner's own surface give 0.54, and Reader V3 loses nothing (0.629 against 0.627). So a band read
+with this pipeline is a working detection test where its windings lie on sheets, and on the known text what
+separates it from letters is the reader. Neither reader we have draws a readable word there; the winning reader
+(CC BY-NC) is the owner's decision.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
