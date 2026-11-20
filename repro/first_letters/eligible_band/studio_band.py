@@ -2,11 +2,13 @@
 
 Registration: docs/preregistration/2026-11-20_first_letters_0826_studio_band.md.
 
-    orient     OUT.json FINAL_TIFXYZ...
+    orient     OUT.json FINAL_TIFXYZ... [--umbilicus JSON]
                per winding, the share of its normals that point toward the band's centre (the mean of every listed
                winding's nodes) in the x-y plane, and "flip" when that share is above one half, as on PHerc. 211,
                where our fit's windings point inward on 99% of their nodes and were rendered flipped (findings 121
-               and 124). Decided from the geometry, before any ink.
+               and 124). Decided from the geometry, before any ink. With --umbilicus the centre is the published
+               scroll axis at each node's z instead: on PHerc. 0826's read the band's mean lay off the axis, and two
+               windings that point inward on 90% of their nodes against the axis scored 49% against it.
     summarise  OUT_DIR MAPS_DIR PLANES_OR_RENDERS_DIR
                for each Studio map MAPS_DIR/<winding>.npy: an 8-bit image of it (OUT_DIR/images/<winding>.png),
                a contact sheet of all of them at one eighth (OUT_DIR/contact_sheet.png), and the numbers in
@@ -44,16 +46,38 @@ STACKED = 0.30  # finding 113's line for two windings on one surface
 SHEET_SCALE = 8  # contact sheet: one pixel per 8
 
 
-def orientation(finals: list[Path]) -> dict:
+def axis_xy(umbilicus: Path, z: np.ndarray) -> np.ndarray:
+    """The published scroll axis (control points x, y, z) at each z, as (N, 2) x, y."""
+    points = sorted(
+        json.loads(Path(umbilicus).read_text())["control_points"], key=lambda p: p["z"]
+    )
+    zs = np.array([p["z"] for p in points], dtype=np.float64)
+    return np.stack(
+        [
+            np.interp(z, zs, [p["x"] for p in points]),
+            np.interp(z, zs, [p["y"] for p in points]),
+        ],
+        1,
+    )
+
+
+def orientation(finals: list[Path], umbilicus: Path | None = None) -> dict:
     loaded = {
         Path(f).name.removesuffix(".tifxyz"): analysis.load_tifxyz(f) for f in finals
     }
     centre = np.concatenate([xyz[v] for xyz, v in loaded.values()]).mean(0)
-    out: dict = {"centre_xyz": [round(float(c), 1) for c in centre], "windings": {}}
+    out: dict = {
+        "centre_xyz": [round(float(c), 1) for c in centre],
+        "reference": "band_centre" if umbilicus is None else "scroll_axis",
+        "windings": {},
+    }
     for name, (xyz, valid) in loaded.items():
         normals, ok = analysis.grid_normals(xyz, valid)
         keep = valid & ok
-        radial = xyz[keep][:, :2] - centre[:2]
+        points = xyz[keep]
+        radial = points[:, :2] - (
+            centre[:2] if umbilicus is None else axis_xy(umbilicus, points[:, 2])
+        )
         length = np.linalg.norm(radial, axis=1)
         good = length > 0
         dot = np.einsum(
@@ -166,6 +190,7 @@ def main(argv: list[str] | None = None) -> int:
     o = sub.add_parser("orient")
     o.add_argument("out", type=Path)
     o.add_argument("finals", nargs="+", type=Path)
+    o.add_argument("--umbilicus", type=Path)
     s = sub.add_parser("summarise")
     s.add_argument("out", type=Path)
     s.add_argument("maps", type=Path)
@@ -191,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.out.exists():
             print(f"{args.out} exists", file=sys.stderr)
             return 2
-        result = orientation(args.finals)
+        result = orientation(args.finals, args.umbilicus)
         args.out.write_text(json.dumps(result, indent=1) + "\n")
         for name, entry in result["windings"].items():
             print(f"{name} {entry['render']}")

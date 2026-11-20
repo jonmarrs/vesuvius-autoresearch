@@ -69,3 +69,75 @@ def test_an_unknown_tiling_stops_the_read_before_anything_runs(tmp_path):
         assert run.returncode == code, (value, run.stderr)
         if args is not None:
             assert run.stdout.strip() == args
+
+
+def _arc(
+    path, radius, theta0, theta1, axis=(5000.0, 5000.0)
+):  # tifxyz: coordinates stay positive
+    import numpy as np
+    import tifffile
+
+    theta = np.linspace(
+        theta0, theta1, max(10, int(radius * (theta1 - theta0) / 20))
+    )  # nodes ~20 voxels apart
+    z = np.arange(8) * 20.0 + 9000
+    tt, zz = np.meshgrid(theta, z)
+    xyz = np.stack(
+        [axis[0] + radius * np.cos(tt), axis[1] + radius * np.sin(tt), zz], -1
+    )
+    path.mkdir(parents=True)
+    for i, name in enumerate("xyz"):
+        tifffile.imwrite(path / f"{name}.tif", xyz[..., i].astype(np.float32))
+    return path
+
+
+def test_against_the_axis_the_flip_follows_each_windings_way_where_the_band_centre_does_not(
+    tmp_path,
+):
+    import importlib.util
+    import json
+    import sys
+
+    spec = importlib.util.spec_from_file_location(
+        "studio_band_axis", BAND / "studio_band.py"
+    )
+    sb = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = sb
+    spec.loader.exec_module(sb)
+    # a small inner arc inside a large outer arc on the same side: the nodes' mean lies out beyond the inner arc,
+    # so from it the inner arc's radial direction is reversed
+    inner = _arc(tmp_path / "w010.tifxyz", 150.0, 3.0, 4.2)
+    outer = _arc(tmp_path / "w011.tifxyz", 3000.0, 3.0, 4.2)
+    axis = tmp_path / "umbilicus.json"
+    axis.write_text(
+        json.dumps(
+            {
+                "control_points": [
+                    {"x": 5000, "y": 5000, "z": 0},
+                    {"x": 5000, "y": 5000, "z": 20000},
+                ]
+            }
+        )
+    )
+    by_axis = sb.orientation([inner, outer], axis)
+    assert by_axis["reference"] == "scroll_axis"
+    shares = {
+        k: v["share_of_normals_pointing_inward"] for k, v in by_axis["windings"].items()
+    }
+    assert (
+        set(shares.values()) <= {0.0, 1.0} and len(set(shares.values())) == 1
+    )  # both arcs point the same way
+    assert len({v["render"] for v in by_axis["windings"].values()}) == 1
+    by_centre = sb.orientation([inner, outer])
+    assert by_centre["reference"] == "band_centre"
+    assert (
+        by_centre["windings"]["w010"]["render"] != by_axis["windings"]["w010"]["render"]
+    )
+
+
+def test_the_read_orients_against_the_published_axis():
+    text = (BAND / "run_studio_band.sh").read_text()
+    assert (
+        'orient "$OUT/orient.json" "${FINALS[@]}" --umbilicus "$R/dataset/umbilicus.json"'
+        in text
+    )

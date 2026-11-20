@@ -3,7 +3,7 @@
 # Registration: docs/preregistration/2026-11-20_first_letters_0826_studio_band.md.
 #   snap       the recipe's snap of every raw winding of the arm (run_snap.sh)
 #   flatten    lasagna, per winding (run_flatten.sh)
-#   orient     studio_band.py orient: flip a winding whose normals point mostly toward the band's centre
+#   orient     studio_band.py orient: flip a winding whose normals point mostly toward the scroll axis
 #   render     66 layers per winding, flipped as decided (run_render.sh)
 #   studio     our layers 41 down to 26 (finding 124's order), Studio with the winner's command (finding 123's
 #              environment, weights and inference.py, each checksummed)
@@ -99,7 +99,7 @@ stage stacked "$PYW" -I "$HERE/studio_band.py" stacked "$OUT/stacked.json" "$R/w
 for_each flatten bash "$HERE/run_flatten.sh" "$ARM"
 FINALS=()
 for w in "${LIVE[@]}"; do FINALS+=("$R/work/final_$ARM/$w.tifxyz"); done
-stage orient "$PYW" -I "$HERE/studio_band.py" orient "$OUT/orient.json" "${FINALS[@]}"
+stage orient "$PYW" -I "$HERE/studio_band.py" orient "$OUT/orient.json" "${FINALS[@]}" --umbilicus "$R/dataset/umbilicus.json"
 for_each render render_one
 for_each studio studio
 stage summarise "$PYW" -I "$HERE/studio_band.py" summarise "$OUT/summary" "$OUT/maps" "$R/work/render_$ARM"
