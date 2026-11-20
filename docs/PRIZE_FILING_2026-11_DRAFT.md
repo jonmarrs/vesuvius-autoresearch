@@ -121,7 +121,7 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     eligible-scroll band has to be swept on both sides, and a blank band is weak evidence.
 
 * **The same pipeline end to end, at the place where PHerc. 211's First Letters prize was won** (findings 118 to
-  121). The prize was announced on 2026-11-15 and the winner published the surface, the probability map and the CT
+  124). The prize was announced on 2026-11-15 and the winner published the surface, the probability map and the CT
   image under CC BY-NC 4.0. That gave a known text place to measure this pipeline against, for the first time on a
   crushed scroll.
   * **The reader on the winner's surface**
@@ -141,14 +141,26 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     flattened, rendered, read and carried onto the winner's surface, give r = 0.52 on 83% of its cells, in 42
     minutes unattended. The same models on the winner's own surface give 0.54 on those cells, and Reader V3 loses
     nothing (0.629 against 0.627).
-  * **What it shows:** on one RTX 4090, the published recipe finds the ink at a known text place. The geometry
-    costs almost nothing there, and the reader is what separates it from letters.
+  * **A third permissive reader** ([report](../reports/first_letters_0211_gp_timesformer.md)): the 2023 Grand Prize
+    TimeSformer finds the ink only weakly there (r = 0.24) and draws no letter shape.
+  * **The winning reader, on this machine** ([report](../reports/first_letters_0211_studio_reproduction.md)): Studio
+    (the winner's reader; code MIT, weights CC BY-NC 4.0, used with the owner's approval) reproduces the winner's
+    map from the winner's own weights and input on one RTX 4090. r = 1.0 over 8.8 million pixels, with differences of
+    bfloat16 rounding, in 75 seconds at 14.5 GB of GPU memory.
+  * **Our own fit, read by the winning reader** ([report](../reports/first_letters_0211_studio_e2e.md)): the same four
+    windings of our unrefined fit, read by Studio and carried onto the winner's surface, give r = 0.82 against the
+    winner's map (reversed planes −0.05, slid 0.11). The image draws the winner's letters. Studio on our render of
+    the winner's surface gives 0.97, so our renderer costs almost nothing and the geometry the rest.
+  * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
+    with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
+    reader was the missing piece, not the geometry.
   * **Failures and fixes on the way:**
     * a depth bug in the PHerc. 343 mesh step's transfer code;
     * the band verdict crashing on an unscored fit (also fixed in #441);
     * villa's environment unable to read the winner's LZW surface files;
     * villa's `_spliced` twins counted as windings;
-    * the need to render our windings with flipped normals.
+    * the need to render our windings with flipped normals;
+    * this machine's uv lacking the winner's pinned Python, solved by the winner's own bootstrap.
   * **Caution under #2450:** this measures the recipe and released readers. It counts only for what it changes:
     which reader to use, and how to read a band.
 
