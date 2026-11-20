@@ -230,3 +230,68 @@ def test_failed_measurement_does_not_publish_success_metadata(
         run()
     assert (directory / "region_ink.npy").exists()
     assert not sidecar.exists()
+
+
+# Added by the design review of 2026-11-17: the device a bare "cuda" names, the phase names, the clock and the
+# report's own fields.
+
+
+def _fake_cuda(monkeypatch, current=1):
+    """A fake CUDA backend that records the device of every call."""
+    asked = []
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: current)
+
+    def properties(device):
+        asked.append(("get_device_properties", str(device)))
+        return SimpleNamespace(name="mock-device", total_memory=24 * 1024**3)
+
+    monkeypatch.setattr(torch.cuda, "get_device_properties", properties)
+    for name in (
+        "synchronize",
+        "reset_peak_memory_stats",
+        "memory_allocated",
+        "memory_reserved",
+        "max_memory_allocated",
+        "max_memory_reserved",
+    ):
+
+        def call(device, name=name):
+            asked.append((name, str(device)))
+            return 0
+
+        monkeypatch.setattr(torch.cuda, name, call)
+    return asked
+
+
+def test_a_bare_cuda_device_is_the_current_one_throughout(monkeypatch):
+    asked = _fake_cuda(monkeypatch, current=1)
+    profiler = memory.RegionalMemoryProfile("cuda")
+    profiler.sample("models_loaded")
+    record = profiler.report()
+    assert record["device"] == "cuda:1"
+    assert asked[0] == ("get_device_properties", "cuda:1")
+    assert {device for _, device in asked} == {"cuda:1"}
+    assert record["cuda_synchronized_at_observations"] is True
+
+
+def test_the_cpu_report_names_its_device_and_claims_no_cuda_synchronisation():
+    record = memory.RegionalMemoryProfile("cpu").report()
+    assert record["schema_version"] == 1 and record["device"] == "cpu"
+    assert record["cuda_synchronized_at_observations"] is False
+
+
+@pytest.mark.parametrize("phase", ["", None, 3])
+def test_a_phase_must_be_a_nonempty_string(phase):
+    profiler = memory.RegionalMemoryProfile("cpu")
+    with pytest.raises(ValueError, match="nonempty string"):
+        profiler.sample(phase)
+    assert len(profiler.report()["observations"]) == 1
+
+
+def test_elapsed_time_counts_from_the_start_of_profiling(monkeypatch):
+    clock = iter([100.0, 100.25, 103.5])
+    monkeypatch.setattr(memory.time, "perf_counter", lambda: next(clock))
+    profiler = memory.RegionalMemoryProfile("cpu")
+    profiler.sample("inference_complete")
+    elapsed = [o["elapsed_seconds"] for o in profiler.report()["observations"]]
+    assert elapsed == [0.25, 3.5]

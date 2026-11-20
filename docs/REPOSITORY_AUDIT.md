@@ -265,12 +265,12 @@ each has caused a measured scientific failure.
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
 | High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the later migrations. The [November 14 review](../reports/dependency_migration_review_2026-11-14.json) records Pillow 12.1.1 → 12.3.0. The [November 15 review](../reports/dependency_migration_review_2026-11-15.json) records non-Windows WEBKNOSSOS 4.3.3, aiohttp 3.14.5, dotenv 1.2.4 and cryptography 50.0.2, with Python 3.10 workflow/native checks and unchanged Windows package selection. Fresh version-specific PyPI lookups report 89 → 0 raw records across the three latter packages. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize the remaining applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. Windows still selects the old SDK/aiohttp/dotenv chain because newer SDKs pin TensorStore below this project's minimum. Newer Virtualenv still conflicts with SDK typing-extensions constraints on Python 3.10. Decide Python/platform support before those migrations. GitHub's advisory API previously returned HTTP 403; public matching and CPU checks do not replace alert access, Windows execution or GPU validation. |
-| High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). Opt-in [session records](PROOFREADER_SESSION_RECORDS.md) now bind complete configured source bytes and initial settings; a read-only checker detects source changes and mismatched logged context. | Choose whether the training feedback path should review 2D ink windows or 3D segmentation labels, then specify coordinate transforms, label semantics and reviewed-patch ingestion. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Resume remains disabled: pinned Villa's logged context omits GUI-setting history, can retain pending entries and snaps old coordinates to a new grid. Source records alone do not establish resume position, approved patch contents or physical registration. |
+| High | **The human-feedback loop is incomplete.** Regional uncertainty describes a single plane with a source offset, and the proofreader expects aligned 3D categorical labels. Opt-in [session records and export checks](PROOFREADER_SESSION_RECORDS.md) now bind input bytes and check each approved TIFF pair against the log and recorded CT crop. Labels pass a shape and categorical range check. | Choose whether feedback will use 2D ink windows or 3D segmentation labels, then define coordinate transforms, label semantics and ingestion into the [training inputs](../scripts/training/input_paths.py). Resume needs a separate contract for Villa's grid snapping, pending entries and incomplete GUI-setting history. Physical alignment and label correctness require their own review. |
 | Medium | **Regional peak memory and ensemble residency still need representative GPU measurements.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) cap three persistent float32 blend planes and load saved state on CPU. The opt-in [regional profiler](VOLUME_INFERENCE.md#regional-memory-observations) now records process RSS, OS lifetime high-water RSS and selected-device PyTorch allocator peaks through the latest metadata observation. Synthetic CPU checks preserve output probabilities exactly; the CUDA path has only mocked API coverage. Whole-region arrays and all ensemble members remain resident. | Run `--profile_memory` on the 4090 with representative source/model/export settings before choosing streaming accumulators or sequential member residency. The 512 MiB cap remains an acceptance policy. CPU lifetime peaks include earlier process work; CUDA allocator peaks exclude other allocators/processes and device-context overhead, and are not independent phase peaks or fit guarantees. The [scratch CUDA probe](VRAM_PROBE.md) is a separate forward/backward path. [Production](../scripts/production_predict.py) remains outside the new regional profiling scope; no real GPU/full-scroll peak or throughput result was measured here. |
-| Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
-| Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
+| Medium | **Broader scientific validation is still needed after earlier correctness changes.** The [registered renderer-v2 check](../reports/render_revalidation_review_2026-11-17.md) now supplies a new real-source compatibility measurement: one fixed PHerc1667 interior crop, center-plane NCC 0.78897, complete depth support, and a bitwise offline replay. This is not a repeat of the historical whole-segment/depth experiments. The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) retain those limits. Placement gates now decline additional boundary-limited results. | Use the new reading only within its fixed-crop compatibility scope. Rerun the confidence analysis and any broader renderer/placement comparison before using its historical number to justify a research direction. Preserve original artifacts and register new methods separately. No accuracy, independent registration, depth-direction or whole-scroll claim follows from the crop check. |
+| Medium | **Training read-failure defaults and recovery still need a decision.** The trainer supports `strict_training_reads: true` for labeled and active UA-MT inputs, and records the selected policy. In both read modes, [explicit patch catalogs](TRAINING_DATA_IMPORT.md#supply-an-explicit-patch-catalog) now fail early on invalid origins. Validation binds the catalog bytes it parsed to its input fingerprint. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. The default uses counted legacy fallbacks for CT read failures. Review copied or overlapping crops and remote source identities separately when establishing split independence. |
 | Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
-| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The [command inventory](COMMANDS.md) now declares runtime, checkout/wheel, Villa and side-effect boundaries for 27 reviewed entrypoints/modes. It is not an exhaustive inventory or a tested minimal dependency closure. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Use the inventory to design and test dependency closures, then decide Python/platform support before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
 The new First Letters image, mesh and surface controls are recorded in the
 [current strategy](RESEARCH_STRATEGY.md). They supply real-data evidence for
@@ -1652,3 +1652,169 @@ The real-data checks used Python 3.10.21, NumPy 2.2.6, Pillow 12.3.0, Zarr 2.18.
 and Torch 2.9.1 CPU in the separate SDK/CPU dependency view. This is not a fully
 installed CUDA environment. All nine final source bindings match; extracted
 repository-path references in the four changed Markdown documents exist.
+
+## Command/runtime inventory follow-up (2026-11-17 UTC)
+
+This pass starts from main `ee38dc92`. The dependency-scope item now has a
+[reviewed command inventory](COMMANDS.md) and a
+[review record](../reports/command_inventory_review_2026-11-17.json). All seven
+broader owner-review items remain open. No dependency extra, Python/platform
+policy, live environment or scientific default changed.
+
+The new stdlib-only discovery command lists 27 primary entrypoints/modes and
+their declared stacks, checkout/wheel layout, Villa requirements, side effects
+and usage guides. It validates a bounded JSON capture and reports the hash of
+the same bytes it parsed. It does not import targets, execute commands or check
+experiment readiness. A fresh `python -S` subprocess from another directory
+confirms discovery works without site packages and without file writes.
+Production prediction still requires Torch for dry-run imports; the live
+scroll-frames list CLI needs s3fs. These distinctions are recorded explicitly.
+
+The inventory review exposed unnecessary NumPy imports in repeatability
+planning: protocol metadata came through the array-based promotion module, and
+output-path validation came through the labeling wrapper. The planner now
+imports a stdlib-only metadata module and the existing core path helper directly.
+The moved protocol function is AST-identical to its original; all four constants
+are unchanged, and promotion reexports the existing API. Planning binds the new
+metadata source among its selected input hashes and refuses execution if it
+changes. This is not a fingerprint of the entire dependency/source closure.
+A fresh `python -S` subprocess now produces an actual dry-run plan without
+NumPy, a GPU, training data or output publication.
+
+The planning/promotion/inventory integration passed **251 tests** in 60.51 seconds.
+The portable profile passed **408 tests** across **17 modules** in 28.82 seconds.
+The configured document/claim guards gave **138 passed, 1 skipped** in 34.61
+seconds; the skip needs absent local arm artifacts. These selections overlap.
+The existing multiprocessing spawn check required local IPC permission in the
+sandbox; its initial EPERM was resolved without changing or skipping the test.
+CPU smoke from a new empty directory gave **8 passed, 3 skipped, 0 failed** in
+10.9 seconds. Its skips require a checkpoint or training CT/ink labels; the
+review checkout's checkpoint was not loaded.
+
+After staging, registry, file-mode, preserved-source and document-reference
+guards passed **46 tests** in 33.91 seconds. All ten recorded source hashes match,
+and 161 extracted local links exist across the six changed Markdown documents.
+Mypy passes on **1035 files**. Maintained Ruff, all eight changed Python files'
+formatting and offline lock consistency pass; the unchanged lock resolves
+**258 packages**. The curated
+registry now contains **227 modules**, with **17 portable modules**. Dependency
+closures, Windows/macOS execution, real-data scientific reruns, GPU capacity,
+interactive GUI behavior and a full curated-suite repeat remain unverified by
+this pass. Historical sources and scientific records were preserved.
+
+## Renderer-v2 real-source follow-up (2026-11-17 UTC)
+
+This pass starts from main `57a849d8`. It advances the scientific-validation
+item with a [new registered compatibility check](preregistration/2026-11-17_renderer_v2_1667_compatibility.md),
+[result](../reports/render_revalidation_review_2026-11-17.md) and
+[complete receipt/review](../reports/render_revalidation_review_2026-11-17.json).
+The seven broader owner-review items remain open; the separate confidence
+analysis and historical whole-segment/depth renderer experiments were not rerun.
+
+The old comparison scripts use geometry validity when scoring, while the
+corrected sampler exposes full-depth support. They and their historical
+reports remain byte-identical. The new runner compares the same full-depth
+mask at every fixed reference depth, refuses insufficient/constant comparisons,
+captures exact source objects through an optional chunk-reader transport and
+publishes only after source and plan rechecks. Default renderer transport and
+numerical behavior remain unchanged.
+
+Registration, source pins and tested runtime were committed as `f5612360`
+before geometry/CT/reference payload acquisition and scoring. The fixed
+128 × 128 PHerc1667 crop achieved maximum NCC **0.7889665783396356** against the
+released surface volume, above the registered **0.60** gate. All **16,384**
+pixels have full-depth support. One live attempt captured **82 objects**,
+**175,582,829 bytes**, inside the **192 MiB** source budget. The receipt records
+all five depth correlations and exact source/array identities. An offline replay
+with a transport that forbids network access reproduces the three arrays bit
+for bit and the same sampling/comparison records; independent NumPy correlations
+agree within **1e-14**. This is replay of the same data, not independent replication.
+
+The crop lies inside a historically selected interior region. Its full support
+means boundary exclusion is verified by the synthetic regression, not this real
+crop. Agreement with a released render does not establish ink accuracy,
+independent physical registration, depth direction/spacing, OBJ auto-scale,
+whole-scroll coverage or a 4090 capacity measurement. No raw payload or array
+is committed, and no live research configuration, checkpoint or process changed.
+
+The final synthetic integration passed **121 tests** in 10.38 seconds, including
+the **23 new revalidation tests** and all **80 surface-contract** and **18 renderer**
+checks. Registry, mode, preservation and configured document/claim guards gave
+**171 passed, 1 skipped** in 50.92 seconds; the skip requires absent local arm
+artifacts. Mypy passes on **1037 files**, maintained Ruff and all four changed
+Python files' formatting pass, and offline lock consistency still resolves
+**258 packages**. CPU smoke from a separate empty working directory gave
+**8 passed, 3 skipped, 0 failed** in 14.7 seconds; its skips need a checkpoint
+or training CT/ink labels. These selections overlap. The curated registry now
+contains **228 modules**, with **17 portable modules**.
+
+After adding the actual receipt and report, configured document/claim guards
+passed **138 tests, 1 skipped** in 38.66 seconds. All fifteen selected source,
+historical and additional file hashes match; 68 extracted local links exist
+across the four changed Markdown documents. The old scientific scripts and
+reports were checked byte for byte against the main baseline.
+
+## Approved proofreader export verification (2026-11-17 UTC)
+
+The input checker could report an approved log entry even when the image or
+label TIFF was missing or the image came from a different crop. The opt-in
+`--verify-approved-patches` check links the log to the complete saved TIFF pairs
+and verifies each image voxel and dtype against the recorded CT crop. The
+label check enforces the cubic patch shape and categorical range `0..255`.
+The report includes each pair's ZYX origin and hashes of the bytes it decoded.
+Repeated approvals at one origin fail because Villa uses one pair of filenames
+for that origin. The check also refuses unlisted files and incomplete TIFFs.
+The command and limits are in the [session-record guide](PROOFREADER_SESSION_RECORDS.md).
+
+The check runs after the GUI closes. It applies the existing receipt limits to
+the combined export directories and bounds the decoded TIFF, CT patch and CT
+chunk sizes. Source and export state checks detect ordinary changes during
+verification. The pinned Villa writer and serializer produced the TIFFs and
+progress JSON in the regression fixture. The fixture uses synthetic CT and an
+edited categorical patch. Approval authenticity, the edited-label Zarr and
+physical alignment remain outside this verification. Resume and reviewed-label
+ingestion still need design work. All seven broader audit items remain open.
+
+The CPU integration selection passed **193 tests** across proofreader sessions
+and launches, command discovery, volume reading and patch dataset artifacts.
+The portable profile passed **408 tests**. Registry, file-mode, preservation
+and document/claim guards passed **171 tests**, with one skip for absent local
+arm artifacts. CPU smoke passed **8 checks**, with three skips requiring a
+checkpoint or training inputs. Ruff, formatting and Mypy passed, and the offline
+lock resolved **258 packages**.
+
+PR review found that a contiguous TIFF could decode despite an incorrect
+strip byte count. The checker now requires declared bytes to match the stored
+page dimensions, including row padding for packed boolean images. The revised
+integration selection passed **194 tests**. A separate check decoded **24**
+default-writer TIFFs across packed boolean and numeric dtypes.
+
+## Training patch catalog validation (2026-11-17 UTC)
+
+The labeled loader on `b4702312` accepted an explicit origin `(10000, -200)`
+on an 8 × 32 × 32 synthetic volume. Even with strict reads enabled, jitter
+clamped it to the edge and returned a full patch. Explicit catalogs now
+require a nonempty list and integer YX origins that fit the full patch. The
+checker also validates producer count and size fields when present and caps
+input at 16 MiB. It reports the file and invalid entry before sampling.
+
+The loader hashes the captured JSON bytes it parses. Validation checks this
+digest against the catalog in its existing input fingerprint. A regression
+rewrites the catalog during dataset construction and restores it before the
+final disk check. The run stops because the dataset parsed the other bytes.
+An unchanged valid catalog produces the same fingerprint and patch tensors
+as the baseline on the synthetic comparison, including repeated origins and
+both jitter settings. The [catalog guide](TRAINING_DATA_IMPORT.md#supply-an-explicit-patch-catalog)
+documents the geometry, ordering and file limits.
+
+This advances the input validation part of the training read review. All
+seven owner items remain open. A wider CT read-policy change still needs
+real-data evidence on failures and a decision about retry or skip behavior.
+
+The integration selection passed **525 tests**, with one CuPy-dependent skip.
+It covered the real validation builder, labeled readers, patch selection,
+checkpoint tools and spawned training workers. Registry, file-mode, source
+preservation and document guards passed **171 tests**, with one skip for absent
+local arm artifacts. CPU smoke passed **8 checks**, with three skips requiring
+a checkpoint or training inputs. Ruff, formatting and Mypy passed. The offline
+lock check resolved **258 packages**.
