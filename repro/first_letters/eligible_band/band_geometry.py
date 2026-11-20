@@ -1,24 +1,28 @@
-"""How much of each read winding lies on its snapped sheet, and which way its normals point against the scroll axis.
+"""Where each read winding lies on the predicted sheet, and which way its normals point against the scroll axis.
 
 Described after a band read; geometry only, no ink. For each winding of the arm:
 - `inward_against_axis`: the share of the final (flattened) winding's grid normals whose x-y part points toward the
-  published scroll axis at that node's z. The render offsets its layers along these normals, so where the share
-  departs from 0 or 1 the winding's layers run one way over part of it and the other way over the rest;
-- `inward_against_band_centre`: the same against the mean of every winding's nodes, as `studio_band.py orient`
-  decided the render (for comparison);
-- `final_on_snap`: of the final winding's nodes, the share whose nearest snapped node is within the lateral limit
-  of `mesh_step_analysis.surface_distance` (`covered`), and the share within 2 voxels along its normal. Nodes not
-  covered are surface the flatten made where the snap had none;
-- the same inward share for the snapped winding, before the flatten;
-- `trusted`: the share of the final winding's nodes that lie on the snapped sheet (covered, and within 2 voxels
-  along its normal) and whose render layers run outward, as on PHerc. 211 where Studio drew the letters;
-- `off_sheet_by_radius_tercile`: the share of nodes off the snapped sheet among the winding's inner, middle and
-  outer third of radii from the axis. On a crushed scroll the outer third is the tips of the flattened cross-section,
-  where the sheet turns sharply.
+  published scroll axis at that node's z. The render offsets its layers along these normals (`--flip-normals`
+  negates them), so where the share departs from 0 or 1 the layers run one way over part of the winding and the other
+  way over the rest. `inward_against_band_centre` is the same against the mean of every winding's nodes, as
+  `studio_band.py orient` decided the render; `snapped_inward_against_axis` the same for the snapped winding.
+- `predicted_sheet`: the surface prediction's signed distance field (the one the fit and the snap used; at or below 0
+  inside the predicted sheet) read at the snapped winding's nodes and at the final winding's nodes: the share inside
+  (`on_sheet`) and within 2 voxels (`within_2`), and for the final winding the share within 2 voxels in the inner,
+  middle and outer third of its radii from the axis. The final grid samples the snapped surface's triangles evenly;
+  the snapped grid is even in angle, so its cells are largest at large radius, where a flat triangle can leave a
+  curved sheet between nodes that are on it.
+- `on_snapped_triangles`: the share of the final winding's nodes within 2 voxels of the snapped winding's triangles
+  (the flatten's export samples them barycentrically; a node off them is an export fault).
+- `trusted`: the share of the final winding's nodes within 2 voxels of the predicted sheet whose render layers run
+  outward, as on PHerc. 211 where Studio drew the letters; `other_side` the share within 2 voxels with layers inward.
+
+Nearest-node distances between the final and snapped grids are not used: at large radius the snapped nodes are tens
+of voxels apart, and such distances there measure the grid's spacing, not the surface.
 
 With --masks DIR, one 8-bit image per winding at grid resolution (one pixel per node, 20 render pixels):
-255 on the snapped sheet with layers running outward; 128 on the snapped sheet with layers running inward (Studio
-read the other side there); 64 off the snapped sheet (made by the flatten, or displaced); 0 no surface.
+255 within 2 voxels of the predicted sheet with layers running outward; 128 within 2 voxels with layers running inward
+(Studio read the other side there); 64 further from the predicted sheet, or outside its field; 0 no surface.
 
 usage: band_geometry.py R ARM OUT.json [--masks DIR]
 """
@@ -36,59 +40,28 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pherc343" / "mesh_step"))
 
+import band_fit_quality as quality  # noqa: E402
 import band_index as bi  # noqa: E402
 import mesh_step_analysis as analysis  # noqa: E402
 
+TRUSTED, OTHER_SIDE, OFF_SHEET = 255, 128, 64
+NEAR = 2.0  # voxels: within this of the predicted sheet, or of the snapped triangles
 
-def inward_share(xyz: np.ndarray, valid: np.ndarray, centre_of_z) -> float | None:
-    """Share of grid normals whose x-y part points toward centre_of_z(z) (an (N, 2) array of x, y)."""
+
+def inward(
+    xyz: np.ndarray, valid: np.ndarray, centre_of_z
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per node with a normal: whether its normal's x-y part points toward centre_of_z(z); and that node mask."""
     normals, ok = analysis.grid_normals(xyz, valid)
     keep = valid & ok
     points, n = xyz[keep], normals[keep]
     radial = points[:, :2] - centre_of_z(points[:, 2])
-    length = np.linalg.norm(radial, axis=1)
-    good = length > 0
-    if not good.any():
-        return None
-    dot = np.einsum("ij,ij->i", n[good][:, :2], radial[good] / length[good, None])
-    return round(float((dot < 0).mean()), 4)
+    return np.einsum("ij,ij->i", n[:, :2], radial) < 0, keep
 
 
-TRUSTED, OTHER_SIDE, OFF_SHEET = 255, 128, 64
-ON_SHEET = 2.0  # voxels along the snapped sheet's normal
-
-
-def node_classes(final: np.ndarray, final_valid: np.ndarray, snap: np.ndarray, snap_valid: np.ndarray, flip: bool,
-                 centre_of_z) -> np.ndarray:  # fmt: skip
-    """Per node of the final grid: TRUSTED, OTHER_SIDE, OFF_SHEET or 0 (see the module)."""
-    from scipy.spatial import cKDTree
-
-    normals, ok = analysis.grid_normals(final, final_valid)
-    keep = final_valid & ok
-    out = np.zeros(final_valid.shape, dtype=np.uint8)
-    if not keep.any():
-        return out
-    points, n = final[keep], normals[keep]
-    s_normals, s_ok = analysis.grid_normals(snap, snap_valid)
-    s_keep = snap_valid & s_ok
-    if not s_keep.any():
-        out[keep] = OFF_SHEET
-        return out
-    s_points, s_n = snap[s_keep], s_normals[s_keep]
-    _, index = cKDTree(s_points).query(points, k=1)
-    offset = points - s_points[index]
-    along = np.einsum("ij,ij->i", offset, s_n[index])
-    lateral = np.sqrt(np.maximum((offset**2).sum(1) - along**2, 0.0))
-    on_sheet = (lateral <= analysis.LATERAL_MAX) & (np.abs(along) <= ON_SHEET)
-    radial = points[:, :2] - centre_of_z(points[:, 2])
-    inward = np.einsum("ij,ij->i", n[:, :2], radial) < 0
-    outward_layers = (
-        inward if flip else ~inward
-    )  # a flipped render offsets its layers along -n
-    out[keep] = np.where(
-        on_sheet, np.where(outward_layers, TRUSTED, OTHER_SIDE), OFF_SHEET
-    )
-    return out
+def inward_share(xyz: np.ndarray, valid: np.ndarray, centre_of_z) -> float | None:
+    towards, keep = inward(xyz, valid, centre_of_z)
+    return round(float(towards.mean()), 4) if keep.any() else None
 
 
 def axis_centre(umbilicus: np.ndarray):
@@ -111,7 +84,85 @@ def fixed_centre(xy: np.ndarray):
     return centre
 
 
-def geometry(root: Path, arm: str, masks: Path | None = None) -> dict:
+def _closest_on_triangles(
+    p: np.ndarray, a: np.ndarray, b: np.ndarray, c: np.ndarray
+) -> np.ndarray:
+    """Distance from each point to its triangle (Ericson, Real-Time Collision Detection, 5.1.5), row by row."""
+    ab, ac, ap = b - a, c - a, p - a
+    d1, d2 = (ab * ap).sum(-1), (ac * ap).sum(-1)
+    bp = p - b
+    d3, d4 = (ab * bp).sum(-1), (ac * bp).sum(-1)
+    cp = p - c
+    d5, d6 = (ab * cp).sum(-1), (ac * cp).sum(-1)
+    va, vb, vc = d3 * d6 - d5 * d4, d5 * d2 - d1 * d6, d1 * d4 - d3 * d2
+    with np.errstate(invalid="ignore", divide="ignore"):
+        denom = va + vb + vc
+        v, w = vb / denom, vc / denom
+        closest = a + ab * v[:, None] + ac * w[:, None]
+        regions = [
+            ((d1 <= 0) & (d2 <= 0), a),
+            ((d3 >= 0) & (d4 <= d3), b),
+            ((d6 >= 0) & (d5 <= d6), c),
+            ((vc <= 0) & (d1 >= 0) & (d3 <= 0), a + ab * (d1 / (d1 - d3))[:, None]),
+            ((vb <= 0) & (d2 >= 0) & (d6 <= 0), a + ac * (d2 / (d2 - d6))[:, None]),
+            ((va <= 0) & (d4 - d3 >= 0) & (d5 - d6 >= 0), b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)))[:, None]),
+        ]  # fmt: skip
+    for mask, point in regions:
+        closest[mask] = point[mask]
+    return np.linalg.norm(p - closest, axis=-1)
+
+
+def distance_to_triangles(
+    points: np.ndarray, grid: np.ndarray, valid: np.ndarray, k: int = 12
+) -> np.ndarray:
+    """Distance from each point to the nearest triangle of a tifxyz grid (cells split as VC splits them)."""
+    from scipy.spatial import cKDTree
+
+    p00, p10, p01, p11 = grid[:-1, :-1], grid[1:, :-1], grid[:-1, 1:], grid[1:, 1:]
+    ok = valid[:-1, :-1] & valid[1:, :-1] & valid[:-1, 1:] & valid[1:, 1:]
+    a = np.concatenate([p00[ok], p10[ok]]).astype(np.float64)
+    b = np.concatenate([p10[ok], p11[ok]]).astype(np.float64)
+    c = np.concatenate([p01[ok], p01[ok]]).astype(np.float64)
+    if len(a) == 0:
+        return np.full(len(points), np.inf)
+    k = min(k, len(a))
+    _, index = cKDTree((a + b + c) / 3).query(points, k=k)
+    index = np.asarray(index).reshape(len(points), k)
+    best = np.full(len(points), np.inf)
+    for j in range(k):
+        i = index[:, j]
+        best = np.minimum(best, _closest_on_triangles(points, a[i], b[i], c[i]))
+    return best
+
+
+def node_classes(
+    final: np.ndarray, final_valid: np.ndarray, field, flip: bool, centre_of_z
+) -> np.ndarray:
+    """Per node of the final grid: TRUSTED, OTHER_SIDE, OFF_SHEET or 0 (see the module). `field` needs `.at()`."""
+    towards, keep = inward(final, final_valid, centre_of_z)
+    out = np.zeros(final_valid.shape, dtype=np.uint8)
+    if not keep.any():
+        return out
+    d = field.at(final[keep].astype(np.float64))
+    near = np.isfinite(d) & (d <= NEAR)
+    outward_layers = (
+        towards if flip else ~towards
+    )  # a flipped render offsets its layers along -n
+    out[keep] = np.where(near, np.where(outward_layers, TRUSTED, OTHER_SIDE), OFF_SHEET)
+    return out
+
+
+def _sheet(field, xyz: np.ndarray, valid: np.ndarray) -> dict:
+    d = field.at(xyz[valid].astype(np.float64))
+    ok = np.isfinite(d)
+    return {
+        "on_sheet": round(float((d[ok] <= 0).mean()), 4) if ok.any() else None,
+        "within_2": round(float((d[ok] <= NEAR).mean()), 4) if ok.any() else None,
+        "outside_field": round(float(1 - ok.mean()), 4),
+    }
+
+
+def geometry(root: Path, arm: str, masks: Path | None = None, field=None) -> dict:
     import cv2
 
     work = root / "work"
@@ -119,6 +170,10 @@ def geometry(root: Path, arm: str, masks: Path | None = None) -> dict:
     orient = json.loads((work / f"studio_{arm}" / "orient.json").read_text())[
         "windings"
     ]
+    if field is None:
+        field = quality.DistanceField(
+            sorted((work / "surf_sdt").glob("*_surf_sdt.ome.zarr"))[0], "1"
+        )
     if masks is not None:
         masks.mkdir(parents=True, exist_ok=True)
     finals = {
@@ -129,31 +184,24 @@ def geometry(root: Path, arm: str, masks: Path | None = None) -> dict:
     out: dict = {"band_centre_xy": [round(float(c), 1) for c in band], "windings": {}}
     for n, (xyz, valid) in finals.items():
         snap, snap_valid = analysis.load_tifxyz(work / f"snap_{arm}" / n)
-        d = analysis.surface_distance(xyz, valid, snap, snap_valid)
         classes = node_classes(
-            xyz, valid, snap, snap_valid, orient[n]["render"] == "flip", on_axis
+            xyz, valid, field, orient[n]["render"] == "flip", on_axis
         )
         if masks is not None:
             cv2.imwrite(str(masks / f"{n}.png"), classes)
         surface = int((classes > 0).sum())
-        radius = np.linalg.norm(
-            xyz[..., :2] - on_axis(xyz[..., 2].ravel()).reshape(xyz.shape[:2] + (2,)),
-            axis=-1,
-        )
-        terciles = []
-        if surface:
-            r = radius[classes > 0]
-            edges = np.percentile(r, [100 / 3, 200 / 3])
-            band_of = np.digitize(r, edges)
-            off = classes[classes > 0] == OFF_SHEET
-            terciles = [
-                round(float(off[band_of == k].mean()), 4)
-                if (band_of == k).any()
-                else None
-                for k in range(3)
-            ]
+        points = xyz[valid].astype(np.float64)
+        d = field.at(points)
+        radius = np.linalg.norm(points[:, :2] - on_axis(points[:, 2]), axis=1)
+        terciles = np.digitize(radius, np.percentile(radius, [100 / 3, 200 / 3]))
+        final_sheet = _sheet(field, xyz, valid)
+        final_sheet["within_2_by_radius_tercile"] = [
+            round(float((d[(terciles == k) & np.isfinite(d)] <= NEAR).mean()), 4)
+            if ((terciles == k) & np.isfinite(d)).any() else None
+            for k in range(3)
+        ]  # fmt: skip
+        on_triangles = distance_to_triangles(points, snap, snap_valid)
         out["windings"][n] = {
-            "off_sheet_by_radius_tercile": terciles,
             "render": orient[n]["render"],
             "trusted": round(float((classes == TRUSTED).sum()) / surface, 4)
             if surface
@@ -164,32 +212,41 @@ def geometry(root: Path, arm: str, masks: Path | None = None) -> dict:
             "inward_against_axis": inward_share(xyz, valid, on_axis),
             "inward_against_band_centre": inward_share(xyz, valid, fixed_centre(band)),
             "snapped_inward_against_axis": inward_share(snap, snap_valid, on_axis),
-            "final_on_snap": {
-                "covered": round(d["covered_fraction"], 4),
-                "within_2": round(d["fraction_within"]["2"], 4),
+            "predicted_sheet": {
+                "snapped": _sheet(field, snap, snap_valid),
+                "final": final_sheet,
             },
+            "on_snapped_triangles": round(float((on_triangles <= NEAR).mean()), 4),
         }
-    w = out["windings"].values()
+    w = list(out["windings"].values())
 
-    def med(values) -> float:
-        return round(float(np.median([v for v in values if v is not None])), 4)
+    def med(values) -> float | None:
+        v = [x for x in values if x is not None]
+        return round(float(np.median(v)), 4) if v else None
 
     out["summary"] = {
-        "windings": len(out["windings"]),
+        "windings": len(w),
         "inward_against_axis": {
             "median": med(x["inward_against_axis"] for x in w),
             "min": min(x["inward_against_axis"] for x in w),
             "max": max(x["inward_against_axis"] for x in w),
         },
         "inward_against_band_centre_median": med(x["inward_against_band_centre"] for x in w),
-        "trusted_median": med(x["trusted"] for x in w),
-        "off_sheet_by_radius_tercile_median": [
-            med(x["off_sheet_by_radius_tercile"][k] for x in w if x["off_sheet_by_radius_tercile"]) for k in range(3)
-        ],
-        "other_side_median": med(x["other_side"] for x in w),
         "snapped_inward_against_axis_median": med(x["snapped_inward_against_axis"] for x in w),
-        "final_on_snap_covered_median": med(x["final_on_snap"]["covered"] for x in w),
-        "final_on_snap_within_2_median": med(x["final_on_snap"]["within_2"] for x in w),
+        "trusted_median": med(x["trusted"] for x in w),
+        "other_side_median": med(x["other_side"] for x in w),
+        "predicted_sheet_within_2_median": {
+            "snapped": med(x["predicted_sheet"]["snapped"]["within_2"] for x in w),
+            "final": med(x["predicted_sheet"]["final"]["within_2"] for x in w),
+        },
+        "predicted_sheet_on_sheet_median": {
+            "snapped": med(x["predicted_sheet"]["snapped"]["on_sheet"] for x in w),
+            "final": med(x["predicted_sheet"]["final"]["on_sheet"] for x in w),
+        },
+        "final_within_2_by_radius_tercile_median": [
+            med(x["predicted_sheet"]["final"]["within_2_by_radius_tercile"][k] for x in w) for k in range(3)
+        ],
+        "on_snapped_triangles_median": med(x["on_snapped_triangles"] for x in w),
         "rendered_against_the_axis_rule": sorted(
             n for n, x in out["windings"].items()
             if (x["inward_against_axis"] > 0.5) != (x["inward_against_band_centre"] > 0.5)

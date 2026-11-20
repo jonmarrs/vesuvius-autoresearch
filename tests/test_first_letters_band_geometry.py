@@ -1,5 +1,5 @@
-"""The band read's geometry record: normals against the scroll axis, the final winding against its snapped sheet,
-and the trust mask the inspection page shows."""
+"""The band read's geometry record: normals against the scroll axis, the final winding against the predicted sheet
+and the snapped triangles, and the trust mask the inspection page shows."""
 
 import importlib.util
 import json
@@ -42,25 +42,29 @@ def _centre(z):
     return np.broadcast_to(np.array(AXIS_XY), (len(z), 2))
 
 
-def test_a_hole_in_the_snap_and_a_displaced_part_are_off_the_sheet_and_the_flip_swaps_the_side():
+class _Sheets:
+    """A predicted sheet one voxel thick at each of these radii from the axis: signed distance, <= 0 inside."""
+
+    def __init__(self, *radii):
+        self.radii = np.array(radii)
+
+    def at(self, xyz):
+        r = np.hypot(xyz[:, 0] - AXIS_XY[0], xyz[:, 1] - AXIS_XY[1])
+        return np.min(np.abs(r[:, None] - self.radii[None, :]), axis=1) - 1.0
+
+
+def test_a_part_off_the_predicted_sheet_is_off_and_the_flip_swaps_the_side():
     final, fv = _ring()
     final = final.copy()
     final[:, 60:, :2] += (
         5.0 * (final[:, 60:, :2] - AXIS_XY) / 1000.0
     )  # 5 voxels outward: off the sheet
-    snap, sv = _ring()
-    sv = sv.copy()
-    sv[:, 16:48] = (
-        False  # a hole of 32 columns, about 640 voxels: its middle is uncovered
-    )
-    keep = bg.node_classes(final, fv, snap, sv, False, _centre)
-    flip = bg.node_classes(final, fv, snap, sv, True, _centre)
+    field = _Sheets(1000.0)
+    keep = bg.node_classes(final, fv, field, False, _centre)
+    flip = bg.node_classes(final, fv, field, True, _centre)
     inner = keep[1:-1]  # the grid's edge rows have no normal: no surface
-    on_sheet = (inner == bg.TRUSTED) | (inner == bg.OTHER_SIDE)
-    assert (inner[:, 26:38] == bg.OFF_SHEET).all() and (
-        inner[:, 62:-1] == bg.OFF_SHEET
-    ).all()
-    assert on_sheet[:, 1:12].all()
+    assert (inner[:, 62:-1] == bg.OFF_SHEET).all()
+    assert np.isin(inner[:, 1:58], (bg.TRUSTED, bg.OTHER_SIDE)).all()
     swapped = np.where(
         keep == bg.TRUSTED,
         bg.OTHER_SIDE,
@@ -70,7 +74,28 @@ def test_a_hole_in_the_snap_and_a_displaced_part_are_off_the_sheet_and_the_flip_
     inward = bg.inward_share(final, fv, _centre)
     assert inward in (0.0, 1.0)  # a ring's normals all point one way
     # layers run outward where the render offsets along an outward normal
-    assert (inner[:, 1:12] == (bg.TRUSTED if inward == 0.0 else bg.OTHER_SIDE)).all()
+    assert (inner[:, 1:58] == (bg.TRUSTED if inward == 0.0 else bg.OTHER_SIDE)).all()
+
+
+def test_distance_to_triangles_is_zero_on_the_surface_and_the_offset_off_it():
+    grid, valid = _ring(
+        columns=20
+    )  # nodes about 80 voxels apart: nearest-node distances would be tens of voxels
+    rng = np.random.default_rng(0)
+    i, j = rng.integers(1, 8, 200), rng.integers(1, 18, 200)
+    s, t = rng.uniform(0, 1, 200), rng.uniform(0, 1, 200)
+    # points inside cells: bilinear in the cell, which on this ring lies within a voxel of its triangles
+    p = (1 - s)[:, None] * (
+        (1 - t)[:, None] * grid[i, j] + t[:, None] * grid[i, j + 1]
+    ) + s[:, None] * (
+        (1 - t)[:, None] * grid[i + 1, j] + t[:, None] * grid[i + 1, j + 1]
+    )
+    assert np.percentile(bg.distance_to_triangles(p, grid, valid), 99) < 1.0
+    radial = (p[:, :2] - AXIS_XY) / np.linalg.norm(p[:, :2] - AXIS_XY, axis=1)[:, None]
+    off = p.copy()
+    off[:, :2] += 6.0 * radial
+    d = bg.distance_to_triangles(off, grid, valid)
+    assert np.all((d > 5.0) & (d < 7.5))
 
 
 def _band(tmp_path):
@@ -108,29 +133,41 @@ def test_the_record_counts_trusted_area_and_names_windings_rendered_against_the_
     tmp_path,
 ):
     r = _band(tmp_path)
-    rec = bg.geometry(r, "a", tmp_path / "masks")
+    rec = bg.geometry(r, "a", tmp_path / "masks", field=_Sheets(1000.0, 1015.0))
     w = rec["windings"]
     assert w["w010"]["trusted"] == 1.0 and w["w010"]["other_side"] == 0.0
     assert w["w011"]["trusted"] == 0.0 and w["w011"]["other_side"] == 1.0
+    assert w["w010"]["on_snapped_triangles"] == 1.0
+    sheet = w["w010"]["predicted_sheet"]
+    assert sheet["snapped"]["on_sheet"] == sheet["final"]["on_sheet"] == 1.0
+    assert {
+        v for v in sheet["final"]["within_2_by_radius_tercile"] if v is not None
+    } == {1.0}
     assert (
-        w["w010"]["final_on_snap"]["covered"] == 1.0
-    )  # nodes 20 voxels apart: the edges are covered too
-    assert rec["summary"]["windings"] == 2
-    terciles = w["w010"]["off_sheet_by_radius_tercile"]
-    assert len(terciles) == 3 and {v for v in terciles if v is not None} == {
-        0.0
-    }  # a circle: all on the sheet
+        rec["summary"]["windings"] == 2
+        and rec["summary"]["on_snapped_triangles_median"] == 1.0
+    )
     import cv2
 
     mask = cv2.imread(str(tmp_path / "masks" / "w010.png"), cv2.IMREAD_GRAYSCALE)
     assert mask.shape == (10, 80) and (mask[1:-1, 1:-1] == bg.TRUSTED).all()
 
 
+def test_a_sheet_the_field_does_not_have_is_off_it(tmp_path):
+    r = _band(tmp_path)
+    rec = bg.geometry(r, "a", None, field=_Sheets(1000.0))  # no sheet at w011's radius
+    assert (
+        rec["windings"]["w011"]["trusted"] == 0.0
+        and rec["windings"]["w011"]["other_side"] == 0.0
+    )
+    assert rec["windings"]["w011"]["predicted_sheet"]["final"]["within_2"] == 0.0
+
+
 def test_the_page_shows_the_trusted_share_and_the_mask_turned_like_the_image(tmp_path):
     import cv2
 
     r = _band(tmp_path)
-    rec = bg.geometry(r, "a", tmp_path / "masks")
+    rec = bg.geometry(r, "a", tmp_path / "masks", field=_Sheets(1000.0, 1015.0))
     (tmp_path / "geom.json").write_text(json.dumps(rec))
     out = tmp_path / "summary"
     (out / "images").mkdir(parents=True)
