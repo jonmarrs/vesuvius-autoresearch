@@ -21,6 +21,90 @@ from scripts.loop_control import acquire_lock, running_pid
 REPO = Path(__file__).resolve().parents[1]
 
 
+def test_planning_and_help_need_no_scientific_packages(tmp_path):
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "time_budget": 1,
+                "uris": ["data/train/ct.zarr"],
+                "val_uri": "data/val/ct.zarr",
+                "unlabeled_uris": [],
+                "depth_band": [17, 43],
+            }
+        )
+    )
+    checkpoint = tmp_path / "start.pt"
+    checkpoint.write_bytes(b"planning fixture, not tensor weights")
+    output = tmp_path / "new_probe"
+    env = dict(
+        os.environ, PYTHONPATH="", PYTHONDONTWRITEBYTECODE="1", CUDA_VISIBLE_DEVICES=""
+    )
+    script = str(REPO / "scripts/f1_noise_probe.py")
+    help_run = subprocess.run(
+        [sys.executable, "-S", script, "--help"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=10,
+    )
+    assert help_run.returncode == 0, help_run.stderr
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-S",
+            script,
+            "--config",
+            str(config),
+            "--checkpoint",
+            str(checkpoint),
+            "--out",
+            str(output),
+        ],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=10,
+    )
+    assert run.returncode == 0, run.stderr
+    planned = json.loads(run.stdout)
+    assert planned["status"] == "DRY_RUN" and planned["training_executed"] is False
+    assert planned["protocol"] == "seeded-sample-400-v3+z17-43"
+    assert not output.exists()
+    assert checkpoint.read_bytes() == b"planning fixture, not tensor weights"
+
+
+def test_promotion_metadata_reexports_keep_the_existing_protocol_contract():
+    from scripts.training import promotion, validation_protocol as metadata
+
+    assert promotion.validation_protocol is metadata.validation_protocol
+    assert promotion.VALIDATION_PROTOCOL == "seeded-sample-400-v3"
+    assert promotion.INK_ONLY_PROTOCOL == "seeded-sample-400-v2"
+    assert promotion.VALIDATION_SAMPLE_PATCHES == 400
+    assert promotion.VALIDATION_SAMPLE_SEED == 42
+    assert (
+        metadata.validation_protocol([1, 27], base=promotion.INK_ONLY_PROTOCOL)
+        == "seeded-sample-400-v2+z1-27"
+    )
+
+
+def test_changed_protocol_metadata_refuses_execution_before_launch(inputs, monkeypatch):
+    metadata = inputs[0] / "validation_protocol.py"
+    metadata.write_bytes(probe.PROTOCOL_METADATA.read_bytes())
+    monkeypatch.setattr(probe, "PROTOCOL_METADATA", metadata)
+    prepared = plan(inputs)
+    assert (
+        prepared.input_hashes[str(metadata)]
+        == hashlib.sha256(metadata.read_bytes()).hexdigest()
+    )
+    metadata.write_bytes(metadata.read_bytes() + b"\n# changed after planning\n")
+    with pytest.raises(ValueError, match="input changed"):
+        probe.execute(prepared)
+    assert not inputs[3].exists()
+
+
 def result(value=0.6, *, protocol=probe.VALIDATION_PROTOCOL):
     return {
         "val_f1": value,

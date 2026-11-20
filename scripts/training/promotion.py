@@ -40,26 +40,17 @@ from scripts.training.input_paths import (
     validation_input_paths,
     validation_label_path,
 )
+from scripts.training.validation_protocol import (
+    INK_ONLY_PROTOCOL,
+    VALIDATION_PROTOCOL,
+    VALIDATION_SAMPLE_PATCHES,
+    VALIDATION_SAMPLE_SEED,
+    validation_protocol,
+)
 from vesuvius_autoresearch.core.file_modes import replacement_mode
-
-VALIDATION_PROTOCOL = "seeded-sample-400-v3"
-# The same draw scored on its ink-containing patches only; kept so finding 86's
-# and 88's measurements of it can be reproduced.
-INK_ONLY_PROTOCOL = "seeded-sample-400-v2"
-VALIDATION_SAMPLE_PATCHES = 400
-VALIDATION_SAMPLE_SEED = 42
+from vesuvius_autoresearch.core.patch_catalog import capture_patch_catalog
 
 RESCORE_COMMAND = "uv run python scripts/reevaluate_best_model.py --update-stored"
-
-
-def validation_protocol(depth_band=None, base: str = VALIDATION_PROTOCOL) -> str:
-    """The protocol a score is measured under. The depth band is part of it: the
-    same patches read from other slices are a different sample. ``base`` is
-    INK_ONLY_PROTOCOL only to reproduce a v2 measurement."""
-    if depth_band is None:
-        return base
-    start, end = depth_band
-    return f"{base}+z{start}-{end}"
 
 
 def scores_ink_free_patches(protocol: str) -> bool:
@@ -76,6 +67,7 @@ def scores_ink_free_patches(protocol: str) -> bool:
 # A zarr's metadata (shape, dtype, chunks), at its root and its level 0: small,
 # and changed by a volume rebuilt in place.
 ZARR_METADATA_FILES = (".zarray", ".zgroup", ".zattrs", "zarr.json")
+_NO_CATALOG_EXPECTATION = object()
 
 
 def _file_sha256(path: str) -> str | None:
@@ -88,7 +80,9 @@ def _file_sha256(path: str) -> str | None:
     return digest.hexdigest()
 
 
-def validation_inputs_fingerprint(val_uri: str, depth_band=None) -> str:
+def validation_inputs_fingerprint(
+    val_uri: str, depth_band=None, *, expected_catalog_sha256=_NO_CATALOG_EXPECTATION
+) -> str:
     """A sha256 of what the protocol's sample is drawn from.
 
     The protocol (sample size, seed, depth band); the fragment and volume names;
@@ -98,11 +92,27 @@ def validation_inputs_fingerprint(val_uri: str, depth_band=None) -> str:
     or an absolute path gives the same fingerprint. The CT itself is not hashed,
     and neither is the model's geometry (patch size, depth): the loop pins those,
     and the incumbent is re-scored at its own.
+
+    When given, expected_catalog_sha256 must match the bytes parsed by the
+    dataset. None means the dataset used automatic coordinate discovery.
     """
     if not isinstance(val_uri, str) or not val_uri:
         raise ValueError("the validation inputs need a val_uri")
     paths = validation_input_paths(val_uri)
     volume = val_uri.rstrip("/")
+    catalog_path = paths["patches_json"]
+    catalog_sha256 = (
+        hashlib.sha256(capture_patch_catalog(catalog_path)).hexdigest()
+        if os.path.lexists(catalog_path)
+        else None
+    )
+    if (
+        expected_catalog_sha256 is not _NO_CATALOG_EXPECTATION
+        and catalog_sha256 != expected_catalog_sha256
+    ):
+        raise RuntimeError(
+            f"validation patch catalog changed while read: {catalog_path}"
+        )
     record = {
         "protocol": validation_protocol(depth_band),
         "fragment": os.path.basename(os.path.dirname(volume)),
@@ -114,7 +124,7 @@ def validation_inputs_fingerprint(val_uri: str, depth_band=None) -> str:
         },
         "labels": [os.path.basename(paths["labels"]), _file_sha256(paths["labels"])],
         "mask": _file_sha256(paths["mask"]),
-        "patches_json": _file_sha256(paths["patches_json"]),
+        "patches_json": catalog_sha256,
     }
     return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 

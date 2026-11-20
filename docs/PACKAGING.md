@@ -30,6 +30,11 @@ metadata; a wheel installation alone does not reproduce the locked CUDA setup.
 The full environment remains large. Splitting CPU/GPU/research extras is a
 separate review item.
 
+The [command inventory](COMMANDS.md) identifies reviewed module CLIs that work
+from a wheel and workflows that require a checkout, along with declared runtime
+and Villa requirements. It is a basis for evaluating future extras; it is not a
+minimal install specification or a change to the current full dependency set.
+
 ## Verified installation behavior
 
 The maintained [installation checks](../tests/test_wheel_installation.py) build
