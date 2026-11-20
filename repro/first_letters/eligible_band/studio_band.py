@@ -12,6 +12,13 @@ Registration: docs/preregistration/2026-11-20_first_letters_0826_studio_band.md.
                a contact sheet of all of them at one eighth (OUT_DIR/contact_sheet.png), and the numbers in
                OUT_DIR/summary.json: the share of the winding's rendered area at probability 0.5 or more, and the
                same over each tile of 380 pixels (finding 117's 19 nodes), with the largest tile share.
+    select     QUALITY_JSON OUT.txt
+               the windings whose sheet-following excess (run_quality.sh) is above zero: nearer a predicted sheet
+               than six voxels off it. Chosen from the geometry, before any ink (finding 126).
+    stacked    OUT.json SNAP_DIR
+               for each pair of consecutive snapped windings, the share of the inner one's nodes within 2 voxels of
+               the outer one (finding 110's surface_distance): the strategy's stacked-winding check. Described: a
+               pair at or above STACKED renders the same papyrus twice.
 
 Nothing here decides whether there are letters; that is the owner's reading of the images.
 """
@@ -33,6 +40,7 @@ import mesh_step_analysis as analysis  # noqa: E402
 TILE = 380  # pixels: 19 nodes of 20, finding 117's tile
 INK = 0.5
 MIN_TILE_COVER = 0.9  # share of a tile that must be rendered for it to be scored
+STACKED = 0.30  # finding 113's line for two windings on one surface
 SHEET_SCALE = 8  # contact sheet: one pixel per 8
 
 
@@ -121,6 +129,37 @@ def summarise(out: Path, maps: Path, renders: Path) -> dict:
     return summary
 
 
+def select(quality: dict) -> list[str]:
+    """Windings with a sheet-following excess above zero, in index order."""
+    chosen = []
+    for name, entry in quality["windings"].items():
+        excess = entry.get("excess") if isinstance(entry, dict) else None
+        if excess is not None and excess > 0:
+            chosen.append(name)
+    return sorted(chosen, key=lambda n: int(n[1:]))
+
+
+def stacked(snap: Path) -> dict:
+    names = sorted(
+        (p.name for p in snap.iterdir() if p.is_dir() and (p / "x.tif").exists()),
+        key=lambda n: int(n[1:]),
+    )
+    loaded = {n: analysis.load_tifxyz(snap / n) for n in names}
+    pairs = {}
+    for inner, outer in zip(names, names[1:], strict=False):
+        if int(outer[1:]) != int(inner[1:]) + 1:
+            continue
+        share = analysis.surface_distance(*loaded[inner], *loaded[outer])[
+            "fraction_within"
+        ]["2"]
+        pairs[f"{inner}-{outer}"] = share
+    return {
+        "line": STACKED,
+        "pairs": pairs,
+        "stacked": sorted(k for k, v in pairs.items() if v >= STACKED),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="command", required=True)
@@ -131,7 +170,23 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("out", type=Path)
     s.add_argument("maps", type=Path)
     s.add_argument("renders", type=Path)
+    c = sub.add_parser("select")
+    c.add_argument("quality", type=Path)
+    c.add_argument("out", type=Path)
+    k = sub.add_parser("stacked")
+    k.add_argument("out", type=Path)
+    k.add_argument("snap", type=Path)
     args = ap.parse_args(argv)
+    if args.command == "select":
+        chosen = select(json.loads(args.quality.read_text()))
+        args.out.write_text("".join(f"{n}\n" for n in chosen))
+        print(f"{len(chosen)} windings with positive excess")
+        return 0 if chosen else 1
+    if args.command == "stacked":
+        result = stacked(args.snap)
+        args.out.write_text(json.dumps(result, indent=1) + "\n")
+        print(json.dumps({"pairs": len(result["pairs"]), "stacked": result["stacked"]}))
+        return 0
     if args.command == "orient":
         if args.out.exists():
             print(f"{args.out} exists", file=sys.stderr)

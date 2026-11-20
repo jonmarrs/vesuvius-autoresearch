@@ -8,10 +8,12 @@
 #   studio     our layers 41 down to 26 (finding 124's order), Studio with the winner's command (finding 123's
 #              environment, weights and inference.py, each checksummed)
 #   summarise  studio_band.py summarise: one image per winding, a contact sheet, and numbers
+#   stacked    studio_band.py stacked: consecutive snapped windings on one surface (described; finding 126)
 # A winding whose flatten, render or Studio step fails is recorded and skipped; the others go on. Studio's weights
 # and outputs are CC BY-NC 4.0, and an eligible scroll's outputs stay on this machine.
+# STUDIO_WINDINGS=FILE reads only the raw windings it lists (finding 126: those with positive excess).
 #
-# usage: FL_SCROLL=PHerc0826 run_studio_band.sh ARM
+# usage: FL_SCROLL=PHerc0826 [STUDIO_WINDINGS=FILE] run_studio_band.sh ARM
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
@@ -77,10 +79,16 @@ render_one() {  # WINDING
   esac
 }
 
-ls "$MESHES" | grep -E '^w[0-9]+$' > "$R/work/windings_$ARM.txt"
+if [ -n "${STUDIO_WINDINGS:-}" ]; then
+  ls "$MESHES" | grep -E '^w[0-9]+$' | grep -Fxf "$STUDIO_WINDINGS" > "$R/work/windings_$ARM.txt"
+else
+  ls "$MESHES" | grep -E '^w[0-9]+$' > "$R/work/windings_$ARM.txt"
+fi
+[ -s "$R/work/windings_$ARM.txt" ] || { echo "no windings to read" >&2; exit 2; }
 mapfile -t LIVE < "$R/work/windings_$ARM.txt"
 echo "READ_START $ARM ${#LIVE[@]} windings $(date -Is)"
 stage snap bash "$HERE/run_snap.sh" "$ARM"
+stage stacked "$PYW" -I "$HERE/studio_band.py" stacked "$OUT/stacked.json" "$R/work/snap_$ARM"
 for_each flatten bash "$HERE/run_flatten.sh" "$ARM"
 FINALS=()
 for w in "${LIVE[@]}"; do FINALS+=("$R/work/final_$ARM/$w.tifxyz"); done
