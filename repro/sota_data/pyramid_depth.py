@@ -28,7 +28,9 @@ scale, the layout of an isotropic downsample whose Z scale was not updated.
 
 Exit status: 0 when every level is usable and any compared pixels agree with
 the header, 1 when a level is truncated or inconsistent or the pixels disagree
-or are ambiguous, and 2 when the input is refused.
+or are ambiguous, and 2 when the input is refused. A Blosc chunk whose file
+is shorter than the frame size in its header is refused: that codec can
+return a full array of the wrong bytes from a cut-short file.
 
 A header check of the volumes whose level 2 keeps 17 of 65 slices needs
 those groups on disk, or at least the group ``.zattrs`` and each level's
@@ -491,6 +493,25 @@ def _chunk_names(
     return names
 
 
+def _complete_blosc_frame(path: Path) -> bool:
+    """Whether ``path`` holds one Blosc frame and nothing after it.
+
+    Bytes 12:16 of a Blosc header are the frame size, including the header.
+    A download that stops early leaves that size unchanged and the file short.
+    The codec can still return a full chunk of the wrong bytes.
+    """
+    size = path.stat().st_size
+    if size < 16:
+        return False
+    with path.open("rb") as handle:
+        header = handle.read(16)
+    if len(header) < 16 or header[0] not in (1, 2):
+        return False
+    nbytes = int.from_bytes(header[4:8], "little")
+    cbytes = int.from_bytes(header[12:16], "little")
+    return nbytes > 0 and cbytes >= 16 and cbytes == size
+
+
 def _require_chunks(
     array_dir: Path, origin: Sequence[int], size: Sequence[int]
 ) -> None:
@@ -502,16 +523,21 @@ def _require_chunks(
     separator = meta.get("dimension_separator", ".")
     if not isinstance(separator, str) or separator not in {".", "/"}:
         raise ValueError(f"{array_dir.name} has an unsupported dimension separator")
-    missing = [
-        name
-        for name in _chunk_names(shape, chunks, origin, size, separator)
-        if not (array_dir / name).is_file()
-    ]
+    names = _chunk_names(shape, chunks, origin, size, separator)
+    missing = [name for name in names if not (array_dir / name).is_file()]
     if missing:
         raise ValueError(
             f"{array_dir.name} is missing {len(missing)} chunk(s) for this window; "
             f"the first is {missing[0]}"
         )
+    compressor = meta.get("compressor")
+    if isinstance(compressor, Mapping) and compressor.get("id") == "blosc":
+        short = [name for name in names if not _complete_blosc_frame(array_dir / name)]
+        if short:
+            raise ValueError(
+                f"{array_dir.name} has a chunk in this window that does not decode: "
+                f"{short[0]} is shorter than the Blosc frame its header declares"
+            )
 
 
 def _read_window(
