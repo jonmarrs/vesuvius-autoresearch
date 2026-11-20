@@ -821,6 +821,7 @@ def build_validation_dataset(config: ExperimentConfig):
     paths = validation_input_paths(config.val_uri)
     labels_path, mask_path = paths["labels"], paths["mask"]
     patches_json_path = paths["patches_json"]
+    catalog_path = patches_json_path if os.path.lexists(patches_json_path) else None
     # Validation uses target_fiber_source="sobel_z" regardless of training
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
@@ -837,15 +838,25 @@ def build_validation_dataset(config: ExperimentConfig):
         use_lasagna=getattr(config, "use_lasagna", False),
         require_ink=False,
         target_fiber_source="sobel_z",
-        patches_json=patches_json_path if os.path.exists(patches_json_path) else None,
+        patches_json=catalog_path,
         strict_reads=True,
         depth_band=getattr(config, "depth_band", None),
         depth_margin=DEPTH_MARGIN,
     )
     # Recorded with every score (validation_diag["inputs_sha256"]) and compared
     # with the incumbent's (promotion.py). A file written while the dataset read
-    # them could otherwise be recorded without having been read.
-    if validation_inputs_fingerprint(config.val_uri, band) != inputs:
+    # them could otherwise be recorded without having been read. Check the
+    # parsed catalog's digest too, including a rewrite that was then reverted.
+    if (
+        validation_inputs_fingerprint(
+            config.val_uri,
+            band,
+            expected_catalog_sha256=dataset.patch_catalog_sha256
+            if catalog_path is not None
+            else None,
+        )
+        != inputs
+    ):
         raise RuntimeError(
             f"the validation inputs for {config.val_uri} changed while they were read"
         )
@@ -2091,7 +2102,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
                 strict_reads=getattr(config, "strict_training_reads", False),
                 patches_json=patches_json_path
-                if os.path.exists(patches_json_path)
+                if os.path.lexists(patches_json_path)
                 else None,
                 depth_band=getattr(config, "depth_band", None),
                 depth_margin=DEPTH_MARGIN,

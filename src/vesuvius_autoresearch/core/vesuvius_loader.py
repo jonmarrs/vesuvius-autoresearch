@@ -26,6 +26,8 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
 from vesuvius_autoresearch.fibers import detect_ridges
 from vesuvius_autoresearch.fibers.provenance import atomic_file
 
+from .patch_catalog import read_patch_catalog
+
 
 def frangi_vesselness_zcollapsed(ct_np, sigma=2.0):
     """Frangi vesselness of a [Z, H, W] CT patch, z-collapsed via mean to [H, W].
@@ -679,7 +681,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # 20% of each side (~1,600 px on an 8,181 px fragment), which let a
         # misregistered label train and validate silently.
         vol_hw = (self.shape[1], self.shape[2])
-        coords_from_json = bool(patches_json and os.path.exists(patches_json))
+        coords_from_json = patches_json is not None
         for _name in ("labels", "mask"):
             _arr = getattr(self, _name)
             if _arr is None or (_name == "mask" and coords_from_json):
@@ -744,14 +746,14 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             else _load_coordinate_cache(cache_path, self.shape, self.patch_size)
         )
 
+        self.patch_catalog_sha256 = None
         if coords_from_json:
             print(f"Loading valid coordinates from JSON patch catalog: {patches_json}")
-
-            with open(patches_json) as f:
-                patch_data = json.load(f)
-            self.valid_coords = np.array(
-                [[p["y"], p["x"]] for p in patch_data.get("patches", [])]
+            coords, self.patch_catalog_sha256 = read_patch_catalog(
+                patches_json, self.shape, self.patch_size
             )
+            self.valid_coords = np.asarray(coords, dtype=np.int64)
+            self.patch_size = int(self.patch_size)
         elif cached_coords is not None:
             self.valid_coords = cached_coords
         else:

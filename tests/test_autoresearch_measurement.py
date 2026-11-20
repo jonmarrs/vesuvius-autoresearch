@@ -194,6 +194,45 @@ def test_inputs_changed_while_the_dataset_reads_them_are_refused(tmp_path, monke
         train.build_validation_dataset(config)
 
 
+def test_validation_rejects_a_catalog_rewrite_reverted_after_parsing(
+    tmp_path, monkeypatch
+):
+    import zarr
+    from PIL import Image
+
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    frag = _fragment(tmp_path)
+    uri = str(frag / "surface_volume.zarr")
+    zarr.open(uri, mode="w", shape=(32, 32, 32), chunks=(8, 16, 16), dtype="u1")[:] = 17
+    Image.fromarray(np.full((32, 32), 255, dtype=np.uint8)).save(frag / "inklabels.png")
+    Image.fromarray(np.full((32, 32), 255, dtype=np.uint8)).save(frag / "mask.png")
+    catalog = frag / "patches.json"
+    raw = b'{"patches":[{"y":0,"x":0}]}'
+    catalog.write_bytes(raw)
+    config = ExperimentConfig(val_uri=uri, num_layers=16, patch_size=16)
+
+    original_fingerprint = promotion.validation_inputs_fingerprint(uri)
+    stable = train.build_validation_dataset(config)
+    assert stable.validation_inputs == original_fingerprint
+    assert stable.valid_coords.tolist() == [[0, 0]]
+    read_catalog = vesuvius_loader.read_patch_catalog
+
+    def read_replacement(path, *args):
+        catalog.write_bytes(b'{"patches":[{"y":16,"x":0}]}')
+        try:
+            coords, digest = read_catalog(path, *args)
+            assert coords == [(16, 0)]
+            return coords, digest
+        finally:
+            catalog.write_bytes(raw)
+
+    monkeypatch.setattr(vesuvius_loader, "read_patch_catalog", read_replacement)
+    with pytest.raises(RuntimeError, match="patch catalog changed"):
+        train.build_validation_dataset(config)
+    assert promotion.validation_inputs_fingerprint(uri) == original_fingerprint
+
+
 def test_training_stops_before_its_budget_on_other_inputs(tmp_path):
     diag = {"protocol": promotion.VALIDATION_PROTOCOL, "inputs_sha256": "a" * 64}
     path = _checkpoint(tmp_path / "best_model.pt", validation_diag=diag)
@@ -1895,8 +1934,22 @@ def test_a_hung_git_is_stopped_without_leaving_its_lock(tmp_path, monkeypatch):
 def _alive(pid):
     try:
         return Path(f"/proc/{pid}/stat").read_text().split()[2] not in "ZX"
-    except FileNotFoundError:
+    except (
+        FileNotFoundError,
+        ProcessLookupError,
+    ):  # gone before the open, or between open and read
         return False
+
+
+def test_a_process_that_exits_while_its_stat_is_read_is_not_alive(monkeypatch):
+    """/proc/PID/stat can open and then fail to read with ESRCH when the process is reaped in between; the
+    suite on 2026-11-16 failed here once with ProcessLookupError, after the hook had been killed as intended."""
+
+    def gone(self, *args, **kwargs):
+        raise ProcessLookupError(3, "No such process")
+
+    monkeypatch.setattr(Path, "read_text", gone)
+    assert _alive(12345) is False
 
 
 def test_a_hung_hook_does_not_hold_up_the_loop(tmp_path, monkeypatch):
