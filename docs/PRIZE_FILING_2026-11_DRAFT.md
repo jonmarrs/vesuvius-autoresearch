@@ -151,6 +151,17 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     windings of our unrefined fit, read by Studio and carried onto the winner's surface, give r = 0.82 against the
     winner's map (reversed planes −0.05, slid 0.11). The image draws the winner's letters. Studio on our render of
     the winner's surface gives 0.97, so our renderer costs almost nothing and the geometry the rest.
+  * **The winning reader on a second scroll** ([report](../reports/first_letters_343_studio.md), finding 127).
+    On the PHerc. 343 recipe's published surface, Studio's map gives r = 0.6238 against the recipe's ensemble map.
+    - **How that compares:** it is above each of the ensemble's four models measured against the other three (0.41
+      to 0.6195).
+    - **Controls:** 0.10 (reversed planes) and 0.21 (slid).
+    - **The image:** it draws both published rows of letters, more legibly than the ensemble.
+    - **Caveat:** Studio was not trained on this scroll, but its training includes a fragment, PHerc0343P, that may
+      come from the same roll.
+  * **Studio's faster default tiling does not reproduce its map**
+    ([report](../reports/studio_published_tiling.md), finding 128). It is 2.4 times faster, but gives r = 0.94
+    against the winner's command, short of the 0.98 line. Band reads keep the winner's command.
   * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
     with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
     reader was the missing piece, not the geometry.
