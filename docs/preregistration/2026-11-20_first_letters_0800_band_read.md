@@ -110,3 +110,30 @@ As finding 126's: the fit's numbers decide only which windings are read, and the
 - **Disk:** about 22 GB of inputs and 50 to 60 GB of renders. The guard stops the renders, without deleting anything,
   if fewer than 50 GB remain. Whether to delete finding 125's renders (96 GiB) is the owner's decision.
 - **When:** after finding 129's chain. Nothing is uploaded.
+
+## Amendment 1, 2026-11-20, before any input of PHerc. 0800 has been downloaded and before findings 131, 132 and 134 have run
+
+**A third choice: how many times the windings are snapped, decided by finding 134.**
+
+- **What was seen, from geometry alone.** On finding 130's six densified windings of PHerc. 0826 (w020 to w070), the
+  recipe's snap was run again on its own output, twice. More of each winding came within 2 voxels of the predicted
+  sheet at every pass, on all six windings (median over the six):
+
+  | | one pass | two | three |
+  |---|---|---|---|
+  | nodes | 0.8303 | 0.8736 | 0.8905 |
+  | edge midpoints and cell centres (the triangles between nodes) | 0.8166 | 0.8526 | 0.8630 |
+
+  The one-pass node share is finding 130's recorded value. The second pass moved nodes a median of 0.29 to 0.53
+  voxels, and the third 0.15 to 0.25.
+- **Why this needs a reading test.** A pass moves each node to the centre of the nearest predicted-sheet run along its
+  normal. Sitting on the sheet's centre need not read better (the reason finding 131 exists), so finding 134,
+  registered separately, reads three passes against one at PHerc. 211's prize place.
+- **The code.** `run_snap.sh` takes `FL_SNAP_PASSES` (1 to 5, default 1); each pass snaps the one before.
+  - On those six windings, one pass gave finding 130's snap byte for byte, and three passes gave the hand-run third
+    pass byte for byte.
+  - `run_after_controls.sh` reads finding 134's record. It sets `FL_SNAP_PASSES=3` only if the record's
+    `consequence` is `three_passes` and `FL_DENSIFY` is set, since finding 134 tests three passes of the densified
+    windings. Otherwise it sets 1, the snap every earlier read used. A missing record also gives 1.
+- **Order.** Finding 134 runs after finding 129's chain and before this read.
+- **Unchanged:** everything else in this registration.
