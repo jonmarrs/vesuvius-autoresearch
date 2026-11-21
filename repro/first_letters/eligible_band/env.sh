@@ -17,6 +17,7 @@ TOOLS=$(cd "$(dirname "${BASH_SOURCE[0]}")/../pherc343/mesh_step" && pwd)
 # left_handed_coordinates gives ACW, else CW; metadata.json read 2026-11-13). PHerc. 0125's z direction is
 # null in the catalog, so its direction is unknown and it has no default here.
 SCROLL=${FL_SCROLL:-PHerc0211}
+SCAN=  # set per scroll below only where its scan differs from the default; never taken from the caller
 case "$SCROLL" in
   PHerc0211) VOLUME_ID=20250821151803; UMBILICUS_STAMP=20260808112626; SENSE=ACW ;;
   PHerc0826) VOLUME_ID=20250821151701; UMBILICUS_STAMP=20260808113303; SENSE=ACW ;;
@@ -28,9 +29,15 @@ case "$SCROLL" in
   # axis published 2026-09-24; catalog metadata.json read 2026-11-20: z_direction_is_top_to_bottom false,
   # left_handed_coordinates false, so clockwise as PHerc. 343; tracked range z 4500-16993
   PHerc0813) VOLUME_ID=20250821151723; UMBILICUS_STAMP=20260924033203; SENSE=CW ;;
+  # axis published 2026-09-24 (151 control points, z 1728-23008); catalog metadata.json read 2026-11-20:
+  # z_direction_is_top_to_bottom false, left_handed_coordinates false, so clockwise; tracked range z 4500-17500.
+  # Its scan is 8.64 um at 116 keV, as PHerc. 343's.
+  PHerc0800) VOLUME_ID=20250521135224; UMBILICUS_STAMP=20260924033751; SENSE=CW
+             SCAN=8.640um-1.2m-116keV ;;
   *) echo "unknown scroll $SCROLL" >&2; return 2 2>/dev/null || exit 2 ;;
 esac
-VOXEL_UM=9.362
+SCAN=${SCAN:-9.362um-1.2m-113keV}  # the scan's resolution, distance and energy, as in its volume name
+VOXEL_UM=${SCAN%%um-*}
 Z_BEGIN=${FL_Z_BEGIN:-10250}   # default: the middle 1,500 slices of the tracked range z 4500-17500
 Z_END=${FL_Z_END:-11750}
 # The z chunks of each input array that the band +/- 64 slices touches (setup/fetch_volumes.sh): the surface
@@ -44,7 +51,7 @@ R=$FL_ROOT/$(echo "$SCROLL" | tr "[:upper:]" "[:lower:]")_band${FL_BAND:+_$FL_BA
 BUCKET_SURF=$SCROLL/representations/predictions/surfaces
 SURF_NAME=$VOLUME_ID-surface-20260413222639-surface-m7-L0-th0.2.zarr
 SURF=$R/inputs/surface/$SURF_NAME
-CT_NAME=$VOLUME_ID-9.362um-1.2m-113keV-masked.zarr
+CT_NAME=$VOLUME_ID-$SCAN-masked.zarr
 CT=$R/inputs/ct/$CT_NAME
 CT_URL=https://vesuvius-challenge-open-data.s3.us-east-1.amazonaws.com/$SCROLL/volumes/$CT_NAME
 LASAGNA=$SCROLL/representations/predictions/lasagna/$VOLUME_ID-lasagna-20260419180421

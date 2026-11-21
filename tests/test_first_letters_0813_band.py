@@ -159,3 +159,24 @@ def test_the_chain_densifies_the_selected_windings_only_when_asked():
     )
     assert 'bash "$HERE/run_studio_band.sh" "$READ_ARM"' in text
     assert (BAND / "densify_winding.py").exists()
+
+
+def test_each_scroll_has_its_scans_resolution_and_the_caller_cannot_change_it(tmp_path):
+    def env(scroll):
+        out = subprocess.run(
+            ["bash", "-c", '. "$0"; printf "%s\\n" "$VOXEL_UM" "$CT_NAME" "$SENSE" "$UMBILICUS_KEY"', str(BAND / "env.sh")],
+            env={"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path), "FL_SCROLL": scroll, "SCAN": "bogus"},
+            capture_output=True, text=True, check=True,
+        ).stdout.splitlines()  # fmt: skip
+        return out
+
+    assert env("PHerc0826")[:2] == [
+        "9.362",
+        "20250821151701-9.362um-1.2m-113keV-masked.zarr",
+    ]
+    assert env("PHerc0800") == [
+        "8.640",
+        "20250521135224-8.640um-1.2m-116keV-masked.zarr",
+        "CW",
+        "PHerc0800/representations/umbilicus/20250521135224-umbilicus-20260924033751.json",
+    ]
