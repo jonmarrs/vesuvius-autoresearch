@@ -17,8 +17,8 @@ Checked on PHerc. 211 (z top to bottom, right-handed), against the winner's map,
 "as rendered" links the unturned image.
 
 With --geometry (band_geometry.py's record and its --masks folder), each row also shows the share of the winding
-that lies on its snapped sheet with layers running outward ("trusted"), and that mask turned the same way as the
-image: white trusted, grey the other side, dark grey off the snapped sheet.
+within 2 voxels of the predicted sheet with layers running outward ("trusted"), and that mask turned the same way
+as the image: white trusted, grey the other side, dark grey off the predicted sheet.
 
 usage: band_index.py SUMMARY_DIR --finals DIR --umbilicus JSON --top-to-bottom true|false --left-handed true|false
        [--quality QUALITY_JSON] [--geometry GEOMETRY_JSON MASKS_DIR]
@@ -153,8 +153,9 @@ img{{max-width:900px}}a{{color:#8cf}}</style>
 <p>Each image is turned into reading orientation from its mesh, the scroll axis and the catalog's orientation flags
 (the PHerc. 343 recipe's rule, checked on PHerc. 211 against the winner's map). "as rendered" links the unturned
 image.</p>
-<p>"trusted": the share of the winding on its snapped sheet with layers running outward (band_geometry.py); its
-mask, when shown, is under each map: white trusted, grey read from the other side, dark grey off the snapped sheet.
+<p>"trusted": the share of the winding within 2 voxels of the predicted sheet with layers running outward
+(band_geometry.py); its mask, when shown, is under each map: white trusted, grey read from the other side, dark grey
+off the predicted sheet.
 </p>
 <table><tr><th>#</th><th>winding</th><th>ink share</th><th>largest tile</th><th>tiles</th><th>fit excess</th>
 <th>trusted</th><th>map</th></tr>

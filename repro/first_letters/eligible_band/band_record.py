@@ -7,10 +7,16 @@ It changes nothing in the run. It reads, under R (the band's run directory) and 
 - work/studio_ARM/summary/summary.json: Studio's ink numbers per winding;
 - work/studio_ARM/summary/orientation.json: the reading-orientation turn of each image (`band_index.py`);
 - work/studio_ARM/stacked.json: consecutive windings on one surface (`studio_band.py stacked`), if run;
+- work/studio_ARM/geometry.json: `band_geometry.py`'s record (normals against the axis, the predicted sheet), if run;
 - work/quality_ARM.json: the fit's excess per winding;
-- logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled.
+- logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled;
+- work/render_ARM/wNNN_N.zarr/0/.zarray: each render's canvas (rows by columns; N layers, 66 or a centred thinner
+  render), and the apparent size of the
+  renders and of Studio's maps (work/studio_ARM/maps/) on disk.
 
-usage: band_record.py R ARM OUT.json
+usage: band_record.py R ARM OUT.json [--finding N --registration PATH --registration-commit SHA]
+                      [--quality-arm FIT_ARM]
+(the defaults are finding 125's; a later band read names its own)
 """
 
 from __future__ import annotations
@@ -71,16 +77,62 @@ def gpu_peak(path: Path) -> int | None:
     return max(values) if values else None
 
 
-def record(root: Path, arm: str) -> dict:
+FINDING_125 = (
+    125,
+    "docs/preregistration/2026-11-20_first_letters_0826_studio_band.md",
+    "d6e5ca0f",
+)
+
+
+def canvas_megapixels(renders: Path, winding: str) -> float | None:
+    """A winding's render canvas, rows times columns of its level 0, in millions of pixels; None if it has none.
+
+    The render is wNNN_N.zarr for any layer count N; two renders of one winding are refused."""
+    headers = sorted(renders.glob(f"{winding}_*.zarr/0/.zarray"))
+    if len(headers) > 1:
+        raise SystemExit(f"{winding} has {len(headers)} renders in {renders}")
+    if not headers:
+        return None
+    _, rows, cols = json.loads(headers[0].read_text())["shape"]
+    return round(rows * cols / 1e6, 4)
+
+
+def apparent_bytes(folder: Path) -> int:
+    return (
+        sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
+        if folder.exists()
+        else 0
+    )
+
+
+def record(
+    root: Path,
+    arm: str,
+    finding: int = FINDING_125[0],
+    registration: str = FINDING_125[1],
+    registration_commit: str = FINDING_125[2],
+    quality_arm: str | None = None,
+) -> dict:
+    """quality_arm: the fit arm whose excess the read's windings carry, when the read arm is not a fit arm (the
+    chain's `fulldense`, finding 126's selected windings of arm `full` subdivided, has quality_full.json)."""
     work = root / "work"
+    canvases = {
+        w: c
+        for w in (work / f"windings_{arm}.txt").read_text().split()
+        if (c := canvas_megapixels(work / f"render_{arm}", w)) is not None
+    }
     studio = work / f"studio_{arm}"
     windings = (work / f"windings_{arm}.txt").read_text().split()
     orient = json.loads((studio / "orient.json").read_text())["windings"]
     summary = json.loads((studio / "summary" / "summary.json").read_text())["windings"]
     turns = json.loads((studio / "summary" / "orientation.json").read_text())
-    quality = json.loads((work / f"quality_{arm}.json").read_text())["windings"]
+    quality = json.loads((work / f"quality_{quality_arm or arm}.json").read_text())[
+        "windings"
+    ]
     stacked_path = studio / "stacked.json"
     stacked = json.loads(stacked_path.read_text()) if stacked_path.exists() else None
+    geometry_path = studio / "geometry.json"
+    geometry = json.loads(geometry_path.read_text()) if geometry_path.exists() else None
 
     inward = [o["share_of_normals_pointing_inward"] for o in orient.values()]
     read = sorted(summary)
@@ -111,7 +163,23 @@ def record(root: Path, arm: str) -> dict:
                 "share_of_normals_pointing_inward"
             ],
             "excess": (quality.get(w) or {}).get("excess"),
+            **(
+                {}
+                if geometry is None or w not in geometry["windings"]
+                else {
+                    "geometry": {
+                        k: geometry["windings"][w][k]
+                        for k in ("trusted", "other_side", "inward_against_axis")
+                    }
+                    | {
+                        "final_within_2": geometry["windings"][w]["predicted_sheet"][
+                            "final"
+                        ]["within_2"]
+                    }
+                }
+            ),
             "read": w in summary,
+            **({"render_canvas_megapixels": canvases[w]} if w in canvases else {}),
             **(
                 {
                     "ink_share": summary[w]["ink_share"],
@@ -132,10 +200,11 @@ def record(root: Path, arm: str) -> dict:
         key=lambda w: (-summary[w]["largest_tile_ink_share"], w),
     )
     return {
-        "finding": 125,
-        "registration": "docs/preregistration/2026-11-20_first_letters_0826_studio_band.md",
-        "registration_commit": "d6e5ca0f",
+        "finding": finding,
+        "registration": registration,
+        "registration_commit": registration_commit,
         "arm": arm,
+        **({"quality_arm": quality_arm} if quality_arm else {}),
         "windings": len(windings),
         "steps": steps(work / f"gate_{arm}", windings),
         "render_orientation": {
@@ -152,8 +221,16 @@ def record(root: Path, arm: str) -> dict:
             w for w in read if summary[w]["tiles_scored"] == 0
         ),
         "rendered_pixels": int(sum(summary[w]["rendered_pixels"] for w in read)),
+        "render_canvas_megapixels": _spread(list(canvases.values()))
+        if canvases
+        else None,
+        "bytes_on_disk": {
+            "renders": apparent_bytes(work / f"render_{arm}"),
+            "studio_maps": apparent_bytes(studio / "maps"),
+        },
         "inspection_order_first_ten": ranked[:10],
         "stacked": stacked,
+        "geometry": None if geometry is None else geometry["summary"],
         "gpu_peak_mib_all_processes": gpu_peak(
             root / "logs" / f"studio_{arm}_gpu_mib.log"
         ),
@@ -166,10 +243,17 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("root", type=Path)
     ap.add_argument("arm")
     ap.add_argument("out", type=Path)
+    ap.add_argument("--finding", type=int, default=FINDING_125[0])
+    ap.add_argument("--registration", default=FINDING_125[1])
+    ap.add_argument("--registration-commit", default=FINDING_125[2])
+    ap.add_argument(
+        "--quality-arm", help="the fit arm whose quality_ARM.json holds the excess"
+    )
     args = ap.parse_args(argv)
     if args.out.exists():
         raise SystemExit(f"{args.out} exists")
-    result = record(args.root, args.arm)
+    result = record(args.root, args.arm, args.finding, args.registration, args.registration_commit,
+                    args.quality_arm)  # fmt: skip
     args.out.write_text(json.dumps(result, indent=1) + "\n")
     print(json.dumps({k: v for k, v in result.items() if k != "by_winding"}, indent=1))
     return 0
