@@ -3,7 +3,8 @@
 Registration: docs/preregistration/2026-11-16_first_letters_0211_studio_e2e.md.
 
     planes   RENDER_ZARR OUT.npy [--reverse]
-             Studio's 16-plane input from one of our 66-layer renders: layers LAYERS (41 down to 26), uint8
+             Studio's 16-plane input from one of our renders: layers LAYERS (41 down to 26) of the 66-layer
+             frame, from a 66-layer render or a centred thinner one that holds them (render_frame.py), uint8
              [16, H, W]. The order was matched to the winner's own Studio input by CT correlation on finding 118's
              render of the winner's surface (plane i against our layer 41 - i, r about 0.95 each). --reverse gives
              the same planes in the opposite order (26 up to 41): the other-side control.
@@ -31,12 +32,14 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pherc343" / "mesh_step"))
+sys.path.insert(0, str(HERE.parent / "eligible_band"))
 
 import compare as f118  # noqa: E402
 import compare_readers as f120  # noqa: E402
 import end_to_end as f121  # noqa: E402
 import mesh_step_analysis as analysis  # noqa: E402
 import transfer_maps as tm  # noqa: E402
+from render_frame import frame_index  # noqa: E402
 
 LAYERS = tuple(range(41, 25, -1))  # Studio plane i <- our render layer 41 - i
 CLOSE, PARTLY, RATIO = 0.70, 0.40, 2.0
@@ -46,10 +49,12 @@ def planes_cmd(render: Path, out: Path, reverse: bool = False) -> dict:
     import zarr
 
     level0 = zarr.open(str(render), mode="r")["0"]
-    if level0.shape[0] != 66:
-        raise SystemExit(f"{render} has {level0.shape[0]} layers, not 66")
     layers = LAYERS[::-1] if reverse else LAYERS
-    stack = np.stack([np.asarray(level0[k]) for k in layers])
+    try:
+        index = [frame_index(level0.shape[0], k) for k in layers]
+    except ValueError as e:
+        raise SystemExit(f"{render}: {e}") from None
+    stack = np.stack([np.asarray(level0[i]) for i in index])
     if stack.dtype != np.uint8:
         raise SystemExit(f"{render} is {stack.dtype}, not 8-bit")
     np.save(out, stack, allow_pickle=False)

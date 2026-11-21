@@ -264,7 +264,7 @@ def test_the_band_render_flips_only_when_asked():
     assert "flip) FLIP=(--flip-normals); FLIPPED=true ;;" in text
     assert '"") ;;' in text and "FLIP=(); FLIPPED=false" in text
     assert '--slice-step 1 "${FLIP[@]}"' in text
-    assert '"\\"flipped\\": $FLIPPED"' in text
+    assert '"\\"flipped\\": $FLIPPED, \\"slices\\": $SLICES"' in text
 
 
 @pytest.mark.parametrize("bad", ["yes", "--flip-normals"])

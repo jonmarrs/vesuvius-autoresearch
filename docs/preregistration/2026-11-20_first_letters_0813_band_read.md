@@ -96,3 +96,29 @@ renders and 7 h of Studio. Its renders take about 150 GB. On 2026-11-20 the disk
 band read still to write; the guard above stops the renders, without deleting anything, if the two together do not
 fit. Whether to delete finding 125's renders (96 GiB) to make room is the owner's decision. It starts after finding
 126's chain. GPU memory up to about 15 GB. Nothing is uploaded.
+
+## Amendment 1 (2026-11-20, before any input of PHerc. 0813 has been downloaded)
+
+**The read renders the 18 layers it uses, not 66.** Studio reads layers 41 down to 26 and the summary reads the
+surface layer 33; nothing in the read uses the others. Finding 125's 66-layer renders took 102.4 GB for 70 windings,
+and with finding 126's read still to write, the disk guard above could stop this read's renders part way.
+
+- **Why 18 layers give the same bytes.** The renderer places layer i of an n-layer render at (i − (n − 1) / 2) along
+  the normal, so a render of 18 layers holds layers 24 to 41 of the 66-layer render at the same offsets.
+- **Checked on three of PHerc. 0826's windings** (finding 125's arm `outer80`): w010 (rendered unflipped), w012 and
+  w050 (flipped).
+  - Each 18-layer render's layers equal layers 24 to 41 of its 66-layer render byte for byte.
+  - Studio's 16 planes from them (`studio_e2e.py planes`) are byte-identical for w012 and w050.
+  - They take 0.28 of the disk: 40 MB, 55 MB and 473 MB, against 145 MB, 199 MB and 1.7 GB.
+- **Time is not claimed.** The three renders ran during finding 126's download, at 63, 67 and 179 s, against 117,
+  55 and 127 s for their 66-layer renders on 2026-11-20. The renderer is bound by reading the CT's 128-voxel chunks,
+  which a thinner shell barely reduces.
+- **The change:**
+  - `run_render.sh` takes `RENDER_SLICES` (an even number from 18 to 66; default 66, so earlier findings' renders
+    are unchanged) and names its output `wNNN_N.zarr`;
+  - `run_studio_band.sh` renders and reads 18 layers;
+  - `studio_e2e.py planes` and `studio_band.py summarise` find the 66-layer frame's layers in either render
+    (`render_frame.py`).
+- **Lost:** the CT layers outside 24 to 41 are not kept. A later look at them re-renders the winding.
+- **Unchanged:** the band, the fit, the selection, the snap, the orientation rule, the reader, its command and its
+  input, the summary's numbers, and the decision rule.
