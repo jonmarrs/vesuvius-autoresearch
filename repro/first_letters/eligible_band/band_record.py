@@ -15,6 +15,7 @@ It changes nothing in the run. It reads, under R (the band's run directory) and 
   renders and of Studio's maps (work/studio_ARM/maps/) on disk.
 
 usage: band_record.py R ARM OUT.json [--finding N --registration PATH --registration-commit SHA]
+                      [--quality-arm FIT_ARM]
 (the defaults are finding 125's; a later band read names its own)
 """
 
@@ -110,7 +111,10 @@ def record(
     finding: int = FINDING_125[0],
     registration: str = FINDING_125[1],
     registration_commit: str = FINDING_125[2],
+    quality_arm: str | None = None,
 ) -> dict:
+    """quality_arm: the fit arm whose excess the read's windings carry, when the read arm is not a fit arm (the
+    chain's `fulldense`, finding 126's selected windings of arm `full` subdivided, has quality_full.json)."""
     work = root / "work"
     canvases = {
         w: c
@@ -122,7 +126,9 @@ def record(
     orient = json.loads((studio / "orient.json").read_text())["windings"]
     summary = json.loads((studio / "summary" / "summary.json").read_text())["windings"]
     turns = json.loads((studio / "summary" / "orientation.json").read_text())
-    quality = json.loads((work / f"quality_{arm}.json").read_text())["windings"]
+    quality = json.loads((work / f"quality_{quality_arm or arm}.json").read_text())[
+        "windings"
+    ]
     stacked_path = studio / "stacked.json"
     stacked = json.loads(stacked_path.read_text()) if stacked_path.exists() else None
     geometry_path = studio / "geometry.json"
@@ -198,6 +204,7 @@ def record(
         "registration": registration,
         "registration_commit": registration_commit,
         "arm": arm,
+        **({"quality_arm": quality_arm} if quality_arm else {}),
         "windings": len(windings),
         "steps": steps(work / f"gate_{arm}", windings),
         "render_orientation": {
@@ -239,12 +246,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--finding", type=int, default=FINDING_125[0])
     ap.add_argument("--registration", default=FINDING_125[1])
     ap.add_argument("--registration-commit", default=FINDING_125[2])
+    ap.add_argument(
+        "--quality-arm", help="the fit arm whose quality_ARM.json holds the excess"
+    )
     args = ap.parse_args(argv)
     if args.out.exists():
         raise SystemExit(f"{args.out} exists")
-    result = record(
-        args.root, args.arm, args.finding, args.registration, args.registration_commit
-    )
+    result = record(args.root, args.arm, args.finding, args.registration, args.registration_commit,
+                    args.quality_arm)  # fmt: skip
     args.out.write_text(json.dumps(result, indent=1) + "\n")
     print(json.dumps({k: v for k, v in result.items() if k != "by_winding"}, indent=1))
     return 0

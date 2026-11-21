@@ -211,3 +211,22 @@ def test_two_renders_of_one_winding_are_refused(tmp_path):
 
     with pytest.raises(SystemExit):
         br.record(r, "a")
+
+
+def test_a_densified_read_takes_its_excess_from_the_fit_arm(tmp_path):
+    r = _run(tmp_path)
+    work = r / "work"
+    (work / "quality_a.json").rename(
+        work / "quality_full.json"
+    )  # the read arm `a` is no fit arm
+    rec = br.record(r, "a", finding=126, quality_arm="full")
+    assert rec["quality_arm"] == "full" and rec["by_winding"]["w011"]["excess"] == 0.2
+    assert "quality_arm" not in br.record(
+        _run(tmp_path / "plain"), "a"
+    )  # finding 125's record is unchanged
+    out = tmp_path / "rec.json"
+    assert (
+        br.main([str(r), "a", str(out), "--finding", "126", "--quality-arm", "full"])
+        == 0
+    )
+    assert json.loads(out.read_text())["by_winding"]["w010"]["excess"] == -0.02
