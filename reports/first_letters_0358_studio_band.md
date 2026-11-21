@@ -137,8 +137,9 @@ w035-w036 and w036-w037. All lie at or inside w037. On PHerc. 0826, 11 of 69 pai
   at the registered rates, the fit, distance field and read alone come to about 10 hours.
 - **The flatten did not double.** Amendment 1 expected about twice finding 125's flatten on the denser grid (finding
   130: 134 to 254 s a winding). It took a median 70 s, at most 92 s, below finding 125's 80 s on the fit's grid.
-  Elsewhere the denser grid did double the flatten: at PHerc. 211, finding 131 measured 116 s a winding against 49
-  to 66 s on the fit's grid. Why it did not here is not known.
+  The grid's density does not set the flatten's time. At PHerc. 211 the same densified windings took 116 s a winding
+  in finding 131 and 39 to 43 s in finding 134 (snapped three times), against 49 to 66 s on the fit's grid. What
+  sets it is not known.
 - **Disk:** the inputs take 10.4 GB and the tracks 13.6 GB (registered: about 18 GB of downloads). The renders take
   171.4 GB and Studio's maps 15.4 GB (neither registered). Studio's input planes were deleted after each read.
 - **GPU memory:** the fit peaked at 13,019 MiB in use by all processes (the 300-step fit at 12,015). Studio's peak,
