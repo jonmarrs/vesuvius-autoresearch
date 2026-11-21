@@ -48,6 +48,16 @@ What this means here:
   fiber volume, keep fractional seed planes on the global grid. It merged after October's deadline (2026-11-01 06:59
   UTC), so it is November's.
 
+**Open, and recommended for merging by villa's review on 2026-11-20** (checked 2026-11-20 22:05 Pacific). Each goes
+above only once it merges, with its date:
+* [villa #2463](https://github.com/ScrollPrize/villa/pull/2463): lasagna, put `tifxyz-flow-gate-channels` in `args`
+  in both FlowSnap presets. **Its case in practice:** as shipped, both presets fail before optimizing with an unknown
+  loss-term error (villa #2458). They are used by `fit.py` and offered in VC3D's config picker. The review reproduced
+  the error on main and loaded both presets at the PR's head.
+* [villa #2465](https://github.com/ScrollPrize/villa/pull/2465): docs, a note that the harmonized Scroll 1
+  instance-label volumes mix `uint8` and `uint16`. The review pushed a wording change to the branch and checked all 80
+  volume headers. It is documentation, weak under #2450 on its own, and belongs in a bundle.
+
 ## Queued, not posted
 
 * **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)).
