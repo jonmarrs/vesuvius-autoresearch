@@ -3,15 +3,19 @@
 # Registration: docs/preregistration/2026-11-20_first_letters_0826_studio_band.md.
 #   snap       the recipe's snap of every raw winding of the arm (run_snap.sh)
 #   flatten    lasagna, per winding (run_flatten.sh)
-#   orient     studio_band.py orient: flip a winding whose normals point mostly toward the band's centre
+#   orient     studio_band.py orient: flip a winding whose normals point mostly toward the scroll axis
 #   render     66 layers per winding, flipped as decided (run_render.sh)
 #   studio     our layers 41 down to 26 (finding 124's order), Studio with the winner's command (finding 123's
 #              environment, weights and inference.py, each checksummed)
 #   summarise  studio_band.py summarise: one image per winding, a contact sheet, and numbers
+#   stacked    studio_band.py stacked: consecutive snapped windings on one surface (described; finding 126)
 # A winding whose flatten, render or Studio step fails is recorded and skipped; the others go on. Studio's weights
 # and outputs are CC BY-NC 4.0, and an eligible scroll's outputs stay on this machine.
+# STUDIO_WINDINGS=FILE reads only the raw windings it lists (finding 126: those with positive excess).
+# STUDIO_TILING=winner (the default: the winner's --stride 64 --blend hann) or published (inference.py's default,
+# 96-pixel windows without overlap; finding 128).
 #
-# usage: FL_SCROLL=PHerc0826 run_studio_band.sh ARM
+# usage: FL_SCROLL=PHerc0826 [STUDIO_WINDINGS=FILE] [STUDIO_TILING=winner|published] run_studio_band.sh ARM
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
@@ -29,6 +33,11 @@ OUT=$R/work/studio_$ARM
 [ -x "$ENV/bin/python" ] || { echo "finding 123's Studio environment is missing" >&2; exit 2; }
 printf '%s  %s\n%s  %s\n' "$W_SHA" "$WEIGHTS" "$CODE_SHA" "$CODE/inference.py" | sha256sum -c || exit 2
 MESHES=$(fit_meshes "$ARM") || exit 2
+case "${STUDIO_TILING:-winner}" in
+  winner) TILING=(--stride 64 --blend hann) ;;
+  published) TILING=() ;;
+  *) echo "STUDIO_TILING is winner or published, not '$STUDIO_TILING'" >&2; exit 2 ;;
+esac
 mkdir -p "$OUT/planes" "$OUT/maps" "$R/logs"
 
 stage() {  # NAME COMMAND...: a band-wide stage; stop the read if it fails
@@ -47,7 +56,7 @@ studio() {  # WINDING FLIP: planes and Studio for one winding
   "$PYW" -I "$ROOT/repro/first_letters/pherc0211_control/studio_e2e.py" planes \
     "$R/work/render_$ARM/${1}_66.zarr" "$OUT/planes/$1.npy" || return 1
   (cd "$CODE" && env -u PYTHONPATH PYTHONNOUSERSITE=1 HF_HUB_OFFLINE=1 "$ENV/bin/python" inference.py \
-     --input "$OUT/planes/$1.npy" --output "$OUT/maps/$1.npy" --checkpoint "$WEIGHTS" --stride 64 --blend hann \
+     --input "$OUT/planes/$1.npy" --output "$OUT/maps/$1.npy" --checkpoint "$WEIGHTS" "${TILING[@]}" \
      --batch-size 32) || return 1
   rm -f "$OUT/planes/$1.npy"
 }
@@ -77,14 +86,20 @@ render_one() {  # WINDING
   esac
 }
 
-ls "$MESHES" | grep -E '^w[0-9]+$' > "$R/work/windings_$ARM.txt"
+if [ -n "${STUDIO_WINDINGS:-}" ]; then
+  ls "$MESHES" | grep -E '^w[0-9]+$' | grep -Fxf "$STUDIO_WINDINGS" > "$R/work/windings_$ARM.txt"
+else
+  ls "$MESHES" | grep -E '^w[0-9]+$' > "$R/work/windings_$ARM.txt"
+fi
+[ -s "$R/work/windings_$ARM.txt" ] || { echo "no windings to read" >&2; exit 2; }
 mapfile -t LIVE < "$R/work/windings_$ARM.txt"
-echo "READ_START $ARM ${#LIVE[@]} windings $(date -Is)"
+echo "READ_START $ARM ${#LIVE[@]} windings tiling=${STUDIO_TILING:-winner} $(date -Is)"
 stage snap bash "$HERE/run_snap.sh" "$ARM"
+stage stacked "$PYW" -I "$HERE/studio_band.py" stacked "$OUT/stacked.json" "$R/work/snap_$ARM"
 for_each flatten bash "$HERE/run_flatten.sh" "$ARM"
 FINALS=()
 for w in "${LIVE[@]}"; do FINALS+=("$R/work/final_$ARM/$w.tifxyz"); done
-stage orient "$PYW" -I "$HERE/studio_band.py" orient "$OUT/orient.json" "${FINALS[@]}"
+stage orient "$PYW" -I "$HERE/studio_band.py" orient "$OUT/orient.json" "${FINALS[@]}" --umbilicus "$R/dataset/umbilicus.json"
 for_each render render_one
 for_each studio studio
 stage summarise "$PYW" -I "$HERE/studio_band.py" summarise "$OUT/summary" "$OUT/maps" "$R/work/render_$ARM"
