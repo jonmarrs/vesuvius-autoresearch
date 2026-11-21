@@ -273,6 +273,13 @@ three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surfa
 On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
 step reads every winding of a still-eligible band that way, for the owner to inspect.
 
+**The twice-denser snap reads the same as the fit's own grid at the known place (November 21).** At PHerc. 211's
+winner surface, finding 121's four windings subdivided twice before the snap give r 0.8168 against 0.8267 for the
+same route on the fit's grid (`DENSE_READS_SAME`, as predicted; change −0.0099, margin 0.02;
+[report](../reports/first_letters_0211_dense_read.md), finding 131). Yet they sit more on the predicted sheet: +0.0343
+at the median within 2 voxels. So that geometric gain did not buy a better read here. The band reads keep the denser
+snap, as registered, on geometry alone.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
