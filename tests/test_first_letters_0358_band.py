@@ -127,3 +127,24 @@ def test_the_chain_runs_the_registered_steps_in_order_and_uploads_nothing():
     assert positions == sorted(positions)
     assert 'run_fit.sh" full' in text and 'run_fit.sh" smoke 300' in text
     assert 'STUDIO_WINDINGS="$R/work/studio_windings_full.txt"' in text
+
+
+def test_amendment_1_reads_against_the_axis_on_a_denser_grid():
+    text = " ".join(
+        (ROOT / "docs/preregistration/2026-11-20_first_letters_0358_band_read.md")
+        .read_text()
+        .split()
+    )
+    assert (
+        "## Amendment 1, 2026-11-20, before anything of PHerc. 0358 was downloaded"
+        in text
+    )
+    assert (
+        "FL_SCROLL=PHerc0358 FL_Z_BEGIN=8872 FL_Z_END=10372 FL_DENSIFY=2 run_band_and_read.sh"
+        in text
+    )
+    band = (BAND / "run_studio_band.sh").read_text()
+    assert '--umbilicus "$R/dataset/umbilicus.json"' in band
+    assert (
+        "winner) TILING=(--stride 64 --blend hann) ;;" in band
+    )  # the default the chain keeps

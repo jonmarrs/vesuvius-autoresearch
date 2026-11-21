@@ -89,3 +89,29 @@ no automatic verdict.
 - **When:** about 8 hours in all, after finding 125's read.
 
 Nothing is uploaded.
+
+## Amendment 1, 2026-11-20, before anything of PHerc. 0358 was downloaded
+
+The chain had not started. It was queued behind finding 125's read, and its run directory held only an empty `logs`
+folder. Two of the read's steps change, both learnt from finding 125's geometry and decided before any 0358 data
+exist:
+
+- **Orientation against the published scroll axis.** `studio_band.py orient` now takes `--umbilicus`, and
+  `run_studio_band.sh` passes the band's axis. On PHerc. 0826's read, the band's mean node position lay off the axis.
+  Two inner windings that point inward on 90% of their nodes against the axis scored 49% against the mean, and were
+  rendered the wrong way (`band_geometry.py`).
+- **A twice-denser grid before the snap.** The chain runs with `FL_DENSIFY=2`: the selected raw windings are
+  subdivided twice (`densify_winding.py`) and read as arm `fulldense`. Finding 130 found that this keeps more of the
+  rendered surface on the predicted sheet: +0.070 at the median over six of 0826's windings (`DENSE_SNAP_HELPS`).
+
+The command becomes `FL_SCROLL=PHerc0358 FL_Z_BEGIN=8872 FL_Z_END=10372 FL_DENSIFY=2 run_band_and_read.sh`.
+
+Two further things are run afterwards and described:
+- `band_geometry.py`: normals against the axis, the share of each rendered winding within 2 voxels of the predicted
+  sheet, and the trust masks;
+- the inspection page with `band_index.py`.
+
+Studio keeps the winner's command (`--stride 64 --blend hann`) whatever finding 128 shows. The fit, the selection,
+the predictions and the decision rule are unchanged, and everything else in this registration stands.
+
+The flatten costs about twice as long on the denser grid (finding 130: 134 to 254 s a winding).
