@@ -156,3 +156,58 @@ def test_the_cli_refuses_to_overwrite_a_record(tmp_path):
         assert "exists" in str(e)
     else:
         raise AssertionError("overwrote the record")
+
+
+def test_a_later_band_read_names_its_own_finding_and_registration(tmp_path):
+    r = _run(tmp_path)
+    rec = br.record(
+        r, "a", finding=126, registration="docs/x.md", registration_commit="3c97310a"
+    )
+    assert (rec["finding"], rec["registration"], rec["registration_commit"]) == (
+        126,
+        "docs/x.md",
+        "3c97310a",
+    )
+    default = br.record(r, "a")
+    assert (default["finding"], default["registration_commit"]) == (125, "d6e5ca0f")
+    out = tmp_path / "rec126.json"
+    argv = [
+        str(r),
+        "a",
+        str(out),
+        "--finding",
+        "126",
+        "--registration",
+        "docs/x.md",
+        "--registration-commit",
+        "3c97310a",
+    ]
+    assert br.main(argv) == 0
+    assert json.loads(out.read_text())["finding"] == 126
+
+
+def test_the_canvas_is_read_from_a_thinner_render(tmp_path):
+    r = _run(tmp_path)
+    renders = r / "work" / "render_a"
+    for w in (
+        "w010",
+        "w011",
+    ):  # the band read of finding 129 renders 18 layers, written as wNNN_18.zarr
+        (renders / f"{w}_66.zarr" / "0" / ".zarray").rename(
+            renders / f"{w}_66.zarr" / "0" / "zarray.bak"
+        )
+        _write(renders / f"{w}_18.zarr" / "0" / ".zarray", {"shape": [18, 1000, 2000]})
+    rec = br.record(r, "a")
+    assert rec["by_winding"]["w010"]["render_canvas_megapixels"] == 2.0
+
+
+def test_two_renders_of_one_winding_are_refused(tmp_path):
+    r = _run(tmp_path)
+    _write(
+        r / "work" / "render_a" / "w010_18.zarr" / "0" / ".zarray",
+        {"shape": [18, 1000, 2000]},
+    )
+    import pytest
+
+    with pytest.raises(SystemExit):
+        br.record(r, "a")

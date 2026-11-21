@@ -10,10 +10,12 @@ It changes nothing in the run. It reads, under R (the band's run directory) and 
 - work/studio_ARM/geometry.json: `band_geometry.py`'s record (normals against the axis, the predicted sheet), if run;
 - work/quality_ARM.json: the fit's excess per winding;
 - logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled;
-- work/render_ARM/wNNN_66.zarr/0/.zarray: each render's canvas (rows by columns), and the apparent size of the
+- work/render_ARM/wNNN_N.zarr/0/.zarray: each render's canvas (rows by columns; N layers, 66 or a centred thinner
+  render), and the apparent size of the
   renders and of Studio's maps (work/studio_ARM/maps/) on disk.
 
-usage: band_record.py R ARM OUT.json
+usage: band_record.py R ARM OUT.json [--finding N --registration PATH --registration-commit SHA]
+(the defaults are finding 125's; a later band read names its own)
 """
 
 from __future__ import annotations
@@ -74,12 +76,23 @@ def gpu_peak(path: Path) -> int | None:
     return max(values) if values else None
 
 
-def canvas_megapixels(render: Path) -> float | None:
-    """A render's canvas, rows times columns of its level 0, in millions of pixels; None if it has none."""
-    header = render / "0" / ".zarray"
-    if not header.exists():
+FINDING_125 = (
+    125,
+    "docs/preregistration/2026-11-20_first_letters_0826_studio_band.md",
+    "d6e5ca0f",
+)
+
+
+def canvas_megapixels(renders: Path, winding: str) -> float | None:
+    """A winding's render canvas, rows times columns of its level 0, in millions of pixels; None if it has none.
+
+    The render is wNNN_N.zarr for any layer count N; two renders of one winding are refused."""
+    headers = sorted(renders.glob(f"{winding}_*.zarr/0/.zarray"))
+    if len(headers) > 1:
+        raise SystemExit(f"{winding} has {len(headers)} renders in {renders}")
+    if not headers:
         return None
-    _, rows, cols = json.loads(header.read_text())["shape"]
+    _, rows, cols = json.loads(headers[0].read_text())["shape"]
     return round(rows * cols / 1e6, 4)
 
 
@@ -91,12 +104,18 @@ def apparent_bytes(folder: Path) -> int:
     )
 
 
-def record(root: Path, arm: str) -> dict:
+def record(
+    root: Path,
+    arm: str,
+    finding: int = FINDING_125[0],
+    registration: str = FINDING_125[1],
+    registration_commit: str = FINDING_125[2],
+) -> dict:
     work = root / "work"
     canvases = {
         w: c
         for w in (work / f"windings_{arm}.txt").read_text().split()
-        if (c := canvas_megapixels(work / f"render_{arm}" / f"{w}_66.zarr")) is not None
+        if (c := canvas_megapixels(work / f"render_{arm}", w)) is not None
     }
     studio = work / f"studio_{arm}"
     windings = (work / f"windings_{arm}.txt").read_text().split()
@@ -175,9 +194,9 @@ def record(root: Path, arm: str) -> dict:
         key=lambda w: (-summary[w]["largest_tile_ink_share"], w),
     )
     return {
-        "finding": 125,
-        "registration": "docs/preregistration/2026-11-20_first_letters_0826_studio_band.md",
-        "registration_commit": "d6e5ca0f",
+        "finding": finding,
+        "registration": registration,
+        "registration_commit": registration_commit,
         "arm": arm,
         "windings": len(windings),
         "steps": steps(work / f"gate_{arm}", windings),
@@ -217,10 +236,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("root", type=Path)
     ap.add_argument("arm")
     ap.add_argument("out", type=Path)
+    ap.add_argument("--finding", type=int, default=FINDING_125[0])
+    ap.add_argument("--registration", default=FINDING_125[1])
+    ap.add_argument("--registration-commit", default=FINDING_125[2])
     args = ap.parse_args(argv)
     if args.out.exists():
         raise SystemExit(f"{args.out} exists")
-    result = record(args.root, args.arm)
+    result = record(
+        args.root, args.arm, args.finding, args.registration, args.registration_commit
+    )
     args.out.write_text(json.dumps(result, indent=1) + "\n")
     print(json.dumps({k: v for k, v in result.items() if k != "by_winding"}, indent=1))
     return 0
