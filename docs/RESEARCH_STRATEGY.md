@@ -273,6 +273,13 @@ three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surfa
 On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
 step reads every winding of a still-eligible band that way, for the owner to inspect.
 
+**A three-pass snap reads the same as one pass at the known place, and sits more on the sheet (November 21).** At
+PHerc. 211's winner surface, finding 131's densified windings snapped three times give r 0.8217 against 0.8188
+snapped once (`SNAP3_READS_SAME`, as predicted; change +0.0029, margin 0.02;
+[report](../reports/first_letters_0211_snap_passes.md), finding 134). Their geometry gain is +0.0357 at the median,
+so three passes are adopted by the registered tie-break, and finding 133 uses them. As with the denser grid
+(finding 131), the gain on the sheet did not show in the read.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
