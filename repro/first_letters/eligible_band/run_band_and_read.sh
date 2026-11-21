@@ -7,10 +7,12 @@
 #   fit_smoke, fit_full                         300 steps, then the registered 30,000-step fit at villa's defaults
 #   quality                                     the sheet-following excess of every raw winding
 #   select                                      the windings with positive excess, before any ink
-#   read                                        run_studio_band.sh full on those windings
+#   densify                                     with FL_DENSIFY=F only: those raw windings subdivided F times
+#                                               (densify_winding.py, finding 130) into arm fulldense
+#   read                                        run_studio_band.sh on those windings: arm full, or fulldense
 # Each step's exit and seconds go to R/work/gate_chain/<step>.json, beside the scripts' own records.
 #
-# usage: FL_SCROLL=PHerc0358 FL_Z_BEGIN=8872 FL_Z_END=10372 run_band_and_read.sh
+# usage: FL_SCROLL=PHerc0358 FL_Z_BEGIN=8872 FL_Z_END=10372 [FL_DENSIFY=2] run_band_and_read.sh
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
@@ -39,5 +41,21 @@ step fit_smoke bash "$HERE/run_fit.sh" smoke 300
 step fit_full bash "$HERE/run_fit.sh" full
 step quality bash "$HERE/run_quality.sh" full
 step select "$PYW" -I "$HERE/studio_band.py" select "$R/work/quality_full.json" "$R/work/studio_windings_full.txt"
-step read env STUDIO_WINDINGS="$R/work/studio_windings_full.txt" bash "$HERE/run_studio_band.sh" full
+densify_selected() {  # the selected raw windings of arm full, subdivided FL_DENSIFY times, as arm fulldense
+  local base dest w
+  base=$(fit_meshes full) || return 1
+  dest=$R/work/fit_fulldense/densified/meshes/fitted
+  [ -e "$R/work/fit_fulldense" ] && { echo "$R/work/fit_fulldense exists" >&2; return 1; }
+  mkdir -p "$dest"
+  while read -r w; do
+    "$PYW" -I "$HERE/densify_winding.py" "$base/$w" "$dest/$w" --factor "$FL_DENSIFY" || return 1
+  done < "$R/work/studio_windings_full.txt"
+}
+
+READ_ARM=full
+if [ -n "${FL_DENSIFY:-}" ]; then
+  READ_ARM=fulldense
+  step densify densify_selected
+fi
+step read env STUDIO_WINDINGS="$R/work/studio_windings_full.txt" bash "$HERE/run_studio_band.sh" "$READ_ARM"
 cat "$R/logs/chain_read.log" | tail -5

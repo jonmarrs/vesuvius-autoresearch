@@ -141,3 +141,21 @@ def test_the_read_orients_against_the_published_axis():
         'orient "$OUT/orient.json" "${FINALS[@]}" --umbilicus "$R/dataset/umbilicus.json"'
         in text
     )
+
+
+def test_the_chain_densifies_the_selected_windings_only_when_asked():
+    text = (BAND / "run_band_and_read.sh").read_text()
+    assert (
+        text.index("step select")
+        < text.index("step densify densify_selected")
+        < text.index("step read")
+    )
+    assert (
+        'READ_ARM=full\nif [ -n "${FL_DENSIFY:-}" ]; then\n  READ_ARM=fulldense' in text
+    )
+    assert (
+        '"$HERE/densify_winding.py" "$base/$w" "$dest/$w" --factor "$FL_DENSIFY"'
+        in text
+    )
+    assert 'bash "$HERE/run_studio_band.sh" "$READ_ARM"' in text
+    assert (BAND / "densify_winding.py").exists()
