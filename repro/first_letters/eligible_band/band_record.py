@@ -7,6 +7,7 @@ It changes nothing in the run. It reads, under R (the band's run directory) and 
 - work/studio_ARM/summary/summary.json: Studio's ink numbers per winding;
 - work/studio_ARM/summary/orientation.json: the reading-orientation turn of each image (`band_index.py`);
 - work/studio_ARM/stacked.json: consecutive windings on one surface (`studio_band.py stacked`), if run;
+- work/studio_ARM/geometry.json: `band_geometry.py`'s record (normals against the axis, the predicted sheet), if run;
 - work/quality_ARM.json: the fit's excess per winding;
 - logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled.
 
@@ -81,6 +82,8 @@ def record(root: Path, arm: str) -> dict:
     quality = json.loads((work / f"quality_{arm}.json").read_text())["windings"]
     stacked_path = studio / "stacked.json"
     stacked = json.loads(stacked_path.read_text()) if stacked_path.exists() else None
+    geometry_path = studio / "geometry.json"
+    geometry = json.loads(geometry_path.read_text()) if geometry_path.exists() else None
 
     inward = [o["share_of_normals_pointing_inward"] for o in orient.values()]
     read = sorted(summary)
@@ -111,6 +114,21 @@ def record(root: Path, arm: str) -> dict:
                 "share_of_normals_pointing_inward"
             ],
             "excess": (quality.get(w) or {}).get("excess"),
+            **(
+                {}
+                if geometry is None or w not in geometry["windings"]
+                else {
+                    "geometry": {
+                        k: geometry["windings"][w][k]
+                        for k in ("trusted", "other_side", "inward_against_axis")
+                    }
+                    | {
+                        "final_within_2": geometry["windings"][w]["predicted_sheet"][
+                            "final"
+                        ]["within_2"]
+                    }
+                }
+            ),
             "read": w in summary,
             **(
                 {
@@ -154,6 +172,7 @@ def record(root: Path, arm: str) -> dict:
         "rendered_pixels": int(sum(summary[w]["rendered_pixels"] for w in read)),
         "inspection_order_first_ten": ranked[:10],
         "stacked": stacked,
+        "geometry": None if geometry is None else geometry["summary"],
         "gpu_peak_mib_all_processes": gpu_peak(
             root / "logs" / f"studio_{arm}_gpu_mib.log"
         ),

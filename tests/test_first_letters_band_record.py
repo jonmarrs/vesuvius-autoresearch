@@ -70,6 +70,10 @@ def _run(tmp_path: Path) -> Path:
             }
         },
     )
+    _write(studio / "geometry.json", {"summary": {"trusted_median": 0.6}, "windings": {
+        "w010": {"trusted": 0.5, "other_side": 0.1, "inward_against_axis": 0.9,
+                 "predicted_sheet": {"final": {"within_2": 0.7}}},
+    }})  # fmt: skip
     (r / "logs").mkdir()
     (r / "logs" / "studio_a_gpu_mib.log").write_text("1 0\n2 14481\n3 900\n4\n")
     return r
@@ -111,6 +115,10 @@ def test_the_record_summarises_orientation_ink_and_gpu(tmp_path):
         rec["by_winding"]["w011"]["flip_lr"] is True
         and rec["by_winding"]["w010"]["excess"] == -0.02
     )
+    assert rec["geometry"] == {"trusted_median": 0.6}
+    assert rec["by_winding"]["w010"]["geometry"] == {"trusted": 0.5, "other_side": 0.1, "inward_against_axis": 0.9,
+                                                     "final_within_2": 0.7}  # fmt: skip
+    assert "geometry" not in rec["by_winding"]["w011"]
 
 
 def test_the_cli_refuses_to_overwrite_a_record(tmp_path):
