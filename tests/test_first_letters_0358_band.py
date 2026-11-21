@@ -148,3 +148,16 @@ def test_amendment_1_reads_against_the_axis_on_a_denser_grid():
     assert (
         "winner) TILING=(--stride 64 --blend hann) ;;" in band
     )  # the default the chain keeps
+
+
+def test_the_snap_runs_in_batches_that_keep_every_winding_once_and_in_order(tmp_path):
+    text = (BAND / "run_snap.sh").read_text()
+    assert 'split -l "${SNAP_BATCH:-12}" -d -a 3 "$LIST" "$BATCHES/batch_"' in text
+    assert '--windings "$batch"' in text and '--windings "$LIST"' not in text
+    names = [f"w{i:03d}" for i in range(10, 35)]
+    (tmp_path / "list.txt").write_text("\n".join(names) + "\n")
+    subprocess.run(["split", "-l", "12", "-d", "-a", "3", str(tmp_path / "list.txt"), str(tmp_path / "batch_")],
+                   check=True)  # fmt: skip
+    batches = sorted(tmp_path.glob("batch_*"))
+    assert [len(b.read_text().split()) for b in batches] == [12, 12, 1]
+    assert [n for b in batches for n in b.read_text().split()] == names
