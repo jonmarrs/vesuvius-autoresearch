@@ -9,7 +9,11 @@ It changes nothing in the run. It reads, under R (the band's run directory) and 
 - work/studio_ARM/stacked.json: consecutive windings on one surface (`studio_band.py stacked`), if run;
 - work/studio_ARM/geometry.json: `band_geometry.py`'s record (normals against the axis, the predicted sheet), if run;
 - work/quality_ARM.json: the fit's excess per winding;
-- logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled;
+- logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled (the peak, and how many
+  samples it is over and when);
+- work/gate_chain/: a chained read's step gates (`run_band_and_read.sh`), with the size of R/inputs and
+  R/dataset/tracks, if chained;
+- work/fit_verdict.json: finding 112's table applied to the fit (`band_fit_verdict.py`), if run;
 - work/render_ARM/wNNN_N.zarr/0/.zarray: each render's canvas (rows by columns; N layers, 66 or a centred thinner
   render), and the apparent size of the
   renders and of Studio's maps (work/studio_ARM/maps/) on disk.
@@ -66,15 +70,44 @@ def steps(gates: Path, windings: list[str]) -> dict:
     return out
 
 
-def gpu_peak(path: Path) -> int | None:
+def _gpu_lines(path: Path) -> list[tuple[int, int]]:
+    """The log's (epoch seconds, MiB) samples; a line without a value is skipped."""
     if not path.exists():
-        return None
-    values = [
-        int(line.split()[1])
+        return []
+    return [
+        (int(line.split()[0]), int(line.split()[1]))
         for line in path.read_text().splitlines()
         if line.split()[1:]
     ]
+
+
+def gpu_peak(path: Path) -> int | None:
+    values = [mib for _, mib in _gpu_lines(path)]
     return max(values) if values else None
+
+
+def gpu_samples(path: Path) -> dict | None:
+    """How many samples the peak is over, and when they were taken: a sampler started late covers part of the read."""
+    lines = _gpu_lines(path)
+    if not lines:
+        return None
+    return {"count": len(lines), "first_epoch": lines[0][0], "last_epoch": lines[-1][0]}
+
+
+def chain(root: Path) -> dict | None:
+    """A chained read's (`run_band_and_read.sh`) step gates and the size of its inputs and tracks; None without."""
+    gates = root / "work" / "gate_chain"
+    if not gates.exists():
+        return None
+    steps_ = {p.stem: _gate(p) for p in sorted(gates.glob("*.json"))}
+    return {
+        "steps": steps_,
+        "seconds": int(sum(g["seconds"] for g in steps_.values())),
+        "bytes_on_disk": {
+            "inputs": apparent_bytes(root / "inputs"),
+            "tracks": apparent_bytes(root / "dataset" / "tracks"),
+        },
+    }
 
 
 FINDING_125 = (
@@ -133,6 +166,10 @@ def record(
     stacked = json.loads(stacked_path.read_text()) if stacked_path.exists() else None
     geometry_path = studio / "geometry.json"
     geometry = json.loads(geometry_path.read_text()) if geometry_path.exists() else None
+    fit_path = work / "fit_verdict.json"
+    fit = json.loads(fit_path.read_text()) if fit_path.exists() else None
+    chained = chain(root)
+    gpu_log = root / "logs" / f"studio_{arm}_gpu_mib.log"
 
     inward = [o["share_of_normals_pointing_inward"] for o in orient.values()]
     read = sorted(summary)
@@ -231,9 +268,10 @@ def record(
         "inspection_order_first_ten": ranked[:10],
         "stacked": stacked,
         "geometry": None if geometry is None else geometry["summary"],
-        "gpu_peak_mib_all_processes": gpu_peak(
-            root / "logs" / f"studio_{arm}_gpu_mib.log"
-        ),
+        "gpu_peak_mib_all_processes": gpu_peak(gpu_log),
+        "gpu_samples": gpu_samples(gpu_log),
+        **({"chain": chained} if chained else {}),
+        **({"fit": fit} if fit else {}),
         "by_winding": by_winding,
     }
 

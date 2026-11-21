@@ -284,6 +284,16 @@ two thirds of the rendered nodes lie within 2 voxels of the predicted sheet, fal
 radii to 0.54 at the outer, where the snap's grid is coarsest. Later band reads orient against the axis and snap on
 a denser grid.
 
+**PHerc. 0358's band fits on the sheets, and all 111 selected windings were read; the images wait for the owner
+(November 21).** The recipe's fit of z 8872 to 10372 at villa's defaults is `ON_SHEETS` by finding 112's table
+(median excess 0.0863, 0.925 of windings positive), one line better than predicted. The outermost third fits best
+([report](../reports/first_letters_0358_studio_band.md), finding 126). The 111 windings with positive excess were
+subdivided twice, oriented against the axis and read by Studio with no failure, in 17 h 56 min against the
+registered eight hours. Described from the geometry alone: every render points outward; 7 of 104 neighbouring pairs
+are stacked, all inside w037; and the rendered share within 2 voxels of the predicted sheet holds from 0.73 at the
+inner third of radii to 0.71 at the outer. That fits finding 130, though another scroll is not a controlled
+comparison. No automatic verdict was registered: the images stay on this machine and the owner reads them.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
