@@ -82,7 +82,9 @@ about 15 GB).
 | render, four windings | 226 s | 190 s |
 | Studio, four windings in both orders | 606 s | 593 s |
 
-The denser grid doubled the flatten here, as in finding 130 (134 to 254 s a winding on PHerc. 0826).
+Here the denser grid's flatten took about twice as long, as in finding 130 (134 to 254 s a winding on PHerc. 0826).
+That is not the grid's density alone. Finding 134 flattened the same densified windings, snapped three times, in 39
+to 43 s each. What sets the flatten's time is not known.
 
 ## What this does to the campaign
 
