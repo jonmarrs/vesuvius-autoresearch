@@ -161,7 +161,7 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     windings of our unrefined fit, read by Studio and carried onto the winner's surface, give r = 0.82 against the
     winner's map (reversed planes −0.05, slid 0.11). The image draws the winner's letters. Studio on our render of
     the winner's surface gives 0.97, so our renderer costs almost nothing and the geometry the rest.
-  * **The winning reader on a second scroll** ([report](../reports/first_letters_343_studio.md), finding 127).
+  * **The winning reader on a second scroll** ([report](../reports/first_letters_343_studio.md)).
     On the PHerc. 343 recipe's published surface, Studio's map gives r = 0.6238 against the recipe's ensemble map.
     - **How that compares:** it is above each of the ensemble's four models measured against the other three (0.41
       to 0.6195).
@@ -170,8 +170,16 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     - **Caveat:** Studio was not trained on this scroll, but its training includes a fragment, PHerc0343P, that may
       come from the same roll.
   * **Studio's faster default tiling does not reproduce its map**
-    ([report](../reports/studio_published_tiling.md), finding 128). It is 2.4 times faster, but gives r = 0.94
+    ([report](../reports/studio_published_tiling.md)). It is 2.4 times faster, but gives r = 0.94
     against the winner's command, short of the 0.98 line. Band reads keep the winner's command.
+  * **Two geometry changes tested at the known place** (findings 131 and 134, on PHerc. 211's winner surface; reports
+    on their PRs, `reports/first_letters_0211_dense_read.md` and `reports/first_letters_0211_snap_passes.md`). Both
+    put more of every winding on the predicted sheet, and neither read better beyond the noise:
+    - **Subdividing the windings twice before the snap:** +0.034 at the median within 2 voxels of the sheet; r 0.8168
+      against 0.8267 for the same route on the fit's grid (margin 0.02).
+    - **Three snap passes of those windings:** a further +0.036; r 0.8217 against 0.8188 for one pass.
+    - **What it changes:** the band reads keep both, on registered tie-breaks, at about half an hour a band. The share
+      of a winding on the predicted sheet did not predict how well Studio reads it, within these changes.
   * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
     with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
     reader was the missing piece, not the geometry.
