@@ -76,7 +76,16 @@ def _run(tmp_path: Path) -> Path:
     }})  # fmt: skip
     (r / "logs").mkdir()
     (r / "logs" / "studio_a_gpu_mib.log").write_text("1 0\n2 14481\n3 900\n4\n")
+    for w, shape in (("w010", [66, 1000, 2000]), ("w011", [66, 3000, 4000])):
+        _write(work / "render_a" / f"{w}_66.zarr" / "0" / ".zarray", {"shape": shape})
+        (work / "render_a" / f"{w}_66.zarr" / "0" / "0.0.0").write_bytes(b"x" * 500)
+    (studio / "maps").mkdir()
+    (studio / "maps" / "w010.npy").write_bytes(b"y" * 70)
     return r
+
+
+def _apparent(folder: Path) -> int:
+    return sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
 
 
 def test_the_record_counts_each_step_and_carries_a_failure_forward(tmp_path):
@@ -119,6 +128,21 @@ def test_the_record_summarises_orientation_ink_and_gpu(tmp_path):
     assert rec["by_winding"]["w010"]["geometry"] == {"trusted": 0.5, "other_side": 0.1, "inward_against_axis": 0.9,
                                                      "final_within_2": 0.7}  # fmt: skip
     assert "geometry" not in rec["by_winding"]["w011"]
+
+
+def test_the_record_carries_the_render_canvases_and_the_disk_they_take(tmp_path):
+    r = _run(tmp_path)
+    rec = br.record(r, "a")
+    assert rec["render_canvas_megapixels"] == {"median": 7.0, "min": 2.0, "max": 12.0}
+    assert rec["by_winding"]["w011"]["render_canvas_megapixels"] == 12.0
+    assert (
+        "render_canvas_megapixels" not in rec["by_winding"]["w012"]
+    )  # its render failed
+    assert rec["bytes_on_disk"] == {
+        "renders": _apparent(r / "work" / "render_a"),
+        "studio_maps": 70,
+    }
+    assert rec["bytes_on_disk"]["renders"] >= 1000
 
 
 def test_the_cli_refuses_to_overwrite_a_record(tmp_path):

@@ -9,7 +9,9 @@ It changes nothing in the run. It reads, under R (the band's run directory) and 
 - work/studio_ARM/stacked.json: consecutive windings on one surface (`studio_band.py stacked`), if run;
 - work/studio_ARM/geometry.json: `band_geometry.py`'s record (normals against the axis, the predicted sheet), if run;
 - work/quality_ARM.json: the fit's excess per winding;
-- logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled.
+- logs/studio_ARM_gpu_mib.log: GPU memory in use, sampled while the read ran, if sampled;
+- work/render_ARM/wNNN_66.zarr/0/.zarray: each render's canvas (rows by columns), and the apparent size of the
+  renders and of Studio's maps (work/studio_ARM/maps/) on disk.
 
 usage: band_record.py R ARM OUT.json
 """
@@ -72,8 +74,30 @@ def gpu_peak(path: Path) -> int | None:
     return max(values) if values else None
 
 
+def canvas_megapixels(render: Path) -> float | None:
+    """A render's canvas, rows times columns of its level 0, in millions of pixels; None if it has none."""
+    header = render / "0" / ".zarray"
+    if not header.exists():
+        return None
+    _, rows, cols = json.loads(header.read_text())["shape"]
+    return round(rows * cols / 1e6, 4)
+
+
+def apparent_bytes(folder: Path) -> int:
+    return (
+        sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
+        if folder.exists()
+        else 0
+    )
+
+
 def record(root: Path, arm: str) -> dict:
     work = root / "work"
+    canvases = {
+        w: c
+        for w in (work / f"windings_{arm}.txt").read_text().split()
+        if (c := canvas_megapixels(work / f"render_{arm}" / f"{w}_66.zarr")) is not None
+    }
     studio = work / f"studio_{arm}"
     windings = (work / f"windings_{arm}.txt").read_text().split()
     orient = json.loads((studio / "orient.json").read_text())["windings"]
@@ -130,6 +154,7 @@ def record(root: Path, arm: str) -> dict:
                 }
             ),
             "read": w in summary,
+            **({"render_canvas_megapixels": canvases[w]} if w in canvases else {}),
             **(
                 {
                     "ink_share": summary[w]["ink_share"],
@@ -170,6 +195,13 @@ def record(root: Path, arm: str) -> dict:
             w for w in read if summary[w]["tiles_scored"] == 0
         ),
         "rendered_pixels": int(sum(summary[w]["rendered_pixels"] for w in read)),
+        "render_canvas_megapixels": _spread(list(canvases.values()))
+        if canvases
+        else None,
+        "bytes_on_disk": {
+            "renders": apparent_bytes(work / f"render_{arm}"),
+            "studio_maps": apparent_bytes(studio / "maps"),
+        },
         "inspection_order_first_ten": ranked[:10],
         "stacked": stacked,
         "geometry": None if geometry is None else geometry["summary"],
