@@ -2,7 +2,7 @@ timm
 segmentation_models_pytorch 
 albumentations 
 wandb 
-pytorch-lightning==2.0.9 
+pytorch-lightning==2.6.1 
 monai[einops] 
 warmup_scheduler 
 pandas 
