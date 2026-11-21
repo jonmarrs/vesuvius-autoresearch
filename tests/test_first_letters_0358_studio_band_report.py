@@ -254,6 +254,24 @@ def test_the_gpu_peaks_and_the_late_sampler_are_stated():
     assert sorted(RECORD["by_winding"])[-22:][0] == "w108"
 
 
+def test_the_outer_sheet_check_is_quoted_from_its_numbers():
+    outer = json.loads(
+        (ROOT / "reports/first_letters_0358_outer_sheets.json").read_text()
+    )
+    assert outer["finding"] == 126 and "/home/" not in json.dumps(outer)
+    assert (ROOT / outer["script"]).exists()
+    w129, w110 = outer["windings"]["w129"], outer["windings"]["w110"]
+    assert f"at the band's middle slice (z {outer['z_working']:.0f})" in FLAT
+    gap = w129["outermost_sheet_minus_winding_radius_working_median"]
+    assert f"lies a median {gap} voxels from it" in FLAT
+    runs = w129["sheet_runs_beyond_median"]
+    assert (
+        f"A median of {runs:.0f} sheet runs lie beyond it (90th percentile {w129['sheet_runs_beyond_p10_p90'][1]:.0f})"
+        in FLAT
+    )
+    assert f"beyond w110 there are {w110['sheet_runs_beyond_median']:.0f}" in FLAT
+
+
 def test_the_strategy_carries_the_finding():
     assert "reports/first_letters_0358_studio_band.md" in STRATEGY
     assert "finding 126" in FLAT_STRATEGY

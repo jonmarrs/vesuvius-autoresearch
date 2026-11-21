@@ -166,6 +166,11 @@ to free is the owner's decision.
    quarter of the rendered nodes lie more than 2 voxels from the predicted sheet.
 3. **That the predicted sheet is the text-bearing one.** The geometry is measured against the surface prediction,
    not against the papyrus the text is on. Finding 116 found the fit's score blind to a wrong-handed spiral.
-4. **Whether papyrus lies beyond w129.** The outermost third of the fit follows the sheets best, and villa's fit
-   stops at 130 windings. This has not been checked.
+4. **That the fit misses papyrus outside w129, though at one slice it does not.** The outermost third of the fit
+   follows the sheets best, and villa's fit stops at 130 windings. Checked after the read, from the geometry alone,
+   at the band's middle slice (z 9622): rays from the axis were cut into predicted-sheet runs
+   (`repro/first_letters/eligible_band/outer_sheets.py`; numbers in `reports/first_letters_0358_outer_sheets.json`).
+   Along w129's rays, the outermost predicted sheet lies a median -2.1 voxels from it. A median of 0 sheet runs lie
+   beyond it (90th percentile 8); beyond w110 there are 18. So at that slice the fit reaches the edge of the
+   predicted sheet on most rays. Other slices were not checked.
 5. **Whether a submission built on Studio's CC BY-NC weights is accepted.** The owner decided to use them.
