@@ -273,6 +273,13 @@ three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surfa
 On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
 step reads every winding of a still-eligible band that way, for the owner to inspect.
 
+**Studio skips the windows with no CT and gives the same map in under 0.6 of the time (November 21).** Run with
+the winner's command, the winner's loop without those windows gives maps within 0.00075 of the full loop's on two
+of PHerc. 0826's windings and PHerc. 211's input. No pixel crosses 0.5, and the full loop's maps are identical to
+the references. The skip took 0.5918 and 0.5781 of the time (`SKIP_ADOPTED`, as predicted;
+[report](../reports/studio_skip_empty_windows.md), finding 132). Band reads registered after it use the skip, so
+Studio, the slowest step, shrinks by about two fifths.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
