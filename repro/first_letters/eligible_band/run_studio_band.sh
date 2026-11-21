@@ -14,6 +14,8 @@
 # STUDIO_WINDINGS=FILE reads only the raw windings it lists (finding 126: those with positive excess).
 # STUDIO_TILING=winner (the default: the winner's --stride 64 --blend hann) or published (inference.py's default,
 # 96-pixel windows without overlap; finding 128).
+# A winding is not rendered while the run directory's disk has less than FL_MIN_FREE_GB free (default 50): its render
+# step exits 28, is recorded like any failed step, and nothing is deleted to make room.
 #
 # usage: FL_SCROLL=PHerc0826 [STUDIO_WINDINGS=FILE] [STUDIO_TILING=winner|published] run_studio_band.sh ARM
 set -u
@@ -76,8 +78,15 @@ for_each() {  # STEP COMMAND...: per winding; a failure is recorded and the wind
   echo "$step: ${#LIVE[@]} windings go on $(date -Is)"
 }
 
+room_for_render() {  # whether the run directory's disk has FL_MIN_FREE_GB (default 50) free
+  local avail
+  avail=$(df -B1G --output=avail "$R/work" | tail -1 | tr -dc '0-9')
+  [ "${avail:-0}" -ge "${FL_MIN_FREE_GB:-50}" ]
+}
+
 render_one() {  # WINDING
   local how
+  room_for_render || { echo "less than ${FL_MIN_FREE_GB:-50} GB free under $R/work: not rendered" >&2; return 28; }
   how=$(awk -v n="$1" '$1 == n {print $2}' "$R/logs/studio_${ARM}_orient.log")
   case "$how" in
     flip) bash "$HERE/run_render.sh" "$ARM" "$1" flip ;;
