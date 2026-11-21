@@ -273,6 +273,17 @@ three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surfa
 On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
 step reads every winding of a still-eligible band that way, for the owner to inspect.
 
+**Studio draws PHerc. 343's published letters too, so a blind Studio band read tests the band (November 20).** On
+the recipe's published surface of PHerc. 343, a scroll it was not trained on, Studio's map gives r 0.6238 against the
+recipe's ensemble map, above every one of the ensemble's four models against the other three (0.41 to 0.6195), with
+controls of 0.10 (reversed planes) and 0.21 (slid) (`STUDIO_343_AGREES`, as predicted;
+[report](../reports/first_letters_343_studio.md), finding 127). In my reading it draws both published rows of
+letters, more legibly than the ensemble. Its training did include a fragment that may come from the same roll.
+Studio stays the reader of the blind band reads, and the ensemble is not needed beside it. Studio's published
+tiling would read 2.4 times faster but differs from the winner's command (r 0.94, short of 0.98), so the reads keep
+the winner's command (`WINNERS_TILING_KEPT`, not as predicted; [report](../reports/studio_published_tiling.md),
+finding 128).
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 

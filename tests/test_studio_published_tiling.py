@@ -97,3 +97,30 @@ def test_the_run_uses_the_published_tiling_and_uploads_nothing():
     ).read_text()
     assert "r ≥ 0.98 and at least 98% of pixels on the same side of 0.5" in registration
     assert (st.R_LINE, st.SAME_SIDE_LINE) == (0.98, 0.98)
+
+
+def test_the_seam_profile_finds_differences_on_the_window_edges():
+    rng = np.random.default_rng(0)
+    slow = rng.random((192, 288)).astype(np.float32)
+    fast = slow.copy()
+    fast[:, 95::96] += 0.3  # the last column of each 96-pixel window
+    fast[:, 0::96] += 0.3  # and the first
+    mask = np.ones(slow.shape, bool)
+    mask[:, :5] = False  # masked pixels are left out
+    prof = st.seam_profile(fast, slow, mask)
+    assert prof["period"] == 96
+    assert prof["columns"]["edge"] == pytest.approx(0.3, abs=1e-6)
+    assert prof["columns"]["middle"] == pytest.approx(0.0, abs=1e-6)
+    assert prof["rows"]["edge"] == pytest.approx(prof["rows"]["middle"], abs=1e-6)
+    assert prof["pixels"] == int(mask.sum())
+
+
+def test_the_seams_command_writes_its_own_record_once(tmp_path):
+    argv = _write(tmp_path, 0.2)
+    out = tmp_path / "seams.json"
+    seams = ["seams", str(out), *argv[1:4]]
+    assert st.main(seams) == 0
+    rec = json.loads(out.read_text())
+    assert rec["finding"] == 128 and rec["described_after_the_verdict"] is True
+    assert set(rec["seam_profile"]) == {"period", "pixels", "columns", "rows"}
+    assert st.main(seams) == 2
