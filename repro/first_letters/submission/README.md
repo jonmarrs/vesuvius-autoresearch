@@ -24,6 +24,17 @@ image is one piece of evidence; findings 124 and 136 are the route's checks at t
 
 ## How to run it
 
+0. Render the winding again at 66 layers. The recipe's script needs them, and band reads keep only the 18 layers
+   Studio reads (24 to 41): finding 129 renders 18, and PHerc. 0358's and 0826's 66-layer renders were cut to the
+   same 18 on 2026-11-22 to free disk (`R/logs/renders_trimmed_2026-11-22.json`). Use the same flip as the band
+   read, so the 18 layers it kept come out byte for byte as before (render_frame.py):
+
+   ```sh
+   FL_SCROLL=PHerc0358 bash repro/first_letters/eligible_band/run_render.sh fulldense wNNN flip
+   ```
+
+   That writes `R/work/render_fulldense/wNNN_66.zarr` (about 1.5 GB; minutes, longer with a cold cache) and
+   refills the CT cache for that winding from the public bucket.
 1. A first image without annotations, to place them on (`-` for rows and letters). Use the winding's mesh, its
    66-layer render, Studio's map and the map of the reversed planes from the band read, the published axis, and
    the scroll's two orientation flags from the open-data catalog's `metadata.json`:
@@ -87,7 +98,7 @@ dry run took under 20 s of CPU, after the maps.
 
 ## Limits
 
-- **The script needs a 66-layer render.** Finding 129 (PHerc. 0813) renders 18 layers to save disk. For a find
-  there, render that one winding again at 66 layers (`RENDER_SLICES=66 run_render.sh`, about 1.5 GB).
+- **The script needs a 66-layer render**, and band reads now keep 18 layers (step 0). A find costs one re-render
+  of its winding first.
 - **One model.** The image shows Studio alone. The recipe's ensemble of four is not run on band reads.
 - **Legibility is the owner's judgement.** Nothing here reads a letter.
