@@ -4,6 +4,7 @@ import json
 import os
 import sys
 from collections import defaultdict
+from io import BytesIO
 from numbers import Integral, Real
 from zipfile import BadZipFile
 
@@ -26,6 +27,7 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
 from vesuvius_autoresearch.fibers import detect_ridges
 from vesuvius_autoresearch.fibers.provenance import atomic_file
 
+from .file_capture import capture_bytes
 from .patch_catalog import read_patch_catalog
 
 
@@ -80,6 +82,7 @@ _WARNING_COUNTS = defaultdict(int)
 # Largest per-axis size difference accepted between a 2D label/mask and its
 # volume: export rounding, not a different crop or scale.
 LABEL_SHAPE_TOLERANCE_PX = 2
+MAX_VALIDATION_IMAGE_BYTES = 512 * 1024**2
 
 
 def _coordinate_cache_path(
@@ -492,7 +495,7 @@ class FastVesuviusVolume:
         return torch.from_numpy(ct)
 
 
-def load_unit_image(path) -> np.ndarray:
+def load_unit_image(path, *, contents: bytes | None = None) -> np.ndarray:
     """A label or mask image as float32 in [0, 1].
 
     0/1 images are kept as they are; 8-bit values (up to 255) are divided by
@@ -502,7 +505,7 @@ def load_unit_image(path) -> np.ndarray:
     behind val_bpb summed it unbinarized. Anything still outside [0, 1] is
     refused.
     """
-    with Image.open(path) as img:
+    with Image.open(path if contents is None else BytesIO(contents)) as img:
         values = np.array(img).astype(np.float32)
     peak = float(values.max()) if values.size else 0.0
     if peak > 1.0:
@@ -515,6 +518,17 @@ def load_unit_image(path) -> np.ndarray:
             f"{float(np.nanmin(values))}..{float(np.nanmax(values))} after scaling"
         )
     return values
+
+
+def _read_validation_image(path, expected_sha256) -> np.ndarray | None:
+    if path is None:
+        if expected_sha256 is not None:
+            raise RuntimeError("the selected validation image is missing")
+        return None
+    _, contents = capture_bytes(path, MAX_VALIDATION_IMAGE_BYTES)
+    if hashlib.sha256(contents).hexdigest() != expected_sha256:
+        raise RuntimeError(f"validation image changed while read: {path}")
+    return load_unit_image(path, contents=contents)
 
 
 def band_read_range(depth_band, depth_margin, depth, read, uri):
@@ -579,6 +593,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     CPU ridge implementation remains a valid fallback from an unavailable GPU.
     The default permissive mode retains warning-and-fallback behavior.
 
+    Validation supplies expected_image_sha256 for the (labels, mask) pair.
+    The image bytes must match before decoding. None represents an absent image.
+
     Coordinate caches identify the effective fitted selection pixels and sampler
     settings. Timestamp-only caches are ignored and preserved. Explicit JSON
     catalogs bypass this cache; it does not hash CT intensities or establish
@@ -608,6 +625,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         strict_reads=False,
         depth_band=None,
         depth_margin=0,
+        expected_image_sha256: tuple[str | None, str | None] | None = None,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
@@ -659,16 +677,21 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.target_fiber_source = target_fiber_source
         self.target_fiber_sigma = target_fiber_sigma
 
-        # Load Labels (2D PNG)
-        if labels_path and os.path.exists(labels_path):
-            self.labels = load_unit_image(labels_path)
+        if expected_image_sha256 is not None:
+            labels_sha256, mask_sha256 = expected_image_sha256
+            self.labels = _read_validation_image(labels_path, labels_sha256)
+            self.mask = _read_validation_image(mask_path, mask_sha256)
         else:
-            self.labels = None
-
-        if mask_path and os.path.exists(mask_path):
-            self.mask = load_unit_image(mask_path)
-        else:
-            self.mask = None
+            self.labels = (
+                load_unit_image(labels_path)
+                if labels_path and os.path.exists(labels_path)
+                else None
+            )
+            self.mask = (
+                load_unit_image(mask_path)
+                if mask_path and os.path.exists(mask_path)
+                else None
+            )
 
         # Guard: the 2D label/mask must spatially correspond to the volume's
         # (H, W) plane (self.shape == (depth, H, W)). Some fragments store their

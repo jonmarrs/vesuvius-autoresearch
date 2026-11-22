@@ -150,6 +150,12 @@ separate decisions in the [audit](REPOSITORY_AUDIT.md#items-for-owner-review).
 The training policy checks returned values. Use `verify` separately to confirm
 the original layout and stored chunk presence for fragments from this importer.
 
+Validation checks the exact encoded bytes it decodes for its selected labels
+and optional mask. Each selected image must fit within 512 MiB of encoded data.
+A file that differs from the initial fingerprint stops dataset construction,
+even if the original is restored before the final on-disk check. Unchanged
+files retain their existing validation fingerprint and sampling behavior.
+
 ## Supply an explicit patch catalog
 
 An optional `patches.json` beside the volume replaces automatic patch discovery

@@ -80,10 +80,13 @@ def _file_sha256(path: str) -> str | None:
     return digest.hexdigest()
 
 
-def validation_inputs_fingerprint(
-    val_uri: str, depth_band=None, *, expected_catalog_sha256=_NO_CATALOG_EXPECTATION
-) -> str:
-    """A sha256 of what the protocol's sample is drawn from.
+def validation_inputs_record(
+    val_uri: str,
+    depth_band=None,
+    *,
+    expected_catalog_sha256=_NO_CATALOG_EXPECTATION,
+) -> dict:
+    """The files and protocol that identify what validation samples.
 
     The protocol (sample size, seed, depth band); the fragment and volume names;
     the volume's zarr metadata (shape, dtype, chunks); the label file validation
@@ -113,7 +116,7 @@ def validation_inputs_fingerprint(
         raise RuntimeError(
             f"validation patch catalog changed while read: {catalog_path}"
         )
-    record = {
+    return {
         "protocol": validation_protocol(depth_band),
         "fragment": os.path.basename(os.path.dirname(volume)),
         "volume": os.path.basename(volume),
@@ -126,7 +129,21 @@ def validation_inputs_fingerprint(
         "mask": _file_sha256(paths["mask"]),
         "patches_json": catalog_sha256,
     }
+
+
+def validation_record_sha256(record: dict) -> str:
     return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
+
+
+def validation_inputs_fingerprint(
+    val_uri: str, depth_band=None, *, expected_catalog_sha256=_NO_CATALOG_EXPECTATION
+) -> str:
+    """A SHA-256 of the validation input record."""
+    return validation_record_sha256(
+        validation_inputs_record(
+            val_uri, depth_band, expected_catalog_sha256=expected_catalog_sha256
+        )
+    )
 
 
 class IncumbentUnavailable(RuntimeError):
