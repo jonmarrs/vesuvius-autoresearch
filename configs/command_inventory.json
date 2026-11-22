@@ -1,0 +1,472 @@
+{
+  "schema_version": 1,
+  "scope": "Reviewed primary command families only. Requirements are declared capability boundaries, not installable extras, complete dependency closures or runtime/readiness checks.",
+  "stacks": {
+    "stdlib": "Listed mode uses the Python standard library; some commands have heavier modes described in needs.",
+    "scientific": "Scientific/data packages without a required Torch model stack; optional cloud/CUDA paths are described per command.",
+    "torch": "Torch/model/research stack; CPU/CUDA/native requirements depend on the command and recipe.",
+    "gui": "Interactive GUI dependencies in addition to the data stack."
+  },
+  "commands": [
+    {
+      "id": "commands",
+      "summary": "Browse reviewed command families",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/list_commands.py"
+      ],
+      "source": "scripts/list_commands.py",
+      "stack": "stdlib",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/COMMANDS.md",
+      "needs": "Python 3.10; reads the bundled inventory only.",
+      "effects": "observe"
+    },
+    {
+      "id": "workspace-status",
+      "summary": "Inspect setup and process state",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/workspace_status.py"
+      ],
+      "source": "scripts/workspace_status.py",
+      "stack": "stdlib",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/WORKSPACE_STATUS.md",
+      "needs": "Local config/path and Linux process metadata; no model or data validation.",
+      "effects": "observe"
+    },
+    {
+      "id": "validation-list",
+      "summary": "List validation selections",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/run_validation_tests.py",
+        "--list"
+      ],
+      "source": "scripts/run_validation_tests.py",
+      "stack": "stdlib",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "CONTRIBUTING.md",
+      "needs": "Listing only; running tests needs the selected profile dependencies.",
+      "effects": "observe"
+    },
+    {
+      "id": "validation-portable",
+      "summary": "Run the bounded portable checks",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/run_validation_tests.py",
+        "--profile",
+        "portable"
+      ],
+      "source": "scripts/run_validation_tests.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "CONTRIBUTING.md",
+      "needs": "Python 3.10, pytest, NumPy and Ruff from requirements/ci-cpu.txt; Linux process tests.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "loop-status",
+      "summary": "Inspect registered loop processes",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/loop_control.py",
+        "status"
+      ],
+      "source": "scripts/loop_control.py",
+      "stack": "stdlib",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/WORKSPACE_STATUS.md",
+      "needs": "Linux /proc process inspection; no process is started or stopped.",
+      "effects": "observe"
+    },
+    {
+      "id": "loop-start",
+      "summary": "Start the research loop",
+      "kind": "shell",
+      "argv": [
+        "bash",
+        "start.sh"
+      ],
+      "source": "start.sh",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "CONTRIBUTING.md",
+      "needs": "Bash, uv and the full research environment; may sync packages, launch training and change loop/Git state.",
+      "effects": "state"
+    },
+    {
+      "id": "loop-stop",
+      "summary": "Stop research work and pause its watchdog",
+      "kind": "shell",
+      "argv": [
+        "bash",
+        "stop.sh"
+      ],
+      "source": "stop.sh",
+      "stack": "stdlib",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "CONTRIBUTING.md",
+      "needs": "Bash and Python; Linux process control for this checkout.",
+      "effects": "state"
+    },
+    {
+      "id": "fragment-fetch",
+      "summary": "Fetch the pinned official Frag1 example",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/training/fetch_fragment_example.py"
+      ],
+      "source": "scripts/training/fetch_fragment_example.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/OFFICIAL_FRAGMENT_EXAMPLE.md",
+      "needs": "HTTPS, NumPy, Pillow and OpenCV; default source pins are in configs/data/fr47_two_layers.json.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "fragment-import",
+      "summary": "Plan or build a lossless local CT fragment",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/training/prepare_surface_volume.py"
+      ],
+      "source": "scripts/training/prepare_surface_volume.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/TRAINING_DATA_IMPORT.md",
+      "needs": "NumPy, Pillow, OpenCV and Zarr 2; aligned uint16 TIFFs and canonical binary PNGs.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "fragment-verify",
+      "summary": "Verify a prepared CT fragment against its saved receipt",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/training/prepare_surface_volume.py",
+        "verify"
+      ],
+      "source": "scripts/training/prepare_surface_volume.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/TRAINING_DATA_IMPORT.md",
+      "needs": "NumPy, Pillow, OpenCV, Zarr 2 and a prepared fragment with import.json.",
+      "effects": "observe"
+    },
+    {
+      "id": "proofreader-check",
+      "summary": "Verify proofreading inputs, approved TIFFs and edited Zarr crops",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/check_proofreader_session.py"
+      ],
+      "source": "scripts/check_proofreader_session.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "required",
+      "guide": "docs/PROOFREADER_SESSION_RECORDS.md",
+      "needs": "NumPy/Zarr and the pinned proofreader source. --verify-approved-patches and --verify-edited-labels also need tifffile.",
+      "effects": "observe"
+    },
+    {
+      "id": "proofreader-gui",
+      "summary": "Launch aligned 3D categorical-label proofreading",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/launch_proofreader.py"
+      ],
+      "source": "scripts/launch_proofreader.py",
+      "stack": "gui",
+      "layout": "checkout",
+      "villa": "required",
+      "guide": "docs/CHECKPOINT_ANALYSIS.md",
+      "needs": "NumPy/Zarr plus separately provisioned Napari and Villa GUI dependencies; no safe resume or ink ingestion.",
+      "effects": "interactive"
+    },
+    {
+      "id": "regional-predict",
+      "summary": "Predict a single-model CT region",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/inference/predict.py"
+      ],
+      "source": "scripts/inference/predict.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/VOLUME_INFERENCE.md",
+      "needs": "Torch, scientific/Tap/plot dependencies, compatible checkpoint and local CT; CPU or CUDA selected by availability; Villa depends on recipe.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "ensemble-predict",
+      "summary": "Predict a CT region with an ensemble",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/inference/ensemble_predict.py"
+      ],
+      "source": "scripts/inference/ensemble_predict.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/VOLUME_INFERENCE.md",
+      "needs": "Regional stack and compatible checkpoints; all ensemble members remain resident; CPU or CUDA selected by availability.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "production-predict",
+      "summary": "Plan or run batched ink-only inference",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/production_predict.py"
+      ],
+      "source": "scripts/production_predict.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/VOLUME_INFERENCE.md",
+      "needs": "Imports the Torch/regional stack even for --dry-run; checkpoint/model/recipe compatibility remains required.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "patch-auc",
+      "summary": "Measure masked labeled-patch ink AUC",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/measure_ink_auc.py"
+      ],
+      "source": "scripts/measure_ink_auc.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/CHECKPOINT_ANALYSIS.md",
+      "needs": "Compatible checkpoint, labeled fragment and scientific metric stack; --device cpu is supported; preprocessing may need Villa.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "pseudo-labels",
+      "summary": "Generate confidence-filtered pseudo-labels",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/generate_pseudo_labels.py"
+      ],
+      "source": "scripts/generate_pseudo_labels.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/PSEUDO_LABEL_HANDOFF.md",
+      "needs": "Compatible checkpoint/CT and region mask; --device cpu is supported; confidence/ignore semantics are separate from ground truth.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "review-queue",
+      "summary": "Rank windows for manual inspection",
+      "kind": "module",
+      "argv": [
+        "python",
+        "-m",
+        "scripts.active_learning_sampler"
+      ],
+      "source": "scripts/active_learning_sampler.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/CHECKPOINT_ANALYSIS.md",
+      "needs": "Torch/scientific stack and checkpoint/volume; geometry discovery and selected preprocessing may read pinned Villa.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "reevaluate",
+      "summary": "Reevaluate the incumbent checkpoint",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/reevaluate_best_model.py"
+      ],
+      "source": "scripts/reevaluate_best_model.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/CHECKPOINT_ANALYSIS.md",
+      "needs": "Current config, complete incumbent and strict validation data/preprocessing; --update-stored replaces research state.",
+      "effects": "state"
+    },
+    {
+      "id": "noise-plan",
+      "summary": "Plan identical-config repeatability trials",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/f1_noise_probe.py"
+      ],
+      "source": "scripts/f1_noise_probe.py",
+      "stack": "stdlib",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/REPEATABILITY_PROBE.md",
+      "needs": "Default planning reads config/file identities only; Unix process-control imports are required. --execute switches to the full training stack and acquires a lock.",
+      "effects": "observe"
+    },
+    {
+      "id": "noise-execute",
+      "summary": "Execute isolated repeatability trials",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/f1_noise_probe.py",
+        "--execute"
+      ],
+      "source": "scripts/f1_noise_probe.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "docs/REPEATABILITY_PROBE.md",
+      "needs": "Full training dependencies, compatible starting checkpoint and strict data/preprocessing; writes new trials and acquires the checkout lock.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "fiber-filter",
+      "summary": "Filter local NPY CT for fiber structure",
+      "kind": "module",
+      "argv": [
+        "python",
+        "-m",
+        "vesuvius_autoresearch.fibers.cli"
+      ],
+      "source": "src/vesuvius_autoresearch/fibers/cli.py",
+      "stack": "scientific",
+      "layout": "wheel-or-checkout",
+      "villa": "none",
+      "guide": "docs/FIBER_DETECTION.md",
+      "needs": "NumPy/SciPy; --device cpu avoids CUDA probing, CuPy/CUDA are optional for GPU mode; preview needs Pillow.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "fiber-labels",
+      "summary": "Prepare bounded fiber label artifacts",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/labeling/generate_fiber_labels.py"
+      ],
+      "source": "scripts/labeling/generate_fiber_labels.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/FIBER_LABEL_GENERATION.md",
+      "needs": "NumPy/SciPy/TIFF/Zarr stack; skeleton mode additionally needs WEBKNOSSOS; candidate GPU mode needs CuPy/CUDA.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "detector",
+      "summary": "Train, infer or evaluate fragment ink detection",
+      "kind": "module",
+      "argv": [
+        "python",
+        "-m",
+        "vesuvius_autoresearch.detector.cli"
+      ],
+      "source": "src/vesuvius_autoresearch/detector/cli.py",
+      "stack": "torch",
+      "layout": "wheel-or-checkout",
+      "villa": "conditional",
+      "guide": "docs/DETECTOR_WORKFLOW.md",
+      "needs": "Torch/Lightning/scientific stack; data/config/checkpoints are supplied separately; backbone and transforms may depend on Villa.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "surface-render",
+      "summary": "Render local or public surface geometry",
+      "kind": "module",
+      "argv": [
+        "python",
+        "-m",
+        "repro.sota_data.render_cli"
+      ],
+      "source": "repro/sota_data/render_cli.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/SURFACE_RENDERER.md",
+      "needs": "NumPy/SciPy/TIFF/OpenCV; remote data paths add S3/TensorStore dependencies. Consult the rendering contract.",
+      "effects": "artifacts"
+    },
+    {
+      "id": "train-process",
+      "summary": "Run one configured training subprocess",
+      "kind": "module",
+      "argv": [
+        "python",
+        "-m",
+        "scripts.training.train"
+      ],
+      "source": "scripts/training/train.py",
+      "stack": "torch",
+      "layout": "checkout",
+      "villa": "conditional",
+      "guide": "CONTRIBUTING.md",
+      "needs": "Full research dependencies; CPU/CUDA and native/augmentation requirements depend on the recipe.",
+      "effects": "state"
+    },
+    {
+      "id": "placement-check",
+      "summary": "Check image-label placement offsets",
+      "kind": "script",
+      "argv": [
+        "python",
+        "tools/placement_check/placement_check.py"
+      ],
+      "source": "tools/placement_check/placement_check.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "tools/placement_check/README.md",
+      "needs": "NumPy for the API; PNG loading also needs Pillow; interpretation requires a suitable independent reference.",
+      "effects": "observe"
+    },
+    {
+      "id": "scroll-frames",
+      "summary": "Inspect declared mesh coordinate frames",
+      "kind": "script",
+      "argv": [
+        "python",
+        "tools/scroll_frames/scroll_frames.py",
+        "list"
+      ],
+      "source": "tools/scroll_frames/scroll_frames.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "tools/scroll_frames/README.md",
+      "needs": "The list CLI requires s3fs and live anonymous S3 access; the separate parsing API uses only stdlib. No coordinate transform is inferred.",
+      "effects": "observe"
+    }
+  ]
+}

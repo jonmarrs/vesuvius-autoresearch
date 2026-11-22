@@ -1,0 +1,377 @@
+{
+ "finding": 115,
+ "date": "2026-11-15",
+ "scroll": "PHerc. 0826",
+ "band_z": [
+  10250,
+  11750
+ ],
+ "registration": "docs/preregistration/2026-11-14_first_letters_0826_winding_count.md",
+ "registration_commit": "49a5bc66",
+ "spiral_outward_sense": "ACW",
+ "villa": "0fb38c45",
+ "change": {
+  "shell_outer_winding_idx": 80,
+  "model_gap_expander_num_windings": 83,
+  "villa_default": 130
+ },
+ "steps": {
+  "setup/distance_field": {
+   "exit": 0,
+   "seconds": 731
+  },
+  "outer80-smoke/fit": {
+   "exit": 0,
+   "seconds": 205,
+   "steps": 300,
+   "gpu_peak_mib_all_processes": 9583
+  },
+  "outer80/fit": {
+   "exit": 0,
+   "seconds": 12486,
+   "steps": 30000,
+   "gpu_peak_mib_all_processes": 11859
+  }
+ },
+ "smoke": {
+  "windings": 70,
+  "windings_scored": 70,
+  "excess_median": 0.0003,
+  "excess_p10": -0.0068,
+  "excess_p90": 0.0069,
+  "share_of_windings_with_positive_excess": 0.5429,
+  "on_sheet_median": 0.22
+ },
+ "full": {
+  "windings": 70,
+  "windings_scored": 70,
+  "excess_median": 0.1026,
+  "excess_p10": -0.0706,
+  "excess_p90": 0.2244,
+  "share_of_windings_with_positive_excess": 0.7857,
+  "on_sheet_median": 0.2941
+ },
+ "p1": false,
+ "p2": true,
+ "verdict": "PARTLY_ON_SHEETS",
+ "p3": {
+  "line": 0.0925,
+  "baseline_median": 0.0825,
+  "median": 0.1026,
+  "holds": true,
+  "label": "HELPS"
+ },
+ "full_by_index": [
+  {
+   "first": 10,
+   "last": 33,
+   "windings": 24,
+   "excess_median": 0.0037,
+   "positive": 0.5417,
+   "at_least_p1_median": 10,
+   "on_sheet_median": 0.2513,
+   "nodes_scored_median": 6180
+  },
+  {
+   "first": 34,
+   "last": 57,
+   "windings": 24,
+   "excess_median": 0.1035,
+   "positive": 0.9167,
+   "at_least_p1_median": 16,
+   "on_sheet_median": 0.3146,
+   "nodes_scored_median": 12974
+  },
+  {
+   "first": 58,
+   "last": 79,
+   "windings": 22,
+   "excess_median": 0.1376,
+   "positive": 0.9091,
+   "at_least_p1_median": 19,
+   "on_sheet_median": 0.2848,
+   "nodes_scored_median": 19856
+  }
+ ],
+ "spacing": {
+  "offsets_voxels": [
+   -24,
+   -22,
+   -20,
+   -18,
+   -16,
+   -14,
+   -12,
+   -10,
+   -8,
+   -6,
+   -4,
+   -2,
+   0,
+   2,
+   4,
+   6,
+   8,
+   10,
+   12,
+   14,
+   16,
+   18,
+   20,
+   22,
+   24
+  ],
+  "share_inside": [
+   0.1987,
+   0.1983,
+   0.1987,
+   0.2022,
+   0.2105,
+   0.2165,
+   0.2138,
+   0.2,
+   0.1843,
+   0.1734,
+   0.1855,
+   0.2455,
+   0.2861,
+   0.238,
+   0.1847,
+   0.173,
+   0.1839,
+   0.203,
+   0.2176,
+   0.2194,
+   0.2123,
+   0.205,
+   0.2026,
+   0.2027,
+   0.2031
+  ],
+  "peak_offset": 0,
+  "sheet_spacing": 14.0,
+  "pairs": 69,
+  "winding_spacing_median": 10.72,
+  "winding_spacing_p10": 4.59,
+  "winding_spacing_p90": 12.48,
+  "ratio": 0.766
+ },
+ "baseline_same_windings_finding_114": {
+  "windings": 70,
+  "excess_median": 0.0825,
+  "excess_p10": -0.0549,
+  "excess_p90": 0.2003,
+  "positive": 53,
+  "at_least_p1_median": 40,
+  "below_minus_003": 10
+ },
+ "this_fit_counts": {
+  "positive": 55,
+  "at_least_p1_median": 45,
+  "below_minus_003": 9
+ },
+ "costs": {
+  "fit_smoke": {
+   "seconds": 205,
+   "peak_rss_kb": 6570316,
+   "gpu_peak_mib": 9583
+  },
+  "fit_full": {
+   "seconds": 12486,
+   "peak_rss_kb": 6570580,
+   "gpu_peak_mib": 11859,
+   "memory_pressure_avg10_peak": 0.59
+  }
+ },
+ "fit_log": {
+  "tracks_in_band": 822420,
+  "loss": {
+   "0": 13463.1,
+   "200": 5967.8,
+   "1000": 660.3,
+   "29800": 387.1
+  },
+  "at_29800": {
+   "track_radius": 171.1,
+   "track_dt": 109.9,
+   "sym_dirichlet": 87.1
+  }
+ },
+ "reference_finding_114": {
+  "spacing_ratio": 0.825,
+  "winding_spacing_median": 11.55,
+  "fit_log": {
+   "tracks_in_band": 822420,
+   "loss": {
+    "0": 13468.3,
+    "200": 5993.5,
+    "1000": 652.5,
+    "29800": 377.9
+   },
+   "at_29800": {
+    "track_radius": 206.0,
+    "track_dt": 102.6,
+    "sym_dirichlet": 45.3
+   }
+  },
+  "seconds": 12006
+ },
+ "not_registered": {
+  "what": "the same 70 winding indices in the two fits, in groups of ten, and a paired comparison",
+  "by_tens": [
+   {
+    "first": 10,
+    "last": 19,
+    "windings": 10,
+    "excess_median": -0.0295,
+    "positive": 0.4,
+    "at_least_p1_median": 3,
+    "on_sheet_median": 0.1255,
+    "below_minus_003": 5
+   },
+   {
+    "first": 20,
+    "last": 29,
+    "windings": 10,
+    "excess_median": 0.0741,
+    "positive": 0.7,
+    "at_least_p1_median": 5,
+    "on_sheet_median": 0.3186,
+    "below_minus_003": 1
+   },
+   {
+    "first": 30,
+    "last": 39,
+    "windings": 10,
+    "excess_median": 0.0568,
+    "positive": 0.7,
+    "at_least_p1_median": 5,
+    "on_sheet_median": 0.2941,
+    "below_minus_003": 3
+   },
+   {
+    "first": 40,
+    "last": 49,
+    "windings": 10,
+    "excess_median": 0.1258,
+    "positive": 0.9,
+    "at_least_p1_median": 8,
+    "on_sheet_median": 0.3405,
+    "below_minus_003": 0
+   },
+   {
+    "first": 50,
+    "last": 59,
+    "windings": 10,
+    "excess_median": 0.097,
+    "positive": 1.0,
+    "at_least_p1_median": 7,
+    "on_sheet_median": 0.31,
+    "below_minus_003": 0
+   },
+   {
+    "first": 60,
+    "last": 69,
+    "windings": 10,
+    "excess_median": 0.1486,
+    "positive": 1.0,
+    "at_least_p1_median": 10,
+    "on_sheet_median": 0.3286,
+    "below_minus_003": 0
+   },
+   {
+    "first": 70,
+    "last": 79,
+    "windings": 10,
+    "excess_median": 0.1152,
+    "positive": 0.8,
+    "at_least_p1_median": 7,
+    "on_sheet_median": 0.2352,
+    "below_minus_003": 0
+   }
+  ],
+  "finding_114_by_tens": [
+   {
+    "first": 10,
+    "last": 19,
+    "windings": 10,
+    "excess_median": 0.0009,
+    "positive": 0.5,
+    "at_least_p1_median": 4,
+    "on_sheet_median": 0.2046,
+    "below_minus_003": 5
+   },
+   {
+    "first": 20,
+    "last": 29,
+    "windings": 10,
+    "excess_median": 0.035,
+    "positive": 0.6,
+    "at_least_p1_median": 4,
+    "on_sheet_median": 0.2606,
+    "below_minus_003": 3
+   },
+   {
+    "first": 30,
+    "last": 39,
+    "windings": 10,
+    "excess_median": 0.0936,
+    "positive": 0.8,
+    "at_least_p1_median": 5,
+    "on_sheet_median": 0.3085,
+    "below_minus_003": 2
+   },
+   {
+    "first": 40,
+    "last": 49,
+    "windings": 10,
+    "excess_median": 0.0741,
+    "positive": 0.8,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.2973,
+    "below_minus_003": 0
+   },
+   {
+    "first": 50,
+    "last": 59,
+    "windings": 10,
+    "excess_median": 0.0814,
+    "positive": 0.8,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.2901,
+    "below_minus_003": 0
+   },
+   {
+    "first": 60,
+    "last": 69,
+    "windings": 10,
+    "excess_median": 0.1499,
+    "positive": 1.0,
+    "at_least_p1_median": 9,
+    "on_sheet_median": 0.3219,
+    "below_minus_003": 0
+   },
+   {
+    "first": 70,
+    "last": 79,
+    "windings": 10,
+    "excess_median": 0.1072,
+    "positive": 0.8,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.2303,
+    "below_minus_003": 0
+   }
+  ],
+  "paired": {
+   "windings": 70,
+   "higher_in_this_fit": 42,
+   "sign_test_two_sided_p": 0.12,
+   "median_difference": 0.0135
+  },
+  "median_radius_ratio_same_index": {
+   "min": 1.01,
+   "max": 1.08,
+   "note": "this fit's windings over finding 114's, eight indices checked"
+  }
+ }
+}

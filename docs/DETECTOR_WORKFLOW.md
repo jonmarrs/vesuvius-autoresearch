@@ -36,6 +36,11 @@ fragment must share dimensions. Inference retains the existing full-window mask
 rule and stride: uncovered pixels are zero, and no usable windows is an error.
 This guide makes no claim that every masked pixel receives a prediction.
 
+The loader fills one padded CT stack a plane at a time. Padding extends only
+to the next tile boundary; an aligned axis keeps its original size. Clipping,
+usable training windows, labels and prediction coverage retain the recipe's
+behavior. The complete padded stack still resides in host memory.
+
 ## Prediction coverage and export
 
 Inference warns when valid fragment pixels have no usable window and prints a

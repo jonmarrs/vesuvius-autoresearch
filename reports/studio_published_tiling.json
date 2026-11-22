@@ -1,0 +1,49 @@
+{
+ "finding": 128,
+ "registration": "docs/preregistration/2026-11-20_studio_published_tiling.md",
+ "registration_commit": "eb9e10a5",
+ "predicted": "PUBLISHED_TILING_ADOPTED",
+ "steps": {
+  "check": {
+   "exit": 0,
+   "seconds": 2
+  },
+  "infer": {
+   "exit": 0,
+   "seconds": 31
+  }
+ },
+ "seconds_winners_tiling": 75,
+ "gpu_peak_mib_all_processes": 14481,
+ "numbers": {
+  "pixels": 8838800,
+  "r": 0.939561,
+  "abs_difference": {
+   "p50": 0.019445,
+   "p99": 0.330416,
+   "max": 0.708599
+  },
+  "mean_ours": 0.33607,
+  "mean_winner": 0.335175,
+  "share_same_side_of_half": 0.940184
+ },
+ "verdict": "WINNERS_TILING_KEPT",
+ "described_after_the_verdict": {
+  "seam_profile": {
+   "period": 96,
+   "pixels": 8838800,
+   "columns": {
+    "edge": 0.064944,
+    "middle": 0.038388
+   },
+   "rows": {
+    "edge": 0.06812,
+    "middle": 0.036787
+   }
+  }
+ },
+ "records_sha256": {
+  "pherc0211_control/work/studio_tiling.json": "8d95e794ccc5eb145b2cd25fde027765f2fc0c41c6cbb76c75c2710cc6c90a91",
+  "pherc0211_control/work/studio_tiling_seams.json": "458f3a6f34ded530d9c592b39f0294211604fe3c89a30712d0f0f8bf63451214"
+ }
+}

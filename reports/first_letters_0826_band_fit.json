@@ -1,0 +1,474 @@
+{
+ "finding": 114,
+ "date": "2026-11-14",
+ "scroll": "PHerc. 0826",
+ "band_z": [
+  10250,
+  11750
+ ],
+ "registration": "docs/preregistration/2026-11-14_first_letters_0826_band_fit.md",
+ "registration_commit": "acf767e0",
+ "spiral_outward_sense": "ACW",
+ "villa": "0fb38c45",
+ "steps": {
+  "setup/distance_field": {
+   "exit": 0,
+   "seconds": 731
+  },
+  "smoke/fit": {
+   "exit": 0,
+   "seconds": 246,
+   "steps": 300,
+   "gpu_peak_mib_all_processes": 10117
+  },
+  "full/fit": {
+   "exit": 0,
+   "seconds": 12006,
+   "steps": 30000,
+   "gpu_peak_mib_all_processes": 10937
+  }
+ },
+ "smoke": {
+  "windings": 120,
+  "windings_scored": 120,
+  "excess_median": 0.0005,
+  "excess_p10": -0.0034,
+  "excess_p90": 0.0055,
+  "share_of_windings_with_positive_excess": 0.5583,
+  "on_sheet_median": 0.1451
+ },
+ "full": {
+  "windings": 120,
+  "windings_scored": 120,
+  "excess_median": 0.0043,
+  "excess_p10": -0.0071,
+  "excess_p90": 0.1665,
+  "share_of_windings_with_positive_excess": 0.5917,
+  "on_sheet_median": 0.1744
+ },
+ "p1": false,
+ "p2": false,
+ "verdict": "NOT_ON_SHEETS",
+ "full_by_index": [
+  {
+   "first": 10,
+   "last": 49,
+   "windings": 40,
+   "excess_median": 0.0653,
+   "positive": 0.675,
+   "at_least_p1_median": 19,
+   "on_sheet_median": 0.2824,
+   "nodes_scored_median": 10240
+  },
+  {
+   "first": 50,
+   "last": 89,
+   "windings": 40,
+   "excess_median": 0.081,
+   "positive": 0.8,
+   "at_least_p1_median": 21,
+   "on_sheet_median": 0.2631,
+   "nodes_scored_median": 24527
+  },
+  {
+   "first": 90,
+   "last": 129,
+   "windings": 40,
+   "excess_median": -0.0003,
+   "positive": 0.3,
+   "at_least_p1_median": 0,
+   "on_sheet_median": 0.0069,
+   "nodes_scored_median": 12030
+  }
+ ],
+ "spacing": {
+  "offsets_voxels": [
+   -24,
+   -22,
+   -20,
+   -18,
+   -16,
+   -14,
+   -12,
+   -10,
+   -8,
+   -6,
+   -4,
+   -2,
+   0,
+   2,
+   4,
+   6,
+   8,
+   10,
+   12,
+   14,
+   16,
+   18,
+   20,
+   22,
+   24
+  ],
+  "share_inside": [
+   0.1233,
+   0.1229,
+   0.123,
+   0.1257,
+   0.1305,
+   0.1326,
+   0.131,
+   0.1238,
+   0.1157,
+   0.1115,
+   0.1194,
+   0.1497,
+   0.1707,
+   0.1469,
+   0.1191,
+   0.1128,
+   0.1178,
+   0.1287,
+   0.1363,
+   0.1388,
+   0.1369,
+   0.135,
+   0.1335,
+   0.1322,
+   0.1338
+  ],
+  "peak_offset": 0,
+  "sheet_spacing": 14.0,
+  "pairs": 119,
+  "winding_spacing_median": 11.55,
+  "winding_spacing_p10": 6.37,
+  "winding_spacing_p90": 14.89,
+  "ratio": 0.825
+ },
+ "costs": {
+  "fetch_volumes": {
+   "seconds": 1050
+  },
+  "distance_field": {
+   "seconds": 731
+  },
+  "fit_smoke": {
+   "seconds": 246,
+   "peak_rss_kb": 8810848,
+   "gpu_peak_mib": 10117
+  },
+  "fit_full": {
+   "seconds": 12006,
+   "peak_rss_kb": 6566616,
+   "gpu_peak_mib": 10937,
+   "memory_pressure_avg10_peak": 0.62
+  }
+ },
+ "fit_log": {
+  "tracks_in_band": 822420,
+  "loss": {
+   "0": 13468.3,
+   "200": 5993.5,
+   "1000": 652.5,
+   "29800": 377.9
+  },
+  "at_29800": {
+   "track_radius": 206.0,
+   "track_dt": 102.6,
+   "sym_dirichlet": 45.3
+  }
+ },
+ "reference_pherc0211": {
+  "full": {
+   "windings": 120,
+   "windings_scored": 120,
+   "excess_median": 0.0862,
+   "excess_p10": -0.0011,
+   "excess_p90": 0.2255,
+   "share_of_windings_with_positive_excess": 0.8833,
+   "on_sheet_median": 0.3093
+  },
+  "fit_log": {
+   "tracks_in_band": 1454417,
+   "loss": {
+    "0": 6593.0,
+    "200": 1541.1,
+    "1000": 381.3,
+    "29800": 241.6
+   },
+   "at_29800": {
+    "track_radius": 134.5,
+    "track_dt": 49.7,
+    "sym_dirichlet": 35.5
+   }
+  }
+ },
+ "reference_pherc343": {
+  "full": {
+   "windings_scored": 120,
+   "excess_median": 0.1396,
+   "excess_p10": 0.0246,
+   "excess_p90": 0.2403,
+   "share_of_windings_with_positive_excess": 0.9667,
+   "on_sheet_median": 0.3555
+  },
+  "tracks_in_band": 2277921,
+  "loss": {
+   "0": 4142,
+   "200": 964,
+   "1000": 326,
+   "29800": 234.6
+  },
+  "at_29800": {
+   "track_radius": 148.6,
+   "track_dt": 48.4,
+   "sym_dirichlet": 18.5
+  }
+ },
+ "not_registered": {
+  "what": "the scored windings in index order, in groups of ten",
+  "by_tens": [
+   {
+    "first": 10,
+    "last": 19,
+    "windings": 10,
+    "excess_median": 0.0009,
+    "positive": 0.5,
+    "at_least_p1_median": 4,
+    "on_sheet_median": 0.2046,
+    "nodes_scored_median": 5123
+   },
+   {
+    "first": 20,
+    "last": 29,
+    "windings": 10,
+    "excess_median": 0.035,
+    "positive": 0.6,
+    "at_least_p1_median": 4,
+    "on_sheet_median": 0.2606,
+    "nodes_scored_median": 8484
+   },
+   {
+    "first": 30,
+    "last": 39,
+    "windings": 10,
+    "excess_median": 0.0936,
+    "positive": 0.8,
+    "at_least_p1_median": 5,
+    "on_sheet_median": 0.3085,
+    "nodes_scored_median": 11968
+   },
+   {
+    "first": 40,
+    "last": 49,
+    "windings": 10,
+    "excess_median": 0.0741,
+    "positive": 0.8,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.2973,
+    "nodes_scored_median": 15476
+   },
+   {
+    "first": 50,
+    "last": 59,
+    "windings": 10,
+    "excess_median": 0.0814,
+    "positive": 0.8,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.2901,
+    "nodes_scored_median": 19100
+   },
+   {
+    "first": 60,
+    "last": 69,
+    "windings": 10,
+    "excess_median": 0.1499,
+    "positive": 1.0,
+    "at_least_p1_median": 9,
+    "on_sheet_median": 0.3219,
+    "nodes_scored_median": 22750
+   },
+   {
+    "first": 70,
+    "last": 79,
+    "windings": 10,
+    "excess_median": 0.1072,
+    "positive": 0.8,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.2303,
+    "nodes_scored_median": 26395
+   },
+   {
+    "first": 80,
+    "last": 89,
+    "windings": 10,
+    "excess_median": 0.0011,
+    "positive": 0.6,
+    "at_least_p1_median": 0,
+    "on_sheet_median": 0.0382,
+    "nodes_scored_median": 28529
+   },
+   {
+    "first": 90,
+    "last": 99,
+    "windings": 10,
+    "excess_median": 0.0001,
+    "positive": 0.5,
+    "at_least_p1_median": 0,
+    "on_sheet_median": 0.0283,
+    "nodes_scored_median": 25286
+   },
+   {
+    "first": 100,
+    "last": 109,
+    "windings": 10,
+    "excess_median": -0.0008,
+    "positive": 0.1,
+    "at_least_p1_median": 0,
+    "on_sheet_median": 0.0106,
+    "nodes_scored_median": 16335
+   },
+   {
+    "first": 110,
+    "last": 119,
+    "windings": 10,
+    "excess_median": -0.0002,
+    "positive": 0.4,
+    "at_least_p1_median": 0,
+    "on_sheet_median": 0.0033,
+    "nodes_scored_median": 9435
+   },
+   {
+    "first": 120,
+    "last": 129,
+    "windings": 10,
+    "excess_median": -0.0002,
+    "positive": 0.2,
+    "at_least_p1_median": 0,
+    "on_sheet_median": 0.0009,
+    "nodes_scored_median": 6004
+   }
+  ],
+  "pherc0211_by_tens": [
+   {
+    "first": 10,
+    "last": 19,
+    "windings": 10,
+    "excess_median": 0.0522,
+    "positive": 0.7,
+    "at_least_p1_median": 4,
+    "on_sheet_median": 0.2974,
+    "nodes_scored_median": 4626
+   },
+   {
+    "first": 20,
+    "last": 29,
+    "windings": 10,
+    "excess_median": 0.095,
+    "positive": 0.9,
+    "at_least_p1_median": 7,
+    "on_sheet_median": 0.3065,
+    "nodes_scored_median": 7626
+   },
+   {
+    "first": 30,
+    "last": 39,
+    "windings": 10,
+    "excess_median": 0.181,
+    "positive": 0.9,
+    "at_least_p1_median": 7,
+    "on_sheet_median": 0.3805,
+    "nodes_scored_median": 10778
+   },
+   {
+    "first": 40,
+    "last": 49,
+    "windings": 10,
+    "excess_median": 0.1666,
+    "positive": 0.7,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.3651,
+    "nodes_scored_median": 13967
+   },
+   {
+    "first": 50,
+    "last": 59,
+    "windings": 10,
+    "excess_median": 0.1183,
+    "positive": 0.9,
+    "at_least_p1_median": 7,
+    "on_sheet_median": 0.3554,
+    "nodes_scored_median": 17123
+   },
+   {
+    "first": 60,
+    "last": 69,
+    "windings": 10,
+    "excess_median": 0.0752,
+    "positive": 1.0,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.314,
+    "nodes_scored_median": 20258
+   },
+   {
+    "first": 70,
+    "last": 79,
+    "windings": 10,
+    "excess_median": 0.1357,
+    "positive": 1.0,
+    "at_least_p1_median": 7,
+    "on_sheet_median": 0.375,
+    "nodes_scored_median": 23434
+   },
+   {
+    "first": 80,
+    "last": 89,
+    "windings": 10,
+    "excess_median": 0.0981,
+    "positive": 1.0,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.3413,
+    "nodes_scored_median": 26557
+   },
+   {
+    "first": 90,
+    "last": 99,
+    "windings": 10,
+    "excess_median": 0.1532,
+    "positive": 0.9,
+    "at_least_p1_median": 9,
+    "on_sheet_median": 0.3596,
+    "nodes_scored_median": 29489
+   },
+   {
+    "first": 100,
+    "last": 109,
+    "windings": 10,
+    "excess_median": 0.0857,
+    "positive": 1.0,
+    "at_least_p1_median": 6,
+    "on_sheet_median": 0.222,
+    "nodes_scored_median": 32485
+   },
+   {
+    "first": 110,
+    "last": 119,
+    "windings": 10,
+    "excess_median": 0.052,
+    "positive": 1.0,
+    "at_least_p1_median": 4,
+    "on_sheet_median": 0.1066,
+    "nodes_scored_median": 32438
+   },
+   {
+    "first": 120,
+    "last": 129,
+    "windings": 10,
+    "excess_median": 0.0006,
+    "positive": 0.6,
+    "at_least_p1_median": 0,
+    "on_sheet_median": 0.0124,
+    "nodes_scored_median": 27789
+   }
+  ]
+ }
+}

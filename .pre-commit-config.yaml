@@ -1,3 +1,5 @@
+# scripts/archive/legacy_figures and legacy_launchers contain byte-preserved
+# source snapshots too; automatic fixes must never rewrite their Python files.
 # Loop-managed state files are rewritten continuously by the autoresearch loop
 # (often without a trailing newline). Excluding them stops end-of-file-fixer /
 # trailing-whitespace from modifying them mid-commit, which otherwise conflicts
@@ -8,7 +10,7 @@
 # it looks authoritative and is not. Learned the hard way -- ruff auto-fixed 53
 # issues across them on the first commit attempt, and tests/test_villa_preserved.py
 # caught the drift.
-exclude: '^(config\.json|autoresearch_history\.json|recent_configs\.json|history\.tsv|prize_readiness\.tsv|\.current_day_shift_log|repro/villa_preserved/.*)$'
+exclude: '^(config\.json|autoresearch_history\.json|recent_configs\.json|history\.tsv|prize_readiness\.tsv|\.current_day_shift_log|repro/villa_preserved/.*|scripts/archive/(legacy_figures|legacy_launchers)/.*\.py)$'
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

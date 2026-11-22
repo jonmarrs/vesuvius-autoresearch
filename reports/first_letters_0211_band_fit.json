@@ -1,0 +1,221 @@
+{
+ "finding": 112,
+ "date": "2026-11-13",
+ "scroll": "PHerc. 0211",
+ "band_z": [
+  10250,
+  11750
+ ],
+ "registration": "docs/preregistration/2026-11-13_first_letters_0211_band_fit.md",
+ "registration_commit": "4a2a6f8e",
+ "spiral_outward_sense": "ACW",
+ "villa": "0fb38c45",
+ "steps": {
+  "setup/distance_field": {
+   "exit": 0,
+   "seconds": 791
+  },
+  "smoke/fit": {
+   "exit": 0,
+   "seconds": 237,
+   "steps": 300,
+   "gpu_peak_mib_all_processes": 9417
+  },
+  "full/fit": {
+   "exit": 0,
+   "seconds": 11922,
+   "steps": 30000,
+   "gpu_peak_mib_all_processes": 10339
+  }
+ },
+ "smoke": {
+  "windings": 120,
+  "windings_scored": 120,
+  "excess_median": 0.0004,
+  "excess_p10": -0.0073,
+  "excess_p90": 0.0075,
+  "share_of_windings_with_positive_excess": 0.5083,
+  "on_sheet_median": 0.2422
+ },
+ "full": {
+  "windings": 120,
+  "windings_scored": 120,
+  "excess_median": 0.0862,
+  "excess_p10": -0.0011,
+  "excess_p90": 0.2255,
+  "share_of_windings_with_positive_excess": 0.8833,
+  "on_sheet_median": 0.3093
+ },
+ "p1": true,
+ "p2": true,
+ "verdict": "ON_SHEETS",
+ "full_by_index": [
+  {
+   "first": 10,
+   "last": 49,
+   "windings": 40,
+   "excess_median": 0.1103,
+   "positive": 0.8,
+   "at_least_p1_median": 24,
+   "on_sheet_median": 0.3259,
+   "nodes_scored_median": 9185
+  },
+  {
+   "first": 50,
+   "last": 89,
+   "windings": 40,
+   "excess_median": 0.0915,
+   "positive": 0.975,
+   "at_least_p1_median": 26,
+   "on_sheet_median": 0.3373,
+   "nodes_scored_median": 21867
+  },
+  {
+   "first": 90,
+   "last": 129,
+   "windings": 40,
+   "excess_median": 0.0611,
+   "positive": 0.875,
+   "at_least_p1_median": 19,
+   "on_sheet_median": 0.1885,
+   "nodes_scored_median": 30769
+  }
+ ],
+ "costs": {
+  "distance_field": {
+   "seconds": 791,
+   "peak_rss_kb": 823944
+  },
+  "fit_smoke": {
+   "seconds": 237,
+   "peak_rss_kb": 7942572,
+   "gpu_peak_mib": 9417
+  },
+  "fit_full": {
+   "seconds": 11922,
+   "peak_rss_kb": 7660520,
+   "gpu_peak_mib": 10339,
+   "memory_pressure_avg10_peak": 1.73
+  }
+ },
+ "fit_log": {
+  "tracks_in_band": 1454417,
+  "loss": {
+   "0": 6593.0,
+   "200": 1541.1,
+   "1000": 381.3,
+   "29800": 241.6
+  },
+  "at_29800": {
+   "track_radius": 134.5,
+   "track_dt": 49.7,
+   "sym_dirichlet": 35.5
+  }
+ },
+ "reference_pherc343": {
+  "full": {
+   "windings_scored": 120,
+   "excess_median": 0.1396,
+   "excess_p10": 0.0246,
+   "excess_p90": 0.2403,
+   "share_of_windings_with_positive_excess": 0.9667,
+   "on_sheet_median": 0.3555
+  },
+  "tracks_in_band": 2277921,
+  "loss": {
+   "0": 4142,
+   "200": 964,
+   "1000": 326,
+   "29800": 234.6
+  },
+  "at_29800": {
+   "track_radius": 148.6,
+   "track_dt": 48.4,
+   "sym_dirichlet": 18.5
+  }
+ },
+ "not_registered": {
+  "what": "share of nodes inside a predicted sheet against displacement along the normal; every fourth node of every raw winding, pooled",
+  "offsets_voxels": [
+   -24,
+   -22,
+   -20,
+   -18,
+   -16,
+   -14,
+   -12,
+   -10,
+   -8,
+   -6,
+   -4,
+   -2,
+   0,
+   2,
+   4,
+   6,
+   8,
+   10,
+   12,
+   14,
+   16,
+   18,
+   20,
+   22,
+   24
+  ],
+  "full": [
+   0.189,
+   0.1887,
+   0.1904,
+   0.195,
+   0.2006,
+   0.2061,
+   0.2036,
+   0.1928,
+   0.1796,
+   0.169,
+   0.1731,
+   0.2199,
+   0.2674,
+   0.2278,
+   0.1785,
+   0.1736,
+   0.1829,
+   0.1975,
+   0.2104,
+   0.2154,
+   0.2122,
+   0.2077,
+   0.2056,
+   0.2057,
+   0.2069
+  ],
+  "smoke": [
+   0.2046,
+   0.205,
+   0.2055,
+   0.2058,
+   0.2061,
+   0.2063,
+   0.2071,
+   0.2074,
+   0.2082,
+   0.2085,
+   0.2094,
+   0.21,
+   0.211,
+   0.2109,
+   0.2097,
+   0.2112,
+   0.2115,
+   0.2125,
+   0.2126,
+   0.2131,
+   0.2125,
+   0.2138,
+   0.2147,
+   0.2158,
+   0.2156
+  ]
+ }
+}

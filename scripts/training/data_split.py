@@ -15,16 +15,21 @@ pyramid level of that parent. Leading zeros count (``01`` and ``00``).
 ``scroll/2024`` is not a level. Copies, crops, and a different host are not
 proved independent.
 
+Local paths are classified and resolved by the shared
+``vesuvius_autoresearch.core.volume_paths.volume_location``; this remote
+normalization is the split check's alone.
+
 The volume reader refuses every remote URI, so this comparison does not decide
 a read that can run today. It is the spelling check a later remote reader
 would already have to pass. This opens no arrays, changes no configuration,
 and creates no filesystem entries.
 """
 
-import os
 import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+
+from vesuvius_autoresearch.core.volume_paths import volume_location
 
 # Schemes whose explicit default port is the same endpoint as no port.
 _DEFAULT_PORTS = {"http": 80, "https": 443}
@@ -33,25 +38,13 @@ _MAX_PYRAMID_LEVEL = 99
 
 
 def _location(uri, base, *, resolve_local=True):
-    if not isinstance(uri, str) or not uri.strip():
-        raise ValueError("volume identifiers must be nonempty strings")
-    # Match FastVesuviusVolume: an existing path wins over URL interpretation.
-    # POSIX names may contain colons or even look like a remote URI.
-    candidate = base / uri
-    if os.path.exists(candidate):
-        return (candidate.resolve() if resolve_local else candidate), None
+    # Local paths, and whether an identifier is local at all, follow the shared
+    # volume identity (inference_constants uses it too). Only the remote
+    # comparison below is this check's own.
+    local, _ = volume_location(uri, base, resolve_local=resolve_local)
+    if local is not None:
+        return local, None
     parts = urlsplit(uri)
-    if not parts.scheme or (
-        parts.scheme == "file" and parts.netloc in ("", "localhost")
-    ):
-        if parts.scheme == "file":
-            if parts.query or parts.fragment:
-                raise ValueError("local file URIs cannot have a query or fragment")
-            path = unquote(parts.path)
-        else:
-            path = uri
-        local = base / path
-        return (local.resolve() if resolve_local else local), None
     # Query and fragment are not part of the volume. A signed URL and a bare
     # URL of the same scheme, host, and path are the same spelling.
     scheme = parts.scheme.lower()

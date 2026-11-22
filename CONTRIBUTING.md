@@ -17,7 +17,7 @@ python3.10 -m venv /tmp/vesuvius-cpu-tests
 /tmp/vesuvius-cpu-tests/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short
 ```
 
-The fifteen-module portable profile checks process cleanup, setup diagnostics,
+The portable profile checks command discovery, process cleanup, setup diagnostics,
 bounded file captures, validation selection, retired launchers and the standalone
 geometry tools, regional accumulator byte arithmetic and research-prerequisite
 policy and recovery prechecks, held-out data separation and experiment checkpoint
@@ -51,6 +51,10 @@ Inspect setup without installing dependencies or starting work:
 An `ok` report checks local paths and configuration parsing; it does not certify
 GPU readiness or checkpoint compatibility.
 
+Find reviewed entrypoints and their declared runtime boundaries with
+`python3 scripts/list_commands.py` ([command inventory](docs/COMMANDS.md)). It
+does not import or execute the listed tools or certify an environment.
+
 ```sh
 uv sync
 git submodule update --init villa    # the pinned ScrollPrize/villa
@@ -66,6 +70,11 @@ fail selected checks when those inputs are absent. See the
 [research-test provisioning and scope](docs/RESEARCH_TESTS.md). Other legacy skip
 policies and research dependencies remain separate. Record these gaps explicitly.
 A smoke pass is not a full validation run.
+
+The complete `tests/` selection includes real model inference and small training
+runs on synthetic fragments, alongside data/history-dependent checks. On CPU it
+can take several minutes beyond the curated suite. The portable profile is the
+fast workflow check; missing original inputs remain unavailable coverage.
 
 Local training-data conversion has a maintained CPU
 [TIFF/PNG import workflow](docs/TRAINING_DATA_IMPORT.md) with pinned sources and
