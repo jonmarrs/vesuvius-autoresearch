@@ -1,0 +1,154 @@
+{
+ "finding": 132,
+ "registration": "docs/preregistration/2026-11-20_studio_skip_empty_windows.md",
+ "registration_commit": "9b99cf7e",
+ "lines": {
+  "r": 0.9999,
+  "p99": 0.002,
+  "same_side": 0.9995,
+  "faster": 0.8
+ },
+ "runs": {
+  "full_pherc0211": {
+   "windows": 2784,
+   "run": 2784,
+   "seconds": 62.5,
+   "skip_empty": false
+  },
+  "skip_pherc0211": {
+   "windows": 2784,
+   "run": 2523,
+   "seconds": 57.3,
+   "skip_empty": true
+  },
+  "full_w062": {
+   "windows": 11842,
+   "run": 11842,
+   "seconds": 267.5,
+   "skip_empty": false
+  },
+  "skip_w062": {
+   "windows": 11842,
+   "run": 6994,
+   "seconds": 158.3,
+   "skip_empty": true
+  },
+  "full_w065": {
+   "windows": 13002,
+   "run": 13002,
+   "seconds": 290.8,
+   "skip_empty": false
+  },
+  "skip_w065": {
+   "windows": 13002,
+   "run": 7411,
+   "seconds": 168.1,
+   "skip_empty": true
+  }
+ },
+ "pairs": {
+  "full_pherc0211": {
+   "pixels": 8838800,
+   "r": 1.0,
+   "abs_difference": {
+    "p50": 0.0,
+    "p99": 0.0,
+    "max": 0.0
+   },
+   "mean_ours": 0.335175,
+   "mean_winner": 0.335175,
+   "share_same_side_of_half": 1.0,
+   "exact_over_the_ct": true
+  },
+  "skip_pherc0211": {
+   "pixels": 8838800,
+   "r": 1.0,
+   "abs_difference": {
+    "p50": 0.0,
+    "p99": 0.0,
+    "max": 2.1e-05
+   },
+   "mean_ours": 0.335175,
+   "mean_winner": 0.335175,
+   "share_same_side_of_half": 1.0,
+   "exact_over_the_ct": false
+  },
+  "full_w062": {
+   "pixels": 25692200,
+   "r": 1.0,
+   "abs_difference": {
+    "p50": 0.0,
+    "p99": 0.0,
+    "max": 0.0
+   },
+   "mean_ours": 0.277241,
+   "mean_winner": 0.277241,
+   "share_same_side_of_half": 1.0,
+   "exact_over_the_ct": true
+  },
+  "skip_w062": {
+   "pixels": 25692200,
+   "r": 1.0,
+   "abs_difference": {
+    "p50": 0.0,
+    "p99": 0.0,
+    "max": 0.000497
+   },
+   "mean_ours": 0.277241,
+   "mean_winner": 0.277241,
+   "share_same_side_of_half": 1.0,
+   "exact_over_the_ct": false
+  },
+  "full_w065": {
+   "pixels": 27095588,
+   "r": 1.0,
+   "abs_difference": {
+    "p50": 0.0,
+    "p99": 0.0,
+    "max": 0.0
+   },
+   "mean_ours": 0.26593,
+   "mean_winner": 0.26593,
+   "share_same_side_of_half": 1.0,
+   "exact_over_the_ct": true
+  },
+  "skip_w065": {
+   "pixels": 27095588,
+   "r": 1.0,
+   "abs_difference": {
+    "p50": 0.0,
+    "p99": 0.0,
+    "max": 0.00075
+   },
+   "mean_ours": 0.26593,
+   "mean_winner": 0.26593,
+   "share_same_side_of_half": 1.0,
+   "exact_over_the_ct": false
+  }
+ },
+ "time_ratio_skip_over_full": {
+  "w062": 0.5918,
+  "w065": 0.5781
+ },
+ "verdict": "SKIP_ADOPTED",
+ "steps": {
+  "check": {
+   "exit": 0,
+   "seconds": 2
+  },
+  "compare": {
+   "exit": 0,
+   "seconds": 6
+  },
+  "planes": {
+   "exit": 0,
+   "seconds": 51
+  },
+  "runs": {
+   "exit": 0,
+   "seconds": 1027
+  }
+ },
+ "seconds": 1086,
+ "gpu_peak_mib_all_processes": 14936
+}

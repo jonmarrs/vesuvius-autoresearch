@@ -1,0 +1,334 @@
+{
+ "finding": 131,
+ "registration": "docs/preregistration/2026-11-20_first_letters_0211_dense_read.md",
+ "registration_commit": "f242f84f",
+ "windings": [
+  "w033",
+  "w034",
+  "w035",
+  "w036"
+ ],
+ "arms": {
+  "f124": {
+   "meshes": [
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w033.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w034.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w035.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w036.tifxyz"
+   ],
+   "normal_cosine_median": [
+    -0.9983,
+    -0.9967,
+    -0.9979,
+    -0.9962
+   ]
+  },
+  "rerun": {
+   "meshes": [
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_rerun/w033.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_rerun/w034.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_rerun/w035.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_rerun/w036.tifxyz"
+   ],
+   "normal_cosine_median": [
+    -0.9983,
+    -0.9967,
+    -0.9979,
+    -0.9961
+   ]
+  },
+  "dense2": {
+   "meshes": [
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_dense2/w033.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_dense2/w034.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_dense2/w035.tifxyz",
+    "spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e_dense2/w036.tifxyz"
+   ],
+   "normal_cosine_median": [
+    -0.9989,
+    -0.9974,
+    -0.9984,
+    -0.9963
+   ]
+  }
+ },
+ "mask_cells": 550482,
+ "cells": 442015,
+ "cell_share": 0.803,
+ "f124_reproduced_on_its_own_cells": true,
+ "registered": {
+  "r": {
+   "f124": 0.8304,
+   "rerun": 0.8267,
+   "dense2": 0.8168
+  },
+  "noise_rerun_minus_f124": -0.0037,
+  "margin": 0.02,
+  "change_dense2_minus_rerun": -0.0099
+ },
+ "verdict": "DENSE_READS_SAME",
+ "described": {
+  "each_arm_on_the_common_cells": {
+   "f124": {
+    "cells": 442015,
+    "r": 0.8304,
+    "control_wrong_side": -0.0529,
+    "r_with_background": 0.7404,
+    "control_slid": {
+     "down": 0.0992,
+     "up": 0.1125,
+     "right": 0.0141,
+     "left": 0.048,
+     "largest_absolute": 0.1125
+    },
+    "overlap": 0.7601,
+    "control_overlap_slid": {
+     "down": 0.4082,
+     "up": 0.4064,
+     "right": 0.3843,
+     "left": 0.4166,
+     "largest": 0.4166
+    }
+   },
+   "rerun": {
+    "cells": 442015,
+    "r": 0.8267,
+    "control_wrong_side": -0.056,
+    "r_with_background": 0.7366,
+    "control_slid": {
+     "down": 0.1007,
+     "up": 0.1107,
+     "right": 0.0126,
+     "left": 0.05,
+     "largest_absolute": 0.1107
+    },
+    "overlap": 0.7588,
+    "control_overlap_slid": {
+     "down": 0.4108,
+     "up": 0.4055,
+     "right": 0.3824,
+     "left": 0.4168,
+     "largest": 0.4168
+    }
+   },
+   "dense2": {
+    "cells": 442015,
+    "r": 0.8168,
+    "control_wrong_side": -0.0645,
+    "r_with_background": 0.7338,
+    "control_slid": {
+     "down": 0.1055,
+     "up": 0.1067,
+     "right": 0.0279,
+     "left": 0.0488,
+     "largest_absolute": 0.1067
+    },
+    "overlap": 0.7593,
+    "control_overlap_slid": {
+     "down": 0.417,
+     "up": 0.4023,
+     "right": 0.3939,
+     "left": 0.4157,
+     "largest": 0.417
+    }
+   }
+  },
+  "each_arm_on_its_own_cells": {
+   "f124": {
+    "cells": 457405,
+    "r": 0.8247,
+    "control_wrong_side": -0.0471,
+    "r_with_background": 0.7383,
+    "control_slid": {
+     "down": 0.1015,
+     "up": 0.1141,
+     "right": 0.0131,
+     "left": 0.0475,
+     "largest_absolute": 0.1141
+    },
+    "overlap": 0.7574,
+    "control_overlap_slid": {
+     "down": 0.4082,
+     "up": 0.4071,
+     "right": 0.3832,
+     "left": 0.4154,
+     "largest": 0.4154
+    }
+   },
+   "rerun": {
+    "cells": 457557,
+    "r": 0.8205,
+    "control_wrong_side": -0.0509,
+    "r_with_background": 0.734,
+    "control_slid": {
+     "down": 0.1024,
+     "up": 0.112,
+     "right": 0.0124,
+     "left": 0.0511,
+     "largest_absolute": 0.112
+    },
+    "overlap": 0.7557,
+    "control_overlap_slid": {
+     "down": 0.4094,
+     "up": 0.4054,
+     "right": 0.3824,
+     "left": 0.416,
+     "largest": 0.416
+    }
+   },
+   "dense2": {
+    "cells": 461277,
+    "r": 0.8094,
+    "control_wrong_side": -0.0568,
+    "r_with_background": 0.7303,
+    "control_slid": {
+     "down": 0.1056,
+     "up": 0.102,
+     "right": 0.0354,
+     "left": 0.0559,
+     "largest_absolute": 0.1056
+    },
+    "overlap": 0.7559,
+    "control_overlap_slid": {
+     "down": 0.4192,
+     "up": 0.4022,
+     "right": 0.3995,
+     "left": 0.4199,
+     "largest": 0.4199
+    }
+   }
+  },
+  "transfer_distance_voxels": {
+   "f124": {
+    "p50": 1.91,
+    "p95": 3.3
+   },
+   "rerun": {
+    "p50": 1.92,
+    "p95": 3.29
+   },
+   "dense2": {
+    "p50": 1.9,
+    "p95": 3.29
+   }
+  },
+  "final_nodes_within_2_of_the_predicted_sheet": {
+   "f124": {
+    "w033": 0.9034,
+    "w034": 0.7742,
+    "w035": 0.9105,
+    "w036": 0.7973
+   },
+   "rerun": {
+    "w033": 0.9047,
+    "w034": 0.7747,
+    "w035": 0.9104,
+    "w036": 0.7963
+   },
+   "dense2": {
+    "w033": 0.9392,
+    "w034": 0.8184,
+    "w035": 0.9391,
+    "w036": 0.8304
+   }
+  }
+ },
+ "steps": {
+  "check": {
+   "exit": 0,
+   "seconds": 2
+  },
+  "compare": {
+   "exit": 0,
+   "seconds": 26
+  },
+  "flatten_e2e_dense2_w033": {
+   "exit": 0,
+   "seconds": 116
+  },
+  "flatten_e2e_dense2_w034": {
+   "exit": 0,
+   "seconds": 116
+  },
+  "flatten_e2e_dense2_w035": {
+   "exit": 0,
+   "seconds": 116
+  },
+  "flatten_e2e_dense2_w036": {
+   "exit": 0,
+   "seconds": 116
+  },
+  "flatten_e2e_rerun_w033": {
+   "exit": 0,
+   "seconds": 52
+  },
+  "flatten_e2e_rerun_w034": {
+   "exit": 0,
+   "seconds": 52
+  },
+  "flatten_e2e_rerun_w035": {
+   "exit": 0,
+   "seconds": 49
+  },
+  "flatten_e2e_rerun_w036": {
+   "exit": 0,
+   "seconds": 66
+  },
+  "orient_e2e_dense2": {
+   "exit": 0,
+   "seconds": 1
+  },
+  "orient_e2e_rerun": {
+   "exit": 0,
+   "seconds": 1
+  },
+  "prepare": {
+   "exit": 0,
+   "seconds": 1
+  },
+  "render_e2e_dense2": {
+   "exit": 0,
+   "seconds": 190
+  },
+  "render_e2e_rerun": {
+   "exit": 0,
+   "seconds": 226
+  },
+  "snap_e2e_dense2": {
+   "exit": 0,
+   "seconds": 15
+  },
+  "snap_e2e_rerun": {
+   "exit": 0,
+   "seconds": 13
+  },
+  "studio_e2e_dense2": {
+   "exit": 0,
+   "seconds": 593
+  },
+  "studio_e2e_rerun": {
+   "exit": 0,
+   "seconds": 606
+  }
+ },
+ "seconds": 2357,
+ "gpu_peak_mib_all_processes": 14936,
+ "rerun_byte_identical_to_finding_121": {
+  "w033": {
+   "snap": true,
+   "final": false
+  },
+  "w034": {
+   "snap": true,
+   "final": false
+  },
+  "w035": {
+   "snap": true,
+   "final": false
+  },
+  "w036": {
+   "snap": true,
+   "final": false
+  }
+ }
+}

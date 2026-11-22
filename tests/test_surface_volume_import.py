@@ -348,6 +348,152 @@ def test_cli_plan_build_and_existing_output_refusal(source, tmp_path):
     assert repeated.returncode == 2 and "already exists" in repeated.stderr
     assert tree(destination) == before
 
+    # Verification travels with the fragment and does not open original sources.
+    source.rename(tmp_path / "moved-source")
+    manifest.unlink()
+    relocated = destination.rename(tmp_path / "relocated")
+    verify = [*command, "verify", "--fragment", str(relocated)]
+    checked = subprocess.run(
+        verify, cwd=tmp_path, capture_output=True, text=True, timeout=30
+    )
+    assert checked.returncode == 0, checked.stderr
+    report = json.loads(checked.stdout)
+    assert report["status"] == "verified" and report["path"] == str(relocated)
+    assert report["ct_chunk_count"] == 3
+    assert report["image_sha256"] == {
+        "inklabels.png": hashlib.sha256(before["inklabels.png"]).hexdigest()
+    }
+    assert (
+        report["import_receipt_sha256"]
+        == hashlib.sha256(before["import.json"]).hexdigest()
+    )
+    assert tree(relocated) == before
+    (relocated / "mask.png").write_bytes(before["inklabels.png"])
+    failed = subprocess.run(
+        verify, cwd=tmp_path, capture_output=True, text=True, timeout=30
+    )
+    assert failed.returncode == 2 and "unexpected mask.png" in failed.stderr
+    assert failed.stdout == ""
+
+
+def test_verifies_multichunk_legacy_layout_and_detects_missing_zero_chunk(
+    source, tmp_path
+):
+    shape = (131, 139)
+    layers = [np.zeros(shape, dtype=np.uint16)] + [
+        np.arange(np.prod(shape), dtype=np.uint16).reshape(shape) * offset
+        for offset in (2, 3)
+    ]
+    for z, values in enumerate(layers, 16):
+        Image.fromarray(values).save(source / f"{z}.tif")
+    for name in ("inklabels.png", "mask.png"):
+        Image.fromarray(np.full(shape, 255, np.uint8)).save(source / name)
+    dest = importer.build_import(pin(source, tmp_path), tmp_path / "out")
+    store = dest / "surface_volume.zarr"
+    header_path = store / ".zarray"
+    header = json.loads(header_path.read_bytes())
+    del header["dimension_separator"]  # older imports use the implicit dot separator
+    header_path.write_text(json.dumps(header))
+    report = importer.verify_import(dest)
+    assert report["ct_chunk_count"] == 12
+    assert (
+        report["ct_decoded_sha256"]
+        == hashlib.sha256(np.array(layers, dtype="<u2").tobytes()).hexdigest()
+    )
+
+    # Zarr would still return the identical decoded data by using its fill value.
+    (store / "0.0.0").unlink()
+    np.testing.assert_array_equal(zarr.open(str(store), mode="r")[:], layers)
+    with pytest.raises(ValueError, match=r"missing CT chunk: .*0\.0\.0"):
+        importer.verify_import(dest)
+
+
+def test_verifies_receipt_whose_source_paths_use_another_platform(source, tmp_path):
+    dest = importer.build_import(pin(source, tmp_path), tmp_path / "out")
+    path = dest / "import.json"
+    receipt = json.loads(path.read_bytes())
+    recorded_source = receipt["plan"]["sources"]
+    prefix = "/srv/imported/" if os.name == "nt" else "C:\\data\\imported\\"
+    for record in (
+        recorded_source["labels"],
+        recorded_source["mask"],
+        *recorded_source["layers"],
+    ):
+        record["path"] = prefix + Path(record["path"]).name
+    manifest_bytes = json.dumps(receipt["plan"]).encode()
+    receipt["input_manifest_path"] = prefix + "plan.json"
+    receipt["input_manifest_sha256"] = hashlib.sha256(manifest_bytes).hexdigest()
+    path.write_text(json.dumps(receipt))
+
+    assert importer.verify_import(dest)["status"] == "verified"
+    foreign_plan = tmp_path / "foreign.json"
+    foreign_plan.write_bytes(manifest_bytes)
+    with pytest.raises(ValueError):
+        importer.build_import(foreign_plan, tmp_path / "new")
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("value", "decoded CT digest differs"),
+        ("incomplete", "incomplete CT chunk"),
+        ("chunk_link", "nonsymlink regular file"),
+        ("layout", "Zarr metadata differs"),
+        ("origin", "attribute source_origin_zyx differs"),
+        ("label", "inklabels.png differs"),
+        ("mask", "mask.png differs"),
+        ("receipt", "duplicate JSON key"),
+        ("budget", "exceeds max_pixels/max_volume_bytes"),
+    ],
+)
+def test_verify_refuses_changes_to_prepared_fragment(source, tmp_path, change, message):
+    dest = importer.build_import(pin(source, tmp_path), tmp_path / "out")
+    store = dest / "surface_volume.zarr"
+    chunk = store / "0.0.0"
+    limits = {}
+    if change == "value":
+        data = chunk.read_bytes()
+        chunk.write_bytes(bytes([data[0] ^ 1]) + data[1:])
+    elif change == "incomplete":
+        chunk.write_bytes(chunk.read_bytes()[:-1])
+    elif change == "chunk_link":
+        chunk.rename(tmp_path / "chunk")
+        chunk.symlink_to(tmp_path / "chunk")
+    elif change in {"layout", "origin"}:
+        path = store / (".zarray" if change == "layout" else ".zattrs")
+        data = json.loads(path.read_bytes())
+        data.update(
+            {"order": "F"} if change == "layout" else {"source_origin_zyx": [0, 0, 0]}
+        )
+        path.write_text(json.dumps(data))
+    elif change in {"label", "mask"}:
+        path = dest / ("inklabels.png" if change == "label" else "mask.png")
+        path.write_bytes(path.read_bytes() + b"changed")
+    elif change == "receipt":
+        path = dest / "import.json"
+        path.write_bytes(b'{"contract": 1,' + path.read_bytes()[1:])
+    else:
+        limits["max_volume_bytes"] = 479
+    with pytest.raises(ValueError, match=message):
+        importer.verify_import(dest, **limits)
+
+
+def test_verify_detects_chunk_changed_after_capture(source, tmp_path, monkeypatch):
+    dest = importer.build_import(pin(source, tmp_path), tmp_path / "out")
+    target = dest / "surface_volume.zarr/0.0.0"
+    capture = importer._capture
+
+    def change_after_capture(path, limit):
+        result = capture(path, limit)
+        if path == target:
+            data = target.read_bytes()
+            target.write_bytes(bytes([data[0] ^ 1]) + data[1:])
+        return result
+
+    monkeypatch.setattr(importer, "_capture", change_after_capture)
+    with pytest.raises(ValueError, match="changed during verification"):
+        importer.verify_import(dest)
+
 
 @pytest.mark.parametrize("module", [False, True])
 def test_help_needs_no_scientific_imports(tmp_path, module):

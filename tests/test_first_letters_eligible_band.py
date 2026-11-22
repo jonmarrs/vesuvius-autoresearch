@@ -793,6 +793,159 @@ def _overrides(outer, steps="300"):
     )
 
 
+def _settings_assignment(path: Path):
+    """The launcher's override assignment, through the export, and nothing after it."""
+    text = path.read_text()
+    start = text.index('FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY"')
+    export = "export FIT_SPIRAL_CONFIG_OVERRIDES\n"
+    end = text.index(export, start) + len(export)
+    return text[start:end]
+
+
+def _run_settings(path: Path, **variables):
+    """Run that assignment in a clean shell. A later line prints only if it returns."""
+    import os
+    import subprocess
+
+    script = "set -u\n" + _settings_assignment(path) + "echo CONTINUED\n"
+    env = {"PATH": os.environ["PATH"], "PY": sys.executable, **variables}
+    return subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "variables"),
+    [
+        (
+            HERE / "run_fit.sh",
+            {"Z_BEGIN": "10250", "Z_END": "11750", "STEPS": "300", "OUTER": ""},
+        ),
+        (HERE / "run_sense.sh", {"ZB": "10250", "ZE": "11750", "STEPS": "300"}),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            {"STEPS": "300"},
+        ),
+    ],
+)
+def test_a_fit_launcher_keeps_going_when_its_settings_are_whole_numbers(
+    path, variables
+):
+    result = _run_settings(path, **variables)
+    assert (result.returncode, result.stdout) == (0, "CONTINUED\n"), result.stderr
+
+
+@pytest.mark.parametrize(
+    ("path", "bad"),
+    [
+        (HERE / "run_fit.sh", {"Z_BEGIN": "10250x"}),
+        (HERE / "run_fit.sh", {"Z_END": "11750x"}),
+        (HERE / "run_fit.sh", {"STEPS": "300x"}),
+        (HERE / "run_fit.sh", {"OUTER": "80x"}),
+        (HERE / "run_sense.sh", {"ZB": "10250x"}),
+        (HERE / "run_sense.sh", {"ZE": "11750x"}),
+        (HERE / "run_sense.sh", {"STEPS": "300x"}),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            {"STEPS": "300x"},
+        ),
+    ],
+)
+def test_a_fit_launcher_stops_when_its_settings_snippet_fails(path, bad):
+    """A bad number used to leave the overrides empty and the fit still started."""
+    if path.name == "run_sense.sh":
+        variables = {"ZB": "10250", "ZE": "11750", "STEPS": "300"}
+    elif "pherc343" in path.parts:
+        variables = {"STEPS": "300"}
+    else:
+        variables = {
+            "Z_BEGIN": "10250",
+            "Z_END": "11750",
+            "STEPS": "300",
+            "OUTER": "80",
+        }
+    variables.update(bad)
+    result = _run_settings(path, **variables)
+    assert result.returncode == 2, result.stderr
+    assert result.stdout == ""
+    (value,) = bad.values()
+    assert f"={value}): not a whole number" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def _launch(tmp_path, path, *argv):
+    """The whole launcher, run with stand-ins for env.sh, nvidia-smi, /usr/bin/time and villa's fit."""
+    import os
+    import subprocess
+
+    band, bin_, spiral, here = (tmp_path / d for d in ("band", "bin", "spiral", "here"))
+    for d in (band / "dataset" / "tracks", bin_, spiral, here):
+        d.mkdir(parents=True, exist_ok=True)
+    (band / "dataset" / "spiral-scroll.json").write_text(
+        '{"spiral_outward_sense": "ACW"}'
+    )
+    (band / "dataset" / "umbilicus.json").write_text("{}")
+    (here / "env.sh").write_text(
+        f"R={band}; SPIRAL={spiral}; PY={sys.executable}; SCROLL=t; SENSE=ACW\n"
+        "Z_BEGIN=10250; Z_END=11750\n"
+        'mkdir -p "$R/work" "$R/logs"\n'
+        "gate() { :; }\n"
+    )
+    (bin_ / "nvidia-smi").write_text("#!/bin/sh\nexit 0\n")
+    (bin_ / "time").write_text('#!/bin/sh\n[ "$1" = -v ] && shift\nexec "$@"\n')
+    for stub in bin_.iterdir():
+        stub.chmod(0o755)
+    (spiral / "fit_spiral.py").write_text(
+        "import os, pathlib\n"
+        f"pathlib.Path({str(band / 'launched')!r}).write_text("
+        'os.environ["FIT_SPIRAL_CONFIG_OVERRIDES"])\n'
+    )
+    launcher = here / path.name
+    launcher.write_text(path.read_text().replace("/usr/bin/time", str(bin_ / "time")))
+    argv = [a.replace("ENV_SH", str(here / "env.sh")) for a in argv]
+    env = dict(os.environ, PATH=f"{bin_}:{os.environ['PATH']}")
+    result = subprocess.run(
+        ["bash", str(launcher), *argv], capture_output=True, text=True, env=env
+    )
+    return result, band
+
+
+@pytest.mark.parametrize(
+    ("path", "bad", "good", "folder"),
+    [
+        (HERE / "run_fit.sh", ("smoke", "300x"), ("smoke", "300"), "fit_smoke"),
+        (
+            HERE / "run_sense.sh",
+            ("ENV_SH", "10250x", "11750", "ACW", "300"),
+            ("ENV_SH", "10250", "11750", "ACW", "300"),
+            "sense_ACW_300",
+        ),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            ("smoke", "300x"),
+            ("smoke", "300"),
+            "fit_smoke",
+        ),
+    ],
+)
+def test_a_bad_setting_leaves_no_folder_so_the_corrected_rerun_starts(
+    tmp_path, path, bad, good, folder
+):
+    """The arm's folder used to be made first: a typo left it empty and the rerun was refused."""
+    result, band = _launch(tmp_path, path, *bad)
+    assert result.returncode == 2, result.stderr
+    assert "invalid settings" in result.stderr
+    assert not (band / "work" / folder).exists()
+    assert not (band / "launched").exists()
+
+    result, band = _launch(tmp_path, path, *good)
+    assert result.returncode == 0, result.stderr
+    assert "run once" not in result.stderr
+    assert (band / "work" / folder).is_dir()
+    launched = json.loads((band / "launched").read_text())
+    assert launched["optimizer_num_training_steps"] == 300
+
+
 def test_the_fit_launcher_changes_the_winding_count_only_for_an_outer_arm():
     recipe = {
         "z_begin": 10250,
@@ -873,3 +1026,33 @@ def test_the_verdict_command_takes_both_arms_or_neither(tmp_path, capsys):
         assert bv.main(argv) == 2
         assert "usage:" in capsys.readouterr().err
     assert not out.exists()
+
+
+def _env(tmp_path, **extra):
+    """The variables env.sh sets, sourced in a clean shell with its run root under tmp_path."""
+    import subprocess
+
+    env = {"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path), **extra}
+    out = subprocess.run(
+        ["bash", "-c", '. "$0"; printf "%s\\n" "$R" "$SURF_CHUNKS" "$CT_CHUNKS" "$LASAGNA_CHUNKS"', str(HERE / "env.sh")],
+        env=env, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()  # fmt: skip
+    return dict(zip(("R", "surface", "ct", "lasagna"), out, strict=True))
+
+
+def test_the_default_band_fetches_the_chunks_it_always_did(tmp_path):
+    v = _env(tmp_path)
+    assert v["R"] == f"{tmp_path}/pherc0211_band"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("25 31", "39 46", "79 92")
+    assert _env(tmp_path, FL_SCROLL="PHerc0826")["R"] == f"{tmp_path}/pherc0826_band"
+
+
+def test_another_band_gets_its_own_directory_and_the_chunks_that_cover_it(tmp_path):
+    v = _env(tmp_path, FL_BAND="z7650", FL_Z_BEGIN="7650", FL_Z_END="9150")
+    assert v["R"] == f"{tmp_path}/pherc0211_band_z7650"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("18 24", "29 35", "59 71")
+    # every chunk range covers the band and the 64 slices either side, at its level and chunk size
+    lo, hi = 7650 - 64, 9150 + 64
+    for key, voxels_per_chunk in (("surface", 384), ("ct", 256), ("lasagna", 128)):
+        first, last = (int(x) for x in v[key].split())
+        assert first * voxels_per_chunk <= lo and (last + 1) * voxels_per_chunk > hi

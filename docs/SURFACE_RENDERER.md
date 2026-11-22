@@ -48,9 +48,12 @@ This tool rebuilds the surface volume from the mesh:
 
 The measurements below describe the earlier renderer. The October 5 review
 corrected cropped OBJ regions, indexed UV pairing, intensity conversion, and the
-validity mask, and versioned the rendering contract as 2. These synthetic-data
-repairs have not been revalidated on real scrolls; rerun the released-volume
-comparisons before treating new renders as evidence for these NCC results. See
+validity mask, and versioned the rendering contract as 2. A separately registered
+[November 17 CPU check](../reports/render_revalidation_review_2026-11-17.md)
+now compares one fixed PHerc1667 interior crop using the corrected full-depth
+support mask: maximum center-plane NCC 0.78897, with all pixels supported.
+It does not repeat the historical whole-segment or depth experiments below;
+rerun those comparisons before extending their claims to the corrected renderer. See
 the [design and architecture review](DESIGN_ARCHITECTURE_REVIEW_2026-10-05_SURFACE_RENDERER.md).
 
 Validated on **two scrolls** against **released** surface volumes, using clean triples
