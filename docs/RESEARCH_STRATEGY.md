@@ -1,5 +1,10 @@
 # Research strategy: First Letters and biting fixes on one RTX 4090
 
+**November 16 status and independent assessment:** [dated strategy review](STRATEGY_REVIEW_2026-11-16.md).
+PHerc. 211 has since received its First Letters award; the announcement says seven prizes remain.
+The review proposes updated readers, validation gates and bounded compute allocation. It does not adopt
+new experiments, alter frozen records or resume paused work. The November 10 decision record below is retained.
+
 **Reviewed November 10, 2026 UTC and accepted by the owner that day.** This replaces the October 28 strategy,
 whose first rank (Villa #2141, #2258 and #2259) has merged. [FINDINGS](../FINDINGS.md), published measurements
 and registrations remain the record of results. The budgets, dates and gates below are proposals for new work,
@@ -7,7 +12,7 @@ not registrations or measured runtimes. The probabilities are judgements, not me
 was run for this review.
 
 The owner's goal is a Progress Prize every month while working towards a milestone prize. The record below
-bounds the first half: bundles of merged fixes earned us \$0, \$0 and \$250 in three months, comparable work by
+bounds the first half: September's confirmed award for merged fixes was \$250; comparable work by
 others earned \$250 to \$1,000, and the \$20,000 awards went to whole unwrapping capabilities shown at scale.
 More of the same work reaches neither goal. The one five-figure prize whose published winning method fits this
 machine is First Letters. So the main line is a
@@ -82,8 +87,9 @@ review.
 | \$1,000 | One coherent enabling capability or documented study: spiral fitting on consumer GPUs, `fit_spiral` fixes, Zarr 3 read fixes, and an end-to-end First Letters attempt on PHerc. 0826 published with its commands, failures and costs. |
 | \$250 to \$500 | A bundle of merged fixes, or one fix that bites: a renderer memory fix (\$500), a shared disk cache (\$250), spiralising PHerc. 0211 (\$250). |
 
-Ours: July \$0, August \$0, September \$250 for merged Villa PRs ([award record](PROGRESS_PRIZE_AWARDS.md)). The
-September award shows that this kind of work can be recognized. It does not establish an award probability.
+Our [local award record](PROGRESS_PRIZE_AWARDS.md) confirms September's \$250 for merged Villa PRs.
+It does not record July or August totals, so those months are unverified here rather than recorded as zero.
+The September award shows that this kind of work can be recognized. It does not establish an award probability.
 
 Three further facts set the ranking:
 
@@ -100,8 +106,8 @@ Three further facts set the ranking:
 
 | Rank | Direction and next deliverable | Bounded first step | Continue / stop decision |
 | --- | --- | --- | --- |
-| 1 | **A First Letters campaign on unread scrolls with the published PHerc. 343 recipe.** Next deliverable: that repository's own image, reproduced on this machine from its `reproduce.sh`. | The reproduction is the kill test. It needs the 24 GB card to itself, so it waits for the owner's decision on pausing the training loop. After it, one band of one scroll at a time, with no training on the target. | If the known positive cannot be reproduced here, stop and report why: nothing found on an unread scroll would mean anything. After that, the controls and the kill criterion in [the campaign section](#the-first-letters-campaign) decide. Judged chance of letters on a given scroll: low, a single-digit percentage. Confidence that the by-products are prize-eligible work: high. |
-| 2 | **Land the measured fiber fixes in Villa:** the seam trim (findings 106 and 107), cross-block duplicates (108), link splice (105) and seed heading (100 and 103). The aim is unchanged: fibers that reach farther without switching. | No new GPU work. Finding 109, a registered confirmation of both seam changes on ten cubes ScrollGT does not ship, was running at this review and is not reported here. Each Villa PR or issue is posted on the owner's decision, inside the limits of three open PRs and two code-fix PRs a week. | Propose only what held up on held-out cubes, and say where it does nothing: VC3D's default zone is one block, where the trim changes nothing, so the case rests on multi-block zones. Promise no reading gain; no geometry change measured here has produced one. If finding 109 does not confirm, propose only the part it supports. Confidence of a merge: moderate. Of more than \$250 to \$500: low to moderate. |
+| 1 | **A First Letters campaign on unread scrolls with the published PHerc. 343 recipe.** Next deliverable: the first band on an eligible scroll, read as a detection test. | The kill test passed on November 10 for the chain from the published windings to the image: 99.95% of the published image's pixels rebuilt identically, none off by more than 5 of 255 ([report](../reports/first_letters_343_reproduction.md)). The mesh step (distance field, spiral fit, snap, flatten) ran here on November 12: windings fitted on this machine lie on the published sheets (76% and 81% of nodes within 2 voxels) and carry the published ink (r = 0.86 over the letter boxes against controls of 0.17), in about 3.5 hours, 3 h 09 min of it the fit ([report](../reports/first_letters_343_mesh_step.md)). The first eligible band is fitted: on PHerc. 0211 (z 10250 to 11750) the recipe's fit, unchanged, put its windings on predicted sheets on November 13 (`ON_SHEETS`: median excess 0.086 against 0.000 for an unconverged fit and 0.140 on PHerc. 343; [report](../reports/first_letters_0211_band_fit.md)). Next, a registered ink read of a subsample of that band's windings, kept on this machine. One band of one scroll at a time, with no training on the target. | The stop condition on the mesh step did not fire: it runs here and its windings show the published ink. From here the controls and the kill criterion in [the campaign section](#the-first-letters-campaign) decide. Judged chance of letters on a given scroll: low, a single-digit percentage. Confidence that the by-products are prize-eligible work: high. |
+| 2 | **Land the measured fiber fixes in Villa:** the seam trim (findings 106 and 107), cross-block duplicates (108), link splice (105) and seed heading (100 and 103). The aim is unchanged: fibers that reach farther without switching. | No new GPU work. Finding 109, the registered confirmation of both seam changes on ten cubes of Scrolls 1 and 5 that ScrollGT does not ship, returned `CONFIRMED` on November 10. Each Villa PR or issue is posted on the owner's decision, inside the limits of three open PRs and two code-fix PRs a week. | Propose only what held up on held-out cubes, and say where it does nothing: VC3D's default zone is one block, where the trim changes nothing, so the case rests on multi-block zones. Promise no reading gain; no geometry change measured here has produced one. Finding 109 confirmed both seam changes, so a PR can state both scrolls' figures: lead with the cubes cut at Scroll 3's block size, and state the coverage cost. Confidence of a merge: moderate. Of more than \$250 to \$500: low to moderate. |
 | 3 | **Fix the defects the campaign hits on a 4-core, 31 GB, one-4090 machine.** Deliverable: each fix as a small Villa PR with before/after logs from the real run, bundled monthly. | CPU only. A fix starts from a failure reproduced here on current Villa main, never from reading code. At most two code-fix PRs a week. | No queue exists in advance: of eight open issues checked as starting candidates on November 10, six already had an open PR that references them (see [reuse](#where-to-reuse-existing-work)). Do not compete with an open patch; validate it on real data if that is what its author asks for. Confidence: moderate, conditional on rank 1 running at all. |
 | 4 | **Dense winding inputs for scrolls other than PHerc. Paris 4.** | Parked, with no budget. | Start only if rank 1 shows that these inputs are the binding constraint on a fit. Two attempts argue for caution: a contributor's CT peak count was wrong on a quarter to a third of segments, and our ink-derived constraints were circular. Confidence: low. |
 
@@ -116,13 +122,13 @@ twelve of the thirteen Grand Prize volumes are also First Letters volumes.
 0211, 0257, 0268, 0358, 0483A, 0483B, 0490A, 0490B, 0800, 0813, 0826, 0846A, 0846B, 1203, 1218 and 1545. The
 Grand Prize list has 13; all but PHerc. 1447 are among the 20.
 
-**The recipe.** The [PHerc. 343 repository][recipe] (commit `e8370f1f`, MIT, read on November 10 and not yet run
-here) describes five steps. Villa's spiral chain at commit `0fb38c45` is run on the band z 9500 to 11000 with
-the author's own scroll axis, and the windings are snapped onto the m7 surface prediction and flattened with
-lasagna. Two adjacent windings are joined into one segment. VC3D `41701aa` renders 66 layers one voxel apart.
-Four released 9 µm ink models (dense_native, ink_9um seeds 42 and 43, Hecate 9.6 µm), none trained on that
-volume, run at every depth from −15 to +15. The image is the mean of the four models' z-scores. It asks for
-Linux and one 24 GB NVIDIA GPU.
+**The recipe.** The [PHerc. 343 repository][recipe] (commit `e8370f1f`, MIT, read on November 10; steps 2 to 5
+run here the same day, at one depth) describes five steps. Villa's spiral chain at commit `0fb38c45` is run on
+the band z 9500 to 11000 with the author's own scroll axis, and the windings are snapped onto the m7 surface
+prediction and flattened with lasagna. Two adjacent windings are joined into one segment. VC3D `41701aa` renders
+66 layers one voxel apart. Four released 9 µm ink models (dense_native, ink_9um seeds 42 and 43, Hecate 9.6 µm),
+none trained on that volume, run at every depth from −15 to +15. The image is the mean of the four models'
+z-scores. It asks for Linux and one 24 GB NVIDIA GPU.
 
 **What we already have.** A converged `fit_spiral` run and a lasagna render path on Scroll 1
 ([`repro/spiral_render/`](../repro/spiral_render/README.md)). Nothing on an eligible volume.
@@ -144,28 +150,192 @@ only. Recheck both before choosing a scroll.
   render the same papyrus twice and look like a result.
 - We are not first on these scrolls. The catalogue and winners page show recipe fits on PHerc. 0175A and 0800,
   an end-to-end attempt on PHerc. 0826 and a spiral fit of PHerc. 0211.
-- The PHerc. 343 author reports rented RTX 4090/5090 machines and a local RTX 3090. Whether the chain fits this
-  host's 4 cores and 31 GB of RAM is unmeasured.
+- The PHerc. 343 author reports rented RTX 4090/5090 machines and a local RTX 3090. The render and the ink models
+  fit this host (8 minutes, and 17 minutes for the eight jobs of one depth, at a peak of 3,174 MiB of GPU
+  memory). The mesh step subsequently ran on this host in about 3.5 hours
+  ([finding 110](../reports/first_letters_343_mesh_step.md)); that establishes capacity on the PHerc. 343 band,
+  not on other scrolls or larger bands.
 
 **Controls, fixed before any eligible-scroll result is read.**
 
-1. The PHerc. 343 image reproduced here (the kill test).
-2. PHerc. 0841 through the identical pipeline, as a hard positive control: record what the recipe shows where
-   text is known and the models are unseen.
+1. The PHerc. 343 image reproduced here (the kill test). Passed on November 10 from the published windings
+   onward ([report](../reports/first_letters_343_reproduction.md)), and on November 12 for the mesh step
+   ([report](../reports/first_letters_343_mesh_step.md), finding 110).
+2. PHerc. 0841 as a hard positive control: record what the recipe shows where text is known and the models
+   are unseen. The ink half ran on November 13 on the team's three published, labelled surfaces
+   ([report](../reports/first_letters_0841_surface_control.md), finding 111): `BLOB_LEVEL_SIGNAL`. At a depth and
+   side chosen with labels on one segment, the four-model ensemble scores AUC 0.75 and 0.72 against the labels on
+   the other two, with a slid-map floor of 0.53 and the team's own model at 0.92 and 0.87. The maps show strokes
+   where the letters are and no readable letter. The mesh half cannot run on PHerc. 0841 from public inputs: its
+   lasagna normal and gradient volumes are not published.
 3. A stacked-winding check on every band before its image is read.
 4. Depth-shuffled renders through the same models, as the negative control for model-invented letterforms.
 5. No training on the target until a band shows row-aligned signal. If iterative labelling starts, training
    and prediction regions stay disjoint, as the rules require.
+
+**What the PHerc. 0841 control changes.** A band on an eligible scroll is a detection test: it is read with a
+depth sweep on both sides (on PHerc. 0841 one side scored 0.76 and the other at most 0.56), a blank band is weak
+evidence of no ink, and strokes are not letters until a sharper ink step than these four models says so.
+
+**Which scrolls the fit can run on.** Read on November 13: of the 26 scrolls with published spiral tracks, 14
+also have the lasagna volumes the fit requires. The eligible ones among them are PHerc. 0125, 0191, 0211, 0257,
+0268, 0358, 0800, 0813 and 0826.
+
+**Which scroll went first, and why.** PHerc. 0211, not PHerc. 0125. The fit must be told which way the spiral
+turns going outward, and villa derives that from two orientation flags in the open-data catalog
+(`metadata.json`). They give anticlockwise for PHerc. 0211 and 0826; PHerc. 0125 has no z direction there, so
+its direction is unknown, and a 1,000-step trial fit does not tell the two directions apart (measured on
+PHerc. 343). PHerc. 0125's inputs are on disk for when its direction is known.
+
+**PHerc. 0826, fitted on November 14.** The same fit and score on PHerc. 0826's band gave `NOT_ON_SHEETS`
+(median excess 0.004; [report](../reports/first_letters_0826_band_fit.md)). The cause is villa's default of 130
+windings: in this band the papyrus ends near the 80th, and the 50 windings past it are not near any predicted
+sheet. The 60 windings before the edge score like PHerc. 0211's (median 0.083, unregistered). There is no ink
+read of that fit; the next step there is a fit with the winding count set to what the band holds, registered
+separately. A score taken over all 130 windings mixes "do the windings follow sheets" with "is 130 the right
+number", so later registrations score the windings the fit is asked for.
+
+**PHerc. 0826, refitted with 80 windings on November 15.** With villa's outer winding set to 80 the same band
+gave `PARTLY_ON_SHEETS` (median excess 0.103, 78.6% of 70 windings positive;
+[report](../reports/first_letters_0826_winding_count.md)). That is 0.020 above the same windings in the
+130-winding fit, enough for the registered `HELPS` and not enough to tell from seed noise (one seed each; 42 of
+70 windings higher, sign test p = 0.12). The band has 45 windings at 0.07 or above that can be read for ink once
+finding 113 has shown whether the blinded protocol works. A new scroll needs its winding count before its fit
+is scored; so far that has taken a first fit with the default.
+
+**The sheet-following score fails its control (November 15).** The same band fitted with the spiral declared to
+turn the wrong way scored a median excess of 0.099 against 0.103, and would have passed finding 112's table as
+`ON_SHEETS` (`SCORE_BLIND_TO_DIRECTION`; [report](../reports/first_letters_0826_wrong_hand_control.md)). A
+wrong-handed spiral has to cross sheets twice a turn, so the score sees "near a predicted sheet, locally" and not
+"follows one sheet round the scroll". The `ON_SHEETS` and `PARTLY_ON_SHEETS` verdicts of findings 112 and 115 mean
+that and no more. No further band is read for ink on this score alone: the next step is a second instrument that
+a wrong-handed spiral fails, checked first on PHerc. 343, where published windings exist. Finding 113's read
+stands, with that caveat. The score cannot find PHerc. 0125's direction either.
+
+**The same score works per tile, on PHerc. 343 (November 15).** Taken over tiles of 3.6 mm within finding 110's
+raw fitted windings, the excess picks out the tiles that lie on the published windings (`LOCAL_GATE_WORKS`: AUC
+0.895 against a floor of 0.777; all 32 tiles at 0.07 or above right, against 76% of all tiles;
+[report](../reports/first_letters_343_tile_gate.md)). Every wrong tile scored below zero, and none lay on a
+neighbouring sheet. So the score fails at how the turns join and works at the scale a First Letters tile read
+needs, on one round scroll. Choosing tiles of PHerc. 0826's band by tile excess is the next read, registered
+separately, if the owner agrees.
+
+**PHerc. 0211 was awarded on November 15 and is now a positive control.** On the winner's published surface our
+four ink models put ink where the winning reader put it (`READER_AGREES`: r 0.53 against controls of 0.09 and
+below, the same at every depth tried; [report](../reports/first_letters_0211_reader_control.md), finding 118), and
+no letter can be read from our map, where the winner's shows letters. Our reader finds ink and does not draw
+letters; a reader that does is the missing piece, and whether the winning reader's CC BY-NC weights may be used in
+a submission is the owner's question. Whether the recipe's own fit lands on the winner's sheet is finding 119.
+
+**The recipe's fit reaches the winner's sheet in two pieces (November 16).** Fitted unchanged on a band around the
+winner's surface and snapped, the chosen winding has 31% of the winner's nodes within 2 voxels (`PARTLY_ON_IT`, as
+predicted; [report](../reports/first_letters_0211_winner_band.md), finding 119). Described after the verdict: 88%
+of the winner's nodes lie within 2 voxels of some winding. One winding follows the winner's sheet for 34 mm, at
+finding 110's line, and a winding two further in follows the rest. The two windings between them sit between
+predicted sheets. So a read of one unrefined winding can follow a text-bearing sheet for a few centimetres and
+then leave it, and a blank read of one winding says little about the next. Which of the two surfaces changes sheets
+is not settled. The next step is our fit and reader together at this known place, registered separately.
+
+**Reader V3, an MIT reader, is closer to the winning map and still not legible (November 16).** On the same render
+and cells it beats the four models in r by 0.097 and in overlap with the winner's ink by 0.10, at every depth tried,
+short of the registered r margin of 0.10 (`V3_NO_CLOSER`; [report](../reports/first_letters_0211_reader_v3.md),
+finding 120). Its map has a clean ground and a few letter shapes where the winner's has letters, and no word can be
+read from it. So the ensemble stays as the registered reader, Reader V3's map is cheap to make beside it (8
+minutes a surface), and the winning reader, CC BY-NC, is the only reader known to draw letters on this surface.
+Whether it may be used in a submission is the owner's decision.
+
+**End to end at the known place, our pipeline finds the ink and our geometry costs almost nothing (November 16).**
+Our own fit's four windings nearest the winner's surface were snapped, flattened, rendered and read, then carried
+onto the winner's surface. They give r 0.52 against the winning map (`E2E_AGREES`, as predicted;
+[report](../reports/first_letters_0211_end_to_end.md), finding 121), on 83% of its cells. On the same cells the
+same models on the winner's own surface give 0.54, and Reader V3 loses nothing (0.629 against 0.627). So a band read
+with this pipeline is a working detection test where its windings lie on sheets, and on the known text what
+separates it from letters is the reader. Neither reader we have draws a readable word there; the winning reader
+(CC BY-NC) is the owner's decision.
+
+**The 2023 Grand Prize TimeSformer is the weakest of the three permissive readers there (November 16).** On the
+winner's surface it gives r 0.24 against the four models' 0.53 (`GP_FARTHER`, as predicted;
+[report](../reports/first_letters_0211_gp_timesformer.md), finding 122): it finds the ink, weakly, and draws no
+letter shape. Of the permissive readers on this machine Reader V3 is the best, and none draws a readable word on
+this surface. The reader question rests on the owner's decision about the winning reader.
+
+**The owner approved the winning reader, and it runs here (November 16).** Studio (code MIT, weights CC BY-NC
+4.0) reproduces the winner's PHerc. 211 map on this RTX 4090 from the winner's own weights and input: r 1.0 over
+8.8 million pixels, differences of bfloat16 rounding (`REPRODUCED`, as predicted;
+[report](../reports/first_letters_0211_studio_reproduction.md), finding 123). It took 75 seconds at 14.5 GB of GPU
+memory. Next it reads our own geometry at the same place.
+
+**Our own fit, read by Studio, draws the winner's letters at the known place (November 16).** Finding 121's four
+windings of our unrefined fit, read by Studio and carried onto the winner's surface, give r 0.82 against the
+winner's map (`STUDIO_E2E_CLOSE`, as predicted; [report](../reports/first_letters_0211_studio_e2e.md), finding 124).
+The controls are −0.05 (reversed planes) and 0.11 (slid). In my reading the image shows the winner's letters in all
+three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surface); the geometry costs the rest.
+On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
+step reads every winding of a still-eligible band that way, for the owner to inspect.
+
+**Studio draws PHerc. 343's published letters too, so a blind Studio band read tests the band (November 20).** On
+the recipe's published surface of PHerc. 343, a scroll it was not trained on, Studio's map gives r 0.6238 against the
+recipe's ensemble map, above every one of the ensemble's four models against the other three (0.41 to 0.6195), with
+controls of 0.10 (reversed planes) and 0.21 (slid) (`STUDIO_343_AGREES`, as predicted;
+[report](../reports/first_letters_343_studio.md), finding 127). In my reading it draws both published rows of
+letters, more legibly than the ensemble. Its training did include a fragment that may come from the same roll.
+Studio stays the reader of the blind band reads, and the ensemble is not needed beside it. Studio's published
+tiling would read 2.4 times faster but differs from the winner's command (r 0.94, short of 0.98), so the reads keep
+the winner's command (`WINNERS_TILING_KEPT`, not as predicted; [report](../reports/studio_published_tiling.md),
+finding 128).
+
+**All 70 windings of PHerc. 0826's fitted band read by Studio; the images wait for the owner (November 20).** Every
+winding of finding 115's fit was snapped, flattened, rendered and read with no failure, in 8 h 48 min against the
+registered four hours, because this band's render canvases are more than three times the size of finding 124's
+([report](../reports/first_letters_0826_studio_band.md), finding 125). No automatic verdict was registered: the
+images stay on this machine and the owner reads them. Described from the geometry alone: the registered render rule
+(normals against the band's centre) kept the two innermost windings, which the scroll's axis says should have been
+flipped, so their maps read the other side; the inner windings w010 to w026 are stacked; and in the median winding
+two thirds of the rendered nodes lie within 2 voxels of the predicted sheet, falling from 0.79 at the inner third of
+radii to 0.54 at the outer, where the snap's grid is coarsest. Later band reads orient against the axis and snap on
+a denser grid.
+
+**PHerc. 0358's band fits on the sheets, and all 111 selected windings were read; the images wait for the owner
+(November 21).** The recipe's fit of z 8872 to 10372 at villa's defaults is `ON_SHEETS` by finding 112's table
+(median excess 0.0863, 0.925 of windings positive), one line better than predicted. The outermost third fits best
+([report](../reports/first_letters_0358_studio_band.md), finding 126). The 111 windings with positive excess were
+subdivided twice, oriented against the axis and read by Studio with no failure, in 17 h 56 min against the
+registered eight hours. Described from the geometry alone: every render points outward; 7 of 104 neighbouring pairs
+are stacked, all inside w037; and the rendered share within 2 voxels of the predicted sheet holds from 0.73 at the
+inner third of radii to 0.71 at the outer. That fits finding 130, though another scroll is not a controlled
+comparison. No automatic verdict was registered: the images stay on this machine and the owner reads them.
+
+**The twice-denser snap reads the same as the fit's own grid at the known place (November 21).** At PHerc. 211's
+winner surface, finding 121's four windings subdivided twice before the snap give r 0.8168 against 0.8267 for the
+same route on the fit's grid (`DENSE_READS_SAME`, as predicted; change −0.0099, margin 0.02;
+[report](../reports/first_letters_0211_dense_read.md), finding 131). Yet they sit more on the predicted sheet: +0.0343
+at the median within 2 voxels. So that geometric gain did not buy a better read here. The band reads keep the denser
+snap, as registered, on geometry alone.
+
+**Studio skips the windows with no CT and gives the same map in under 0.6 of the time (November 21).** Run with
+the winner's command, the winner's loop without those windows gives maps within 0.00075 of the full loop's on two
+of PHerc. 0826's windings and PHerc. 211's input. No pixel crosses 0.5, and the full loop's maps are identical to
+the references. The skip took 0.5918 and 0.5781 of the time (`SKIP_ADOPTED`, as predicted;
+[report](../reports/studio_skip_empty_windows.md), finding 132). Band reads registered after it use the skip, so
+Studio, the slowest step, shrinks by about two fifths.
+
+**A three-pass snap reads the same as one pass at the known place, and sits more on the sheet (November 21).** At
+PHerc. 211's winner surface, finding 131's densified windings snapped three times give r 0.8217 against 0.8188
+snapped once (`SNAP3_READS_SAME`, as predicted; change +0.0029, margin 0.02;
+[report](../reports/first_letters_0211_snap_passes.md), finding 134). Their geometry gain is +0.0357 at the median,
+so three passes are adopted by the registered tie-break, and finding 133 uses them. As with the denser grid
+(finding 131), the gain on the sheet did not show in the read.
 
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
 ## Proposed timeline
 
-- **November (to the 30th).** Finish and report finding 109. Run the kill test. File November with Villa #2258
+- **November (to the 30th).** Finding 109 was reported on November 10. The kill test ran on November 10; the recipe's
+  mesh step on the PHerc. 343 band ran on November 12. Both reproduced. File November with Villa #2258
   and whatever else has merged; expect \$0 to \$250.
-- **December.** Run the PHerc. 0841 control. Run the first band on an eligible scroll with published tracks and
-  umbilicus: PHerc. 0125 first, with low confidence that it is untried, else 0211 or 0826. Turn each obstacle
+- **December.** The PHerc. 0841 ink control ran on November 13 (blob-level signal). The first band on an eligible scroll, PHerc. 0211, was fitted on November 13 and its windings
+  follow predicted sheets; read a subsample of it for ink as a detection test, then 0826 or 0125. Turn each obstacle
   into a Villa fix. Submit the workflow as run on this machine, with scripts, costs, fixes and meshes.
 - **January and February.** Automate more bands and scrolls overnight. Apply the kill criterion at the end of
   February.
@@ -188,7 +358,8 @@ reproduced, stop, publish the nulls and meshes, and reassess.
 
 Accepting this strategy did not settle these:
 
-1. Whether the training loop is paused or shrunk for campaign GPU runs.
+1. Whether the training loop is paused or shrunk for campaign GPU runs. Answered on November 10: yes. The kill
+   test stopped it for 22 minutes.
 2. Where eligible-scroll outputs are kept, since this repository is public.
 3. Whether and when to post the Villa seam PR (with or without the duplicate change), the splice issue and the
    seed-heading proposal.
@@ -249,6 +420,14 @@ Not verified for this review: how PHerc. 306B was won, and the organizers' First
   0.104 → 0.032): `SUPPORTED`. With both changes, eight blocks reach 0.905 to 1.026 of one block's ERLpen at
   tolerance 4 (main: 0.703 to 0.923). The change adds 18 lines to villa's `catalog.py` and removes 2; any villa PR is
   the owner's decision.
+- [Finding 109](../reports/afv_generator_seam_confirmation.md) (2026-11-10, registered) ran both seam changes on the
+  ten hand-traced cubes of Scrolls 1 and 5 that ScrollGT does not ship, which no step of the generator work had used
+  (ERLpen at τ = 4 above main's on 10 of 10, median +31.2%, and +23.0% on the four cubes at blocks of 256; above the
+  trim's alone on 10 of 10; merges at τ = 2 325 → 297; median duplicated share 0.409 → 0.043): `CONFIRMED`. The six
+  256³ cubes, cut in blocks of 128 that no villa user runs, carry the ten-cube median; the four at Scroll 3's block
+  size are the comparable figure. Coverage at τ = 4 is below main's on all ten, by a median 2.3%, and more face
+  crossings are lost than on main (125 against 84 of 910). No cube ran at villa's default block size of 512, and
+  nothing here measures reading. Any villa PR is the owner's decision.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013
@@ -296,7 +475,8 @@ review (#2463 and #2465); no further merged credit or maintainer adoption is ass
 Use one RTX 4090 with 24 GB VRAM, 4 cores, 31 GB of RAM and the project's existing 500 GB storage budget.
 Stream bounded crops, cap cache sizes and profile memory before a larger run. Run one heavy side job at a
 time, each in its own systemd user unit, and stop or start the training loop only through `./stop.sh` and
-`./start.sh`. A campaign run that needs the whole card waits for the owner's decision on the loop.
+`./start.sh`. The owner allowed the loop to be stopped for campaign GPU runs (November 10); restart it as soon as
+the run ends.
 
 A completed campaign step should leave a pinned input/model/code manifest, the commands, both successful and
 failed cases, time and memory costs, and output that a Villa or VC3D user can consume. For an eligible volume

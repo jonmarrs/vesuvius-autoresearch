@@ -241,9 +241,13 @@ def sample_tifxyz(
     """Bilinear ZYX at full-res tifxyz cells ``rows``, ``cols``.
 
     Stored coordinate is ``full_res * scale`` (villa's half=0 convention).
-    A corner stored as ``-1``, a non-finite corner, or ``z <= 0`` makes that
-    sample NaN. The result has shape ``(len(rows), len(cols), 3)`` in Z, Y, X
-    order, which is the order the CT volume is indexed in.
+    A centre on the far edge has no next cell; that neighbour's weight is
+    zero, so the sample is the cell itself. A corner stored as ``-1``, a
+    non-finite corner, or ``z <= 0`` makes that sample NaN, including a hole
+    on a corner this sample does not interpolate. A point whose interpolation
+    support leaves the plane is NaN. The result has shape
+    ``(len(rows), len(cols), 3)`` in Z, Y, X order, which is the order the CT
+    volume is indexed in.
     """
     planes = [np.asarray(plane, np.float64) for plane in (z_plane, y_plane, x_plane)]
     if any(plane.ndim != 2 or plane.shape != planes[0].shape for plane in planes):
@@ -251,40 +255,55 @@ def sample_tifxyz(
     height, width = planes[0].shape
     stored_row = np.asarray(rows, np.float64) * float(scale_y)
     stored_col = np.asarray(cols, np.float64) * float(scale_x)
-    row0 = np.floor(stored_row).astype(np.int64)
-    col0 = np.floor(stored_col).astype(np.int64)
-    row_frac = (stored_row - row0)[:, None]
-    col_frac = (stored_col - col0)[None, :]
+    if height == 0 or width == 0:
+        # No cell exists, so every point's support leaves the plane.
+        return np.full((len(stored_row), len(stored_col), 3), np.nan)
+    # Floor of a non-finite coordinate warns and is not a cell index.
+    row_ok = np.isfinite(stored_row)
+    col_ok = np.isfinite(stored_col)
+    safe_row = np.where(row_ok, stored_row, 0.0)
+    safe_col = np.where(col_ok, stored_col, 0.0)
+    row0 = np.floor(safe_row).astype(np.int64)
+    col0 = np.floor(safe_col).astype(np.int64)
+    row_frac = (safe_row - row0)[:, None]
+    col_frac = (safe_col - col0)[None, :]
 
-    def _at(plane: np.ndarray, row: np.ndarray, col: np.ndarray) -> np.ndarray:
+    def _at(plane: np.ndarray, row: np.ndarray, col: np.ndarray):
         ok = (row >= 0) & (row < height) & (col >= 0) & (col < width)
         gathered = plane[np.clip(row, 0, height - 1), np.clip(col, 0, width - 1)]
-        return np.where(ok, gathered, np.nan)
+        return np.where(ok, gathered, np.nan), ok
 
     out = np.empty((len(stored_row), len(stored_col), 3), np.float64)
     valid = np.ones((len(stored_row), len(stored_col)), dtype=bool)
+    weights = (
+        (1.0 - row_frac) * (1.0 - col_frac),
+        row_frac * (1.0 - col_frac),
+        (1.0 - row_frac) * col_frac,
+        row_frac * col_frac,
+    )
     for index, plane in enumerate(planes):
-        corners = [
+        corners = (
             _at(plane, row0[:, None], col0[None, :]),
             _at(plane, row0[:, None] + 1, col0[None, :]),
             _at(plane, row0[:, None], col0[None, :] + 1),
             _at(plane, row0[:, None] + 1, col0[None, :] + 1),
-        ]
-        out[..., index] = (
-            corners[0] * (1.0 - row_frac) * (1.0 - col_frac)
-            + corners[1] * row_frac * (1.0 - col_frac)
-            + corners[2] * (1.0 - row_frac) * col_frac
-            + corners[3] * row_frac * col_frac
         )
+        value = np.zeros((len(stored_row), len(stored_col)), np.float64)
         finite = np.ones_like(valid)
-        for corner in corners:
-            finite &= np.isfinite(corner) & (corner != -1)
-        if index == 0:
-            finite &= corners[0] > 0
-            finite &= corners[1] > 0
-            finite &= corners[2] > 0
-            finite &= corners[3] > 0
+        for (gathered, inside), weight in zip(corners, weights, strict=True):
+            # A corner one step past an exact cell has weight zero, so the
+            # missing neighbour is not read. An in-plane hole still counts.
+            needed = weight > 0
+            finite &= (~needed | inside) & (
+                ~inside | (np.isfinite(gathered) & (gathered != -1))
+            )
+            if index == 0:
+                finite &= ~inside | (gathered > 0)
+            use = needed & inside
+            value[use] += weight[use] * gathered[use]
+        out[..., index] = value
         valid &= finite
+    valid &= row_ok[:, None] & col_ok[None, :]
     out[~valid] = np.nan
     return out
 
@@ -296,7 +315,10 @@ def sample_volume_trilinear(
 
     ``volume`` is already that level. Level ``k`` voxel ``i`` covers level-0
     ``[2^k * i, 2^k * i + 2^k - 1]``, so its centre is
-    ``(p0 - (2^k - 1) / 2) / 2^k``. Points outside the volume are NaN.
+    ``(p0 - (2^k - 1) / 2) / 2^k``. A centre on the far face has no next
+    voxel; that neighbour's weight is zero, so the sample is the voxel
+    itself. A point whose interpolation support leaves the volume is NaN, and
+    so is a non-finite point.
     """
     array = np.asarray(volume)
     if array.ndim != 3:
@@ -307,12 +329,18 @@ def sample_volume_trilinear(
     if points.ndim != 2 or points.shape[1] != 3:
         raise ValueError("zyx0 must have shape (N, 3)")
     factor = 2 ** int(level)
-    continuous = (points - (factor - 1) / 2.0) / factor
+    # A non-finite coordinate, or one too large for an index, warns when cast
+    # and is not a voxel index.
+    usable = np.all(np.isfinite(points) & (np.abs(points) < 2.0**62), axis=1)
+    continuous = (np.where(usable[:, None], points, 0.0) - (factor - 1) / 2.0) / factor
     base = np.floor(continuous)
     frac = continuous - base
     base_i = base.astype(np.int64)
     depth, height, width = array.shape
-    inside = np.all(np.isfinite(points), axis=1)
+    # Finite samples only. A corner one step past an exact voxel has weight
+    # zero, so the last in-volume plane does not need a neighbour that is
+    # not there. Requiring every corner turned that plane into NaN.
+    support = usable.copy()
     value = np.zeros(len(points), np.float64)
     for z_off, y_off, x_off in (
         (a, b, c) for a in (0, 1) for b in (0, 1) for c in (0, 1)
@@ -320,16 +348,21 @@ def sample_volume_trilinear(
         zz = base_i[:, 0] + z_off
         yy = base_i[:, 1] + y_off
         xx = base_i[:, 2] + x_off
-        here = (
-            inside
-            & (zz >= 0)
+        needed = (
+            ((z_off == 0) | (frac[:, 0] > 0))
+            & ((y_off == 0) | (frac[:, 1] > 0))
+            & ((x_off == 0) | (frac[:, 2] > 0))
+        )
+        in_bounds = (
+            (zz >= 0)
             & (yy >= 0)
             & (xx >= 0)
             & (zz < depth)
             & (yy < height)
             & (xx < width)
         )
-        inside &= here
+        support &= ~needed | in_bounds
+        here = support & needed & in_bounds
         weight = (
             (frac[:, 0] if z_off else 1.0 - frac[:, 0])
             * (frac[:, 1] if y_off else 1.0 - frac[:, 1])
@@ -337,7 +370,7 @@ def sample_volume_trilinear(
         )
         value[here] += weight[here] * array[zz[here], yy[here], xx[here]]
     out = np.full(len(points), np.nan, np.float32)
-    out[inside] = value[inside]
+    out[support] = value[support]
     return out
 
 
@@ -577,7 +610,8 @@ def _affine_terms(
     coefficient whose own change across the span is under ``COEF_FLOOR_PX``
     is dropped. Zeroing it and keeping the joint intercept would leave that
     term's mean in the intercept, about a tenth of a pixel, so the remaining
-    terms are fit again.
+    terms are fit again. If what remains wanders by under a pixel, the axis
+    collapses to the mean as well.
     """
     names: list[str] = []
     columns: list[np.ndarray] = []
@@ -609,7 +643,12 @@ def _affine_terms(
         reduced = [np.ones(len(ys))]
         for name in keep:
             reduced.append(ys if name == "y" else xs)
-        coef = np.linalg.lstsq(np.column_stack(reduced), shifts, rcond=None)[0]
+        design = np.column_stack(reduced)
+        coef = np.linalg.lstsq(design, shifts, rcond=None)[0]
+        # The refit model is the one returned, so the one-pixel rule applies
+        # to it as it does to the full model.
+        if _span(design @ coef) < DRIFT_PX:
+            return float(shifts.mean()), 0.0, 0.0
     intercept = float(coef[0])
     by = 0.0
     bx = 0.0

@@ -1,6 +1,7 @@
 """Requested preprocessing must succeed before a strict sample can be scored."""
 
 import json
+import pickle
 
 import numpy as np
 import pytest
@@ -55,6 +56,51 @@ def fragment(tmp_path, monkeypatch):
 
 def _failure(*args, **kwargs):
     raise RuntimeError("backend unavailable")
+
+
+@pytest.mark.parametrize(
+    "bad", ["nan", "overflow", "short_depth", "short_height", "signed"]
+)
+def test_strict_labeled_probe_rejects_malformed_backend_chunks(
+    fragment, monkeypatch, bad
+):
+    dataset = fragment(strict_reads=True)
+    chunks = {
+        "nan": np.full((12, 8, 8), np.nan, np.float32),
+        "overflow": np.full((12, 8, 8), np.finfo(np.float64).max, np.float64),
+        "short_depth": np.zeros((11, 8, 8), np.uint8),
+        "short_height": np.zeros((12, 7, 8), np.uint8),
+        "signed": np.zeros((12, 8, 8), np.int16),
+    }
+    monkeypatch.setattr(dataset.volume.vol, "get_chunk", lambda *args: chunks[bad])
+    with pytest.raises(RuntimeError, match="cannot be read"):
+        train.probe_validation_read(dataset)
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_labeled_read_failures_obey_the_selected_policy(fragment, monkeypatch, strict):
+    dataset = fragment(strict_reads=strict)
+    assert dataset.volume.strict_reads is strict
+
+    def missing(*args):
+        raise OSError("CT chunk unavailable")
+
+    monkeypatch.setattr(dataset.volume.vol, "get_chunk", missing)
+    if strict:
+        with pytest.raises(RuntimeError, match="failed to read labeled patch"):
+            dataset[0]
+    else:
+        assert all(torch.all(value == 0) for value in dataset[0])
+
+
+def test_strict_labeled_policy_survives_worker_serialization(fragment, monkeypatch):
+    dataset = pickle.loads(pickle.dumps(fragment(strict_reads=True)))
+    assert dataset.volume.strict_reads is True
+    monkeypatch.setattr(
+        dataset.volume.vol, "get_chunk", lambda *args: np.zeros((1, 8, 8), np.uint8)
+    )
+    with pytest.raises(RuntimeError, match="failed to read labeled patch"):
+        dataset[0]
 
 
 def _break_preprocessing(monkeypatch, operation):

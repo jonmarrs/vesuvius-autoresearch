@@ -1,0 +1,76 @@
+{
+ "finding": 126,
+ "described": "after the read, geometry only: predicted-sheet crossings beyond fitted raw windings at the band's middle slice",
+ "script": "repro/first_letters/eligible_band/outer_sheets.py",
+ "arm": "full (raw fitted windings)",
+ "z_working": 9622.0,
+ "axis_xy_working": [
+  4014.9,
+  4111.4
+ ],
+ "sheet_share_of_data": 0.1676,
+ "outermost_sheet_radius_working_median": 2254.0,
+ "outermost_data_radius_working_median": 2671.0,
+ "windings": {
+  "w050": {
+   "angles": 72,
+   "radius_working_median": 743.6,
+   "sheet_runs_beyond_median": 55.5,
+   "sheet_runs_beyond_p10_p90": [
+    33.1,
+    78.9
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 1388.5
+  },
+  "w090": {
+   "angles": 91,
+   "radius_working_median": 1540.6,
+   "sheet_runs_beyond_median": 34.0,
+   "sheet_runs_beyond_p10_p90": [
+    9.0,
+    45.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 707.1
+  },
+  "w110": {
+   "angles": 114,
+   "radius_working_median": 1794.2,
+   "sheet_runs_beyond_median": 18.0,
+   "sheet_runs_beyond_p10_p90": [
+    2.0,
+    25.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 410.3
+  },
+  "w120": {
+   "angles": 126,
+   "radius_working_median": 2282.1,
+   "sheet_runs_beyond_median": 6.0,
+   "sheet_runs_beyond_p10_p90": [
+    1.5,
+    17.5
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 151.0
+  },
+  "w125": {
+   "angles": 124,
+   "radius_working_median": 1866.1,
+   "sheet_runs_beyond_median": 1.0,
+   "sheet_runs_beyond_p10_p90": [
+    0.0,
+    11.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 38.1
+  },
+  "w129": {
+   "angles": 93,
+   "radius_working_median": 2040.6,
+   "sheet_runs_beyond_median": 0.0,
+   "sheet_runs_beyond_p10_p90": [
+    0.0,
+    8.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": -2.1
+  }
+ }
+}

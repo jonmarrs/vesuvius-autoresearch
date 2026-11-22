@@ -363,3 +363,45 @@ def test_a_single_source_path_cannot_be_misread_as_characters(tmp_path):
             np.ones((3, 4)), tmp_path / "mask", sources=str(tmp_path / "ct.zarr")
         )
     assert not list(tmp_path.iterdir())
+
+
+def test_replacement_is_refused_by_name_for_anything_but_a_mask_store(tmp_path):
+    """overwrite=True replaces a bare 3D Zarr array only; anything else is named and left as it was."""
+    plain, group, flat = tmp_path / "plain", tmp_path / "group", tmp_path / "flat"
+    plain.mkdir()
+    (plain / "notes.txt").write_text("keep")
+    zarr.open_group(str(group), mode="w").attrs["kind"] = "group"
+    zarr.open(str(flat), mode="w", shape=(3, 4), dtype="f4")
+    before = {p: sorted(q.name for q in p.iterdir()) for p in (plain, group, flat)}
+    for path in before:
+        with pytest.raises(ValueError, match="bare 3D Zarr array"):
+            uncertainty_artifacts.publish_mask(np.ones((3, 4)), path, overwrite=True)
+    assert {p: sorted(q.name for q in p.iterdir()) for p in before} == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["flat", "group", "plain"]
+
+
+def test_the_voxel_limit_admits_a_mask_of_exactly_that_size(tmp_path):
+    mask = np.ones((1, 2, 2), np.uint8)
+    record = uncertainty_artifacts.publish_mask(mask, tmp_path / "at", max_voxels=4)
+    assert record["mask_voxels"] == 4 and record["status"] == "EXPORTED"
+    with pytest.raises(ValueError, match="max_voxels=3"):
+        uncertainty_artifacts.publish_mask(mask, tmp_path / "over", max_voxels=3)
+    assert not (tmp_path / "over").exists()
+
+
+@pytest.mark.parametrize("limit", [0, -1, True, 4.0, "4", None])
+def test_the_voxel_limit_must_be_a_positive_integer(tmp_path, limit):
+    with pytest.raises(ValueError, match="positive integer"):
+        uncertainty_artifacts.publish_mask(
+            np.ones((2, 2)), tmp_path / "mask", max_voxels=limit
+        )
+    assert not list(tmp_path.iterdir())
+
+
+def test_a_masked_array_is_refused(tmp_path):
+    """A masked array's hidden entries have no binary value to publish."""
+    hidden = np.eye(3, 4, dtype=bool)
+    masked = np.ma.masked_array(np.ones((3, 4), np.uint8), mask=hidden)
+    with pytest.raises(ValueError, match="NumPy array"):
+        uncertainty_artifacts.publish_mask(masked, tmp_path / "mask")
+    assert not list(tmp_path.iterdir())

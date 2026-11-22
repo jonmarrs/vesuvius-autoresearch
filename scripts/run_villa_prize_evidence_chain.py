@@ -38,13 +38,6 @@ def _as_int(row, key, default=0):
         return default
 
 
-def _as_float(row, key, default=0.0):
-    try:
-        return float(row.get(key, default))
-    except (TypeError, ValueError):
-        return default
-
-
 def _artifact_stem(row):
     width = _as_int(row, "width", _as_int(row, "patch_size", 64))
     height = _as_int(row, "height", _as_int(row, "patch_size", 64))

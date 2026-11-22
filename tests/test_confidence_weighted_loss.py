@@ -151,7 +151,10 @@ def test_accidental_broadcasting_is_rejected():
 
 
 @pytest.mark.parametrize("confidence", [False, True])
-def test_periodic_checkpoint_records_the_confidence_loss_recipe(tmp_path, confidence):
+@pytest.mark.parametrize("strict", [False, True])
+def test_periodic_checkpoint_records_the_confidence_loss_recipe(
+    tmp_path, confidence, strict
+):
     import train
 
     from scripts.training.config import ExperimentConfig
@@ -168,9 +171,14 @@ def test_periodic_checkpoint_records_the_confidence_loss_recipe(tmp_path, confid
         num_layers=4,
         checkpoint_out=str(tmp_path / "model.pt"),
         use_confidence_weight=confidence,
+        strict_training_reads=strict,
     )
     train.periodic_pixel_auc_eval(model, dataset, config, "cpu", 3, 1.5)
     saved = torch.load(tmp_path / "model.pt.step3.pt", weights_only=False)
+    assert saved["data_read_policy"] == {
+        "training": "strict" if strict else "legacy_permissive",
+        "validation": "strict",
+    }
     assert saved["confidence_ink_recipe"] == (
         CONFIDENCE_INK_RECIPE if confidence else None
     )

@@ -23,6 +23,11 @@ measurements or access CUDA. Use `--json` for a structured report. A passing set
 check is not a GPU, model-compatibility or prize-eligibility check.
 See [status output, config budgets and next steps](docs/WORKSPACE_STATUS.md).
 
+**Find a tool before loading the research environment:**
+`python scripts/list_commands.py` lists reviewed command families;
+`--command ID` shows runtime, checkout/Villa requirements and its guide. The
+[command inventory](docs/COMMANDS.md) uses only stdlib and runs no listed command.
+
 The [repository audit](docs/REPOSITORY_AUDIT.md) records verified fixes, remaining
 architecture and cleanup decisions, and the limits of the available validation.
 The [historical artifact status catalogue](reports/HISTORICAL_ARTIFACTS.md)
@@ -126,6 +131,10 @@ See [award history and source](docs/PROGRESS_PRIZE_AWARDS.md).
 
 **Requirements:** A single NVIDIA GPU (tested on RTX 4090/H100), Python 3.10, [uv](https://docs.astral.sh/uv/).
 
+The research workflows use an editable checkout. Library wheels include the
+model and local-volume helpers; see [package scope and installation checks](docs/PACKAGING.md)
+for the supported installed APIs and workflows that require the pinned Villa tree.
+
 ```bash
 # 1. Install uv project manager (if you don't already have it)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -172,9 +181,28 @@ auxiliary losses. To prepare a **new** fragment from already-downloaded uint16
 TIFFs and aligned binary PNG labels, use the maintained CPU
 [local data importer](docs/TRAINING_DATA_IMPORT.md). It pins source hashes and
 preserves CT values; verify alignment and the output-relative depth band before
-using its output. A pinned download recipe and verified real-fragment example
-remain open. The downloaders in `scripts/archive/` are unmaintained and are not
-a supported way to prepare this training layout.
+using its output. The [pinned official Frag1 example](docs/OFFICIAL_FRAGMENT_EXAMPLE.md)
+fetches and verifies two original layers, labels and mask through that importer
+and the strict reader. It is a bounded data-plumbing check, not the full depth
+context for this training recipe. The downloaders in `scripts/archive/` are
+unmaintained and are not a supported way to prepare this training layout.
+
+Training refuses observable overlap between validation and labeled or active
+UA-MT inputs, including local symlinks and group/array paths. It also checks
+experiment checkpoint and curve destinations against loop state and named
+inputs before training and saving. `python3 scripts/workspace_status.py` reports
+these conflicts without loading arrays. Path checks cannot establish independence
+of copied crops or different remote URLs; verify the study split separately.
+
+Unknown `architecture` and `aug_mode` names are rejected instead of selecting a
+different implementation. The inactive legacy `max_prize_skel_dist` field now
+defaults to JSON `null`; loading its old `Infinity` sentinel normalizes it to
+`null` in new configurations/checkpoints without changing any active promotion gate.
+
+For new experiments, `"strict_training_reads": true` aborts on labeled/UA-MT
+read or requested preprocessing failures. The default retains legacy fallbacks;
+validation remains strict. Diagnostics and completed run artifacts record the
+[selected read policy](docs/TRAINING_DATA_IMPORT.md#choose-the-training-read-policy).
 
 Those filename priorities do not establish label quality. The old bulk
 refinement and spiral-region filling commands are retired. Use the

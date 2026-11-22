@@ -4,6 +4,7 @@ import json
 import os
 import sys
 from collections import defaultdict
+from io import BytesIO
 from numbers import Integral, Real
 from zipfile import BadZipFile
 
@@ -25,6 +26,9 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
         sys.path.append(p)
 from vesuvius_autoresearch.fibers import detect_ridges
 from vesuvius_autoresearch.fibers.provenance import atomic_file
+
+from .file_capture import MAX_VALIDATION_IMAGE_BYTES, capture_bytes
+from .patch_catalog import read_patch_catalog
 
 
 def frangi_vesselness_zcollapsed(ct_np, sigma=2.0):
@@ -490,7 +494,7 @@ class FastVesuviusVolume:
         return torch.from_numpy(ct)
 
 
-def load_unit_image(path) -> np.ndarray:
+def load_unit_image(path, *, contents: bytes | None = None) -> np.ndarray:
     """A label or mask image as float32 in [0, 1].
 
     0/1 images are kept as they are; 8-bit values (up to 255) are divided by
@@ -500,7 +504,7 @@ def load_unit_image(path) -> np.ndarray:
     behind val_bpb summed it unbinarized. Anything still outside [0, 1] is
     refused.
     """
-    with Image.open(path) as img:
+    with Image.open(path if contents is None else BytesIO(contents)) as img:
         values = np.array(img).astype(np.float32)
     peak = float(values.max()) if values.size else 0.0
     if peak > 1.0:
@@ -513,6 +517,26 @@ def load_unit_image(path) -> np.ndarray:
             f"{float(np.nanmin(values))}..{float(np.nanmax(values))} after scaling"
         )
     return values
+
+
+def _read_validation_image(path, expected_sha256) -> np.ndarray | None:
+    if path is None:
+        if expected_sha256 is not None:
+            raise RuntimeError("the selected validation image is missing")
+        return None
+    _, contents = capture_bytes(path, MAX_VALIDATION_IMAGE_BYTES)
+    if hashlib.sha256(contents).hexdigest() != expected_sha256:
+        raise RuntimeError(f"validation image changed while read: {path}")
+    return load_unit_image(path, contents=contents)
+
+
+def _read_depth(available, requested, minimum, uri):
+    depth = min(available, requested)
+    if minimum is not None and depth < minimum:
+        raise ValueError(
+            f"{uri}: CT read has {depth} slices but requires at least {minimum}"
+        )
+    return depth
 
 
 def band_read_range(depth_band, depth_margin, depth, read, uri):
@@ -577,6 +601,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     CPU ridge implementation remains a valid fallback from an unavailable GPU.
     The default permissive mode retains warning-and-fallback behavior.
 
+    Validation supplies expected_image_sha256 for the (labels, mask) pair.
+    The image bytes must match before decoding. None represents an absent image.
+    A caller can set min_read_depth to require a minimum buffered read.
+
     Coordinate caches identify the effective fitted selection pixels and sampler
     settings. Timestamp-only caches are ignored and preserved. Explicit JSON
     catalogs bypass this cache; it does not hash CT intensities or establish
@@ -606,16 +634,23 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         strict_reads=False,
         depth_band=None,
         depth_margin=0,
+        expected_image_sha256: tuple[str | None, str | None] | None = None,
+        min_read_depth: int | None = None,
     ):
+        if not isinstance(strict_reads, bool):
+            raise ValueError("strict_reads must be a boolean")
         self.volume = FastVesuviusVolume(
             volume_uri,
             cache_dir=cache_dir,
             use_ridges=use_ridges,
             ridge_sigma=ridge_sigma,
+            strict_reads=strict_reads,
         )
         self.patch_size = patch_size
-        self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
+        self.num_layers = _read_depth(
+            self.shape[0], num_layers, min_read_depth, volume_uri
+        )
         # depth_band [start, end): the slices the model's window should show;
         # reads are drawn from the band widened by depth_margin (the context
         # around the window), clamped to the volume. None: the whole depth.
@@ -654,16 +689,21 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.target_fiber_source = target_fiber_source
         self.target_fiber_sigma = target_fiber_sigma
 
-        # Load Labels (2D PNG)
-        if labels_path and os.path.exists(labels_path):
-            self.labels = load_unit_image(labels_path)
+        if expected_image_sha256 is not None:
+            labels_sha256, mask_sha256 = expected_image_sha256
+            self.labels = _read_validation_image(labels_path, labels_sha256)
+            self.mask = _read_validation_image(mask_path, mask_sha256)
         else:
-            self.labels = None
-
-        if mask_path and os.path.exists(mask_path):
-            self.mask = load_unit_image(mask_path)
-        else:
-            self.mask = None
+            self.labels = (
+                load_unit_image(labels_path)
+                if labels_path and os.path.exists(labels_path)
+                else None
+            )
+            self.mask = (
+                load_unit_image(mask_path)
+                if mask_path and os.path.exists(mask_path)
+                else None
+            )
 
         # Guard: the 2D label/mask must spatially correspond to the volume's
         # (H, W) plane (self.shape == (depth, H, W)). Some fragments store their
@@ -676,7 +716,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # 20% of each side (~1,600 px on an 8,181 px fragment), which let a
         # misregistered label train and validate silently.
         vol_hw = (self.shape[1], self.shape[2])
-        coords_from_json = bool(patches_json and os.path.exists(patches_json))
+        coords_from_json = patches_json is not None
         for _name in ("labels", "mask"):
             _arr = getattr(self, _name)
             if _arr is None or (_name == "mask" and coords_from_json):
@@ -741,14 +781,14 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             else _load_coordinate_cache(cache_path, self.shape, self.patch_size)
         )
 
+        self.patch_catalog_sha256 = None
         if coords_from_json:
             print(f"Loading valid coordinates from JSON patch catalog: {patches_json}")
-
-            with open(patches_json) as f:
-                patch_data = json.load(f)
-            self.valid_coords = np.array(
-                [[p["y"], p["x"]] for p in patch_data.get("patches", [])]
+            coords, self.patch_catalog_sha256 = read_patch_catalog(
+                patches_json, self.shape, self.patch_size
             )
+            self.valid_coords = np.asarray(coords, dtype=np.int64)
+            self.patch_size = int(self.patch_size)
         elif cached_coords is not None:
             self.valid_coords = cached_coords
         else:
@@ -1109,6 +1149,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
 
     Strict reads propagate failures with sample context instead of zero patches.
     Lasagna is not implemented here and is refused when strict reads request it.
+    A caller can set min_read_depth to require a minimum buffered read.
     """
 
     def __init__(
@@ -1125,6 +1166,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         depth_band=None,
         depth_margin=0,
         strict_reads=False,
+        min_read_depth: int | None = None,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
@@ -1155,7 +1197,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
             strict_reads=strict_reads,
         )
         self.shape = self.volume.shape
-        self.num_layers = min(num_layers, self.shape[0])
+        self.num_layers = _read_depth(self.shape[0], num_layers, min_read_depth, uri)
         self.depth_range = band_read_range(
             depth_band, depth_margin, self.shape[0], self.num_layers, uri
         )

@@ -274,36 +274,70 @@ class TraceResult:
 def _trilinear(vol: np.ndarray, p: np.ndarray) -> float:
     """Trilinear sample of a scalar volume at a float (z, y, x) point.
 
-    Coordinates are snapped into range by a small epsilon first. Without it a
-    value like -5.7e-17, which arises routinely from a direction component that
-    is mathematically zero, floors to -1 and the sample is reported as out of
-    bounds. That failure killed every walk starting on a face of the volume.
+    Coordinates within 1e-9 of a face are snapped onto that face. Without the
+    snap, a value like -5.7e-17 floors to -1 and the sample is reported as out
+    of bounds. That failure killed every walk starting on a face of the volume.
+    The far face is snapped the same way, so a coordinate within 1e-9 of the
+    last voxel is that voxel.
+
+    The missing neighbour's weight is then zero and is not read, including on
+    a one-voxel axis. A NaN voxel counts only when its weight is positive. A
+    non-finite coordinate is NaN, and so is a point whose needed support
+    leaves the volume. A point that is not shape ``(3,)`` raises ValueError.
+    An infinite voxel with positive weight is NaN; the walk treats that the
+    same as infinity and stops.
     """
     eps = 1e-9
     p = np.asarray(p, dtype=float)
-    p = np.where(np.abs(p) < eps, 0.0, p)
-    z, y, x = p
-    z0, y0, x0 = int(np.floor(z)), int(np.floor(y)), int(np.floor(x))
-    # Sampling exactly on the far face is legitimate; step back one voxel so the
-    # 2x2x2 neighbourhood stays inside the array.
-    if z0 == vol.shape[0] - 1 and abs(z - z0) < eps:
-        z0 -= 1
-    if y0 == vol.shape[1] - 1 and abs(y - y0) < eps:
-        y0 -= 1
-    if x0 == vol.shape[2] - 1 and abs(x - x0) < eps:
-        x0 -= 1
-    if not (
-        0 <= z0 < vol.shape[0] - 1
-        and 0 <= y0 < vol.shape[1] - 1
-        and 0 <= x0 < vol.shape[2] - 1
-    ):
+    if p.shape != (3,):
+        raise ValueError(f"sample point must have shape (3,), got {p.shape}")
+    if not np.all(np.isfinite(p)):
         return float("nan")
-    dz, dy, dx = z - z0, y - y0, x - x0
-    c = vol[z0 : z0 + 2, y0 : y0 + 2, x0 : x0 + 2]
-    wz = np.array([1 - dz, dz])
-    wy = np.array([1 - dy, dy])
-    wx = np.array([1 - dx, dx])
-    return float(np.einsum("i,j,k,ijk->", wz, wy, wx, c))
+    last = np.asarray(vol.shape, dtype=float) - 1.0
+    p = np.where(np.abs(p) < eps, 0.0, p)
+    p = np.where(np.abs(p - last) < eps, last, p)
+    z, y, x = (float(v) for v in p)
+    base = [int(np.floor(z)), int(np.floor(y)), int(np.floor(x))]
+    frac = [z - base[0], y - base[1], x - base[2]]
+    value = 0.0
+    for dz in (0, 1):
+        for dy in (0, 1):
+            for dx in (0, 1):
+                wz = frac[0] if dz else 1.0 - frac[0]
+                wy = frac[1] if dy else 1.0 - frac[1]
+                wx = frac[2] if dx else 1.0 - frac[2]
+                weight = wz * wy * wx
+                if weight == 0.0:
+                    continue
+                zz, yy, xx = base[0] + dz, base[1] + dy, base[2] + dx
+                if not (
+                    0 <= zz < vol.shape[0]
+                    and 0 <= yy < vol.shape[1]
+                    and 0 <= xx < vol.shape[2]
+                ):
+                    return float("nan")
+                sample = float(vol[zz, yy, xx])
+                # An infinite voxel used to come back as inf. The walk stops
+                # on either, so the trace is unchanged.
+                if not np.isfinite(sample):
+                    return float("nan")
+                value += weight * sample
+    return float(value)
+
+
+def _nearest_index(p: np.ndarray, shape) -> tuple[int, int, int] | None:
+    """Nearest voxel of ``p``, or None when it is non-finite or outside.
+
+    Rounding a NaN or an infinity raises. A walk that reaches one stops
+    instead.
+    """
+    coords = np.asarray(p, dtype=float)
+    if coords.shape != (3,) or not np.all(np.isfinite(coords)):
+        return None
+    idx = tuple(int(round(v)) for v in coords)
+    if not all(0 <= idx[a] < shape[a] for a in range(3)):
+        return None
+    return idx  # type: ignore[return-value]
 
 
 def _direction_at(
@@ -316,10 +350,9 @@ def _direction_at(
     but equally valid vectors to near-zero. Aligning signs before averaging is
     possible but adds a failure mode for no real gain at sub-voxel steps.
     """
-    idx = tuple(int(round(v)) for v in p)
-    for a in range(3):
-        if not (0 <= idx[a] < dirs.shape[a]):
-            return None
+    idx = _nearest_index(p, dirs.shape)
+    if idx is None:
+        return None
     if not valid[idx]:
         return None
     d = dirs[idx].astype(float)
@@ -382,8 +415,8 @@ def _walk(
             skipped = 0
 
         nxt = p + d * params.step
-        idx = tuple(int(round(v)) for v in nxt)
-        if not all(0 <= idx[a] < response.shape[a] for a in range(3)):
+        idx = _nearest_index(nxt, response.shape)
+        if idx is None:
             reason = StopReason.OUT_OF_BOUNDS
             break
 

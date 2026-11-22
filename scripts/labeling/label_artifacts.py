@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import math
-import os
-import tempfile
-from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
 import zarr
 
-from scripts.candidate_artifacts import integer, separate_paths, staged_directory
-from vesuvius_autoresearch.core.file_modes import replacement_mode
+from scripts.candidate_artifacts import integer
+from vesuvius_autoresearch.core.new_artifacts import (
+    new_output,
+    publish_new,
+    publish_new_file,
+)
 
 MAX_FRAGMENT_VOXELS = 128**3
 
@@ -72,44 +73,3 @@ def bbox_zyx(values, shape):
         slice(start, stop)
         for start, stop in zip(bounds[::2], bounds[1::2], strict=True)
     )
-
-
-def new_output(output, *sources):
-    """Require a separate, new local artifact; reject symlinks, including broken ones."""
-    output = Path(output)
-    if output.exists() or output.is_symlink():
-        raise ValueError(f"output already exists; choose a new artifact path: {output}")
-    for source in sources:
-        _, output = separate_paths(source, output)
-    return output.resolve()
-
-
-@contextmanager
-def publish_new(output):
-    """Publish a complete immutable directory. Callers must serialize writers."""
-    output = new_output(output)
-    with staged_directory(output) as staging:
-        yield staging
-        # The shared publisher supports replacement; these label tools don't.
-        if output.exists() or output.is_symlink():
-            raise ValueError(f"output appeared during processing: {output}")
-
-
-@contextmanager
-def publish_new_file(output, *sources):
-    """Publish one validated new file by rename; serialize writers."""
-    output = new_output(output, *sources)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        dir=output.parent, prefix=f".{output.stem}-", suffix=output.suffix, delete=False
-    ) as stream:
-        staging = Path(stream.name)
-    try:
-        yield staging
-        if output.exists() or output.is_symlink():
-            raise ValueError(f"output appeared during processing: {output}")
-        # A new file's mode (the umask's), not the temporary file's 0600.
-        os.chmod(staging, replacement_mode(output))
-        staging.rename(output)
-    finally:
-        staging.unlink(missing_ok=True)

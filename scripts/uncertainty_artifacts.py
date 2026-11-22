@@ -72,7 +72,13 @@ def validate_destination(path, *, overwrite=False, sources=()):
         validate_output_tree(
             path, max_entries=MAX_OUTPUT_ENTRIES, label="uncertainty mask"
         )
-        array = zarr.open(str(path), mode="r")
+        try:
+            array = zarr.open(str(path), mode="r")
+        except (OSError, ValueError) as exc:
+            # Zarr's own error for a directory that holds no store names no path.
+            raise ValueError(
+                f"existing uncertainty output must be a bare 3D Zarr array: {path}"
+            ) from exc
         if not isinstance(array, zarr.Array) or array.ndim != 3:
             raise ValueError(
                 f"existing uncertainty output must be a bare 3D Zarr array: {path}"

@@ -89,6 +89,11 @@ Run it from the repository root: its first step converts `local_data/<fragment>/
 (`villa/ink-detection/train_scrolls` by default). A fragment is converted again whenever a file the
 detector reads for it is missing or fails its checks: decoding, bit depth and shape, and its conversion
 manifest's hashes when one is present (see [detector data preparation](docs/DETECTOR_DATA_PREPARATION.md)).
+New conversions require absent or identity orientation metadata on CT, labels
+and masks, and readiness checks reject oriented converted outputs. This prevents
+Pillow's automatic TIFF rotations from silently changing the declared grid.
+New manifests record `source_orientation_policy`; old manifests and already-baked
+rotations do not establish that source property and need original-source review.
 (Added 2026-10-17; checks added 2026-10-31.)
 
 Reproduced 2026-06-29 (best epoch by held-out selection: ROC-AUC 0.709, see

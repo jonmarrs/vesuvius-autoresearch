@@ -20,6 +20,8 @@ import pytest
 sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data.canvas_shift import (
     CanvasShiftNotLocated,
+    _masked_ncc,
+    _parabola,
     correct_canvas,
     fit_shift,
     level0_centers,
@@ -328,6 +330,118 @@ def test_ct_sampled_at_a_tifxyz_cell_reads_that_voxel():
     assert np.isnan(holed[0, 0]).all()
 
 
+def test_tifxyz_reads_the_last_in_plane_cell():
+    """A sample on the far edge has no next cell, and that neighbour's weight is 0.
+
+    Requiring the missing corner returned NaN for a stored cell that is in the
+    plane, including a one-row plane and a scale that lands on an integer.
+    A point that still needs that corner stays outside. An in-plane hole still
+    makes the sample NaN when its weight is zero.
+    """
+    plane = np.arange(12, dtype=np.float64).reshape(3, 4)
+    z = plane + 20
+    y = plane + 40
+    x = plane + 60
+    got = sample_tifxyz(
+        z,
+        y,
+        x,
+        np.array([2.0, 2.0, 0.0]),
+        np.array([3.0, 1.25, 0.0]),
+        1.0,
+        1.0,
+    )
+    assert got[0, 0].tolist() == pytest.approx([31.0, 51.0, 71.0])
+    assert got[1, 1].tolist() == pytest.approx(
+        [0.75 * 29 + 0.25 * 30, 0.75 * 49 + 0.25 * 50, 0.75 * 69 + 0.25 * 70]
+    )
+    assert got[2, 2].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    thin = np.array([[4.0, 5.0, 6.0]])
+    one = sample_tifxyz(
+        thin + 1, thin + 2, thin + 3, np.array([0.0]), np.array([2.0]), 1.0, 1.0
+    )
+    assert one[0, 0].tolist() == pytest.approx([7.0, 8.0, 9.0])
+    wide = np.arange(16, dtype=np.float64).reshape(4, 4)
+    scaled = sample_tifxyz(wide, wide, wide, np.array([1.5]), np.array([1.5]), 2.0, 2.0)
+    assert scaled[0, 0].tolist() == pytest.approx([15.0, 15.0, 15.0])
+    past_row = sample_tifxyz(z, y, x, np.array([2.25, 3.0]), np.array([1.0]), 1.0, 1.0)
+    past_col = sample_tifxyz(z, y, x, np.array([1.0]), np.array([3.25, 4.0]), 1.0, 1.0)
+    missing = sample_tifxyz(z, y, x, np.array([np.nan]), np.array([0.0]), 1.0, 1.0)
+    negative = sample_tifxyz(
+        z, y, x, np.array([-1.0, -0.25, 0.0]), np.array([-0.5, 0.0]), 1.0, 1.0
+    )
+    infinite = sample_tifxyz(
+        z,
+        y,
+        x,
+        np.array([0.0, np.inf, -np.inf]),
+        np.array([0.0, np.inf]),
+        1.0,
+        1.0,
+    )
+    assert np.isnan(past_row).all()
+    assert np.isnan(past_col).all()
+    assert np.isnan(missing).all()
+    assert np.isnan(negative[:, 0]).all()
+    assert np.isnan(negative[:2, 1]).all()
+    assert negative[2, 1].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    assert infinite[0, 0].tolist() == pytest.approx([20.0, 40.0, 60.0])
+    assert np.isnan(infinite[1:]).all()
+    assert np.isnan(infinite[:, 1]).all()
+    holed = plane.copy()
+    holed[1, 1] = -1
+    assert np.isnan(
+        sample_tifxyz(holed, holed, holed, np.array([0.0]), np.array([0.0]), 1.0, 1.0)
+    ).all()
+    z_hole = np.full((3, 4), 5.0)
+    z_hole[1, 1] = 0
+    assert np.isnan(
+        sample_tifxyz(z_hole, plane, plane, np.array([0.0]), np.array([0.0]), 1.0, 1.0)
+    ).all()
+
+
+def test_trilinear_reads_the_last_in_volume_voxel():
+    """A sample on the far face has no next voxel, and that neighbour's weight is 0.
+
+    Requiring the missing corner returned NaN for an in-volume centre, including
+    a one-slice volume and the last level-2 cell. A point that still needs that
+    corner, or that sits one voxel past the end, stays outside.
+    """
+    volume = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+    last = np.array([[1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [1.0, 0.25, 1.5]])
+    sampled = sample_volume_trilinear(volume, last, level=0)
+    assert sampled[0] == pytest.approx(float(volume[1, 2, 3]))
+    assert sampled[1] == pytest.approx(float(volume[0, 0, 0]))
+    expected = (
+        0.75 * 0.5 * volume[1, 0, 1]
+        + 0.75 * 0.5 * volume[1, 0, 2]
+        + 0.25 * 0.5 * volume[1, 1, 1]
+        + 0.25 * 0.5 * volume[1, 1, 2]
+    )
+    assert sampled[2] == pytest.approx(float(expected))
+    thin = volume[:1]
+    one = sample_volume_trilinear(thin, np.array([[0.0, 1.0, 2.0]]), level=0)
+    assert one[0] == pytest.approx(float(thin[0, 1, 2]))
+    cube = np.zeros((2, 2, 2), np.float32)
+    cube[1, 1, 1] = 9
+    far = sample_volume_trilinear(cube, np.array([[5.5, 5.5, 5.5]]), level=2)
+    assert far[0] == pytest.approx(9.0)
+    # The volume reader crops to corners that exist. The far cell is then a
+    # one-voxel box whose level-2 centre is level-0 coordinate 1.5.
+    cropped = sample_volume_trilinear(
+        cube[1:, 1:, 1:], np.array([[1.5, 1.5, 1.5]]), level=2
+    )
+    assert cropped[0] == pytest.approx(9.0)
+    raw = volume.astype(np.uint8)
+    assert sample_volume_trilinear(raw, last[:1], level=0)[0] == pytest.approx(
+        float(raw[1, 2, 3])
+    )
+    outside = np.array(
+        [[2.0, 2.0, 3.0], [1.0, 3.0, 3.0], [1.0, 2.0, 4.0], [1.5, 1.0, 1.0]]
+    )
+    assert np.isnan(sample_volume_trilinear(volume, outside, level=0)).all()
+
+
 def test_a_shift_on_the_search_boundary_is_not_reported():
     """A peak at exactly +/- max_shift may be larger still, so it is not a result."""
     canvas = _texture(120, 120, seed=5)
@@ -487,6 +601,27 @@ def test_a_dropped_cross_term_is_refit_into_the_intercept():
     assert fitted["ay"] == pytest.approx(5.05)
     assert fitted["ax"] == pytest.approx(1.0)
     assert fitted["sx"] == 0.0 and fitted["cx"] == 0.0
+
+
+def test_a_sub_pixel_drift_collapses_even_after_a_term_is_dropped():
+    """The one-pixel rule applies to the model that is returned, not only to the full fit."""
+    points = [(0.0, 0.0), (0.0, 100.0), (100.0, 0.0), (100.0, 100.0)]
+
+    def regions(by, bx):
+        return [{"y": y, "x": x, "dy": by * y + bx * x, "dx": 0.0} for y, x in points]
+
+    # 0.95 px across y and 0.20 px across x: the full fit spans 1.15 px, and the x term is under the floor
+    fitted = fit_shift(regions(0.0095, 0.002))
+    assert fitted["model"] == "constant"
+    assert fitted["sy"] == 0.0 and fitted["cy"] == 0.0
+    assert fitted["ay"] == pytest.approx(0.575)
+    # the same 0.95 px with no x term was already a constant
+    assert fit_shift(regions(0.0095, 0.0))["model"] == "constant"
+    # 1.20 px across y stays a line once the x term is dropped
+    kept = fit_shift(regions(0.012, 0.002))
+    assert kept["model"] == "linear" and kept["cy"] == 0.0
+    assert kept["sy"] == pytest.approx(0.012)
+    assert kept["ay"] == pytest.approx(0.1)
 
 
 def test_nonzero_cross_terms_round_trip_through_the_remap():
@@ -981,6 +1116,64 @@ def test_the_probe_tiff_reader_reads_float32_strips(monkeypatch, tmp_path):
     )
 
 
+def test_the_probe_tiff_reader_stops_at_the_file(monkeypatch, tmp_path):
+    """A 3x4 plane requested as rows [0, 5) and columns [0, 6) is the plane.
+
+    The old reader returned a 5x6 array whose extra rows and columns were NaN.
+    """
+    import tifffile
+
+    plane = np.arange(12, dtype=np.float32).reshape(3, 4) + 8
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=2)
+    _serve(monkeypatch, path.read_bytes())
+    reader = probe._Tiff("x")
+    np.testing.assert_array_equal(reader.rows(0, 5, 0, 6), plane)
+    np.testing.assert_array_equal(reader.rows(1, 8, 2, 9), plane[1:, 2:])
+    leading = reader.rows(-1, 9, -2, 4)
+    assert leading.shape == (plane.shape[0] + 1, plane.shape[1] + 2)
+    assert np.isnan(leading[0]).all()
+    assert np.isnan(leading[:, :2]).all()
+    np.testing.assert_array_equal(leading[1:, 2:], plane)
+
+
+def test_the_probe_reads_the_last_cell_of_a_nan_padded_crop(monkeypatch, tmp_path):
+    """Scale 2 lands on stored cell 3. The crop asks for [2, 6), past a 4x4 file.
+
+    Those extra rows used to be NaN inside the crop, so the last cell's unused
+    neighbour cleared the sample. The read stops at the file and the cell remains.
+    """
+    import tifffile
+
+    plane = np.arange(16, dtype=np.float32).reshape(4, 4)
+    path = tmp_path / "plane.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=2)
+    blob = path.read_bytes()
+    meta = json.dumps({"scale": [2.0, 2.0]}).encode()
+
+    def _fetch(url, rng=None):
+        data = meta if url.endswith("meta.json") else blob
+        if rng is None:
+            return data
+        return data[rng[0] : rng[1] + 1]
+
+    monkeypatch.setattr(probe, "_fetch", _fetch)
+    seen = []
+
+    def _volume(_base, points):
+        seen.append(np.array(points, copy=True))
+        return np.ones(len(points), np.float32)
+
+    monkeypatch.setattr(probe, "_volume_at", _volume)
+    surface, finite = probe._surface(
+        {"tifxyz": "mem://segment", "volume": "mem://volume"}, 0, 1, 0, 1
+    )
+    assert finite.shape == (1, 1)
+    assert bool(finite[0, 0])
+    assert surface[0, 0] == pytest.approx(1.0)
+    assert seen[0][0].tolist() == pytest.approx([15.0, 15.0, 15.0])
+
+
 @pytest.mark.parametrize(
     "kwargs, words",
     [
@@ -1036,3 +1229,210 @@ def test_the_probe_cache_refetches_a_short_ranged_entry(monkeypatch, tmp_path):
     assert probe._fetch(url, rng) == b"0123456789"
     assert (tmp_path / key[:2] / key).read_bytes() == b"0123456789"
     assert not list(tmp_path.glob("**/*.part"))
+
+
+def test_tifxyz_sampled_from_an_empty_crop_is_all_nan():
+    """No cell exists in an empty crop, so no sample has support."""
+    rows, cols = np.array([0.0, 1.5]), np.array([0.0, 2.0, 3.0])
+    for shape in ((0, 5), (5, 0), (0, 0)):
+        empty = np.empty(shape, np.float32)
+        out = sample_tifxyz(empty, empty, empty, rows, cols, 1.0, 1.0)
+        assert out.shape == (2, 3, 3) and np.isnan(out).all()
+
+
+def test_the_probe_tiff_reader_gives_an_empty_crop_past_the_file(monkeypatch, tmp_path):
+    """A window wholly past the file is an empty crop, which samples as no surface."""
+    import tifffile
+
+    plane = np.arange(40 * 30, dtype=np.float32).reshape(40, 30)
+    path = tmp_path / "x.tif"
+    tifffile.imwrite(path, plane, rowsperstrip=7)
+    _serve(monkeypatch, path.read_bytes())
+    reader = probe._Tiff("x")
+    below, right = reader.rows(41, 45, 0, 6), reader.rows(0, 5, 30, 33)
+    assert below.shape == (0, 6) and right.shape == (5, 0)
+    point = np.array([0.0])
+    for crop in (below, right):
+        assert np.isnan(sample_tifxyz(crop, crop, crop, point, point, 1.0, 1.0)).all()
+
+
+def _small_planes():
+    z = np.full((3, 3), 5.0)
+    y = np.arange(9.0).reshape(3, 3) * 10
+    x = np.arange(9.0).reshape(3, 3) + 100
+    return [z, y, x]
+
+
+def test_a_tifxyz_hole_in_one_plane_alone_is_a_hole():
+    """-1 or a non-finite value in any plane is a hole at any weight; only z must be positive."""
+    at = np.array([0.0, 0.5])
+    # y is 0 at cell (0, 0): a coordinate, not a hole
+    z, y, x = _small_planes()
+    assert np.isfinite(sample_tifxyz(z, y, x, at, at, 1.0, 1.0)).all()
+    for plane, bad in ((1, -1.0), (2, -1.0), (1, np.inf), (2, np.nan)):
+        planes = _small_planes()
+        planes[plane][1, 1] = bad
+        # (0.5, 0.5) interpolates cell (1, 1); (0, 0) holds it at weight zero
+        z, y, x = planes
+        assert np.isnan(sample_tifxyz(z, y, x, at, at, 1.0, 1.0)).all(), (plane, bad)
+
+
+def test_trilinear_gives_nan_for_an_unusable_point_without_a_cast_warning():
+    volume = np.arange(8, dtype=np.float32).reshape(2, 2, 2)
+    points = np.array(
+        [[np.nan, 0, 0], [0, np.inf, 0], [0, 0, -np.inf], [1e30, 0, 0], [1, 1, 1]]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        out = sample_volume_trilinear(volume, points)
+    assert np.isnan(out[:4]).all() and out[4] == 7
+
+
+def test_trilinear_does_not_read_a_zero_weight_neighbour():
+    """An exact voxel beside a NaN voxel is that voxel; a point between them is NaN."""
+    volume = np.arange(8, dtype=np.float32).reshape(2, 2, 2)
+    volume[1, 0, 0] = np.nan
+    points = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.0, 1.0, 1.0]])
+    out = sample_volume_trilinear(volume, points)
+    assert out[0] == 0 and np.isnan(out[1]) and out[2] == 3
+
+
+def _noise(shape, seed):
+    return np.random.default_rng(seed).normal(size=shape).astype(np.float32)
+
+
+def test_a_weak_match_is_not_located_at_the_default_threshold():
+    """A peak of about 0.4 is refused at the default 0.5 and accepted when 0.3 is asked for."""
+    surface = _noise((160, 160), 1)
+    shifted = np.roll(
+        surface, (-3, 2), axis=(0, 1)
+    )  # canvas (y, x) is surface (y + 3, x - 2)
+    canvas = 0.4 * shifted + 0.9165 * _noise((160, 160), 2)
+    window = (40, 40, 64, 64)
+    with pytest.raises(CanvasShiftNotLocated, match="below 0.5"):
+        measure_shift(surface, canvas, window, max_shift=8, highpass_size=0)
+    found = measure_shift(
+        surface, canvas, window, max_shift=8, highpass_size=0, min_ncc=0.3
+    )
+    assert 0.3 < found["ncc"] < 0.5
+    assert found["dy"] == pytest.approx(3.0, abs=0.5)
+    assert found["dx"] == pytest.approx(-2.0, abs=0.5)
+
+
+def _overlap_response(finite_in_window, overlap):
+    """The response at zero shift when OVERLAP of the window's finite pixels meet finite surface."""
+    window = _noise((20, 20), 3)
+    window.flat[finite_in_window:] = np.nan
+    search = np.full((24, 24), np.nan, np.float32)
+    patch = window.copy()
+    patch.flat[overlap:] = np.nan
+    search[2:22, 2:22] = patch
+    return _masked_ncc(window, search, 2)[2, 2]
+
+
+def test_a_shift_is_scored_only_on_enough_finite_overlap():
+    """Half the window's finite pixels and at least 100 of them; a window under 100 needs only half."""
+    assert _overlap_response(400, 200) == pytest.approx(1.0)
+    assert np.isnan(_overlap_response(400, 199))
+    assert _overlap_response(150, 100) == pytest.approx(1.0)
+    assert np.isnan(_overlap_response(150, 99))
+    assert _overlap_response(80, 40) == pytest.approx(1.0)
+    assert np.isnan(_overlap_response(80, 39))
+
+
+def test_the_correlation_ignores_each_image_s_own_level():
+    window = _noise((20, 20), 4)
+    search = _noise((24, 24), 5)
+    search[3:23, 1:21] = window
+    response = _masked_ncc(window + 100.0, search + 5.0, 2)
+    assert response[3, 1] == pytest.approx(1.0, abs=1e-4)
+    assert np.nanargmax(response) == 3 * 5 + 1
+
+
+def test_the_sub_pixel_step_is_a_parabola_s_vertex_and_at_most_one_pixel():
+    assert _parabola(-0.5625, 0.9375, 0.4375) == pytest.approx(0.25)
+    assert _parabola(0.4375, 0.9375, -0.5625) == pytest.approx(-0.25)
+    assert _parabola(0.5, 1.0, 0.5) == 0.0
+    assert _parabola(1.0, 1.0, 1.0) == 0.0
+    assert _parabola(float("nan"), 1.0, 0.5) == 0.0
+    # not a peak: the vertex is far away, and the step is held to one pixel
+    assert _parabola(0.0, 1.0, 1.9) == 1.0
+    assert _parabola(1.9, 1.0, 0.0) == -1.0
+
+
+@pytest.mark.parametrize(
+    "window",
+    [(7, 40, 32, 32), (40, 7, 32, 32), (121, 40, 32, 32), (40, 121, 32, 32)],
+)
+def test_a_window_within_max_shift_of_any_surface_edge_is_refused(window):
+    image = _noise((160, 160), 6)
+    with pytest.raises(ValueError, match="max_shift pixels inside the surface"):
+        measure_shift(image, image, window, max_shift=8)
+    y, x = (40 if v in (7, 121) else v for v in window[:2])
+    inside = measure_shift(image, image, (y, x, 32, 32), max_shift=8)
+    assert inside["dy"] == pytest.approx(0.0, abs=1e-3)
+    assert inside["dx"] == pytest.approx(0.0, abs=1e-3)
+
+
+@pytest.mark.parametrize("window", [(40, 40, 1, 32), (40, 40, 32, 1)])
+def test_a_window_one_pixel_wide_is_refused(window):
+    image = _noise((160, 160), 7)
+    with pytest.raises(ValueError, match="at least 2 pixels on each side"):
+        measure_shift(image, image, window, max_shift=8)
+
+
+_GRID = [(0.0, 0.0), (0.0, 100.0), (100.0, 0.0), (100.0, 100.0)]
+
+
+def test_a_drift_under_one_pixel_is_a_constant_for_two_windows_and_for_four():
+    two = fit_shift(
+        [
+            {"y": 0.0, "x": 0.0, "dy": 2.0, "dx": 0.0},
+            {"y": 100.0, "x": 0.0, "dy": 2.7, "dx": 0.0},
+        ]
+    )
+    assert two["model"] == "constant" and two["ay"] == pytest.approx(2.35)
+    four = fit_shift([{"y": y, "x": x, "dy": 0.007 * y, "dx": 0.0} for y, x in _GRID])
+    assert four["model"] == "constant" and four["ay"] == pytest.approx(0.35)
+    assert four["sy"] == 0.0 and four["cy"] == 0.0
+    # each term is over the 0.25 px floor, and together they wander by 0.8 px
+    both = fit_shift(
+        [{"y": y, "x": x, "dy": 0.004 * y + 0.004 * x, "dx": 0.0} for y, x in _GRID]
+    )
+    assert both["model"] == "constant" and both["ay"] == pytest.approx(0.4)
+    assert both["sy"] == 0.0 and both["cy"] == 0.0
+
+
+def test_a_fitted_slope_of_half_a_pixel_per_pixel_is_not_a_canvas_residual():
+    with pytest.raises(ValueError, match=r"fitted y slope .* is outside \+/-0.5"):
+        fit_shift([{"y": y, "x": x, "dy": 0.6 * y, "dx": 0.0} for y, x in _GRID])
+    with pytest.raises(ValueError, match=r"fitted x slope .* is outside \+/-0.5"):
+        fit_shift([{"y": y, "x": x, "dy": 0.0, "dx": 0.6 * x} for y, x in _GRID])
+    # two windows fit each axis on its own, under the same bound
+    pair = [
+        {"y": 0.0, "x": 0.0, "dy": 0.0, "dx": 0.0},
+        {"y": 100.0, "x": 0.0, "dy": 60.0, "dx": 0.0},
+    ]
+    with pytest.raises(ValueError, match=r"fitted slope .* is outside \+/-0.5"):
+        fit_shift(pair)
+
+
+def test_centres_near_a_tilted_line_get_the_per_axis_fit():
+    """r squared is 0.94 here: over the 0.9 threshold, and well under 1."""
+    centres = [(0.0, 0.0), (100.0, 100.0), (200.0, 140.0)]
+    ys, xs = np.array(centres).T
+    r = np.corrcoef(ys, xs)[0, 1]
+    assert 0.9 < r * r < 0.99
+    with pytest.warns(UserWarning, match="each axis is fit on its own"):
+        fitted = fit_shift(
+            [{"y": y, "x": x, "dy": 0.02 * y, "dx": 0.0} for y, x in centres]
+        )
+    assert fitted["sy"] == pytest.approx(0.02) and fitted["cy"] == 0.0
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+@pytest.mark.parametrize("key", ["y", "x", "dy", "dx"])
+def test_a_region_with_a_non_finite_number_is_refused(key, bad):
+    region = {"y": 1.0, "x": 2.0, "dy": 0.5, "dx": -0.5, key: bad}
+    with pytest.raises(ValueError, match="must be finite"):
+        fit_shift([region])

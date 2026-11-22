@@ -1,0 +1,2480 @@
+{
+ "finding": 126,
+ "registration": "docs/preregistration/2026-11-20_first_letters_0358_band_read.md",
+ "registration_commit": "3c97310a",
+ "arm": "fulldense",
+ "quality_arm": "full",
+ "windings": 111,
+ "steps": {
+  "snap": {
+   "exit": 0,
+   "seconds": 911
+  },
+  "orient": {
+   "exit": 0,
+   "seconds": 6
+  },
+  "summarise": {
+   "exit": 0,
+   "seconds": 595
+  },
+  "flatten": {
+   "attempted": 111,
+   "exited_zero": 111,
+   "failed": [],
+   "seconds_total": 7809,
+   "seconds_median": 70,
+   "seconds_max": 92
+  },
+  "render": {
+   "attempted": 111,
+   "exited_zero": 111,
+   "failed": [],
+   "seconds_total": 14859,
+   "seconds_median": 137,
+   "seconds_max": 214
+  },
+  "studio": {
+   "attempted": 111,
+   "exited_zero": 111,
+   "failed": [],
+   "seconds_total": 24280,
+   "seconds_median": 248,
+   "seconds_max": 319
+  }
+ },
+ "render_orientation": {
+  "flip": 111,
+  "keep": [],
+  "share_of_normals_pointing_inward": {
+   "median": 0.961,
+   "min": 0.7804,
+   "max": 0.9975
+  }
+ },
+ "read": 111,
+ "reading_orientation": {
+  "unturned": 0,
+  "mirrored only": 111,
+  "upside down only": 0,
+  "both": 0
+ },
+ "ink_share": {
+  "median": 0.0745,
+  "min": 0.0238,
+  "max": 0.2034
+ },
+ "largest_tile_ink_share": {
+  "median": 0.4406,
+  "min": 0.028,
+  "max": 0.9359
+ },
+ "tiles_scored": 10536,
+ "windings_with_no_tile_scored": [],
+ "rendered_pixels": 1953341496,
+ "render_canvas_megapixels": {
+  "median": 38.9952,
+  "min": 5.7528,
+  "max": 50.5076
+ },
+ "bytes_on_disk": {
+  "renders": 171387688327,
+  "studio_maps": 15370062208
+ },
+ "inspection_order_first_ten": [
+  "w044",
+  "w065",
+  "w049",
+  "w098",
+  "w106",
+  "w047",
+  "w059",
+  "w113",
+  "w121",
+  "w103"
+ ],
+ "stacked": {
+  "line": 0.3,
+  "pairs": {
+   "w012-w013": 0.434,
+   "w013-w014": 0.4274,
+   "w016-w017": 0.4267,
+   "w017-w018": 0.2767,
+   "w018-w019": 0.1291,
+   "w019-w020": 0.0872,
+   "w020-w021": 0.083,
+   "w023-w024": 0.098,
+   "w024-w025": 0.0945,
+   "w025-w026": 0.1367,
+   "w026-w027": 0.1651,
+   "w027-w028": 0.1844,
+   "w028-w029": 0.2343,
+   "w029-w030": 0.1906,
+   "w030-w031": 0.2512,
+   "w033-w034": 0.3134,
+   "w034-w035": 0.4328,
+   "w035-w036": 0.3028,
+   "w036-w037": 0.3865,
+   "w039-w040": 0.1884,
+   "w040-w041": 0.2078,
+   "w044-w045": 0.1532,
+   "w045-w046": 0.1659,
+   "w046-w047": 0.1699,
+   "w047-w048": 0.1486,
+   "w048-w049": 0.1927,
+   "w049-w050": 0.1187,
+   "w050-w051": 0.0988,
+   "w051-w052": 0.1146,
+   "w052-w053": 0.1269,
+   "w053-w054": 0.1159,
+   "w054-w055": 0.105,
+   "w055-w056": 0.1311,
+   "w056-w057": 0.1334,
+   "w057-w058": 0.1465,
+   "w058-w059": 0.1754,
+   "w061-w062": 0.1646,
+   "w062-w063": 0.1328,
+   "w063-w064": 0.1104,
+   "w064-w065": 0.0901,
+   "w065-w066": 0.1025,
+   "w066-w067": 0.098,
+   "w067-w068": 0.1295,
+   "w068-w069": 0.1402,
+   "w069-w070": 0.1183,
+   "w070-w071": 0.1108,
+   "w071-w072": 0.1351,
+   "w072-w073": 0.1222,
+   "w073-w074": 0.127,
+   "w074-w075": 0.1453,
+   "w075-w076": 0.2052,
+   "w076-w077": 0.1732,
+   "w077-w078": 0.168,
+   "w078-w079": 0.2318,
+   "w079-w080": 0.157,
+   "w080-w081": 0.1163,
+   "w081-w082": 0.1688,
+   "w082-w083": 0.1435,
+   "w083-w084": 0.1595,
+   "w084-w085": 0.1492,
+   "w085-w086": 0.1388,
+   "w086-w087": 0.1346,
+   "w087-w088": 0.1207,
+   "w088-w089": 0.1469,
+   "w089-w090": 0.1283,
+   "w090-w091": 0.1473,
+   "w091-w092": 0.1128,
+   "w092-w093": 0.1568,
+   "w093-w094": 0.1117,
+   "w094-w095": 0.1287,
+   "w095-w096": 0.1074,
+   "w096-w097": 0.1185,
+   "w097-w098": 0.0939,
+   "w098-w099": 0.1266,
+   "w099-w100": 0.1326,
+   "w100-w101": 0.092,
+   "w101-w102": 0.0987,
+   "w102-w103": 0.0763,
+   "w103-w104": 0.095,
+   "w104-w105": 0.0871,
+   "w105-w106": 0.0705,
+   "w106-w107": 0.0885,
+   "w107-w108": 0.0999,
+   "w108-w109": 0.1152,
+   "w109-w110": 0.1058,
+   "w110-w111": 0.1024,
+   "w111-w112": 0.1195,
+   "w112-w113": 0.2063,
+   "w113-w114": 0.1626,
+   "w114-w115": 0.1631,
+   "w115-w116": 0.1067,
+   "w116-w117": 0.1083,
+   "w117-w118": 0.1277,
+   "w118-w119": 0.1061,
+   "w119-w120": 0.0975,
+   "w120-w121": 0.0936,
+   "w121-w122": 0.1026,
+   "w122-w123": 0.1481,
+   "w123-w124": 0.1787,
+   "w124-w125": 0.2702,
+   "w125-w126": 0.2369,
+   "w126-w127": 0.1269,
+   "w127-w128": 0.115,
+   "w128-w129": 0.1365
+  },
+  "stacked": [
+   "w012-w013",
+   "w013-w014",
+   "w016-w017",
+   "w033-w034",
+   "w034-w035",
+   "w035-w036",
+   "w036-w037"
+  ]
+ },
+ "geometry": {
+  "windings": 111,
+  "inward_against_axis": {
+   "median": 0.961,
+   "min": 0.7804,
+   "max": 0.9975
+  },
+  "inward_against_band_centre_median": 0.9457,
+  "snapped_inward_against_axis_median": 0.9776,
+  "trusted_median": 0.68,
+  "other_side_median": 0.022,
+  "predicted_sheet_within_2_median": {
+   "snapped": 0.7635,
+   "final": 0.7199
+  },
+  "predicted_sheet_on_sheet_median": {
+   "snapped": 0.588,
+   "final": 0.541
+  },
+  "final_within_2_by_radius_tercile_median": [
+   0.728,
+   0.7245,
+   0.7109
+  ],
+  "on_snapped_triangles_median": 0.9982,
+  "rendered_against_the_axis_rule": []
+ },
+ "gpu_peak_mib_all_processes": 14481,
+ "gpu_samples": {
+  "count": 359,
+  "first_epoch": 1795286053,
+  "last_epoch": 1795293303
+ },
+ "chain": {
+  "steps": {
+   "densify": {
+    "exit": 0,
+    "seconds": 23
+   },
+   "fetch_tracks": {
+    "exit": 0,
+    "seconds": 418
+   },
+   "fetch_volumes": {
+    "exit": 0,
+    "seconds": 2198
+   },
+   "fit_full": {
+    "exit": 0,
+    "seconds": 11690
+   },
+   "fit_smoke": {
+    "exit": 0,
+    "seconds": 402
+   },
+   "make_dataset": {
+    "exit": 0,
+    "seconds": 1
+   },
+   "quality": {
+    "exit": 0,
+    "seconds": 441
+   },
+   "read": {
+    "exit": 0,
+    "seconds": 48489
+   },
+   "sdt": {
+    "exit": 0,
+    "seconds": 898
+   },
+   "select": {
+    "exit": 0,
+    "seconds": 1
+   }
+  },
+  "seconds": 64561,
+  "bytes_on_disk": {
+   "inputs": 10438538466,
+   "tracks": 13613538263
+  }
+ },
+ "fit": {
+  "steps": {
+   "setup/distance_field": {
+    "exit": 0,
+    "seconds": 898
+   },
+   "smoke/fit": {
+    "exit": 0,
+    "seconds": 401,
+    "steps": 300,
+    "gpu_peak_mib_all_processes": 12015
+   },
+   "full/fit": {
+    "exit": 0,
+    "seconds": 11690,
+    "steps": 30000,
+    "gpu_peak_mib_all_processes": 13019
+   }
+  },
+  "smoke": {
+   "windings": 120,
+   "windings_scored": 120,
+   "excess_median": 0.0,
+   "excess_p10": -0.0038,
+   "excess_p90": 0.0046,
+   "share_of_windings_with_positive_excess": 0.5,
+   "on_sheet_median": 0.2153
+  },
+  "full": {
+   "windings": 120,
+   "windings_scored": 120,
+   "excess_median": 0.0863,
+   "excess_p10": 0.0175,
+   "excess_p90": 0.1415,
+   "share_of_windings_with_positive_excess": 0.925,
+   "on_sheet_median": 0.2979
+  },
+  "p1": true,
+  "p2": true,
+  "verdict": "ON_SHEETS",
+  "full_by_index": [
+   {
+    "first": 10,
+    "last": 49,
+    "windings": 40,
+    "excess_median": 0.0604,
+    "positive": 0.8,
+    "at_least_p1_median": 18,
+    "on_sheet_median": 0.2835,
+    "nodes_scored_median": 10986
+   },
+   {
+    "first": 50,
+    "last": 89,
+    "windings": 40,
+    "excess_median": 0.0889,
+    "positive": 0.975,
+    "at_least_p1_median": 27,
+    "on_sheet_median": 0.3102,
+    "nodes_scored_median": 25600
+   },
+   {
+    "first": 90,
+    "last": 129,
+    "windings": 40,
+    "excess_median": 0.1066,
+    "positive": 1.0,
+    "at_least_p1_median": 31,
+    "on_sheet_median": 0.2964,
+    "nodes_scored_median": 40186
+   }
+  ]
+ },
+ "by_winding": {
+  "w012": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8092,
+   "excess": 0.0352,
+   "geometry": {
+    "trusted": 0.3521,
+    "other_side": 0.0991,
+    "inward_against_axis": 0.8092,
+    "final_within_2": 0.4485
+   },
+   "read": true,
+   "render_canvas_megapixels": 5.7528,
+   "ink_share": 0.0245,
+   "largest_tile_ink_share": 0.0345,
+   "tiles_scored": 5,
+   "rendered_pixels": 2047321,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w013": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8115,
+   "excess": 0.0064,
+   "geometry": {
+    "trusted": 0.3925,
+    "other_side": 0.0983,
+    "inward_against_axis": 0.8115,
+    "final_within_2": 0.4873
+   },
+   "read": true,
+   "render_canvas_megapixels": 6.4464,
+   "ink_share": 0.0304,
+   "largest_tile_ink_share": 0.0575,
+   "tiles_scored": 7,
+   "rendered_pixels": 2268765,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w014": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8054,
+   "excess": 0.0519,
+   "geometry": {
+    "trusted": 0.4262,
+    "other_side": 0.1067,
+    "inward_against_axis": 0.8054,
+    "final_within_2": 0.5282
+   },
+   "read": true,
+   "render_canvas_megapixels": 7.2128,
+   "ink_share": 0.0322,
+   "largest_tile_ink_share": 0.0929,
+   "tiles_scored": 9,
+   "rendered_pixels": 2582387,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w016": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.7804,
+   "excess": 0.0188,
+   "geometry": {
+    "trusted": 0.5203,
+    "other_side": 0.1246,
+    "inward_against_axis": 0.7804,
+    "final_within_2": 0.6478
+   },
+   "read": true,
+   "render_canvas_megapixels": 8.216,
+   "ink_share": 0.0747,
+   "largest_tile_ink_share": 0.335,
+   "tiles_scored": 14,
+   "rendered_pixels": 3442696,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w017": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8083,
+   "excess": 0.015,
+   "geometry": {
+    "trusted": 0.5528,
+    "other_side": 0.113,
+    "inward_against_axis": 0.8083,
+    "final_within_2": 0.6678
+   },
+   "read": true,
+   "render_canvas_megapixels": 9.24,
+   "ink_share": 0.0451,
+   "largest_tile_ink_share": 0.221,
+   "tiles_scored": 15,
+   "rendered_pixels": 3459043,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w018": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8187,
+   "excess": 0.0178,
+   "geometry": {
+    "trusted": 0.5758,
+    "other_side": 0.1099,
+    "inward_against_axis": 0.8187,
+    "final_within_2": 0.6868
+   },
+   "read": true,
+   "render_canvas_megapixels": 10.3428,
+   "ink_share": 0.0414,
+   "largest_tile_ink_share": 0.028,
+   "tiles_scored": 17,
+   "rendered_pixels": 3904370,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w019": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.835,
+   "excess": 0.1199,
+   "geometry": {
+    "trusted": 0.6022,
+    "other_side": 0.1025,
+    "inward_against_axis": 0.835,
+    "final_within_2": 0.7046
+   },
+   "read": true,
+   "render_canvas_megapixels": 11.6256,
+   "ink_share": 0.0451,
+   "largest_tile_ink_share": 0.111,
+   "tiles_scored": 20,
+   "rendered_pixels": 4551972,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w020": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.843,
+   "excess": 0.1125,
+   "geometry": {
+    "trusted": 0.6642,
+    "other_side": 0.1002,
+    "inward_against_axis": 0.843,
+    "final_within_2": 0.761
+   },
+   "read": true,
+   "render_canvas_megapixels": 11.968,
+   "ink_share": 0.0379,
+   "largest_tile_ink_share": 0.1019,
+   "tiles_scored": 22,
+   "rendered_pixels": 4834907,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w021": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.844,
+   "excess": 0.089,
+   "geometry": {
+    "trusted": 0.6369,
+    "other_side": 0.0921,
+    "inward_against_axis": 0.844,
+    "final_within_2": 0.7273
+   },
+   "read": true,
+   "render_canvas_megapixels": 12.8592,
+   "ink_share": 0.0314,
+   "largest_tile_ink_share": 0.2675,
+   "tiles_scored": 25,
+   "rendered_pixels": 5467773,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w023": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8361,
+   "excess": 0.1242,
+   "geometry": {
+    "trusted": 0.6281,
+    "other_side": 0.0915,
+    "inward_against_axis": 0.8361,
+    "final_within_2": 0.7193
+   },
+   "read": true,
+   "render_canvas_megapixels": 14.5152,
+   "ink_share": 0.0591,
+   "largest_tile_ink_share": 0.4228,
+   "tiles_scored": 37,
+   "rendered_pixels": 6976900,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w024": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.845,
+   "excess": 0.0367,
+   "geometry": {
+    "trusted": 0.6158,
+    "other_side": 0.0831,
+    "inward_against_axis": 0.845,
+    "final_within_2": 0.6972
+   },
+   "read": true,
+   "render_canvas_megapixels": 15.12,
+   "ink_share": 0.115,
+   "largest_tile_ink_share": 0.6383,
+   "tiles_scored": 36,
+   "rendered_pixels": 7243584,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w025": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8448,
+   "excess": 0.1771,
+   "geometry": {
+    "trusted": 0.6392,
+    "other_side": 0.0909,
+    "inward_against_axis": 0.8448,
+    "final_within_2": 0.7278
+   },
+   "read": true,
+   "render_canvas_megapixels": 15.912,
+   "ink_share": 0.1125,
+   "largest_tile_ink_share": 0.3483,
+   "tiles_scored": 35,
+   "rendered_pixels": 7361345,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w026": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.858,
+   "excess": 0.0541,
+   "geometry": {
+    "trusted": 0.6399,
+    "other_side": 0.0858,
+    "inward_against_axis": 0.858,
+    "final_within_2": 0.725
+   },
+   "read": true,
+   "render_canvas_megapixels": 16.456,
+   "ink_share": 0.1054,
+   "largest_tile_ink_share": 0.4679,
+   "tiles_scored": 37,
+   "rendered_pixels": 7541595,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w027": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.865,
+   "excess": 0.0667,
+   "geometry": {
+    "trusted": 0.6315,
+    "other_side": 0.0844,
+    "inward_against_axis": 0.865,
+    "final_within_2": 0.7147
+   },
+   "read": true,
+   "render_canvas_megapixels": 16.8324,
+   "ink_share": 0.0444,
+   "largest_tile_ink_share": 0.1637,
+   "tiles_scored": 39,
+   "rendered_pixels": 7763371,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w028": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8705,
+   "excess": 0.1056,
+   "geometry": {
+    "trusted": 0.6308,
+    "other_side": 0.0788,
+    "inward_against_axis": 0.8705,
+    "final_within_2": 0.7083
+   },
+   "read": true,
+   "render_canvas_megapixels": 16.8592,
+   "ink_share": 0.0296,
+   "largest_tile_ink_share": 0.164,
+   "tiles_scored": 40,
+   "rendered_pixels": 8068784,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w029": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8751,
+   "excess": 0.0453,
+   "geometry": {
+    "trusted": 0.6493,
+    "other_side": 0.0724,
+    "inward_against_axis": 0.8751,
+    "final_within_2": 0.7225
+   },
+   "read": true,
+   "render_canvas_megapixels": 16.7268,
+   "ink_share": 0.0344,
+   "largest_tile_ink_share": 0.2172,
+   "tiles_scored": 43,
+   "rendered_pixels": 8331040,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w030": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8874,
+   "excess": 0.0778,
+   "geometry": {
+    "trusted": 0.6719,
+    "other_side": 0.0746,
+    "inward_against_axis": 0.8874,
+    "final_within_2": 0.746
+   },
+   "read": true,
+   "render_canvas_megapixels": 17.152,
+   "ink_share": 0.0421,
+   "largest_tile_ink_share": 0.169,
+   "tiles_scored": 40,
+   "rendered_pixels": 8147440,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w031": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.889,
+   "excess": 0.0991,
+   "geometry": {
+    "trusted": 0.6948,
+    "other_side": 0.07,
+    "inward_against_axis": 0.889,
+    "final_within_2": 0.7653
+   },
+   "read": true,
+   "render_canvas_megapixels": 17.7744,
+   "ink_share": 0.0475,
+   "largest_tile_ink_share": 0.2668,
+   "tiles_scored": 43,
+   "rendered_pixels": 8346091,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w033": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8921,
+   "excess": 0.0774,
+   "geometry": {
+    "trusted": 0.6892,
+    "other_side": 0.0666,
+    "inward_against_axis": 0.8921,
+    "final_within_2": 0.7562
+   },
+   "read": true,
+   "render_canvas_megapixels": 18.5712,
+   "ink_share": 0.0745,
+   "largest_tile_ink_share": 0.2622,
+   "tiles_scored": 44,
+   "rendered_pixels": 8938704,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w034": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.895,
+   "excess": 0.0708,
+   "geometry": {
+    "trusted": 0.6577,
+    "other_side": 0.0603,
+    "inward_against_axis": 0.895,
+    "final_within_2": 0.7188
+   },
+   "read": true,
+   "render_canvas_megapixels": 19.0164,
+   "ink_share": 0.0956,
+   "largest_tile_ink_share": 0.3792,
+   "tiles_scored": 45,
+   "rendered_pixels": 9138612,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w035": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8955,
+   "excess": 0.0318,
+   "geometry": {
+    "trusted": 0.6448,
+    "other_side": 0.0634,
+    "inward_against_axis": 0.8955,
+    "final_within_2": 0.709
+   },
+   "read": true,
+   "render_canvas_megapixels": 20.0164,
+   "ink_share": 0.1087,
+   "largest_tile_ink_share": 0.4252,
+   "tiles_scored": 45,
+   "rendered_pixels": 9188663,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w036": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8974,
+   "excess": 0.0129,
+   "geometry": {
+    "trusted": 0.641,
+    "other_side": 0.0564,
+    "inward_against_axis": 0.8974,
+    "final_within_2": 0.6964
+   },
+   "read": true,
+   "render_canvas_megapixels": 19.9712,
+   "ink_share": 0.0885,
+   "largest_tile_ink_share": 0.3939,
+   "tiles_scored": 51,
+   "rendered_pixels": 9647860,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w037": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8967,
+   "excess": 0.123,
+   "geometry": {
+    "trusted": 0.6871,
+    "other_side": 0.0639,
+    "inward_against_axis": 0.8967,
+    "final_within_2": 0.7499
+   },
+   "read": true,
+   "render_canvas_megapixels": 21.3856,
+   "ink_share": 0.0992,
+   "largest_tile_ink_share": 0.377,
+   "tiles_scored": 50,
+   "rendered_pixels": 9824904,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w039": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8993,
+   "excess": 0.2313,
+   "geometry": {
+    "trusted": 0.7078,
+    "other_side": 0.0584,
+    "inward_against_axis": 0.8993,
+    "final_within_2": 0.7661
+   },
+   "read": true,
+   "render_canvas_megapixels": 22.336,
+   "ink_share": 0.1319,
+   "largest_tile_ink_share": 0.4989,
+   "tiles_scored": 52,
+   "rendered_pixels": 10532455,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w040": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8946,
+   "excess": 0.081,
+   "geometry": {
+    "trusted": 0.6874,
+    "other_side": 0.0615,
+    "inward_against_axis": 0.8946,
+    "final_within_2": 0.7485
+   },
+   "read": true,
+   "render_canvas_megapixels": 23.168,
+   "ink_share": 0.1027,
+   "largest_tile_ink_share": 0.6081,
+   "tiles_scored": 61,
+   "rendered_pixels": 11159436,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w041": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8914,
+   "excess": 0.1042,
+   "geometry": {
+    "trusted": 0.6796,
+    "other_side": 0.0618,
+    "inward_against_axis": 0.8914,
+    "final_within_2": 0.7425
+   },
+   "read": true,
+   "render_canvas_megapixels": 24.0856,
+   "ink_share": 0.1148,
+   "largest_tile_ink_share": 0.4931,
+   "tiles_scored": 59,
+   "rendered_pixels": 11615094,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w044": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8864,
+   "excess": 0.1252,
+   "geometry": {
+    "trusted": 0.6782,
+    "other_side": 0.0706,
+    "inward_against_axis": 0.8864,
+    "final_within_2": 0.7504
+   },
+   "read": true,
+   "render_canvas_megapixels": 25.472,
+   "ink_share": 0.2034,
+   "largest_tile_ink_share": 0.9359,
+   "tiles_scored": 65,
+   "rendered_pixels": 12388697,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w045": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8864,
+   "excess": 0.067,
+   "geometry": {
+    "trusted": 0.6821,
+    "other_side": 0.0703,
+    "inward_against_axis": 0.8864,
+    "final_within_2": 0.753
+   },
+   "read": true,
+   "render_canvas_megapixels": 26.048,
+   "ink_share": 0.1351,
+   "largest_tile_ink_share": 0.5201,
+   "tiles_scored": 67,
+   "rendered_pixels": 12517024,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w046": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8902,
+   "excess": 0.1426,
+   "geometry": {
+    "trusted": 0.6818,
+    "other_side": 0.0681,
+    "inward_against_axis": 0.8902,
+    "final_within_2": 0.75
+   },
+   "read": true,
+   "render_canvas_megapixels": 26.726,
+   "ink_share": 0.1325,
+   "largest_tile_ink_share": 0.587,
+   "tiles_scored": 68,
+   "rendered_pixels": 12710452,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w047": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8884,
+   "excess": 0.1282,
+   "geometry": {
+    "trusted": 0.6753,
+    "other_side": 0.0699,
+    "inward_against_axis": 0.8884,
+    "final_within_2": 0.7459
+   },
+   "read": true,
+   "render_canvas_megapixels": 27.2,
+   "ink_share": 0.142,
+   "largest_tile_ink_share": 0.6837,
+   "tiles_scored": 71,
+   "rendered_pixels": 13070719,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w048": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8876,
+   "excess": 0.074,
+   "geometry": {
+    "trusted": 0.6583,
+    "other_side": 0.0718,
+    "inward_against_axis": 0.8876,
+    "final_within_2": 0.7292
+   },
+   "read": true,
+   "render_canvas_megapixels": 28.188,
+   "ink_share": 0.1203,
+   "largest_tile_ink_share": 0.5677,
+   "tiles_scored": 75,
+   "rendered_pixels": 13495187,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w049": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8869,
+   "excess": 0.043,
+   "geometry": {
+    "trusted": 0.6503,
+    "other_side": 0.0719,
+    "inward_against_axis": 0.8869,
+    "final_within_2": 0.7225
+   },
+   "read": true,
+   "render_canvas_megapixels": 30.1496,
+   "ink_share": 0.123,
+   "largest_tile_ink_share": 0.7593,
+   "tiles_scored": 78,
+   "rendered_pixels": 13866552,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w050": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8857,
+   "excess": 0.1415,
+   "geometry": {
+    "trusted": 0.6731,
+    "other_side": 0.0698,
+    "inward_against_axis": 0.8857,
+    "final_within_2": 0.743
+   },
+   "read": true,
+   "render_canvas_megapixels": 29.964,
+   "ink_share": 0.098,
+   "largest_tile_ink_share": 0.5209,
+   "tiles_scored": 77,
+   "rendered_pixels": 14072610,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w051": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8892,
+   "excess": 0.1303,
+   "geometry": {
+    "trusted": 0.6792,
+    "other_side": 0.0703,
+    "inward_against_axis": 0.8892,
+    "final_within_2": 0.7499
+   },
+   "read": true,
+   "render_canvas_megapixels": 31.1808,
+   "ink_share": 0.1026,
+   "largest_tile_ink_share": 0.4378,
+   "tiles_scored": 79,
+   "rendered_pixels": 14377582,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w052": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.89,
+   "excess": 0.0542,
+   "geometry": {
+    "trusted": 0.6711,
+    "other_side": 0.0667,
+    "inward_against_axis": 0.89,
+    "final_within_2": 0.7381
+   },
+   "read": true,
+   "render_canvas_megapixels": 32.11,
+   "ink_share": 0.1435,
+   "largest_tile_ink_share": 0.42,
+   "tiles_scored": 80,
+   "rendered_pixels": 14816197,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w053": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8952,
+   "excess": 0.0766,
+   "geometry": {
+    "trusted": 0.663,
+    "other_side": 0.0666,
+    "inward_against_axis": 0.8952,
+    "final_within_2": 0.7304
+   },
+   "read": true,
+   "render_canvas_megapixels": 31.3632,
+   "ink_share": 0.1262,
+   "largest_tile_ink_share": 0.3924,
+   "tiles_scored": 84,
+   "rendered_pixels": 15212841,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w054": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8965,
+   "excess": 0.0546,
+   "geometry": {
+    "trusted": 0.6587,
+    "other_side": 0.0618,
+    "inward_against_axis": 0.8965,
+    "final_within_2": 0.722
+   },
+   "read": true,
+   "render_canvas_megapixels": 32.472,
+   "ink_share": 0.1396,
+   "largest_tile_ink_share": 0.4697,
+   "tiles_scored": 86,
+   "rendered_pixels": 15399071,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w055": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.8968,
+   "excess": 0.0912,
+   "geometry": {
+    "trusted": 0.6546,
+    "other_side": 0.0603,
+    "inward_against_axis": 0.8968,
+    "final_within_2": 0.7157
+   },
+   "read": true,
+   "render_canvas_megapixels": 34.4,
+   "ink_share": 0.13,
+   "largest_tile_ink_share": 0.5287,
+   "tiles_scored": 85,
+   "rendered_pixels": 15746492,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w056": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9013,
+   "excess": 0.1674,
+   "geometry": {
+    "trusted": 0.6782,
+    "other_side": 0.0563,
+    "inward_against_axis": 0.9013,
+    "final_within_2": 0.735
+   },
+   "read": true,
+   "render_canvas_megapixels": 32.7152,
+   "ink_share": 0.1674,
+   "largest_tile_ink_share": 0.5715,
+   "tiles_scored": 90,
+   "rendered_pixels": 15918728,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w057": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9096,
+   "excess": 0.0789,
+   "geometry": {
+    "trusted": 0.6115,
+    "other_side": 0.0481,
+    "inward_against_axis": 0.9096,
+    "final_within_2": 0.6625
+   },
+   "read": true,
+   "render_canvas_megapixels": 33.024,
+   "ink_share": 0.1206,
+   "largest_tile_ink_share": 0.5192,
+   "tiles_scored": 93,
+   "rendered_pixels": 16452892,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w058": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9153,
+   "excess": 0.1253,
+   "geometry": {
+    "trusted": 0.6703,
+    "other_side": 0.0471,
+    "inward_against_axis": 0.9153,
+    "final_within_2": 0.718
+   },
+   "read": true,
+   "render_canvas_megapixels": 33.488,
+   "ink_share": 0.1272,
+   "largest_tile_ink_share": 0.4665,
+   "tiles_scored": 89,
+   "rendered_pixels": 16298560,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w059": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9128,
+   "excess": 0.0516,
+   "geometry": {
+    "trusted": 0.6493,
+    "other_side": 0.0489,
+    "inward_against_axis": 0.9128,
+    "final_within_2": 0.6993
+   },
+   "read": true,
+   "render_canvas_megapixels": 33.5172,
+   "ink_share": 0.1247,
+   "largest_tile_ink_share": 0.6689,
+   "tiles_scored": 99,
+   "rendered_pixels": 16742043,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w061": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9204,
+   "excess": 0.1024,
+   "geometry": {
+    "trusted": 0.6498,
+    "other_side": 0.0421,
+    "inward_against_axis": 0.9204,
+    "final_within_2": 0.6911
+   },
+   "read": true,
+   "render_canvas_megapixels": 34.3176,
+   "ink_share": 0.1053,
+   "largest_tile_ink_share": 0.4348,
+   "tiles_scored": 94,
+   "rendered_pixels": 16974848,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w062": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9209,
+   "excess": 0.1125,
+   "geometry": {
+    "trusted": 0.6867,
+    "other_side": 0.0448,
+    "inward_against_axis": 0.9209,
+    "final_within_2": 0.7301
+   },
+   "read": true,
+   "render_canvas_megapixels": 35.5488,
+   "ink_share": 0.0991,
+   "largest_tile_ink_share": 0.5517,
+   "tiles_scored": 95,
+   "rendered_pixels": 17072777,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w063": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.921,
+   "excess": 0.0662,
+   "geometry": {
+    "trusted": 0.6884,
+    "other_side": 0.0454,
+    "inward_against_axis": 0.921,
+    "final_within_2": 0.7337
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.736,
+   "ink_share": 0.0953,
+   "largest_tile_ink_share": 0.5142,
+   "tiles_scored": 99,
+   "rendered_pixels": 17349037,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w064": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9216,
+   "excess": 0.1018,
+   "geometry": {
+    "trusted": 0.7122,
+    "other_side": 0.0473,
+    "inward_against_axis": 0.9216,
+    "final_within_2": 0.7598
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.224,
+   "ink_share": 0.1061,
+   "largest_tile_ink_share": 0.4186,
+   "tiles_scored": 94,
+   "rendered_pixels": 17386843,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w065": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9211,
+   "excess": 0.1263,
+   "geometry": {
+    "trusted": 0.7247,
+    "other_side": 0.0489,
+    "inward_against_axis": 0.9211,
+    "final_within_2": 0.7736
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.1952,
+   "ink_share": 0.1071,
+   "largest_tile_ink_share": 0.815,
+   "tiles_scored": 94,
+   "rendered_pixels": 17594611,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w066": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9264,
+   "excess": 0.0959,
+   "geometry": {
+    "trusted": 0.7081,
+    "other_side": 0.0467,
+    "inward_against_axis": 0.9264,
+    "final_within_2": 0.7554
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.0152,
+   "ink_share": 0.0538,
+   "largest_tile_ink_share": 0.335,
+   "tiles_scored": 97,
+   "rendered_pixels": 17787463,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w067": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9299,
+   "excess": 0.1139,
+   "geometry": {
+    "trusted": 0.726,
+    "other_side": 0.0438,
+    "inward_against_axis": 0.9299,
+    "final_within_2": 0.7689
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.94,
+   "ink_share": 0.0462,
+   "largest_tile_ink_share": 0.3403,
+   "tiles_scored": 99,
+   "rendered_pixels": 17990672,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w068": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9347,
+   "excess": 0.0571,
+   "geometry": {
+    "trusted": 0.7108,
+    "other_side": 0.0385,
+    "inward_against_axis": 0.9347,
+    "final_within_2": 0.7492
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.3572,
+   "ink_share": 0.0745,
+   "largest_tile_ink_share": 0.3818,
+   "tiles_scored": 97,
+   "rendered_pixels": 18254330,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w069": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9373,
+   "excess": 0.0844,
+   "geometry": {
+    "trusted": 0.7122,
+    "other_side": 0.04,
+    "inward_against_axis": 0.9373,
+    "final_within_2": 0.7521
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.7044,
+   "ink_share": 0.0731,
+   "largest_tile_ink_share": 0.4923,
+   "tiles_scored": 104,
+   "rendered_pixels": 18540625,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w070": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9431,
+   "excess": 0.0965,
+   "geometry": {
+    "trusted": 0.71,
+    "other_side": 0.0352,
+    "inward_against_axis": 0.9431,
+    "final_within_2": 0.7455
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.656,
+   "ink_share": 0.0801,
+   "largest_tile_ink_share": 0.3904,
+   "tiles_scored": 103,
+   "rendered_pixels": 18514388,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w071": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9493,
+   "excess": 0.1259,
+   "geometry": {
+    "trusted": 0.7237,
+    "other_side": 0.0294,
+    "inward_against_axis": 0.9493,
+    "final_within_2": 0.7536
+   },
+   "read": true,
+   "render_canvas_megapixels": 41.48,
+   "ink_share": 0.0929,
+   "largest_tile_ink_share": 0.6217,
+   "tiles_scored": 103,
+   "rendered_pixels": 18741445,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w072": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9558,
+   "excess": 0.0295,
+   "geometry": {
+    "trusted": 0.7015,
+    "other_side": 0.0256,
+    "inward_against_axis": 0.9558,
+    "final_within_2": 0.7276
+   },
+   "read": true,
+   "render_canvas_megapixels": 41.5064,
+   "ink_share": 0.0905,
+   "largest_tile_ink_share": 0.5064,
+   "tiles_scored": 103,
+   "rendered_pixels": 18910034,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w073": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.957,
+   "excess": 0.0748,
+   "geometry": {
+    "trusted": 0.7102,
+    "other_side": 0.0247,
+    "inward_against_axis": 0.957,
+    "final_within_2": 0.7348
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.3588,
+   "ink_share": 0.0886,
+   "largest_tile_ink_share": 0.4757,
+   "tiles_scored": 106,
+   "rendered_pixels": 19075192,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w074": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.961,
+   "excess": 0.0973,
+   "geometry": {
+    "trusted": 0.707,
+    "other_side": 0.022,
+    "inward_against_axis": 0.961,
+    "final_within_2": 0.7302
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.6848,
+   "ink_share": 0.1098,
+   "largest_tile_ink_share": 0.6156,
+   "tiles_scored": 104,
+   "rendered_pixels": 19191320,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w075": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9649,
+   "excess": 0.1115,
+   "geometry": {
+    "trusted": 0.7069,
+    "other_side": 0.0216,
+    "inward_against_axis": 0.9649,
+    "final_within_2": 0.729
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.064,
+   "ink_share": 0.0864,
+   "largest_tile_ink_share": 0.6243,
+   "tiles_scored": 105,
+   "rendered_pixels": 19171355,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w076": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9685,
+   "excess": 0.0663,
+   "geometry": {
+    "trusted": 0.68,
+    "other_side": 0.0166,
+    "inward_against_axis": 0.9685,
+    "final_within_2": 0.698
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.2368,
+   "ink_share": 0.0702,
+   "largest_tile_ink_share": 0.6323,
+   "tiles_scored": 111,
+   "rendered_pixels": 19590341,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w077": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9715,
+   "excess": 0.0676,
+   "geometry": {
+    "trusted": 0.6591,
+    "other_side": 0.017,
+    "inward_against_axis": 0.9715,
+    "final_within_2": 0.6781
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.8008,
+   "ink_share": 0.0564,
+   "largest_tile_ink_share": 0.4281,
+   "tiles_scored": 111,
+   "rendered_pixels": 19717819,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w078": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9741,
+   "excess": 0.0663,
+   "geometry": {
+    "trusted": 0.6923,
+    "other_side": 0.0139,
+    "inward_against_axis": 0.9741,
+    "final_within_2": 0.7068
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.2008,
+   "ink_share": 0.0854,
+   "largest_tile_ink_share": 0.4363,
+   "tiles_scored": 110,
+   "rendered_pixels": 19844743,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w079": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.978,
+   "excess": 0.1458,
+   "geometry": {
+    "trusted": 0.7304,
+    "other_side": 0.0129,
+    "inward_against_axis": 0.978,
+    "final_within_2": 0.7435
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.768,
+   "ink_share": 0.0735,
+   "largest_tile_ink_share": 0.5359,
+   "tiles_scored": 108,
+   "rendered_pixels": 19578480,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w080": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9808,
+   "excess": 0.0929,
+   "geometry": {
+    "trusted": 0.7225,
+    "other_side": 0.0107,
+    "inward_against_axis": 0.9808,
+    "final_within_2": 0.7342
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.376,
+   "ink_share": 0.0605,
+   "largest_tile_ink_share": 0.4566,
+   "tiles_scored": 105,
+   "rendered_pixels": 19536590,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w081": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9831,
+   "excess": 0.0235,
+   "geometry": {
+    "trusted": 0.7068,
+    "other_side": 0.0093,
+    "inward_against_axis": 0.9831,
+    "final_within_2": 0.7171
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.0788,
+   "ink_share": 0.064,
+   "largest_tile_ink_share": 0.4819,
+   "tiles_scored": 106,
+   "rendered_pixels": 19953096,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w082": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9803,
+   "excess": 0.0717,
+   "geometry": {
+    "trusted": 0.708,
+    "other_side": 0.0117,
+    "inward_against_axis": 0.9803,
+    "final_within_2": 0.7209
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.0976,
+   "ink_share": 0.0632,
+   "largest_tile_ink_share": 0.5963,
+   "tiles_scored": 111,
+   "rendered_pixels": 20071802,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w083": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9802,
+   "excess": 0.1124,
+   "geometry": {
+    "trusted": 0.7235,
+    "other_side": 0.0122,
+    "inward_against_axis": 0.9802,
+    "final_within_2": 0.7355
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.3712,
+   "ink_share": 0.0678,
+   "largest_tile_ink_share": 0.4048,
+   "tiles_scored": 111,
+   "rendered_pixels": 20148182,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w084": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9773,
+   "excess": 0.0442,
+   "geometry": {
+    "trusted": 0.7069,
+    "other_side": 0.0129,
+    "inward_against_axis": 0.9773,
+    "final_within_2": 0.7207
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.9792,
+   "ink_share": 0.0749,
+   "largest_tile_ink_share": 0.6183,
+   "tiles_scored": 114,
+   "rendered_pixels": 20586994,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w085": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9842,
+   "excess": 0.0308,
+   "geometry": {
+    "trusted": 0.712,
+    "other_side": 0.0082,
+    "inward_against_axis": 0.9842,
+    "final_within_2": 0.7213
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.9952,
+   "ink_share": 0.0639,
+   "largest_tile_ink_share": 0.4928,
+   "tiles_scored": 110,
+   "rendered_pixels": 20558449,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w086": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9852,
+   "excess": 0.0855,
+   "geometry": {
+    "trusted": 0.7301,
+    "other_side": 0.0075,
+    "inward_against_axis": 0.9852,
+    "final_within_2": 0.7386
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.9648,
+   "ink_share": 0.0691,
+   "largest_tile_ink_share": 0.4036,
+   "tiles_scored": 115,
+   "rendered_pixels": 20944232,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w087": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9851,
+   "excess": 0.0866,
+   "geometry": {
+    "trusted": 0.727,
+    "other_side": 0.0083,
+    "inward_against_axis": 0.9851,
+    "final_within_2": 0.7364
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.3368,
+   "ink_share": 0.0551,
+   "largest_tile_ink_share": 0.3123,
+   "tiles_scored": 112,
+   "rendered_pixels": 20741098,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w088": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9854,
+   "excess": 0.0964,
+   "geometry": {
+    "trusted": 0.7096,
+    "other_side": 0.0088,
+    "inward_against_axis": 0.9854,
+    "final_within_2": 0.7199
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.1416,
+   "ink_share": 0.0749,
+   "largest_tile_ink_share": 0.6244,
+   "tiles_scored": 116,
+   "rendered_pixels": 21057924,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w089": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9849,
+   "excess": 0.0949,
+   "geometry": {
+    "trusted": 0.6949,
+    "other_side": 0.0098,
+    "inward_against_axis": 0.9849,
+    "final_within_2": 0.7072
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.1544,
+   "ink_share": 0.0746,
+   "largest_tile_ink_share": 0.5121,
+   "tiles_scored": 117,
+   "rendered_pixels": 21191094,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w090": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9848,
+   "excess": 0.051,
+   "geometry": {
+    "trusted": 0.7317,
+    "other_side": 0.0095,
+    "inward_against_axis": 0.9848,
+    "final_within_2": 0.7429
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.8184,
+   "ink_share": 0.0607,
+   "largest_tile_ink_share": 0.3603,
+   "tiles_scored": 122,
+   "rendered_pixels": 21317715,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w091": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9836,
+   "excess": 0.1334,
+   "geometry": {
+    "trusted": 0.7303,
+    "other_side": 0.011,
+    "inward_against_axis": 0.9836,
+    "final_within_2": 0.7416
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.984,
+   "ink_share": 0.051,
+   "largest_tile_ink_share": 0.3244,
+   "tiles_scored": 119,
+   "rendered_pixels": 21374094,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w092": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9844,
+   "excess": 0.0598,
+   "geometry": {
+    "trusted": 0.7279,
+    "other_side": 0.0111,
+    "inward_against_axis": 0.9844,
+    "final_within_2": 0.7393
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.9764,
+   "ink_share": 0.0485,
+   "largest_tile_ink_share": 0.2478,
+   "tiles_scored": 118,
+   "rendered_pixels": 21611717,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w093": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9876,
+   "excess": 0.1153,
+   "geometry": {
+    "trusted": 0.7217,
+    "other_side": 0.0094,
+    "inward_against_axis": 0.9876,
+    "final_within_2": 0.7323
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.31,
+   "ink_share": 0.0769,
+   "largest_tile_ink_share": 0.5593,
+   "tiles_scored": 118,
+   "rendered_pixels": 21512663,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w094": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9861,
+   "excess": 0.0747,
+   "geometry": {
+    "trusted": 0.7275,
+    "other_side": 0.0103,
+    "inward_against_axis": 0.9861,
+    "final_within_2": 0.7389
+   },
+   "read": true,
+   "render_canvas_megapixels": 41.8704,
+   "ink_share": 0.0701,
+   "largest_tile_ink_share": 0.4224,
+   "tiles_scored": 121,
+   "rendered_pixels": 21837126,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w095": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9869,
+   "excess": 0.1604,
+   "geometry": {
+    "trusted": 0.7388,
+    "other_side": 0.0095,
+    "inward_against_axis": 0.9869,
+    "final_within_2": 0.7487
+   },
+   "read": true,
+   "render_canvas_megapixels": 41.6796,
+   "ink_share": 0.0849,
+   "largest_tile_ink_share": 0.4155,
+   "tiles_scored": 121,
+   "rendered_pixels": 22031987,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w096": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9861,
+   "excess": 0.0528,
+   "geometry": {
+    "trusted": 0.6651,
+    "other_side": 0.0098,
+    "inward_against_axis": 0.9861,
+    "final_within_2": 0.677
+   },
+   "read": true,
+   "render_canvas_megapixels": 42.6712,
+   "ink_share": 0.0471,
+   "largest_tile_ink_share": 0.3752,
+   "tiles_scored": 123,
+   "rendered_pixels": 22446129,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w097": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9848,
+   "excess": 0.12,
+   "geometry": {
+    "trusted": 0.714,
+    "other_side": 0.0096,
+    "inward_against_axis": 0.9848,
+    "final_within_2": 0.7244
+   },
+   "read": true,
+   "render_canvas_megapixels": 43.674,
+   "ink_share": 0.068,
+   "largest_tile_ink_share": 0.5721,
+   "tiles_scored": 125,
+   "rendered_pixels": 22671141,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w098": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9853,
+   "excess": 0.1069,
+   "geometry": {
+    "trusted": 0.7094,
+    "other_side": 0.0096,
+    "inward_against_axis": 0.9853,
+    "final_within_2": 0.7198
+   },
+   "read": true,
+   "render_canvas_megapixels": 42.8076,
+   "ink_share": 0.0672,
+   "largest_tile_ink_share": 0.7362,
+   "tiles_scored": 127,
+   "rendered_pixels": 22850980,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w099": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9854,
+   "excess": 0.0798,
+   "geometry": {
+    "trusted": 0.71,
+    "other_side": 0.009,
+    "inward_against_axis": 0.9854,
+    "final_within_2": 0.7202
+   },
+   "read": true,
+   "render_canvas_megapixels": 42.4228,
+   "ink_share": 0.0636,
+   "largest_tile_ink_share": 0.3094,
+   "tiles_scored": 127,
+   "rendered_pixels": 22992638,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w100": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9871,
+   "excess": 0.0667,
+   "geometry": {
+    "trusted": 0.7002,
+    "other_side": 0.0081,
+    "inward_against_axis": 0.9871,
+    "final_within_2": 0.7094
+   },
+   "read": true,
+   "render_canvas_megapixels": 41.9768,
+   "ink_share": 0.0615,
+   "largest_tile_ink_share": 0.6143,
+   "tiles_scored": 128,
+   "rendered_pixels": 23001804,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w101": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9885,
+   "excess": 0.1124,
+   "geometry": {
+    "trusted": 0.7181,
+    "other_side": 0.0071,
+    "inward_against_axis": 0.9885,
+    "final_within_2": 0.726
+   },
+   "read": true,
+   "render_canvas_megapixels": 42.504,
+   "ink_share": 0.0515,
+   "largest_tile_ink_share": 0.5146,
+   "tiles_scored": 124,
+   "rendered_pixels": 23002244,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w102": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9896,
+   "excess": 0.0909,
+   "geometry": {
+    "trusted": 0.692,
+    "other_side": 0.0056,
+    "inward_against_axis": 0.9896,
+    "final_within_2": 0.6989
+   },
+   "read": true,
+   "render_canvas_megapixels": 43.7664,
+   "ink_share": 0.049,
+   "largest_tile_ink_share": 0.3049,
+   "tiles_scored": 125,
+   "rendered_pixels": 23274986,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w103": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9898,
+   "excess": 0.1084,
+   "geometry": {
+    "trusted": 0.7008,
+    "other_side": 0.0054,
+    "inward_against_axis": 0.9898,
+    "final_within_2": 0.7074
+   },
+   "read": true,
+   "render_canvas_megapixels": 45.216,
+   "ink_share": 0.071,
+   "largest_tile_ink_share": 0.6394,
+   "tiles_scored": 132,
+   "rendered_pixels": 23396437,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w104": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9913,
+   "excess": 0.1312,
+   "geometry": {
+    "trusted": 0.7009,
+    "other_side": 0.0049,
+    "inward_against_axis": 0.9913,
+    "final_within_2": 0.7066
+   },
+   "read": true,
+   "render_canvas_megapixels": 45.3024,
+   "ink_share": 0.0892,
+   "largest_tile_ink_share": 0.6367,
+   "tiles_scored": 127,
+   "rendered_pixels": 23838378,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w105": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9918,
+   "excess": 0.156,
+   "geometry": {
+    "trusted": 0.7059,
+    "other_side": 0.0057,
+    "inward_against_axis": 0.9918,
+    "final_within_2": 0.7125
+   },
+   "read": true,
+   "render_canvas_megapixels": 44.4244,
+   "ink_share": 0.075,
+   "largest_tile_ink_share": 0.6104,
+   "tiles_scored": 129,
+   "rendered_pixels": 23832802,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w106": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9942,
+   "excess": 0.1848,
+   "geometry": {
+    "trusted": 0.7149,
+    "other_side": 0.0035,
+    "inward_against_axis": 0.9942,
+    "final_within_2": 0.7191
+   },
+   "read": true,
+   "render_canvas_megapixels": 45.6104,
+   "ink_share": 0.1049,
+   "largest_tile_ink_share": 0.7346,
+   "tiles_scored": 131,
+   "rendered_pixels": 23847145,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w107": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9939,
+   "excess": 0.0903,
+   "geometry": {
+    "trusted": 0.6863,
+    "other_side": 0.0044,
+    "inward_against_axis": 0.9939,
+    "final_within_2": 0.6919
+   },
+   "read": true,
+   "render_canvas_megapixels": 46.5408,
+   "ink_share": 0.0799,
+   "largest_tile_ink_share": 0.6188,
+   "tiles_scored": 132,
+   "rendered_pixels": 24038646,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w108": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9947,
+   "excess": 0.112,
+   "geometry": {
+    "trusted": 0.684,
+    "other_side": 0.0033,
+    "inward_against_axis": 0.9947,
+    "final_within_2": 0.6885
+   },
+   "read": true,
+   "render_canvas_megapixels": 47.5376,
+   "ink_share": 0.0752,
+   "largest_tile_ink_share": 0.4135,
+   "tiles_scored": 136,
+   "rendered_pixels": 24327951,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w109": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9958,
+   "excess": 0.1415,
+   "geometry": {
+    "trusted": 0.6909,
+    "other_side": 0.003,
+    "inward_against_axis": 0.9958,
+    "final_within_2": 0.6946
+   },
+   "read": true,
+   "render_canvas_megapixels": 45.808,
+   "ink_share": 0.0737,
+   "largest_tile_ink_share": 0.5277,
+   "tiles_scored": 136,
+   "rendered_pixels": 24305682,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w110": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9958,
+   "excess": 0.1183,
+   "geometry": {
+    "trusted": 0.6746,
+    "other_side": 0.0025,
+    "inward_against_axis": 0.9958,
+    "final_within_2": 0.6785
+   },
+   "read": true,
+   "render_canvas_megapixels": 44.604,
+   "ink_share": 0.0621,
+   "largest_tile_ink_share": 0.3739,
+   "tiles_scored": 129,
+   "rendered_pixels": 24509303,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w111": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9971,
+   "excess": 0.1115,
+   "geometry": {
+    "trusted": 0.6997,
+    "other_side": 0.0015,
+    "inward_against_axis": 0.9971,
+    "final_within_2": 0.7019
+   },
+   "read": true,
+   "render_canvas_megapixels": 47.6476,
+   "ink_share": 0.079,
+   "largest_tile_ink_share": 0.5125,
+   "tiles_scored": 137,
+   "rendered_pixels": 24879665,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w112": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9967,
+   "excess": 0.2089,
+   "geometry": {
+    "trusted": 0.7098,
+    "other_side": 0.0021,
+    "inward_against_axis": 0.9967,
+    "final_within_2": 0.7122
+   },
+   "read": true,
+   "render_canvas_megapixels": 47.04,
+   "ink_share": 0.0754,
+   "largest_tile_ink_share": 0.5935,
+   "tiles_scored": 139,
+   "rendered_pixels": 25050398,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w113": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9967,
+   "excess": 0.0197,
+   "geometry": {
+    "trusted": 0.6674,
+    "other_side": 0.0018,
+    "inward_against_axis": 0.9967,
+    "final_within_2": 0.6702
+   },
+   "read": true,
+   "render_canvas_megapixels": 46.1856,
+   "ink_share": 0.0581,
+   "largest_tile_ink_share": 0.6667,
+   "tiles_scored": 140,
+   "rendered_pixels": 25433564,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w114": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9974,
+   "excess": 0.069,
+   "geometry": {
+    "trusted": 0.6543,
+    "other_side": 0.0014,
+    "inward_against_axis": 0.9974,
+    "final_within_2": 0.6568
+   },
+   "read": true,
+   "render_canvas_megapixels": 45.7208,
+   "ink_share": 0.0539,
+   "largest_tile_ink_share": 0.4184,
+   "tiles_scored": 135,
+   "rendered_pixels": 25603812,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w115": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9973,
+   "excess": 0.1063,
+   "geometry": {
+    "trusted": 0.6654,
+    "other_side": 0.0018,
+    "inward_against_axis": 0.9973,
+    "final_within_2": 0.6678
+   },
+   "read": true,
+   "render_canvas_megapixels": 45.5924,
+   "ink_share": 0.0849,
+   "largest_tile_ink_share": 0.5539,
+   "tiles_scored": 140,
+   "rendered_pixels": 25713934,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w116": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9973,
+   "excess": 0.1116,
+   "geometry": {
+    "trusted": 0.6575,
+    "other_side": 0.0015,
+    "inward_against_axis": 0.9973,
+    "final_within_2": 0.6592
+   },
+   "read": true,
+   "render_canvas_megapixels": 46.9472,
+   "ink_share": 0.0865,
+   "largest_tile_ink_share": 0.4406,
+   "tiles_scored": 141,
+   "rendered_pixels": 25968038,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w117": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9967,
+   "excess": 0.125,
+   "geometry": {
+    "trusted": 0.653,
+    "other_side": 0.002,
+    "inward_against_axis": 0.9967,
+    "final_within_2": 0.6553
+   },
+   "read": true,
+   "render_canvas_megapixels": 46.632,
+   "ink_share": 0.0808,
+   "largest_tile_ink_share": 0.482,
+   "tiles_scored": 140,
+   "rendered_pixels": 26073603,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w118": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9971,
+   "excess": 0.0861,
+   "geometry": {
+    "trusted": 0.6507,
+    "other_side": 0.0018,
+    "inward_against_axis": 0.9971,
+    "final_within_2": 0.6523
+   },
+   "read": true,
+   "render_canvas_megapixels": 49.4628,
+   "ink_share": 0.0627,
+   "largest_tile_ink_share": 0.4154,
+   "tiles_scored": 145,
+   "rendered_pixels": 26524625,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w119": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9963,
+   "excess": 0.0939,
+   "geometry": {
+    "trusted": 0.6401,
+    "other_side": 0.0017,
+    "inward_against_axis": 0.9963,
+    "final_within_2": 0.6416
+   },
+   "read": true,
+   "render_canvas_megapixels": 50.5076,
+   "ink_share": 0.0378,
+   "largest_tile_ink_share": 0.4478,
+   "tiles_scored": 147,
+   "rendered_pixels": 26668162,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w120": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9971,
+   "excess": 0.0927,
+   "geometry": {
+    "trusted": 0.6518,
+    "other_side": 0.0018,
+    "inward_against_axis": 0.9971,
+    "final_within_2": 0.6531
+   },
+   "read": true,
+   "render_canvas_megapixels": 50.4384,
+   "ink_share": 0.0518,
+   "largest_tile_ink_share": 0.3586,
+   "tiles_scored": 145,
+   "rendered_pixels": 26569118,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w121": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9975,
+   "excess": 0.111,
+   "geometry": {
+    "trusted": 0.6636,
+    "other_side": 0.0017,
+    "inward_against_axis": 0.9975,
+    "final_within_2": 0.665
+   },
+   "read": true,
+   "render_canvas_megapixels": 49.7064,
+   "ink_share": 0.0438,
+   "largest_tile_ink_share": 0.6659,
+   "tiles_scored": 146,
+   "rendered_pixels": 27071268,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w122": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9965,
+   "excess": 0.0832,
+   "geometry": {
+    "trusted": 0.6523,
+    "other_side": 0.0019,
+    "inward_against_axis": 0.9965,
+    "final_within_2": 0.6542
+   },
+   "read": true,
+   "render_canvas_megapixels": 47.5728,
+   "ink_share": 0.0449,
+   "largest_tile_ink_share": 0.3713,
+   "tiles_scored": 145,
+   "rendered_pixels": 27205638,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w123": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9965,
+   "excess": 0.0737,
+   "geometry": {
+    "trusted": 0.6589,
+    "other_side": 0.002,
+    "inward_against_axis": 0.9965,
+    "final_within_2": 0.6603
+   },
+   "read": true,
+   "render_canvas_megapixels": 47.9952,
+   "ink_share": 0.0338,
+   "largest_tile_ink_share": 0.3331,
+   "tiles_scored": 146,
+   "rendered_pixels": 27445284,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w124": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9961,
+   "excess": 0.047,
+   "geometry": {
+    "trusted": 0.6734,
+    "other_side": 0.0019,
+    "inward_against_axis": 0.9961,
+    "final_within_2": 0.6735
+   },
+   "read": true,
+   "render_canvas_megapixels": 48.4176,
+   "ink_share": 0.0386,
+   "largest_tile_ink_share": 0.357,
+   "tiles_scored": 150,
+   "rendered_pixels": 27687812,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w125": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.994,
+   "excess": 0.1853,
+   "geometry": {
+    "trusted": 0.6896,
+    "other_side": 0.003,
+    "inward_against_axis": 0.994,
+    "final_within_2": 0.6917
+   },
+   "read": true,
+   "render_canvas_megapixels": 48.8928,
+   "ink_share": 0.0262,
+   "largest_tile_ink_share": 0.2178,
+   "tiles_scored": 149,
+   "rendered_pixels": 27939483,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w126": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9921,
+   "excess": 0.0884,
+   "geometry": {
+    "trusted": 0.6608,
+    "other_side": 0.004,
+    "inward_against_axis": 0.9921,
+    "final_within_2": 0.6636
+   },
+   "read": true,
+   "render_canvas_megapixels": 49.6356,
+   "ink_share": 0.0238,
+   "largest_tile_ink_share": 0.2078,
+   "tiles_scored": 145,
+   "rendered_pixels": 28127511,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w127": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9899,
+   "excess": 0.052,
+   "geometry": {
+    "trusted": 0.5197,
+    "other_side": 0.0049,
+    "inward_against_axis": 0.9899,
+    "final_within_2": 0.5227
+   },
+   "read": true,
+   "render_canvas_megapixels": 50.1144,
+   "ink_share": 0.0293,
+   "largest_tile_ink_share": 0.2845,
+   "tiles_scored": 139,
+   "rendered_pixels": 27153480,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w128": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9895,
+   "excess": 0.1544,
+   "geometry": {
+    "trusted": 0.5399,
+    "other_side": 0.0058,
+    "inward_against_axis": 0.9895,
+    "final_within_2": 0.543
+   },
+   "read": true,
+   "render_canvas_megapixels": 49.256,
+   "ink_share": 0.0273,
+   "largest_tile_ink_share": 0.3049,
+   "tiles_scored": 123,
+   "rendered_pixels": 25212919,
+   "flip_lr": true,
+   "flip_ud": false
+  },
+  "w129": {
+   "render": "flip",
+   "share_of_normals_pointing_inward": 0.9879,
+   "excess": 0.0451,
+   "geometry": {
+    "trusted": 0.4305,
+    "other_side": 0.0051,
+    "inward_against_axis": 0.9879,
+    "final_within_2": 0.4346
+   },
+   "read": true,
+   "render_canvas_megapixels": 50.3712,
+   "ink_share": 0.0429,
+   "largest_tile_ink_share": 0.5307,
+   "tiles_scored": 103,
+   "rendered_pixels": 23445071,
+   "flip_lr": true,
+   "flip_ud": false
+  }
+ }
+}

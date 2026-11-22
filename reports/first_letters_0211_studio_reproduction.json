@@ -1,0 +1,62 @@
+{
+ "finding": 123,
+ "registration": "docs/preregistration/2026-11-16_first_letters_0211_studio_reproduction.md",
+ "registration_commit": "45f2104e",
+ "amendment_commit": "7700f2a5",
+ "first_attempt": {
+  "steps": {
+   "env": {
+    "exit": 1,
+    "seconds": 0
+   },
+   "fetch": {
+    "exit": 0,
+    "seconds": 44
+   }
+  },
+  "stopped_at": "env",
+  "why": "uv 0.11.18 has no CPython 3.11.16 download"
+ },
+ "steps": {
+  "compare": {
+   "exit": 0,
+   "seconds": 2
+  },
+  "env": {
+   "exit": 0,
+   "seconds": 84
+  },
+  "fetch": {
+   "exit": 0,
+   "seconds": 3
+  },
+  "infer": {
+   "exit": 0,
+   "seconds": 75
+  }
+ },
+ "environment": "2.14.0+cu130 True NVIDIA GeForce RTX 4090 True",
+ "gpu_peak_mib_all_processes": 14481,
+ "recorded_sha256": {
+  "weights": "96b326286e38de99047f7cab36170c53749a18d5f43e5fde0c7c20f2980b0e90",
+  "input": "e7cdd509d74958a8cb95e9bfb0b1857610e457363edfe5329850b9b009ff8c22",
+  "inference_py": "09752cf7aa0b682c6ca9a46e41bf1f9f279e30d74d35eaab8fc0311504223ec0",
+  "output_npy": "e2f8b9afad4dcde91a6775713b5da1e08352ac38adf39e7e75cb9f4b181bd139"
+ },
+ "output_sha256": "fc50009542bd01ac10d156e6992d248df5da1aaa43127cc7487e34dbd2b9ef2f",
+ "exact": false,
+ "registered": {
+  "pixels": 8838800,
+  "r": 1.0,
+  "abs_difference": {
+   "p50": 9.4e-05,
+   "p99": 0.000645,
+   "max": 0.003226
+  },
+  "mean_ours": 0.335175,
+  "mean_winner": 0.335175,
+  "share_same_side_of_half": 0.999892
+ },
+ "verdict": "REPRODUCED",
+ "predicted": "REPRODUCED"
+}

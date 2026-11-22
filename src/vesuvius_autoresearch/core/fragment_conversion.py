@@ -226,7 +226,13 @@ def convert_fragment(
         ]
         for path, relative, index in entries:
             data = _capture(path, limit)
-            array = _image(data, path, max_pixels, 2 if index is not None else 1)
+            array = _image(
+                data,
+                path,
+                max_pixels,
+                2 if index is not None else 1,
+                require_identity_orientation=True,
+            )
             if shape is not None and array.shape != shape:
                 raise ValueError(
                     f"image shape mismatch: {path}: {array.shape} != {shape}"
@@ -258,6 +264,7 @@ def convert_fragment(
             "z_range": [z_start, z_end],
             "shape_yx": list(shape),
             "scale": "uint16 // 256 -> uint8; no local normalization",
+            "source_orientation_policy": "identity_or_absent",
             "sources": sources,
             "outputs": outputs,
         }
@@ -355,7 +362,7 @@ def conversion_status(data_root, frag_id, z_start, z_end, *, max_pixels=MAX_PIXE
         shape = None
         for path in paths:
             data = _capture(path, 4 * max_pixels + 1024 * 1024)
-            array = _image(data, path, max_pixels, 1)
+            array = _image(data, path, max_pixels, 1, require_identity_orientation=True)
             if shape is not None and array.shape != shape:
                 raise ValueError(f"converted image shape mismatch: {path}")
             shape = array.shape

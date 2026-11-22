@@ -57,7 +57,17 @@ from torch.utils.data import DataLoader, RandomSampler, default_collate
 from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
-from scripts.training.config import ExperimentConfig
+from scripts.training.checkpoint_paths import (
+    validate_checkpoint_writes,
+    validate_training_checkpoint_writes,
+)
+from scripts.training.config import (
+    ExperimentConfig,
+    data_read_policy,
+    validate_augmentation_mode,
+    validate_training_choices,
+)
+from scripts.training.data_split import validate_training_split
 from scripts.training.ink_losses import (
     CONFIDENCE_INK_RECIPE,
     compute_dice_loss,
@@ -76,8 +86,10 @@ from scripts.training.promotion import (
     validation_indices,
     validation_input_paths,
     validation_inputs_fingerprint,
+    validation_inputs_record,
     validation_label_path,
     validation_protocol,
+    validation_record_sha256,
 )
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
 
@@ -804,22 +816,24 @@ def build_validation_dataset(config: ExperimentConfig):
     Reads are strict: a failed read raises instead of returning an all-zero patch,
     which would silently be scored as an ink-free patch.
     """
+    num_layers = positive_integer(config.num_layers, "num_layers")
     # The same paths the fingerprint hashes (promotion.validation_input_paths),
     # fingerprinted before and after the dataset reads them.
     band = getattr(config, "depth_band", None)
-    inputs = validation_inputs_fingerprint(config.val_uri, band)
+    inputs = validation_inputs_record(config.val_uri, band)
     paths = validation_input_paths(config.val_uri)
     labels_path, mask_path = paths["labels"], paths["mask"]
     patches_json_path = paths["patches_json"]
+    catalog_path = patches_json_path if inputs["patches_json"] is not None else None
     # Validation uses target_fiber_source="sobel_z" regardless of training
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
     dataset = VesuviusLabeledDataset(
         config.val_uri,
         labels_path,
-        mask_path if os.path.exists(mask_path) else None,
+        mask_path if inputs["mask"] is not None or os.path.exists(mask_path) else None,
         config.patch_size,
-        config.num_layers + 2 * DEPTH_MARGIN,
+        num_layers + 2 * DEPTH_MARGIN,
         seed=42,
         cache_dir=config.cache_dir,
         use_ridges=config.use_ridges,
@@ -827,19 +841,31 @@ def build_validation_dataset(config: ExperimentConfig):
         use_lasagna=getattr(config, "use_lasagna", False),
         require_ink=False,
         target_fiber_source="sobel_z",
-        patches_json=patches_json_path if os.path.exists(patches_json_path) else None,
+        patches_json=catalog_path,
         strict_reads=True,
         depth_band=getattr(config, "depth_band", None),
         depth_margin=DEPTH_MARGIN,
+        expected_image_sha256=(inputs["labels"][1], inputs["mask"]),
+        min_read_depth=num_layers + DEPTH_MARGIN,
     )
     # Recorded with every score (validation_diag["inputs_sha256"]) and compared
     # with the incumbent's (promotion.py). A file written while the dataset read
-    # them could otherwise be recorded without having been read.
-    if validation_inputs_fingerprint(config.val_uri, band) != inputs:
+    # them could otherwise be recorded without having been read. Check the
+    # bytes actually decoded or parsed, including rewrites that were reverted.
+    if (
+        validation_inputs_record(
+            config.val_uri,
+            band,
+            expected_catalog_sha256=dataset.patch_catalog_sha256
+            if catalog_path is not None
+            else None,
+        )
+        != inputs
+    ):
         raise RuntimeError(
             f"the validation inputs for {config.val_uri} changed while they were read"
         )
-    dataset.validation_inputs = inputs
+    dataset.validation_inputs = validation_record_sha256(inputs)
     return dataset
 
 
@@ -865,6 +891,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
     labeled reads use it. Any other unlabeled volume is read over its whole
     depth: it may number its slices differently.
     """
+    num_layers = positive_integer(config.num_layers, "num_layers")
     band = depth_band_for(
         {
             "depth_band": getattr(config, "depth_band", None),
@@ -877,7 +904,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
     return VesuviusS3Dataset(
         uri,
         config.patch_size,
-        config.num_layers + 2 * DEPTH_MARGIN,
+        num_layers + 2 * DEPTH_MARGIN,
         seed=seed,
         cache_dir=config.cache_dir,
         use_ridges=config.use_ridges,
@@ -886,6 +913,8 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         is_unlabeled=True,
         depth_band=band,
         depth_margin=DEPTH_MARGIN,
+        strict_reads=getattr(config, "strict_training_reads", False),
+        min_read_depth=num_layers,
     )
 
 
@@ -1014,6 +1043,15 @@ def check_validation_inputs(dataset, protocol, incumbent_path="best_model.pt"):
         )
 
 
+def _validation_window(batch, num_layers):
+    stop = DEPTH_MARGIN + num_layers
+    if batch.shape[2] < stop:
+        raise ValueError(
+            f"validation CT read has {batch.shape[2]} slices but requires at least {stop}"
+        )
+    return batch[:, :, DEPTH_MARGIN:stop]
+
+
 def collect_validation_predictions(
     model,
     dataset,
@@ -1039,6 +1077,7 @@ def collect_validation_predictions(
     tools pass a validating version. ``protocol`` is recorded in the diagnostics
     (validation_protocol(config.depth_band) for the dataset's depth range).
     """
+    num_layers = positive_integer(num_layers, "num_layers")
     keep_ink_free = scores_ink_free_patches(protocol)
     indices = validation_indices(len(dataset))
     diag = {
@@ -1056,9 +1095,7 @@ def collect_validation_predictions(
                 val_x_raw, val_target, _fiber = default_collate(
                     [dataset[int(i)] for i in chunk]
                 )
-                val_x = val_x_raw[:, :, DEPTH_MARGIN : DEPTH_MARGIN + num_layers].to(
-                    device
-                )
+                val_x = _validation_window(val_x_raw, num_layers).to(device)
                 if val_target.dim() == 3:
                     val_target = val_target.unsqueeze(1)
                 with autocast(device_type=device.type, enabled=amp_enabled):
@@ -1260,8 +1297,12 @@ except ImportError:
     InceptionI3d = None
 
 from vesuvius_autoresearch.core.frangi_torch import frangi_vesselness_zcollapsed_torch
-from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
-from vesuvius_autoresearch.core.inference_constants import depth_band_for
+from vesuvius_autoresearch.core.inference_constants import (
+    DEPTH_MARGIN,
+    depth_band_for,
+    positive_integer,
+    validate_architecture,
+)
 from vesuvius_autoresearch.core.model_wrappers import (
     GenericMultiTaskWrapper,
     build_resenc_unet,
@@ -1302,8 +1343,6 @@ try:
     _HAS_ALBUMENTATIONS = True
 except ImportError:
     _HAS_ALBUMENTATIONS = False
-
-_villa_aug_cache = {}
 
 
 def _get_villa_aug(size: int, config: ExperimentConfig):
@@ -1484,7 +1523,9 @@ def cutmix_data(x, y, z, alpha=1.0):
     return x, y, z, lam
 
 
-def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s):
+def periodic_pixel_auc_eval(
+    model, val_dataset, config, device, step, elapsed_s, *, config_path=None
+):
     """Gated learning-curve probe: pooled pixel AUC on a FIXED random sample of
     validation patches, plus a step-tagged checkpoint and a CSV row. Wrapped so a
     mid-run eval glitch cannot kill a multi-hour training run. Indices are drawn
@@ -1493,9 +1534,11 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
 
     from scripts.pixel_auc import pooled_pixel_auc
 
+    read_policy = data_read_policy(config)
+    nl = positive_integer(config.num_layers, "num_layers")
+    validate_training_checkpoint_writes(config, config_path=config_path, step=step)
     prefix = config.checkpoint_out or "long_model.pt"
     curve_path = f"{prefix}.curve.csv"
-    nl = config.num_layers
     try:
         n = min(config.eval_sample_patches, len(val_dataset))
         idxs = np.random.RandomState(12345).permutation(len(val_dataset))[:n]
@@ -1504,7 +1547,7 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
         with torch.no_grad():
             for i in idxs:
                 x_raw, t, _ = val_dataset[int(i)]
-                x = x_raw[:, DEPTH_MARGIN : DEPTH_MARGIN + nl].unsqueeze(0).to(device)
+                x = _validation_window(x_raw.unsqueeze(0), nl).to(device)
                 out = model(x)
                 out = out[0] if isinstance(out, tuple) else out
                 probs.append(torch.sigmoid(out).squeeze().float().cpu().numpy().ravel())
@@ -1516,6 +1559,7 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
     finally:
         model.train()
 
+    validate_training_checkpoint_writes(config, config_path=config_path, step=step)
     write_header = not os.path.exists(curve_path)
     with open(curve_path, "a", newline="") as f:
         w = csv.writer(f)
@@ -1528,6 +1572,7 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
                 "model_state_dict": model.state_dict(),
                 "step": step,
                 "config": asdict(config),
+                "data_read_policy": read_policy,
                 "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
                 if config.use_confidence_weight
                 else None,
@@ -1591,7 +1636,7 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         # Ablation master switch: return inputs untouched (no rot90/flip/scroll/etc).
         return x, target_ink, target_fiber
 
-    aug_mode = getattr(config, "aug_mode", "albumentations")
+    aug_mode = validate_augmentation_mode(getattr(config, "aug_mode", "albumentations"))
 
     if aug_mode == "batchgeneratorsv2" and create_training_transforms is None:
         # This used to fall through to Albumentations without a word, so a cycle
@@ -1604,7 +1649,11 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
     if aug_mode == "batchgeneratorsv2":
         B, C, D, H, W = x.shape
         patch_size_3d = (D, H, W)
-        if patch_size_3d not in _bg2_aug_cache:
+        recipe_key = (
+            patch_size_3d,
+            *(getattr(config, name, 0.0) for name in _VILLA_SCROLL_AUGMENTATIONS),
+        )
+        if recipe_key not in _bg2_aug_cache:
             base_transform = create_training_transforms(patch_size_3d)
 
             from vesuvius.models.augmentation.transforms.noise.extranoisetransforms import (
@@ -1669,13 +1718,13 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
                 )
 
             if extra_transforms:
-                _bg2_aug_cache[patch_size_3d] = ComposeTransforms(
+                _bg2_aug_cache[recipe_key] = ComposeTransforms(
                     [base_transform] + extra_transforms
                 )
             else:
-                _bg2_aug_cache[patch_size_3d] = base_transform
+                _bg2_aug_cache[recipe_key] = base_transform
 
-        bg_aug = _bg2_aug_cache[patch_size_3d]
+        bg_aug = _bg2_aug_cache[recipe_key]
 
         # Batchgenerators expects: (C, Z, H, W) for per-sample call
         # but our wrapper handles (B, C, Z, H, W) if it's the official villa one.
@@ -1843,6 +1892,7 @@ def build_vconfig(config: ExperimentConfig) -> VesuviusConfig:
     Shared by train() and the --smoke preflight gate so both derive the
     architecture parameters identically.
     """
+    validate_training_choices(config)
     return VesuviusConfig(
         patch_size=config.patch_size,
         num_layers=config.num_layers,
@@ -1862,6 +1912,9 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
     Shared by train() and the --smoke preflight gate so the gate exercises the
     exact same construction path as the real run (no drift between them).
     """
+    validate_architecture(
+        getattr(v_config, "architecture", "gated_unet"), training=True
+    )
     if hasattr(v_config, "architecture") and v_config.architecture == "timesformer":
         print("Instantiating TimeSformer Architecture...")
         model = VesuviusTimeSformer(v_config).to(device)
@@ -1954,6 +2007,7 @@ def save_cycle_checkpoints(checkpoint, checkpoint_out, is_improvement) -> list[s
     run stopped between the two leaves the incumbent the loop still records.
     """
     if checkpoint_out:
+        validate_checkpoint_writes([checkpoint_out])
         directory = os.path.dirname(checkpoint_out)
         if directory:
             os.makedirs(directory, exist_ok=True)
@@ -2010,7 +2064,43 @@ def preflight_smoke(config: ExperimentConfig) -> None:
         raise ValueError("preflight: non-finite loss")
 
 
-def train(config: ExperimentConfig, *, strict_warm_start=False):
+def _training_windows(labeled, unlabeled, config):
+    """Draw a shared offset that fits a full model window in each available read."""
+    layers = config.num_layers
+    depth = labeled.shape[2]
+    if unlabeled is not None:
+        depth = min(depth, unlabeled.shape[2])
+    if depth < layers:
+        raise ValueError(
+            f"training CT read has {depth} slices but requires at least {layers}"
+        )
+
+    # Keep the historic exclusive upper bound when full context is available.
+    offset = np.random.randint(0, min(2 * DEPTH_MARGIN, depth - layers + 1))
+    length = layers
+    if not getattr(config, "disable_augmentation", False) and np.random.rand() > 0.8:
+        # Same compression recipe, limited to the context actually read.
+        length = min(depth - offset, max(4, int(layers * 0.8)))
+
+    def crop(batch):
+        window = batch[:, :, offset : offset + length]
+        if length == layers:
+            return window
+        return F.interpolate(
+            window,
+            size=(layers, config.patch_size, config.patch_size),
+            mode="trilinear",
+            align_corners=False,
+        )
+
+    return crop(labeled), crop(unlabeled) if unlabeled is not None else None
+
+
+def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None):
+    validate_training_choices(config)
+    read_policy = data_read_policy(config)
+    validate_training_split(config)
+    validate_training_checkpoint_writes(config, config_path=config_path)
     print("STARTING TRAINING")
     # What this run's score is comparable with; the depth band is part of it.
     protocol = validation_protocol(getattr(config, "depth_band", None))
@@ -2058,14 +2148,30 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 # target from the batch (fiber_target).
                 target_fiber_source="sobel_z",
                 target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
+                strict_reads=getattr(config, "strict_training_reads", False),
                 patches_json=patches_json_path
-                if os.path.exists(patches_json_path)
+                if os.path.lexists(patches_json_path)
                 else None,
                 depth_band=getattr(config, "depth_band", None),
                 depth_margin=DEPTH_MARGIN,
+                min_read_depth=config.num_layers,
             )
             datasets.append(ds)
 
+        if len(datasets) > 1 and config.batch_size > 1:
+            depths = {
+                uri: dataset.num_layers
+                for uri, dataset in zip(uris, datasets, strict=True)
+                if len(dataset)
+            }
+            if len(set(depths.values())) > 1:
+                detail = ", ".join(
+                    f"{uri} ({depth} slices)" for uri, depth in depths.items()
+                )
+                kind = "unlabeled" if is_unlabeled else "labeled"
+                raise ValueError(
+                    f"cannot batch {kind} volumes with different CT read depths: {detail}"
+                )
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
         return shuffled_loader(
             combined_ds,
@@ -2208,44 +2314,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                     x_unlabeled_raw, _ = next(unlabeled_data_iter)
                     x_unlabeled = x_unlabeled_raw.to(device)
 
-            # 2. Z-Compression Augmentation (20% chance): take a thinner Z
-            # window (80% of config.num_layers, min 4) and trilinearly resize
-            # back to the model's expected depth. Despite the historical
-            # "Anisotropic Z-Interpolation" comment, z_len is deterministic
-            # at max(4, int(num_layers*0.8)) — not random.
-            z_start = np.random.randint(0, 2 * DEPTH_MARGIN)
-            if (
-                not getattr(config, "disable_augmentation", False)
-            ) and np.random.rand() > 0.8:
-                z_len = max(4, int(config.num_layers * 0.8))
-                x_orig = x_raw[:, :, z_start : z_start + z_len]
-                if z_len != config.num_layers:
-                    x_orig = F.interpolate(
-                        x_orig,
-                        size=(config.num_layers, config.patch_size, config.patch_size),
-                        mode="trilinear",
-                        align_corners=False,
-                    )
-
-                if x_unlabeled is not None:
-                    x_unl_orig = x_unlabeled[:, :, z_start : z_start + z_len]
-                    if z_len != config.num_layers:
-                        x_unl_orig = F.interpolate(
-                            x_unl_orig,
-                            size=(
-                                config.num_layers,
-                                config.patch_size,
-                                config.patch_size,
-                            ),
-                            mode="trilinear",
-                            align_corners=False,
-                        )
-            else:
-                x_orig = x_raw[:, :, z_start : z_start + config.num_layers]
-                if x_unlabeled is not None:
-                    x_unl_orig = x_unlabeled[
-                        :, :, z_start : z_start + config.num_layers
-                    ]
+            x_orig, x_unl_orig = _training_windows(x_raw, x_unlabeled, config)
 
         except StopIteration:
             data_iter = iter(data_loader)
@@ -2566,6 +2635,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 device,
                 step,
                 total_training_time,
+                config_path=config_path,
             )
         if total_training_time >= config.time_budget:
             break
@@ -2881,6 +2951,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "val_protocol": protocol,
         "train_sampling_seed": sampling_seed,
         "training_labels": training_labels,
+        "data_read_policy": read_policy,
         "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
         if config.use_confidence_weight
         else None,
@@ -2902,6 +2973,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             f"Saving new best model — val_f1: {val_f1:.6f} "
             f"(ap_lift {ap_prevalence_lift:.3f}, thr {val_f1_threshold:.3f})"
         )
+    validate_training_checkpoint_writes(config, config_path=config_path)
     save_cycle_checkpoints(checkpoint, ckpt_out, is_improvement)
     if promoted:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -2965,6 +3037,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "promotion_blocked": promotion_blocked,
         "train_sampling_seed": sampling_seed,
         "training_labels": training_labels,
+        "data_read_policy": read_policy,
         "confidence_ink_recipe": CONFIDENCE_INK_RECIPE
         if config.use_confidence_weight
         else None,
@@ -3063,6 +3136,6 @@ if __name__ == "__main__":
 
     if args.test:
         config.time_budget = 30
-        train(config)
+        train(config, config_path=args.config)
     else:
-        train(config)
+        train(config, config_path=args.config)

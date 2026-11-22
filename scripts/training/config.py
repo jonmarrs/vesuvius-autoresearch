@@ -7,13 +7,52 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 
-from vesuvius_autoresearch.core.inference_constants import DEPTH_MARGIN
+from vesuvius_autoresearch.core.inference_constants import (
+    DEPTH_MARGIN,
+    positive_integer,
+    validate_architecture,
+)
+
+
+def validate_augmentation_mode(value):
+    if not isinstance(value, str) or value not in {
+        "albumentations",
+        "batchgeneratorsv2",
+    }:
+        raise ValueError(f"unknown aug_mode: {value!r}")
+    return value
+
+
+def validate_training_choices(config):
+    validate_architecture(getattr(config, "architecture", "gated_unet"), training=True)
+    validate_augmentation_mode(getattr(config, "aug_mode", "albumentations"))
+    positive_integer(config.num_layers, "num_layers")
 
 
 def configuration_fingerprint(values: dict) -> str:
     """Hash the captured normalized settings, independently of JSON key order."""
     raw = json.dumps(values, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def data_read_policy(config) -> dict[str, str]:
+    """Record the selected failure policy independently of checkpoint defaults."""
+    strict = getattr(config, "strict_training_reads", False)
+    if not isinstance(strict, bool):
+        raise ValueError("strict_training_reads must be a boolean")
+    if (
+        strict
+        and getattr(config, "use_uamt", False)
+        and getattr(config, "unlabeled_uris", None)
+        and getattr(config, "use_lasagna", False)
+    ):
+        raise ValueError(
+            "strict UA-MT reads cannot use the unavailable unlabeled Lasagna preprocessing"
+        )
+    return {
+        "training": "strict" if strict else "legacy_permissive",
+        "validation": "strict",
+    }
 
 
 # AuxiliaryConfig was previously imported from scripts/auxiliary_manager.py.
@@ -144,7 +183,8 @@ class ExperimentConfig:
     # branch-LENGTH histograms (villa's 3D fiber/surface track), blind to spatial location
     # and recall and hypersensitive to fragmentation, so it is uncorrelated with
     # ink-detection quality. See FINDINGS.md "Phase 4b" and scripts/probe_skel_dist_validity.py.
-    max_prize_skel_dist: float = float("inf")
+    # None records the inactive legacy gate without nonstandard JSON Infinity.
+    max_prize_skel_dist: float | None = None
     max_prize_cc_diff: float = 64.0
     min_prize_topology_samples: int = 1
 
@@ -159,7 +199,15 @@ class ExperimentConfig:
         ]
     )
 
+    # Appended to retain the existing positional configuration arguments.
+    # Opt in to aborting on labeled/UA-MT read or requested preprocessing failures.
+    # False retains counted legacy fallbacks; validation always uses strict reads.
+    strict_training_reads: bool = False
+
     def __post_init__(self):
+        validate_training_choices(self)
+        if self.max_prize_skel_dist == float("inf"):
+            self.max_prize_skel_dist = None
         if self.depth_band is not None:
             band = self.depth_band
             if (
@@ -205,6 +253,7 @@ class ExperimentConfig:
                     flush=True,
                 )
                 self.unlabeled_uris = cleaned
+        data_read_policy(self)
 
     def save(self, path):
         with open(path, "w") as f:
