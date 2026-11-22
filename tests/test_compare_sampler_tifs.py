@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -134,3 +135,67 @@ def test_cli_preserves_full_uint16_difference_in_tiff_report(tmp_path):
     assert s["mean_abs_diff_covered"] == 32767.5
     assert s["frac_px_differ"] == 0.5
     assert inputs == {path: path.read_bytes() for path in inputs}
+
+
+def test_each_slice_s_sample_type_is_checked():
+    a = np.zeros((2, 2), np.uint8)
+    assert not compare_slice(a, np.zeros((2, 2), np.int8))["comparable"]
+    assert not compare_slice(np.zeros((2, 2), np.int8), a)["comparable"]
+
+
+def test_the_mean_difference_is_over_covered_pixels_only():
+    a = np.array([[0, 0], [10, 0]], np.uint8)
+    s = compare_slice(a, np.zeros((2, 2), np.uint8))
+    assert s["mean_abs_diff_covered"] == 10.0 and s["frac_px_differ"] == 0.25
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        ([[0, 0], [0, 0]], [[0, 0], [0, 0]]),
+        ([[5, 5], [5, 5]], [[1, 2], [3, 4]]),
+        ([[1, 2], [3, 4]], [[5, 5], [5, 5]]),
+    ],
+    ids=["nothing_covered", "constant_reference", "constant_test"],
+)
+def test_constant_or_empty_coverage_has_no_correlation_and_no_warning(left, right):
+    a, b = np.array(left, np.uint8), np.array(right, np.uint8)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        s = compare_slice(a, b)
+    assert np.isnan(s["r_covered"])
+    if not (a.any() or b.any()):
+        assert s["mean_abs_diff_covered"] == 0.0
+
+
+def test_one_differing_slice_makes_the_sampling_differ():
+    a = np.full((2, 2), 7, np.uint8)
+    b = a.copy()
+    b[0, 0] = 8
+    same, other = compare_slice(a, a.copy()), compare_slice(a, b)
+    assert verdict({"00.tif": same, "01.tif": other}) == "SAMPLED VALUES DIFFER"
+
+
+@pytest.mark.parametrize("only_in", ["ref", "test"])
+def test_cli_reports_a_slice_present_in_only_one_run(tmp_path, only_in):
+    ref, test = tmp_path / "ref", tmp_path / "test"
+    ref.mkdir()
+    test.mkdir()
+    a = np.full((2, 2), 3, np.uint8)
+    tifffile.imwrite(ref / "00.tif", a)
+    tifffile.imwrite(test / "00.tif", a)
+    tifffile.imwrite((ref if only_in == "ref" else test) / "01.tif", a)
+    output = tmp_path / "report.json"
+    script = Path(__file__).resolve().parents[1] / "scripts" / "compare_sampler_tifs.py"
+    result = subprocess.run(
+        [sys.executable, str(script), str(ref), str(test), "--json", str(output)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(output.read_text())
+    assert report["verdict"] == "NOT COMPARABLE"
+    assert report["slices"]["00.tif"]["identical"]
+    missing = report["slices"]["01.tif"]
+    assert not missing["comparable"] and "FileNotFoundError" in missing["reason"]
