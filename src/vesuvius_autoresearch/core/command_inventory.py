@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from pathlib import PurePosixPath
 
 from .file_capture import capture_bytes
@@ -26,11 +27,16 @@ FIELDS = {
 }
 
 
+# Control characters (C0, DEL and C1) and the Unicode line and paragraph
+# separators; str.splitlines() also breaks at NEL, U+2028 and U+2029.
+_NOT_SINGLE_LINE = {"Cc", "Zl", "Zp"}
+
+
 def _text(value):
     return (
         isinstance(value, str)
         and bool(value.strip())
-        and all(ord(c) >= 32 and ord(c) != 127 for c in value)
+        and all(unicodedata.category(c) not in _NOT_SINGLE_LINE for c in value)
     )
 
 

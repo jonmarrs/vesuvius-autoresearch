@@ -189,3 +189,159 @@ def test_report_identity_uses_the_parsed_capture_even_if_file_changes(
 def test_cli_unknown_command_returns_a_concise_nonzero_error(capsys):
     assert cli.main(["--command", "does-not-exist"]) == 2
     assert "unknown command ID" in capsys.readouterr().err
+
+
+def _row(**fields):
+    return lambda value: value["commands"][0].update(fields)
+
+
+def _top(**fields):
+    return lambda value: value.update(fields)
+
+
+_TOP = "unsupported command inventory"
+_META = "nonempty single-line strings"
+_CLASS = "invalid command boundary classification"
+_PREFIX = "invalid command prefix/guide"
+_SOURCE = "command prefix does not match its declared source"
+_WHEEL = "packaged command must be a runtime module"
+_PACKAGED = "src/vesuvius_autoresearch/core/command_inventory.py"
+
+
+@pytest.mark.parametrize(
+    ("edit", "message"),
+    [
+        pytest.param(lambda value: list(value), _TOP, id="top_level_list"),
+        pytest.param(_top(notes="x"), _TOP, id="extra_top_key"),
+        pytest.param(_top(schema_version=2), _TOP, id="schema_2"),
+        pytest.param(_top(scope="  "), _TOP, id="blank_scope"),
+        pytest.param(_top(stacks=list(catalog.STACKS)), _TOP, id="stacks_list"),
+        pytest.param(
+            lambda value: value["stacks"].update(cuda="GPU"), _TOP, id="extra_stack"
+        ),
+        pytest.param(
+            lambda value: value["stacks"].update(gui=""), _TOP, id="blank_stack"
+        ),
+        pytest.param(
+            lambda value: value.update(
+                commands={row["id"]: row for row in value["commands"]}
+            ),
+            _TOP,
+            id="commands_dict",
+        ),
+        pytest.param(_top(commands=[]), _TOP, id="no_commands"),
+        pytest.param(
+            lambda value: value.update(
+                commands=[dict(value["commands"][0], id=f"c{i}") for i in range(101)]
+            ),
+            _TOP,
+            id="too_many_commands",
+        ),
+        pytest.param(_row(extra="x"), "invalid command inventory fields", id="field"),
+        pytest.param(_row(summary="   "), _META, id="blank_summary"),
+        pytest.param(_row(summary="one\x7f"), _META, id="delete_char"),
+        pytest.param(_row(summary=5), _META, id="numeric_summary"),
+        pytest.param(_row(needs=""), _META, id="blank_needs"),
+        pytest.param(_row(summary="one\x85second"), _META, id="next_line"),
+        pytest.param(_row(summary="one\x9bsecond"), _META, id="c1_control"),
+        pytest.param(_row(summary="one second"), _META, id="line_separator"),
+        pytest.param(_row(argv=["python", "x "]), _PREFIX, id="paragraph_sep"),
+        pytest.param(_row(id="1commands"), "invalid or duplicate command ID", id="id"),
+        pytest.param(_row(villa="maybe"), _CLASS, id="villa"),
+        pytest.param(_row(effects="network"), _CLASS, id="effects"),
+        pytest.param(_row(argv="pythonx"), _PREFIX, id="argv_string"),
+        pytest.param(_row(argv=["python"]), _PREFIX, id="argv_short"),
+        pytest.param(
+            _row(argv=["python", "scripts/list_commands.py", *["--json"] * 15]),
+            _PREFIX,
+            id="argv_long",
+        ),
+        pytest.param(
+            _row(argv=["python", "scripts/list_commands.py", ""]),
+            _PREFIX,
+            id="argv_blank",
+        ),
+        pytest.param(_row(guide="docs/COMMANDS.txt"), _PREFIX, id="guide_suffix"),
+        pytest.param(_row(guide="docs/COMMAND NOTES.md"), _PREFIX, id="guide_space"),
+        pytest.param(_row(guide="docs/../COMMANDS.md"), _PREFIX, id="guide_parent"),
+        pytest.param(_row(guide="./docs/COMMANDS.md"), _PREFIX, id="guide_dot"),
+        pytest.param(_row(guide="/docs/COMMANDS.md"), _PREFIX, id="guide_absolute"),
+        pytest.param(
+            _row(source="scripts/run.sh", argv=["python", "scripts/run.sh"]),
+            _SOURCE,
+            id="script_not_py",
+        ),
+        pytest.param(
+            _row(kind="shell", source="scripts/run.sh", argv=["bash", "scripts/x.sh"]),
+            _SOURCE,
+            id="shell_other_script",
+        ),
+        pytest.param(
+            _row(
+                kind="shell", source="scripts/run.py", argv=["bash", "scripts/run.py"]
+            ),
+            _SOURCE,
+            id="shell_not_sh",
+        ),
+        pytest.param(
+            _row(
+                kind="module", source="src/listing.py", argv=["python", "-m", "listing"]
+            ),
+            _SOURCE,
+            id="module_without_package",
+        ),
+        pytest.param(
+            _row(
+                kind="module",
+                source="scripts/list_commands.py",
+                argv=["python", "-c", "scripts.list_commands"],
+            ),
+            _SOURCE,
+            id="module_without_dash_m",
+        ),
+        pytest.param(_row(kind="binary"), _SOURCE, id="unknown_kind"),
+        pytest.param(_row(layout="wheel-or-checkout"), _WHEEL, id="wheel_script"),
+        pytest.param(
+            _row(
+                layout="wheel-or-checkout",
+                source=_PACKAGED,
+                argv=["python", _PACKAGED],
+            ),
+            _WHEEL,
+            id="wheel_script_in_package",
+        ),
+        pytest.param(
+            _row(
+                layout="wheel-or-checkout",
+                kind="module",
+                source="src/other/tool.py",
+                argv=["python", "-m", "other.tool"],
+            ),
+            _WHEEL,
+            id="wheel_other_package",
+        ),
+    ],
+)
+def test_each_inventory_rule_refuses_its_own_edit(tmp_path, edit, message):
+    value = json.loads(INVENTORY.read_text())
+    replaced = edit(value)
+    path = tmp_path / "inventory.json"
+    path.write_text(json.dumps(value if replaced is None else replaced))
+    with pytest.raises(ValueError, match=message):
+        catalog.read_inventory(path)
+
+
+def test_the_inventory_source_names_the_resolved_file_and_its_parsed_bytes():
+    _, source = catalog.read_inventory(INVENTORY)
+    raw = INVENTORY.read_bytes()
+    assert source == {
+        "path": str(INVENTORY.resolve()),
+        "bytes": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }
+
+
+def test_an_unknown_stack_is_named_as_unknown():
+    inventory, _ = catalog.read_inventory(INVENTORY)
+    with pytest.raises(ValueError, match="unknown stack: gpu"):
+        catalog.select_commands(inventory, stack="gpu")
