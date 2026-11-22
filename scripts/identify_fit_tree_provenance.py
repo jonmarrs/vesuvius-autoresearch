@@ -19,7 +19,7 @@ it has to be stated as two refs rather than one.
 import argparse
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 SUBTREES = ("spiral-fitting", "lasagna", "vesuvius")
 SKIP = {".venv", "__pycache__", "build", ".pytest_cache"}
@@ -32,7 +32,14 @@ def tracked_files(repo: Path, commit: str, subtree: str) -> list[str]:
         text=True,
         check=False,
     )
-    return [f for f in out.stdout.splitlines() if not any(s in f for s in SKIP)]
+    if out.returncode != 0:
+        # An unknown commit is not a commit without this subtree.
+        raise SystemExit(f"git ls-tree {commit} failed: {out.stderr.strip()}")
+    # Skip the generated directories by name, not every path that contains one
+    # of their names (a tracked build_mesh.py is source).
+    return [
+        f for f in out.stdout.splitlines() if SKIP.isdisjoint(PurePosixPath(f).parts)
+    ]
 
 
 def blob(repo: Path, commit: str, path: str) -> bytes | None:

@@ -246,3 +246,118 @@ def test_the_arms_all_postdate_the_tree_being_written():
         assert a.stat().st_mtime > newest, (
             f"{a.name} predates the tree it claims to use"
         )
+
+
+def _committed_repo(root, files):
+    repo = root / "repo"
+    for name, text in files.items():
+        path = repo / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+
+    git("init", "-q")
+    git("add", "-f", ".")
+    git(
+        "-c",
+        "user.name=Synthetic Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "-qm",
+        "fixture",
+    )
+    return repo, git("rev-parse", "HEAD")
+
+
+def test_a_tracked_file_named_like_a_skipped_directory_is_still_compared(tmp_path):
+    repo, commit = _committed_repo(
+        tmp_path,
+        {
+            "lasagna/source.py": "same\n",
+            "lasagna/build_mesh.py": "original\n",
+            "lasagna/build/cache.txt": "generated\n",
+        },
+    )
+    tree = tmp_path / "copy"
+    shutil.copytree(repo, tree, ignore=shutil.ignore_patterns(".git"))
+    (tree / "lasagna/build_mesh.py").write_text("changed\n")
+    match, total, diffs = mod.compare(repo, tree, commit, "lasagna")
+    # Only the build/ directory is skipped, not every path containing "build".
+    assert (match, total) == (1, 2)
+    assert diffs == ["lasagna/build_mesh.py"]
+    output = subprocess.run(
+        [
+            sys.executable,
+            str(Path(mod.__file__).resolve()),
+            "--repo",
+            str(repo),
+            "--tree",
+            str(tree),
+            "--commits",
+            commit,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    ).stdout
+    # One of two files matching is not a match.
+    assert f"{commit}: 1/2 files identical\n" in output
+    assert "lasagna          NONE of the candidates" in output
+    assert "Only 0/1 compared subtrees matched a candidate" in output
+
+
+def test_a_tracked_file_missing_from_the_copy_is_named(tmp_path):
+    repo, commit = _committed_repo(
+        tmp_path, {"lasagna/source.py": "same\n", "lasagna/other.py": "kept\n"}
+    )
+    tree = tmp_path / "copy"
+    shutil.copytree(repo, tree, ignore=shutil.ignore_patterns(".git"))
+    (tree / "lasagna/other.py").unlink()
+    assert mod.compare(repo, tree, commit, "lasagna") == (
+        1,
+        2,
+        ["lasagna/other.py (absent locally)"],
+    )
+
+
+def test_an_unknown_commit_is_an_error_not_an_absent_subtree(tmp_path):
+    repo, commit = _committed_repo(tmp_path, {"lasagna/source.py": "same\n"})
+    tree = tmp_path / "copy"
+    shutil.copytree(repo, tree, ignore=shutil.ignore_patterns(".git"))
+    (tree / "vesuvius").mkdir()
+
+    def run(*commits):
+        return subprocess.run(
+            [
+                sys.executable,
+                str(Path(mod.__file__).resolve()),
+                "--repo",
+                str(repo),
+                "--tree",
+                str(tree),
+                "--commits",
+                *commits,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+    known = run(commit)
+    assert known.returncode == 0, known.stderr
+    # A known commit without the subtree is still reported as absent there.
+    assert f"{commit}: subtree absent at this commit" in known.stdout
+    unknown = run("0" * 40)
+    assert unknown.returncode != 0
+    assert "0" * 40 in unknown.stderr
+    assert "subtree absent" not in unknown.stdout
