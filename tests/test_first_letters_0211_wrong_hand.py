@@ -151,3 +151,38 @@ def test_choose_takes_the_windings_that_reach_the_winner_most(tmp_path):
     assert (
         out["described"]["winner_points_within_2_of_any_winding"] == 1.0
     )  # w010 is 1 voxel off everywhere
+
+
+def test_an_arm_that_reaches_almost_nothing_gets_a_share_and_no_r():  # amendment 1
+    cells = np.zeros((40, 40), bool)
+    cells[:10, :10] = (
+        True  # 100 cells, under the 1,000 that finding 121 asks of a winding
+    )
+    numbers = wh.arm_numbers(np.zeros((40, 40)), {}, cells, mask_cells=1000)
+    assert numbers == {
+        "cells": 100,
+        "r": None,
+        "control_wrong_side": None,
+        "control_slid": None,
+        "cell_share": 0.1,
+    }
+    assert wh.verdict(RIGHT, numbers, True) == "WRONG_HAND_DOES_NOT_READ"
+
+
+def test_a_fit_that_never_reaches_the_winner_is_recorded_as_not_reading(
+    tmp_path,
+):  # amendment 1
+    _mesh(tmp_path / "winner", _sheet(6, 12, 100.0))
+    fit = tmp_path / "fitted"
+    _mesh(fit / "w010", _sheet(6, 12, 150.0))
+    listing, out = tmp_path / "list.txt", tmp_path / "choose.json"
+    assert (
+        wh.main(["choose", str(fit), str(tmp_path / "winner"), str(out), str(listing)])
+        == 0
+    )
+    assert listing.read_text() == "" and json.loads(out.read_text())["chosen"] == []
+    record = tmp_path / "compare.json"
+    assert wh.main(["unreached", str(record), str(out)]) == 0
+    result = json.loads(record.read_text())
+    assert result["verdict"] == "WRONG_HAND_DOES_NOT_READ"
+    assert result["registered"]["wrong"]["cell_share"] == 0.0

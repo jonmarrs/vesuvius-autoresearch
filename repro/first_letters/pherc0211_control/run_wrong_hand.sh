@@ -116,6 +116,11 @@ infer() {
 step check check
 step fit bash "$BAND/run_fit.sh" "$FIT"
 step choose choose
+if [ ! -s "$R/work/windings_$ARM.txt" ]; then  # amendment 1: nothing reaches the winner's surface
+  step compare "$PYW" -I "$HERE/wrong_hand.py" unreached "$OUT/compare.json" "$OUT/choose.json"
+  cat "$OUT/logs/compare.log"
+  exit 0
+fi
 ln -sfn "fit_$FIT" "$R/work/fit_$ARM"  # fit_meshes reads the fit under the read's arm name, as finding 121
 mapfile -t WINDINGS < "$R/work/windings_$ARM.txt"
 step snap bash "$BAND/run_snap.sh" "$ARM"

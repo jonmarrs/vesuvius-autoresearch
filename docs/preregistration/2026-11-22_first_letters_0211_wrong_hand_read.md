@@ -105,3 +105,18 @@ winding's cells and r; transfer distances; and the choice record's union coverag
 The fit took 3 h 22 min for finding 116's band (12,104 s, 13.8 GB of GPU memory). Snap, flatten, render and
 Studio for four windings take about 40 minutes, and the renders about 6 GB of disk. It runs after findings 129
 and 133, which hold the GPU now.
+
+## Amendment 1 (2026-11-22, before any reversed fit has run)
+
+A wrong-direction fit that barely reaches the winner's surface is a result the table names
+(`WRONG_HAND_DOES_NOT_READ`: cell share under 0.25), but the registered code would have stopped on it with
+`DOES_NOT_RUN`. `choose` failed when no raw winding came within 4 voxels. `compare` took percentiles of an empty
+array and scored empty cells. Now:
+
+- `choose` writes an empty list when no winding reaches the surface, and the chain records
+  `WRONG_HAND_DOES_NOT_READ` with cell share 0 (`wrong_hand.py unreached`) instead of going on to snap nothing.
+- An arm with fewer than 1,000 cells (finding 121's minimum for scoring one winding) gets its cell share and no r.
+  The table already reads that as `WRONG_HAND_DOES_NOT_READ`. Its described numbers that need cells are left empty.
+
+Nothing else changes: the dry runs give the same numbers (right arm r 0.8247, share 0.8309; the stand-in wrong arm
+r 0.8205, share 0.8312, `WRONG_HAND_READS_ALIKE`; `choose` on finding 119's fit gives w035, w033, w036, w034).

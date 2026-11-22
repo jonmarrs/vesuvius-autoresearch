@@ -49,6 +49,7 @@ MARGIN = 0.05  # r below the right arm's that still counts as alike
 SHARE_ALIKE = 0.8  # of the right arm's cell share
 SHARE_PARTLY = 0.25  # of the winner's mask cells
 PARTLY, RATIO = f124.PARTLY, f124.RATIO  # 0.40, 2.0
+MIN_CELLS = f121.MIN_WINDING_CELLS  # 1,000: below it an arm gets no r (amendment 1)
 F124_R = f131.F124_R  # 0.8247
 
 
@@ -140,6 +141,36 @@ def sampled_along_the_winner(cosines: list[float | None], flipped: list[bool]) -
     )
 
 
+def arm_numbers(
+    studio: np.ndarray, arm: dict, cells: np.ndarray, mask_cells: int
+) -> dict:
+    """An arm's registered numbers on its own cells; no r below MIN_CELLS (amendment 1: an arm that reaches almost
+    none of the winner's surface gets its share and no r, and the table reads it, rather than the step failing)."""
+    share = round(float(cells.sum()) / mask_cells, 4)
+    if cells.sum() < MIN_CELLS:
+        return {"cells": int(cells.sum()), "r": None, "control_wrong_side": None, "control_slid": None,
+                "cell_share": share}  # fmt: skip
+    return {**f131.scored(studio, arm, cells), "cell_share": share}
+
+
+def unreached(choice: dict) -> dict:
+    """Amendment 1: no raw winding of the fit comes within ACCEPT of the winner's surface."""
+    return {
+        "finding": 137,
+        "registered": {
+            "wrong": {
+                "r": None,
+                "control_wrong_side": None,
+                "control_slid": None,
+                "cell_share": 0.0,
+            }
+        },
+        "verdict": "WRONG_HAND_DOES_NOT_READ",
+        "why": f"no raw winding has a winner lattice point within {analysis.ACCEPT} voxels",
+        "choice": choice,
+    }
+
+
 def verdict(right: dict | None, wrong: dict | None, reproduces: bool) -> str:
     """The registered table. right/wrong: {"r", "control_wrong_side", "control_slid", "cell_share"}."""
     if not reproduces or right is None or wrong is None:
@@ -210,13 +241,10 @@ def compare_cmd(args: argparse.Namespace) -> dict:
         )
         return result
     mask_cells = max(int(in_mask.sum()), 1)
-    own = {}
-    for name, arm in arms.items():
-        cells = base & f131.arm_cells(arm)
-        own[name] = {
-            **f131.scored(studio, arm, cells),
-            "cell_share": round(float(cells.sum()) / mask_cells, 4),
-        }
+    own = {
+        name: arm_numbers(studio, arm, base & f131.arm_cells(arm), mask_cells)
+        for name, arm in arms.items()
+    }
     reproduces = own["right"]["r"] == F124_R
     keys = ("r", "control_wrong_side", "control_slid", "cell_share")
     result.update(
@@ -232,6 +260,9 @@ def compare_cmd(args: argparse.Namespace) -> dict:
     common = base & f131.arm_cells(arms["right"]) & f131.arm_cells(arms["wrong"])
     by_winding = {}
     for name, arm in arms.items():
+        if (base & f131.arm_cells(arm)).sum() < MIN_CELLS:
+            by_winding[name] = None
+            continue
         hp = analysis.highpass(
             f120.standardise(arm["carried"], base & f131.arm_cells(arm)),
             base & f131.arm_cells(arm),
@@ -252,7 +283,12 @@ def compare_cmd(args: argparse.Namespace) -> dict:
         "both_arms_on_their_common_cells": {
             "cells": int(common.sum()),
             "cell_share": round(float(common.sum()) / mask_cells, 4),
-            **{name: f131.scored(studio, arm, common) for name, arm in arms.items()},
+            **{
+                name: f131.scored(studio, arm, common)
+                if common.sum() >= MIN_CELLS
+                else None
+                for name, arm in arms.items()
+            },
         },
         "only_the_wrong_arm_reaches": round(
             float(
@@ -279,6 +315,8 @@ def compare_cmd(args: argparse.Namespace) -> dict:
                     strict=True,
                 )
             )
+            if (base & f131.arm_cells(arm)).any()
+            else None
             for name, arm in arms.items()
         },  # fmt: skip
     }
@@ -304,6 +342,9 @@ def main(argv: list[str] | None = None) -> int:
         "--ours-render-map",
     ):
         c.add_argument(flag, required=True, type=Path)
+    u = sub.add_parser("unreached")
+    u.add_argument("out", type=Path)
+    u.add_argument("choice", type=Path)
     c.add_argument("--arm", nargs=6, action="append", required=True,
                    metavar=("NAME", "FINALS", "RENDERS", "MAPS", "ORIENT", "LIST"))  # fmt: skip
     args = ap.parse_args(argv)
@@ -315,11 +356,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{args.listing} exists", file=sys.stderr)
             return 2
         result = choose(args.fit_meshes, args.winner_mesh)
-        if not result["chosen"]:
-            print("no winding reaches the winner's surface", file=sys.stderr)
-            args.out.write_text(json.dumps(result, indent=1) + "\n")
-            return 1
-        args.listing.write_text("\n".join(result["chosen"]) + "\n")
+        # amendment 1: an empty list when nothing reaches; run_wrong_hand.sh then records that verdict
+        args.listing.write_text("".join(f"{w}\n" for w in result["chosen"]))
+    elif args.command == "unreached":
+        result = unreached(json.loads(args.choice.read_text()))
     else:
         if sorted(a[0] for a in args.arm) != ["right", "wrong"]:
             raise SystemExit("the arms are right and wrong")
