@@ -17,8 +17,14 @@
 # 96-pixel windows without overlap; finding 128).
 # A winding is not rendered while the run directory's disk has less than FL_MIN_FREE_GB free (default 50): its render
 # step exits 28, is recorded like any failed step, and nothing is deleted to make room.
+# FL_OVERLAP=1 renders the windings in the background, in the same order, while Studio reads each winding as soon as
+# its render is recorded. The commands, their inputs, gates and logs are the serial read's; only when each runs
+# changes. The renders use the CPUs and Studio the GPU, which the serial read leaves idle in turn (PHerc. 0826,
+# finding 125: 2.66 h of renders, then 4.41 h of Studio). Default 0, the serial read, as findings 125, 126 and 129
+# ran or were registered.
 #
-# usage: FL_SCROLL=PHerc0826 [STUDIO_WINDINGS=FILE] [STUDIO_TILING=winner|published] run_studio_band.sh ARM
+# usage: FL_SCROLL=PHerc0826 [STUDIO_WINDINGS=FILE] [STUDIO_TILING=winner|published] [FL_OVERLAP=0|1]
+#        run_studio_band.sh ARM
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
@@ -41,6 +47,10 @@ case "${STUDIO_TILING:-winner}" in
   winner) TILING=(--stride 64 --blend hann) ;;
   published) TILING=() ;;
   *) echo "STUDIO_TILING is winner or published, not '$STUDIO_TILING'" >&2; exit 2 ;;
+esac
+case "${FL_OVERLAP:-0}" in
+  0|1) ;;
+  *) echo "FL_OVERLAP is 0 or 1, not '$FL_OVERLAP'" >&2; exit 2 ;;
 esac
 mkdir -p "$OUT/planes" "$OUT/maps" "$R/logs"
 
@@ -97,6 +107,44 @@ render_one() {  # WINDING
   esac
 }
 
+render_and_read() {  # FL_OVERLAP=1: the render and Studio loops at once, each winding read once it is rendered
+  local done_file=$OUT/rendered.txt renderer w t0 rc read_ok=()
+  : > "$done_file"
+  (
+    for w in "${LIVE[@]}"; do
+      t0=$(date +%s)
+      render_one "$w" > "$R/logs/studio_${ARM}_render_$w.log" 2>&1
+      rc=$?
+      gate "$ARM" "studio_render_$w" "$rc" "$(( $(date +%s) - t0 ))"
+      [ "$rc" -eq 0 ] || echo "FAILED render $w"
+      echo "$w $rc" >> "$done_file"
+    done
+    echo "render: $(awk '$2 == 0' "$done_file" | wc -l) windings go on $(date -Is)"
+  ) &
+  renderer=$!
+  for w in "${LIVE[@]}"; do
+    while :; do
+      rc=$(awk -v n="$w" '$1 == n {print $2}' "$done_file")
+      [ -n "$rc" ] && break
+      if ! kill -0 "$renderer" 2>/dev/null; then  # the renderer is gone: a last look, then no render
+        rc=$(awk -v n="$w" '$1 == n {print $2}' "$done_file")
+        [ -n "$rc" ] || { rc=gone; echo "FAILED render $w (the renderer stopped first)"; }
+        break
+      fi
+      sleep "${FL_OVERLAP_POLL:-2}"
+    done
+    [ "$rc" = 0 ] || continue
+    t0=$(date +%s)
+    studio "$w" > "$R/logs/studio_${ARM}_studio_$w.log" 2>&1
+    rc=$?
+    gate "$ARM" "studio_studio_$w" "$rc" "$(( $(date +%s) - t0 ))"
+    if [ "$rc" -eq 0 ]; then read_ok+=("$w"); else echo "FAILED studio $w"; fi
+  done
+  wait "$renderer"
+  LIVE=("${read_ok[@]}")
+  echo "studio: ${#LIVE[@]} windings go on $(date -Is)"
+}
+
 if [ -n "${STUDIO_WINDINGS:-}" ]; then
   ls "$MESHES" | grep -E '^w[0-9]+$' | grep -Fxf "$STUDIO_WINDINGS" > "$R/work/windings_$ARM.txt"
 else
@@ -111,7 +159,11 @@ for_each flatten bash "$HERE/run_flatten.sh" "$ARM"
 FINALS=()
 for w in "${LIVE[@]}"; do FINALS+=("$R/work/final_$ARM/$w.tifxyz"); done
 stage orient "$PYW" -I "$HERE/studio_band.py" orient "$OUT/orient.json" "${FINALS[@]}" --umbilicus "$R/dataset/umbilicus.json"
-for_each render render_one
-for_each studio studio
+if [ "${FL_OVERLAP:-0}" = 1 ]; then
+  render_and_read
+else
+  for_each render render_one
+  for_each studio studio
+fi
 stage summarise "$PYW" -I "$HERE/studio_band.py" summarise "$OUT/summary" "$OUT/maps" "$R/work/render_$ARM"
 echo "READ_EXIT $ARM ${#LIVE[@]} windings read $(date -Is)"
