@@ -6,7 +6,6 @@ so that we can produce the required checkpoint for trace_service.py.
 """
 
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path

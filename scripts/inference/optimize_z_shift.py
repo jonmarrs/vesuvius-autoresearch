@@ -4,7 +4,6 @@ Dynamic Z-Shift Optimizer for inference.
 Automatically searches for the most legible Z-layer within a stack.
 """
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 

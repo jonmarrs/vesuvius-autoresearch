@@ -24,7 +24,6 @@ The registration requires `check_patch_selection.py` and
 """
 
 import argparse
-import os
 import random
 import sys
 from pathlib import Path

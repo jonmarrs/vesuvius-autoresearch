@@ -2,9 +2,6 @@
 (same-scroll vs cross-scroll) with the community metric contract and write a gap report."""
 
 import json
-import os
-
-import numpy as np
 
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 from vesuvius_autoresearch.core.report_artifacts import publish_report, report_output
