@@ -268,7 +268,7 @@ each has caused a measured scientific failure.
 | High | **The human-feedback loop is incomplete.** Regional uncertainty describes a single plane with a source offset, and the proofreader expects aligned 3D categorical labels. Opt-in [session records and export checks](PROOFREADER_SESSION_RECORDS.md) now bind input bytes and check each approved TIFF pair against the log and recorded CT crop. Labels pass a shape and categorical range check. | Choose whether feedback will use 2D ink windows or 3D segmentation labels, then define coordinate transforms, label semantics and ingestion into the [training inputs](../scripts/training/input_paths.py). Resume needs a separate contract for Villa's grid snapping, pending entries and incomplete GUI-setting history. Physical alignment and label correctness require their own review. |
 | Medium | **Regional peak memory and ensemble residency still need representative GPU measurements.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) cap three persistent float32 blend planes and load saved state on CPU. The opt-in [regional profiler](VOLUME_INFERENCE.md#regional-memory-observations) now records process RSS, OS lifetime high-water RSS and selected-device PyTorch allocator peaks through the latest metadata observation. Synthetic CPU checks preserve output probabilities exactly; the CUDA path has only mocked API coverage. Whole-region arrays and all ensemble members remain resident. | Run `--profile_memory` on the 4090 with representative source/model/export settings before choosing streaming accumulators or sequential member residency. The 512 MiB cap remains an acceptance policy. CPU lifetime peaks include earlier process work; CUDA allocator peaks exclude other allocators/processes and device-context overhead, and are not independent phase peaks or fit guarantees. The [scratch CUDA probe](VRAM_PROBE.md) is a separate forward/backward path. [Production](../scripts/production_predict.py) remains outside the new regional profiling scope; no real GPU/full-scroll peak or throughput result was measured here. |
 | Medium | **Broader scientific validation is still needed after earlier correctness changes.** The [registered renderer-v2 check](../reports/render_revalidation_review_2026-11-17.md) now supplies a new real-source compatibility measurement: one fixed PHerc1667 interior crop, center-plane NCC 0.78897, complete depth support, and a bitwise offline replay. This is not a repeat of the historical whole-segment/depth experiments. The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) retain those limits. Placement gates now decline additional boundary-limited results. | Use the new reading only within its fixed-crop compatibility scope. Rerun the confidence analysis and any broader renderer/placement comparison before using its historical number to justify a research direction. Preserve original artifacts and register new methods separately. No accuracy, independent registration, depth-direction or whole-scroll claim follows from the crop check. |
-| Medium | **Training read-failure defaults and recovery still need a decision.** The trainer supports `strict_training_reads: true` for labeled and active UA-MT inputs, and records the selected policy. Explicit catalogs fail on invalid origins, and validation fingerprints the catalog it parsed. [Prepared fragment verification](TRAINING_DATA_IMPORT.md#verify-a-prepared-fragment) requires every expected chunk and compares the decoded CT digest with the import receipt. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. The default uses counted legacy fallbacks for CT read failures. Review copied or overlapping crops and remote source identities separately when establishing split independence. |
+| Medium | **Training read-failure defaults and recovery still need a decision.** The trainer supports `strict_training_reads: true` for labeled and active UA-MT inputs, and records the selected policy. Validation checks the bytes it parses for explicit catalogs and decodes for labels and masks. The [Frag1 failure exercise](#validation-image-identity-and-frag1-read-failures-2026-11-22-utc) shows that strict reads catch a short encoded chunk and that [prepared fragment verification](TRAINING_DATA_IMPORT.md#verify-a-prepared-fragment) also catches missing chunks. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. The default uses counted legacy fallbacks for CT read failures. Review copied or overlapping crops and remote source identities separately when establishing split independence. |
 | Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
 | Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The [command inventory](COMMANDS.md) records runtime, checkout/wheel, Villa and side-effect requirements for 28 reviewed entry points and modes. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Use the inventory to design and test dependency closures, then decide Python/platform support before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
 
@@ -1852,3 +1852,44 @@ paths as provenance. The build command still requires paths it can open on the
 host. The regression passed with the full **268-test** integration selection.
 The revised verifier also repeated the Frag1 check with the same 6,400 chunks
 and hashes.
+
+## Validation image identity and Frag1 read failures (2026-11-22 UTC)
+
+This pass starts from `d170b3b6` and advances the training read review. Two
+regressions temporarily replaced the selected validation label or mask PNG,
+let the real dataset load the replacement, then restored the original. The
+previous before-and-after disk checks accepted the original fingerprint with
+changed targets or patch coordinates. The validation reader now checks and
+decodes the same captured bytes for each selected image. A third regression
+changes the file after capture and checks that the decoder still uses the
+captured bytes. The existing fingerprint format and catalog check are retained.
+See [validation image checks](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy).
+
+PR review found that the initial fingerprint could read an oversized image in
+full before the loader refused it. Both checks now use the same 512 MiB encoded
+file limit. Fingerprinting inspects the opened file's size and hashes in blocks.
+The added regressions cover both image roles and file changes during hashing.
+
+On a temporary copy of the [two-slice Frag1 import](OFFICIAL_FRAGMENT_EXAMPLE.md),
+the selected labels and mask produced the same validation fingerprint as the
+parent implementation and identical CT, label and fiber tensors. The explicit
+catalog origin was YX `(424, 3541)`. With seed 42 and the existing jitter the
+reader sampled YX `(443, 3523)` with CT shape `[1, 2, 64, 64]`.
+
+- Removing chunk `0.3.27` changed **3,904 of 8,192** CT voxels to fill values
+  even under strict reads. Prepared-fragment verification rejected the missing
+  chunk.
+- Shortening that chunk by one byte made the strict patch read fail. Permissive
+  mode returned a zero patch and counted one `labeled_zero_patch` warning.
+  Restoring the chunk restored the original tensors.
+
+These controlled failures show when strict reads can help and when the separate
+receipt check is needed. They leave the training default and all seven owner
+items open. The exercise measured neither a natural failure rate nor model
+performance.
+
+The eleven-module CPU integration selection passed **531 tests**, with one
+skip. It covered validation, checkpoint re-evaluation, training inputs,
+spawned workers, volume reading and fragment import. The portable profile
+passed **432 tests**. Maintained Ruff, changed-file formatting and Mypy
+passed. Mypy checked 1,090 files.

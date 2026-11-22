@@ -86,8 +86,10 @@ from scripts.training.promotion import (
     validation_indices,
     validation_input_paths,
     validation_inputs_fingerprint,
+    validation_inputs_record,
     validation_label_path,
     validation_protocol,
+    validation_record_sha256,
 )
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
 
@@ -817,18 +819,18 @@ def build_validation_dataset(config: ExperimentConfig):
     # The same paths the fingerprint hashes (promotion.validation_input_paths),
     # fingerprinted before and after the dataset reads them.
     band = getattr(config, "depth_band", None)
-    inputs = validation_inputs_fingerprint(config.val_uri, band)
+    inputs = validation_inputs_record(config.val_uri, band)
     paths = validation_input_paths(config.val_uri)
     labels_path, mask_path = paths["labels"], paths["mask"]
     patches_json_path = paths["patches_json"]
-    catalog_path = patches_json_path if os.path.lexists(patches_json_path) else None
+    catalog_path = patches_json_path if inputs["patches_json"] is not None else None
     # Validation uses target_fiber_source="sobel_z" regardless of training
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
     dataset = VesuviusLabeledDataset(
         config.val_uri,
         labels_path,
-        mask_path if os.path.exists(mask_path) else None,
+        mask_path if inputs["mask"] is not None or os.path.exists(mask_path) else None,
         config.patch_size,
         config.num_layers + 2 * DEPTH_MARGIN,
         seed=42,
@@ -842,13 +844,14 @@ def build_validation_dataset(config: ExperimentConfig):
         strict_reads=True,
         depth_band=getattr(config, "depth_band", None),
         depth_margin=DEPTH_MARGIN,
+        expected_image_sha256=(inputs["labels"][1], inputs["mask"]),
     )
     # Recorded with every score (validation_diag["inputs_sha256"]) and compared
     # with the incumbent's (promotion.py). A file written while the dataset read
     # them could otherwise be recorded without having been read. Check the
-    # parsed catalog's digest too, including a rewrite that was then reverted.
+    # bytes actually decoded or parsed, including rewrites that were reverted.
     if (
-        validation_inputs_fingerprint(
+        validation_inputs_record(
             config.val_uri,
             band,
             expected_catalog_sha256=dataset.patch_catalog_sha256
@@ -860,7 +863,7 @@ def build_validation_dataset(config: ExperimentConfig):
         raise RuntimeError(
             f"the validation inputs for {config.val_uri} changed while they were read"
         )
-    dataset.validation_inputs = inputs
+    dataset.validation_inputs = validation_record_sha256(inputs)
     return dataset
 
 
