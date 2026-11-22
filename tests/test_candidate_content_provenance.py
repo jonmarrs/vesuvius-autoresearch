@@ -1,7 +1,6 @@
 """Candidate reuse must reject changed data even when metadata is unchanged."""
 
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest

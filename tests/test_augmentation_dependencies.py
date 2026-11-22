@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 

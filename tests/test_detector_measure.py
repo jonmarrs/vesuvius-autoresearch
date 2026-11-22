@@ -1,7 +1,6 @@
 # tests/test_detector_measure.py
 import os
 
-import numpy as np
 from test_detector_data import _make_fake_fragment
 
 from vesuvius_autoresearch.detector import measure as M

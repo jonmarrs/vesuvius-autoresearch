@@ -10,8 +10,6 @@ the revision every existing measurement used.
 import importlib.util
 from pathlib import Path
 
-import pytest
-
 SPEC = importlib.util.spec_from_file_location(
     "cswp",
     Path(__file__).resolve().parents[1] / "scripts" / "check_scorer_weights_pinned.py",

@@ -1,8 +1,6 @@
 """The CPU corpus check enforces its budget and retains failed commands."""
 
-import importlib.util
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path

@@ -11,7 +11,7 @@ nothing validates it.
 """
 
 import importlib.util
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 SPEC = importlib.util.spec_from_file_location(
