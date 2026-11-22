@@ -180,6 +180,18 @@ def test_a_volume_rebuilt_in_place_changes_the_fingerprint(tmp_path, monkeypatch
     assert promotion.validation_inputs_fingerprint("frag/surface_volume.zarr") != base
 
 
+@pytest.mark.parametrize("filename", ["inklabels.png", "mask.png"])
+def test_validation_fingerprint_refuses_an_oversized_image(
+    tmp_path, monkeypatch, filename
+):
+    frag = _fragment(tmp_path)
+    (frag / filename).write_bytes(b"123456789")
+    monkeypatch.setattr(promotion, "MAX_VALIDATION_IMAGE_BYTES", 8, raising=False)
+    with pytest.raises(ValueError, match="input exceeds 8 bytes") as error:
+        promotion.validation_inputs_fingerprint(str(frag / "surface_volume.zarr"))
+    assert filename in str(error.value)
+
+
 def test_inputs_changed_while_the_dataset_reads_them_are_refused(tmp_path, monkeypatch):
     frag = _fragment(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -231,6 +243,95 @@ def test_validation_rejects_a_catalog_rewrite_reverted_after_parsing(
     with pytest.raises(RuntimeError, match="patch catalog changed"):
         train.build_validation_dataset(config)
     assert promotion.validation_inputs_fingerprint(uri) == original_fingerprint
+
+
+@pytest.mark.parametrize("filename", ["inklabels.png", "mask.png"])
+def test_validation_rejects_an_image_rewrite_reverted_after_decoding(
+    tmp_path, monkeypatch, filename
+):
+    import zarr
+    from PIL import Image
+
+    frag = _fragment(tmp_path)
+    uri = str(frag / "surface_volume.zarr")
+    zarr.open(uri, mode="w", shape=(32, 32, 32), chunks=(8, 16, 16), dtype="u1")[:] = 17
+    original = np.full((32, 32), 255, dtype=np.uint8)
+    Image.fromarray(original).save(frag / "inklabels.png")
+    Image.fromarray(original).save(frag / "mask.png")
+    path = frag / filename
+    original_bytes = path.read_bytes()
+    config = ExperimentConfig(
+        val_uri=uri, num_layers=16, patch_size=16, cache_dir=str(tmp_path / "cache")
+    )
+
+    baseline = promotion.validation_inputs_fingerprint(uri)
+    stable = train.build_validation_dataset(config)
+    assert stable.validation_inputs == baseline
+    assert np.all(stable.labels == 1)
+    assert np.all(stable.mask == 1)
+
+    build_dataset = train.VesuviusLabeledDataset
+
+    def changed_dataset(*args, **kwargs):
+        replacement = original.copy()
+        replacement[:16] = 0
+        Image.fromarray(replacement).save(path)
+        try:
+            dataset = build_dataset(*args, **kwargs)
+            decoded = dataset.labels if filename == "inklabels.png" else dataset.mask
+            np.testing.assert_array_equal(decoded, replacement / 255)
+            return dataset
+        finally:
+            path.write_bytes(original_bytes)
+
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", changed_dataset)
+    with pytest.raises(
+        RuntimeError, match=f"validation .* changed while read: .*{filename}"
+    ):
+        train.build_validation_dataset(config)
+    assert promotion.validation_inputs_fingerprint(uri) == baseline
+
+
+def test_validation_decodes_the_bytes_that_passed_its_image_check(
+    tmp_path, monkeypatch
+):
+    import io
+
+    import zarr
+    from PIL import Image
+
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    frag = _fragment(tmp_path)
+    uri = str(frag / "surface_volume.zarr")
+    zarr.open(uri, mode="w", shape=(32, 32, 32), chunks=(8, 16, 16), dtype="u1")[:] = 17
+    path = frag / "inklabels.png"
+    Image.fromarray(np.full((32, 32), 255, dtype=np.uint8)).save(path)
+    (frag / "mask.png").unlink()
+    (frag / "patches.json").write_text('{"patches":[{"y":0,"x":0}]}')
+    original = path.read_bytes()
+    config = ExperimentConfig(val_uri=uri, num_layers=16, patch_size=16)
+    expected_fingerprint = promotion.validation_inputs_fingerprint(uri)
+    capture_bytes = vesuvius_loader.capture_bytes
+    pillow_open = Image.open
+
+    def replace_after_capture(source, limit):
+        captured = capture_bytes(source, limit)
+        Image.fromarray(np.zeros((32, 32), dtype=np.uint8)).save(path)
+        return captured
+
+    def open_image(source, *args, **kwargs):
+        assert path.read_bytes() != original
+        assert isinstance(source, io.BytesIO)
+        path.write_bytes(original)
+        return pillow_open(source, *args, **kwargs)
+
+    monkeypatch.setattr(vesuvius_loader, "capture_bytes", replace_after_capture)
+    monkeypatch.setattr(vesuvius_loader.Image, "open", open_image)
+    data = train.build_validation_dataset(config)
+    assert data.validation_inputs == expected_fingerprint
+    assert np.all(data.labels == 1)
+    assert data.mask is None
 
 
 def test_training_stops_before_its_budget_on_other_inputs(tmp_path):

@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from scripts.text_snapshot import Snapshot, capture_bytes
+from vesuvius_autoresearch.core.file_capture import capture_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -135,8 +136,9 @@ def test_binary_capture_does_not_require_utf8(tmp_path):
 
 
 @pytest.mark.parametrize("replacement", [b"longer file", b"x", b"other"])
+@pytest.mark.parametrize("capture", [capture_bytes, capture_sha256])
 def test_changed_descriptor_is_rejected_even_below_the_budget(
-    tmp_path, monkeypatch, replacement
+    tmp_path, monkeypatch, replacement, capture
 ):
     path = tmp_path / "source.txt"
     path.write_bytes(b"small")
@@ -153,12 +155,13 @@ def test_changed_descriptor_is_rejected_even_below_the_budget(
 
     monkeypatch.setattr(os, "fstat", inspect)
     with pytest.raises(ValueError, match="changed while capturing"):
-        capture_bytes(path, 128)
+        capture(path, 128)
     assert len(inspections) == 2
 
 
+@pytest.mark.parametrize("capture", [capture_bytes, capture_sha256])
 def test_a_descriptor_that_under_reports_its_size_is_not_captured_truncated(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capture
 ):
     # Both inspections agree on a size smaller than the file. Only the captured
     # length can show the difference; otherwise a truncated read would be kept.
@@ -173,4 +176,4 @@ def test_a_descriptor_that_under_reports_its_size_is_not_captured_truncated(
 
     monkeypatch.setattr(os, "fstat", under_reported)
     with pytest.raises(ValueError, match="changed while capturing"):
-        capture_bytes(path, 128)
+        capture(path, 128)
