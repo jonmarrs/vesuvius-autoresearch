@@ -104,6 +104,7 @@ python scripts/training/prepare_surface_volume.py verify \
 
 Keep `import.json` with the fragment. The checker uses the existing contract 1
 receipt and can run after the original TIFFs and manifest have been removed.
+Verification accepts recorded Windows and POSIX source paths for copied fragments.
 It checks the importer's uncompressed Zarr layout, axes and source origin, then
 reads each expected chunk at its full encoded size. Each chunk must exist even
 if its voxels are all zero. A normal Zarr read can substitute a fill value for

@@ -1845,3 +1845,10 @@ The portable profile passed **432 tests**. Registry, file-mode, source and
 document guards passed **171 tests**, with one skip for missing arm artifacts.
 CPU smoke passed **8 checks**, with three skips requiring a checkpoint or
 training inputs. Ruff, formatting, Mypy and the offline lock check passed.
+
+PR review reproduced a failure when a copied receipt used source paths from
+another operating system. Verification now accepts absolute Windows and POSIX
+paths as provenance. The build command still requires paths it can open on the
+host. The regression passed with the full **268-test** integration selection.
+The revised verifier also repeated the Frag1 check with the same 6,400 chunks
+and hashes.

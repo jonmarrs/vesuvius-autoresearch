@@ -408,6 +408,30 @@ def test_verifies_multichunk_legacy_layout_and_detects_missing_zero_chunk(
         importer.verify_import(dest)
 
 
+def test_verifies_receipt_whose_source_paths_use_another_platform(source, tmp_path):
+    dest = importer.build_import(pin(source, tmp_path), tmp_path / "out")
+    path = dest / "import.json"
+    receipt = json.loads(path.read_bytes())
+    recorded_source = receipt["plan"]["sources"]
+    prefix = "/srv/imported/" if os.name == "nt" else "C:\\data\\imported\\"
+    for record in (
+        recorded_source["labels"],
+        recorded_source["mask"],
+        *recorded_source["layers"],
+    ):
+        record["path"] = prefix + Path(record["path"]).name
+    manifest_bytes = json.dumps(receipt["plan"]).encode()
+    receipt["input_manifest_path"] = prefix + "plan.json"
+    receipt["input_manifest_sha256"] = hashlib.sha256(manifest_bytes).hexdigest()
+    path.write_text(json.dumps(receipt))
+
+    assert importer.verify_import(dest)["status"] == "verified"
+    foreign_plan = tmp_path / "foreign.json"
+    foreign_plan.write_bytes(manifest_bytes)
+    with pytest.raises(ValueError):
+        importer.build_import(foreign_plan, tmp_path / "new")
+
+
 @pytest.mark.parametrize(
     ("change", "message"),
     [

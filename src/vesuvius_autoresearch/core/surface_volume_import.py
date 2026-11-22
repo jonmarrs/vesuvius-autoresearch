@@ -10,7 +10,7 @@ import hashlib
 import json
 import math
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import numpy as np
 import zarr
@@ -198,7 +198,19 @@ def write_plan(plan, output):
     return target
 
 
-def _validate_plan(plan):
+def _recorded_source_path(value, portable):
+    if isinstance(value, str):
+        local = Path(value)
+        if local.is_absolute():
+            return local
+        if portable:
+            for path in (PurePosixPath(value), PureWindowsPath(value)):
+                if path.is_absolute():
+                    return path
+    raise ValueError("manifest source paths must be absolute")
+
+
+def _validate_plan(plan, *, portable_paths=False):
     keys = {
         "contract",
         "kind",
@@ -262,19 +274,16 @@ def _validate_plan(plan):
         ):
             raise ValueError("source layer indices must remain consecutive and ordered")
         if (
-            not isinstance(record.get("path"), str)
-            or Path(record["path"]).name != f"{index:02d}.tif"
+            _recorded_source_path(record.get("path"), portable_paths).name
+            != f"{index:02d}.tif"
         ):
             raise ValueError("source layer filename must match its declared index")
     for role, record in _entries(plan):
         keys = {"path", "bytes", "sha256"} | ({"index"} if role == "layer" else set())
         if not isinstance(record, dict) or set(record) != keys:
             raise ValueError("invalid source record")
-        if (
-            not isinstance(record["path"], str)
-            or not Path(record["path"]).is_absolute()
-        ):
-            raise ValueError("manifest source paths must be absolute")
+        if role != "layer":
+            _recorded_source_path(record["path"], portable_paths)
         _integer(record["bytes"], "source byte count")
         if not isinstance(record["sha256"], str) or not re.fullmatch(
             "[0-9a-f]{64}", record["sha256"]
@@ -421,7 +430,9 @@ def verify_import(
     ):
         raise ValueError("unsupported fragment import receipt or CT hash encoding")
     plan = receipt.get("plan")
-    _validate_plan(plan)
+    # Source paths in a completed import are provenance. A copy may have come
+    # from a machine with a different filesystem path syntax.
+    _validate_plan(plan, portable_paths=True)
     saved = receipt.get("effective_limits")
     if not isinstance(saved, dict) or set(saved) != LIMIT_KEYS:
         raise ValueError("invalid receipt resource limits")
