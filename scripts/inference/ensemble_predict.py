@@ -47,6 +47,7 @@ from vesuvius_autoresearch.core.inference import (
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
+from vesuvius_autoresearch.core.regional_memory import RegionalMemoryProfile
 from vesuvius_autoresearch.core.regional_resources import (
     MAX_ACCUMULATOR_BYTES,
     plan_regional_accumulators,
@@ -73,6 +74,7 @@ class EnsembleArgs(Tap):
     part_id: int = 0
     gaussian_blend: bool = True
     max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
+    profile_memory: bool = False  # Record process RSS and selected-device PyTorch allocator peaks in metadata
 
     def configure(self):
         self.add_argument("--gaussian_blend", action="store_true", default=True)
@@ -96,6 +98,7 @@ def ensemble_predict():
         raise ValueError("at least one checkpoint is required")
 
     models, configs, scales, ridge_sigmas = [], [], [], []
+    memory_profile = None
     for checkpoint_path in args.checkpoints:
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
@@ -122,6 +125,8 @@ def ensemble_predict():
             patch_size if args.height is None else args.height,
             args.max_accumulator_bytes,
         )
+        if args.profile_memory and memory_profile is None:
+            memory_profile = RegionalMemoryProfile(device)
         model = build_inference_model(
             architecture=config.get("architecture", "gated_unet"),
             patch_size=patch_size,
@@ -161,6 +166,8 @@ def ensemble_predict():
             "ridge-enabled ensemble num_layers must match the maximum depth; ridge filtering depends on the full depth context"
         )
     use_ridges_any = any(member[1] for member in models)
+    if memory_profile is not None:
+        memory_profile.sample("models_loaded")
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges_any)
     args.patch_size = patch_size
     args.voxel_size_um = scales[0]
@@ -228,6 +235,8 @@ def ensemble_predict():
     ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
     fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
+    if memory_profile is not None:
+        memory_profile.sample("inference_complete")
     artifacts.validate()
     os.makedirs(output_dir, exist_ok=True)
     metadata_path = invalidate_prediction_metadata(
@@ -316,6 +325,7 @@ def ensemble_predict():
             "model_config_scope": "first_ensemble_member",
             "ensemble_task_heads": member_heads,
         },
+        memory_profile=memory_profile,
     )
     print(
         f"Ensemble prediction {'complete' if args.num_parts == 1 else 'shard complete (partial region)'}. Metadata: {metadata_path}"

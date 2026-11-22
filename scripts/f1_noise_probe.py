@@ -23,13 +23,13 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO))
+sys.path[:0] = [str(REPO), str(REPO / "src")]
 
 from scripts.artifact_hashes import sha256_file
 from scripts.loop_control import acquire_lock, unsupervised_runs_refusal
 from scripts.process_supervisor import ProcessSupervisor, stops_interrupt
 from scripts.training.config import ExperimentConfig
-from scripts.training.promotion import (
+from scripts.training.validation_protocol import (
     VALIDATION_PROTOCOL,
     VALIDATION_SAMPLE_PATCHES,
     validation_protocol,
@@ -37,6 +37,7 @@ from scripts.training.promotion import (
 
 RUNNER = REPO / "scripts/training/run_noise_probe.py"
 TRAINER = REPO / "scripts/training/train.py"
+PROTOCOL_METADATA = REPO / "scripts/training/validation_protocol.py"
 VILLA = REPO / "villa"
 METRICS = (
     "val_f1",
@@ -73,7 +74,7 @@ def _path(value, base):
 
 
 def make_plan(config_path, checkpoint, output, *, runs=4, timeout=None):
-    from scripts.labeling.label_artifacts import new_output
+    from vesuvius_autoresearch.core.new_artifacts import new_output
 
     config_path, checkpoint = Path(config_path).resolve(), Path(checkpoint).resolve()
     if (
@@ -110,12 +111,8 @@ def make_plan(config_path, checkpoint, output, *, runs=4, timeout=None):
     ):
         raise ValueError("timeout must be positive and finite")
     config = asdict(cfg)
-    # The legacy, unused skeleton gate defaults to +inf. Omit that exact default
-    # so JSON stays strict; ExperimentConfig restores it when loading each trial.
-    if config["max_prize_skel_dist"] == math.inf:
-        config.pop("max_prize_skel_dist")
     json.dumps(config, allow_nan=False)
-    sources = [config_path, checkpoint, RUNNER, TRAINER]
+    sources = [config_path, checkpoint, RUNNER, TRAINER, PROTOCOL_METADATA]
     sources.extend((REPO / "scripts", REPO / "src", VILLA))
     for key in ("uris", "unlabeled_uris"):
         sources.extend(
@@ -127,7 +124,10 @@ def make_plan(config_path, checkpoint, output, *, runs=4, timeout=None):
         if config[key] and not urlsplit(config[key]).scheme:
             sources.append(Path(config[key]))
     output = new_output(output, *sources)
-    hashes = {str(path): sha256_file(path) for path in (checkpoint, RUNNER, TRAINER)}
+    hashes = {
+        str(path): sha256_file(path)
+        for path in (checkpoint, RUNNER, TRAINER, PROTOCOL_METADATA)
+    }
     hashes[str(config_path)] = config_hash
     planned = ProbePlan(
         config,

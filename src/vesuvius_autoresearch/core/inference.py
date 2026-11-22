@@ -8,7 +8,7 @@ Ink probability is sigmoid(ink) on every path: the quantity training validates
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from numbers import Integral, Real
+from numbers import Real
 from typing import overload
 
 import torch
@@ -17,6 +17,7 @@ from .inference_constants import (  # noqa: F401 (re-exported)
     DEPTH_MARGIN,
     INK_PROBABILITY,
     depth_band_for,
+    positive_integer,
     ridge_depth_context,
 )
 
@@ -60,13 +61,6 @@ def read_model_block(volume, z, y, x, num_layers, size):
     start, length, offset = depth_window(z, num_layers, volume.shape[0])
     block = volume[start : start + length, y : y + size, x : x + size]
     return block[..., offset : offset + num_layers, :, :]
-
-
-def positive_integer(value, name, minimum=1):
-    if not isinstance(value, Integral) or isinstance(value, bool) or value < minimum:
-        requirement = "positive" if minimum == 1 else "nonnegative"
-        raise ValueError(f"{name} must be a {requirement} integer")
-    return int(value)
 
 
 def positive_number(value, name):

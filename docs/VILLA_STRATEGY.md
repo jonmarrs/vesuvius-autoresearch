@@ -41,9 +41,9 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 ## 2. Infrastructure Integration (Grand Prize Track)
 *Increasing the robustness and reproducibility of our models.*
 
-### [Priority C] Autoresearch for nnUNet (STATUS: IMPLEMENTED)
+### [Priority C] Autoresearch for nnUNet (STATUS: UNINTEGRATED PROTOTYPE)
 *   **Action**: Created `villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py` (absent at our pin `ced62390e`; the segmentation tree was reorganised upstream).
-*   **Impact**: Intelligent hyperparameter evolution for official nnUNet baselines.
+*   **Scope correction (2026-11-14 UTC)**: The separate local bridge only wrote a fixed temporary YAML, discarded other template parameters and could overwrite its input. It never generated trainers or ran training, and no maintained loop called it. The launcher is now retired with [source and migration notes](UNSUPPORTED_LAUNCHERS.md); intelligent nnUNet evolution is not an implemented or measured integration here.
 
 ### [Priority D] Betti Loss for multi-task-3d-unet (STATUS: INTEGRATED)
 *   **Action**: Created `training/losses/betti_loss.py` and registered it in `BaseTrainer`.

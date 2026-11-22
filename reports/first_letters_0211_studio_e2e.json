@@ -1,0 +1,163 @@
+{
+ "finding": 124,
+ "registration": "docs/preregistration/2026-11-16_first_letters_0211_studio_e2e.md",
+ "registration_commit": "eee5f2b9",
+ "steps": {
+  "check": {
+   "exit": 0,
+   "seconds": 2
+  },
+  "compare": {
+   "exit": 0,
+   "seconds": 9
+  },
+  "infer": {
+   "exit": 0,
+   "seconds": 626
+  },
+  "planes": {
+   "exit": 0,
+   "seconds": 59
+  }
+ },
+ "maps": 9,
+ "gpu_peak_mib_all_processes": 14481,
+ "records_sha256": {
+  "work/studio_e2e.json": "e6ea5a2e488429b094d41a478dae75aa87a2fcec3a4a2be632fb961c828afbf3"
+ },
+ "layers": [
+  41,
+  40,
+  39,
+  38,
+  37,
+  36,
+  35,
+  34,
+  33,
+  32,
+  31,
+  30,
+  29,
+  28,
+  27,
+  26
+ ],
+ "ours": [
+  {
+   "mesh": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w033.tifxyz",
+   "studio_map": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_control/work/studio_e2e/maps/w033.npy",
+   "normal_cosine_median": -0.9983,
+   "cells_given": 164954
+  },
+  {
+   "mesh": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w034.tifxyz",
+   "studio_map": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_control/work/studio_e2e/maps/w034.npy",
+   "normal_cosine_median": -0.9967,
+   "cells_given": 95716
+  },
+  {
+   "mesh": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w035.tifxyz",
+   "studio_map": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_control/work/studio_e2e/maps/w035.npy",
+   "normal_cosine_median": -0.9979,
+   "cells_given": 134285
+  },
+  {
+   "mesh": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_band_z7650/work/final_e2e/w036.tifxyz",
+   "studio_map": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/first_letters/pherc0211_control/work/studio_e2e/maps/w036.npy",
+   "normal_cosine_median": -0.9962,
+   "cells_given": 64458
+  }
+ ],
+ "mask_cells": 550482,
+ "cells": 457405,
+ "cell_share": 0.8309,
+ "registered": {
+  "r": 0.8247,
+  "control_wrong_side": -0.0471,
+  "control_slid": {
+   "down": 0.1015,
+   "up": 0.1141,
+   "right": 0.0131,
+   "left": 0.0475,
+   "largest_absolute": 0.1141
+  }
+ },
+ "verdict": "STUDIO_E2E_CLOSE",
+ "predicted": "STUDIO_E2E_CLOSE",
+ "described": {
+  "whole_pipeline": {
+   "r": 0.8247,
+   "control_wrong_side": -0.0471,
+   "r_with_background": 0.7383,
+   "control_slid": {
+    "down": 0.1015,
+    "up": 0.1141,
+    "right": 0.0131,
+    "left": 0.0475,
+    "largest_absolute": 0.1141
+   },
+   "overlap": 0.7574,
+   "control_overlap_slid": {
+    "down": 0.4082,
+    "up": 0.4071,
+    "right": 0.3832,
+    "left": 0.4154,
+    "largest": 0.4154
+   }
+  },
+  "our_render_of_the_winners_surface": {
+   "r": 0.9745,
+   "control_wrong_side": null,
+   "r_with_background": 0.8368,
+   "control_slid": {
+    "down": 0.0976,
+    "up": 0.0997,
+    "right": 0.07,
+    "left": 0.07,
+    "largest_absolute": 0.0997
+   },
+   "overlap": 0.8705,
+   "control_overlap_slid": {
+    "down": 0.4182,
+    "up": 0.4143,
+    "right": 0.4242,
+    "left": 0.4217,
+    "largest": 0.4242
+   }
+  },
+  "r_whole_pipeline_with_our_render": 0.8181,
+  "by_winding": {
+   "w033.tifxyz": {
+    "cells": 164315,
+    "r": 0.8737
+   },
+   "w034.tifxyz": {
+    "cells": 95215,
+    "r": 0.7776
+   },
+   "w035.tifxyz": {
+    "cells": 133557,
+    "r": 0.8238
+   },
+   "w036.tifxyz": {
+    "cells": 64318,
+    "r": 0.7527
+   }
+  },
+  "by_part": {
+   "columns_0_181": {
+    "cells": 265555,
+    "r": 0.7972
+   },
+   "columns_193_300": {
+    "cells": 177215,
+    "r": 0.8581
+   }
+  },
+  "transfer_distance_voxels": {
+   "p50": 1.94,
+   "p95": 3.45
+  }
+ }
+}

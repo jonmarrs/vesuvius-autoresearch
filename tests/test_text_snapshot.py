@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from scripts.text_snapshot import Snapshot, capture_bytes
+from vesuvius_autoresearch.core.file_capture import capture_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -135,8 +136,9 @@ def test_binary_capture_does_not_require_utf8(tmp_path):
 
 
 @pytest.mark.parametrize("replacement", [b"longer file", b"x", b"other"])
+@pytest.mark.parametrize("capture", [capture_bytes, capture_sha256])
 def test_changed_descriptor_is_rejected_even_below_the_budget(
-    tmp_path, monkeypatch, replacement
+    tmp_path, monkeypatch, replacement, capture
 ):
     path = tmp_path / "source.txt"
     path.write_bytes(b"small")
@@ -153,12 +155,13 @@ def test_changed_descriptor_is_rejected_even_below_the_budget(
 
     monkeypatch.setattr(os, "fstat", inspect)
     with pytest.raises(ValueError, match="changed while capturing"):
-        capture_bytes(path, 128)
+        capture(path, 128)
     assert len(inspections) == 2
 
 
+@pytest.mark.parametrize("capture", [capture_bytes, capture_sha256])
 def test_a_descriptor_that_under_reports_its_size_is_not_captured_truncated(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capture
 ):
     # Both inspections agree on a size smaller than the file. Only the captured
     # length can show the difference; otherwise a truncated read would be kept.
@@ -173,4 +176,65 @@ def test_a_descriptor_that_under_reports_its_size_is_not_captured_truncated(
 
     monkeypatch.setattr(os, "fstat", under_reported)
     with pytest.raises(ValueError, match="changed while capturing"):
-        capture_bytes(path, 128)
+        capture(path, 128)
+
+
+def test_a_capture_names_the_file_a_link_resolves_to(tmp_path):
+    target = tmp_path / "weights.pt"
+    target.write_bytes(b"\x01\x02")
+    link = tmp_path / "link.pt"
+    link.symlink_to(target)
+    assert capture_bytes(link, 16) == (target.resolve(), b"\x01\x02")
+
+
+@pytest.mark.parametrize("capture", [capture_bytes, capture_sha256])
+def test_a_file_growing_while_captured_is_read_one_byte_past_its_size(
+    tmp_path, monkeypatch, capture
+):
+    # Five bytes when inspected and twenty when read. The read stops at six,
+    # under the eight-byte budget, so the file is reported as changed rather
+    # than read on to the end and reported as oversized.
+    path = tmp_path / "source.txt"
+    path.write_bytes(b"small")
+    fstat = os.fstat
+    inspections = []
+
+    def grow(descriptor):
+        info = fstat(descriptor)
+        if not inspections:
+            path.write_bytes(b"x" * 20)
+        inspections.append(info)
+        return info
+
+    monkeypatch.setattr(os, "fstat", grow)
+    with pytest.raises(ValueError, match="changed while capturing"):
+        capture(path, 8)
+
+
+@pytest.mark.parametrize("capture", [capture_bytes, capture_sha256])
+def test_a_same_size_rewrite_with_its_mtime_restored_is_still_seen(
+    tmp_path, monkeypatch, capture
+):
+    # Copy tools that keep timestamps leave only the change time to show it.
+    import time
+
+    path = tmp_path / "source.txt"
+    path.write_bytes(b"small")
+    time.sleep(0.05)  # past a coarse filesystem timestamp tick
+    fstat = os.fstat
+    inspections = []
+
+    def rewrite(descriptor):
+        info = fstat(descriptor)
+        if not inspections:
+            path.write_bytes(b"other")
+            os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns))
+        inspections.append(info)
+        return info
+
+    monkeypatch.setattr(os, "fstat", rewrite)
+    with pytest.raises(ValueError, match="changed while capturing"):
+        capture(path, 128)
+    first, second = inspections
+    assert (first.st_size, first.st_mtime_ns) == (second.st_size, second.st_mtime_ns)
+    assert first.st_ctime_ns != second.st_ctime_ns

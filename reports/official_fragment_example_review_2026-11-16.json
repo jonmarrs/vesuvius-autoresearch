@@ -1,0 +1,376 @@
+{
+  "kind": "official_fragment_onboarding_review",
+  "date_utc": "2026-11-16",
+  "baseline_commit": "798a546d2a0fb58cdfe9c12c9c0fae4dbbc967f1",
+  "scope": "A pinned two-layer public fragment source, explicit binary-palette normalization, lossless importer and strict CPU reader verification. No training, metrics or live research changes.",
+  "source_sha256_after": {
+    "configs/data/fr47_two_layers.json": "2c9f46922bdb49f8c04a7be412bc4685382f7a511529d206122ecb81dab236b0",
+    "src/vesuvius_autoresearch/core/fragment_example.py": "72b41c391b120f930f7ecf0b8f69fafe7381983c2059ebf9ab75bc78f30b0685",
+    "scripts/training/fetch_fragment_example.py": "549c555a41a08adf61a6186423956137609088a14a73663ad4b5a4ecb79a608b",
+    "tests/test_fragment_example.py": "5a44ae42c2904ba08a86a031025521749e910857e07e7a6e770b0bba9ba60bbf",
+    "scripts/run_validation_tests.py": "a02def4f426276ba83e23bcdd96bc19ca4f02c2de1a6c70381fb08eb74dcf674",
+    "src/vesuvius_autoresearch/core/surface_volume_import.py": "220e3bdbb3923c662ff85d832e157d4aa078d0bc4bf9ec91b750a5275f8ca60d",
+    "src/vesuvius_autoresearch/core/fragment_conversion.py": "5a334bd19b7cd75460068510bdbea987c86f7c184ae55e429073d127bfeb4fc9",
+    "src/vesuvius_autoresearch/core/vesuvius_loader.py": "dff806544f8cf9eda44603bc135adc76abc9b74613061cefb8c50f07e35396b8",
+    "docs/OFFICIAL_FRAGMENT_EXAMPLE.md": "524e7beb140a1b333664c37019671eea10bc77aecebf4268c54ee35f684e5c91"
+  },
+  "source_discovery": {
+    "base_url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/",
+    "directory_listing_sha256": "1c4f77a24148d416db99317b551e79b7d4ee9df770f1312969b28c13e315631a",
+    "layer_listing_sha256": "9660a054c55835ebc76020e93837066286edf8a1cf95a62b14fc6640c48e69b2",
+    "pin_basis": "SHA256 of complete files fetched over HTTPS from the public fragment export; not separately published upstream checksums.",
+    "catalog_web_page_check": "https://scrollprize.org/data returned HTTP 403; the public file directory and all pinned assets returned 200. No claim of a successful live catalog-page audit."
+  },
+  "before": {
+    "generic_importer_raw_palette_result": "ValueError: expected one scalar image within pixel budget (official raw inklabels.png)",
+    "original_png_mode": "P",
+    "used_palette_indices": [
+      0,
+      1
+    ],
+    "palette_rgb": {
+      "0": [
+        0,
+        0,
+        0
+      ],
+      "1": [
+        255,
+        255,
+        255
+      ]
+    },
+    "generic_palette_refusal_preserved": true
+  },
+  "live_fetch_receipt": {
+    "schema_version": 1,
+    "manifest": {
+      "schema_version": 1,
+      "kind": "official_surface_fragment_example",
+      "fragment_id": "PHercParis2Fr47",
+      "base_url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/",
+      "source_z_range": [
+        16,
+        18
+      ],
+      "shape_zyx": [
+        2,
+        8181,
+        6330
+      ],
+      "voxel_size_um": 3.24,
+      "label_semantics": "black_background_white_ink",
+      "mask_semantics": "black_excluded_white_included",
+      "pin_observed_utc": "2026-11-16",
+      "pin_basis": "SHA256 of complete files fetched over HTTPS from the public fragment export; not separately published upstream checksums.",
+      "files": [
+        {
+          "relative_path": "inklabels.png",
+          "bytes": 88875,
+          "sha256": "bc36bd54e84b423faa44d3b62ca0d3a3c28403cb714b154acb382f94241d39b6"
+        },
+        {
+          "relative_path": "mask.png",
+          "bytes": 61652,
+          "sha256": "1fdc13f7dc149dc4e00272af597ba236b650e54bb2dca38865f211207cee069f"
+        },
+        {
+          "relative_path": "surface_volume/meta.json",
+          "bytes": 215,
+          "sha256": "6a33b57ae1f93dd52f93af3fc508d6969d4ddd013c81c8f87f769260994cd60f"
+        },
+        {
+          "relative_path": "surface_volume/16.tif",
+          "bytes": 103571722,
+          "sha256": "3113d8dbcc32e32dffe8b186508cddbc4c4588a9ef9c465043f6aa386e1707c0"
+        },
+        {
+          "relative_path": "surface_volume/17.tif",
+          "bytes": 103571722,
+          "sha256": "323e11499a6ea84ea4c551316c5756932687e3fe5607129c6bb73e032959c2d0"
+        }
+      ]
+    },
+    "captured_manifest_sha256": "2c9f46922bdb49f8c04a7be412bc4685382f7a511529d206122ecb81dab236b0",
+    "downloads": [
+      {
+        "relative_path": "inklabels.png",
+        "bytes": 88875,
+        "sha256": "bc36bd54e84b423faa44d3b62ca0d3a3c28403cb714b154acb382f94241d39b6",
+        "url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/inklabels.png",
+        "response_headers": {
+          "ETag": "\"641180fe-15b2b\"",
+          "Last-Modified": "Wed, 15 Mar 2023 08:25:34 GMT"
+        }
+      },
+      {
+        "relative_path": "mask.png",
+        "bytes": 61652,
+        "sha256": "1fdc13f7dc149dc4e00272af597ba236b650e54bb2dca38865f211207cee069f",
+        "url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/mask.png",
+        "response_headers": {
+          "ETag": "\"641180fe-f0d4\"",
+          "Last-Modified": "Wed, 15 Mar 2023 08:25:34 GMT"
+        }
+      },
+      {
+        "relative_path": "surface_volume/meta.json",
+        "bytes": 215,
+        "sha256": "6a33b57ae1f93dd52f93af3fc508d6969d4ddd013c81c8f87f769260994cd60f",
+        "url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/surface_volume/meta.json",
+        "response_headers": {
+          "ETag": "\"665f4f3e-d7\"",
+          "Last-Modified": "Tue, 04 Jun 2024 17:30:38 GMT"
+        }
+      },
+      {
+        "relative_path": "surface_volume/16.tif",
+        "bytes": 103571722,
+        "sha256": "3113d8dbcc32e32dffe8b186508cddbc4c4588a9ef9c465043f6aa386e1707c0",
+        "url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/surface_volume/16.tif",
+        "response_headers": {
+          "ETag": "\"64118105-62c610a\"",
+          "Last-Modified": "Wed, 15 Mar 2023 08:25:41 GMT"
+        }
+      },
+      {
+        "relative_path": "surface_volume/17.tif",
+        "bytes": 103571722,
+        "sha256": "323e11499a6ea84ea4c551316c5756932687e3fe5607129c6bb73e032959c2d0",
+        "url": "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/working/54keV_exposed_surface/surface_volume/17.tif",
+        "response_headers": {
+          "ETag": "\"64118107-62c610a\"",
+          "Last-Modified": "Wed, 15 Mar 2023 08:25:43 GMT"
+        }
+      }
+    ],
+    "canonical_labels": {
+      "inklabels.png": {
+        "bytes": 163043,
+        "sha256": "005c99ff4352e39d1665afa379d1989ff96d5205b87a1433b5b5060a7b5153b1",
+        "transform": "exact displayed black/white to grayscale 0/255"
+      },
+      "mask.png": {
+        "bytes": 128721,
+        "sha256": "69bc5d0ccbd2a9099bce0c432e54c5e346ac61edc5e8325f864b709bc25d6911",
+        "transform": "exact displayed black/white to grayscale 0/255"
+      }
+    },
+    "scope": "Pinned public source bytes and shared export grid; no independent physical alignment, training/holdout independence or accuracy validation."
+  },
+  "live_download_bytes": 207294186,
+  "live_import_plan": {
+    "contract": 1,
+    "kind": "autoresearch_surface_volume_import",
+    "shape_zyx": [
+      2,
+      8181,
+      6330
+    ],
+    "source_z_range": [
+      16,
+      18
+    ],
+    "ct_dtype": "uint16",
+    "ct_transform": "none",
+    "alignment_basis": "caller_declared_same_xy_grid",
+    "limits": {
+      "max_file_bytes": 536870912,
+      "max_pixels": 167772160,
+      "max_volume_bytes": 1073741824
+    },
+    "sources": {
+      "layers": [
+        {
+          "index": 16,
+          "path": "/tmp/vesuvius-fr47-pinned-example-2026-11-16/raw/surface_volume/16.tif",
+          "bytes": 103571722,
+          "sha256": "3113d8dbcc32e32dffe8b186508cddbc4c4588a9ef9c465043f6aa386e1707c0"
+        },
+        {
+          "index": 17,
+          "path": "/tmp/vesuvius-fr47-pinned-example-2026-11-16/raw/surface_volume/17.tif",
+          "bytes": 103571722,
+          "sha256": "323e11499a6ea84ea4c551316c5756932687e3fe5607129c6bb73e032959c2d0"
+        }
+      ],
+      "labels": {
+        "path": "/tmp/vesuvius-fr47-pinned-example-2026-11-16/labels/inklabels.png",
+        "bytes": 163043,
+        "sha256": "005c99ff4352e39d1665afa379d1989ff96d5205b87a1433b5b5060a7b5153b1"
+      },
+      "mask": {
+        "path": "/tmp/vesuvius-fr47-pinned-example-2026-11-16/labels/mask.png",
+        "bytes": 128721,
+        "sha256": "69bc5d0ccbd2a9099bce0c432e54c5e346ac61edc5e8325f864b709bc25d6911"
+      }
+    }
+  },
+  "real_data_verification": {
+    "scope": "Original public fragment data; lossless importer and strict CPU loader check only. Explicit label-conditioned patch, no training/metrics or physical-registration proof.",
+    "shape_zyx": [
+      2,
+      8181,
+      6330
+    ],
+    "ct_dtype": "uint16",
+    "source_origin_zyx": [
+      16,
+      0,
+      0
+    ],
+    "all_ct_values_match_sources": true,
+    "ct_decoded_sha256": "81844e156f8360062e8ab462f4bcb91ae64baeb6e7382e9e60455681053b3f59",
+    "layer_stats": [
+      {
+        "source_z": 16,
+        "output_z": 0,
+        "min": 0,
+        "max": 65535
+      },
+      {
+        "source_z": 17,
+        "output_z": 1,
+        "min": 0,
+        "max": 65535
+      }
+    ],
+    "palette_checks": {
+      "inklabels.png": {
+        "source_mode": "P",
+        "source_palette_0_rgb": [
+          0,
+          0,
+          0
+        ],
+        "source_palette_1_rgb": [
+          255,
+          255,
+          255
+        ],
+        "canonical_pixels_match_palette_colors": true
+      },
+      "mask.png": {
+        "source_mode": "P",
+        "source_palette_0_rgb": [
+          0,
+          0,
+          0
+        ],
+        "source_palette_1_rgb": [
+          255,
+          255,
+          255
+        ],
+        "canonical_pixels_match_palette_colors": true
+      }
+    },
+    "selected_patch_yx": [
+      424,
+      3541
+    ],
+    "patch_selection": "First of 200 evenly spaced labeled points yielding a 64x64 mixed-class, fully masked patch; compatibility fixture, not a scientific sample.",
+    "dataset_ct_shape": [
+      1,
+      2,
+      64,
+      64
+    ],
+    "dataset_label_shape": [
+      64,
+      64
+    ],
+    "dataset_fiber_shape": [
+      1,
+      1,
+      64,
+      64
+    ],
+    "normalization_max_abs_error": 0.0,
+    "label_patch_matches_canonical_png": true,
+    "output_depth_band": [
+      0,
+      2
+    ],
+    "invalid_source_index_band_diagnostic": "depth_band [16, 18] lies outside /tmp/vesuvius-fr47-example-prepared-2026-11-16/surface_volume.zarr (2 slices)"
+  },
+  "verification_replay_source": "import hashlib\nimport json\nimport sys\nfrom pathlib import Path\n\nROOT = Path('/workspace/vesuvius-repository-audit')\nsys.path[:0] = [str(ROOT), str(ROOT / 'src')]\nimport numpy as np\nimport torch\nimport zarr\nfrom PIL import Image\nfrom vesuvius_autoresearch.core import fragment_example as example\nfrom vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume, VesuviusLabeledDataset\n\ndownload = Path('/tmp/vesuvius-fr47-pinned-example-2026-11-16')\nprepared = Path('/tmp/vesuvius-fr47-example-prepared-2026-11-16')\nsource_manifest = json.loads((ROOT / 'configs/data/fr47_two_layers.json').read_text())\nfor expected in source_manifest['files']:\n    raw = example._captured_source(download, expected, example.DEFAULT_FILE_BYTES)\n    assert hashlib.sha256(raw).hexdigest() == expected['sha256']\ndel raw\nstored = zarr.open(str(prepared / 'surface_volume.zarr'), mode='r')\nassert stored.shape == (2, 8181, 6330) and stored.dtype == np.dtype('<u2')\nassert stored.attrs['source_origin_zyx'] == [16, 0, 0]\ndecoded = hashlib.sha256()\nlayer_stats = []\nfor z in (16, 17):\n    with Image.open(download / 'raw/surface_volume' / f'{z:02d}.tif') as im:\n        values = np.asarray(im).astype('<u2')\n        assert np.array_equal(stored[z - 16], values)\n        decoded.update(values.tobytes())\n        layer_stats.append({'source_z': z, 'output_z': z-16, 'min': int(values.min()), 'max': int(values.max())})\n    del values\nrecord = json.loads((prepared / 'import.json').read_text())\nassert decoded.hexdigest() == record['ct_decoded_sha256']\nwith Image.open(prepared / 'inklabels.png') as im:\n    labels = np.asarray(im).copy()\nwith Image.open(prepared / 'mask.png') as im:\n    mask = np.asarray(im).copy()\nassert labels.shape == mask.shape == (8181, 6330)\nassert set(np.unique(labels)) == set(np.unique(mask)) == {0, 255}\npalette_checks = {}\nfor name, canonical in [('inklabels.png', labels), ('mask.png', mask)]:\n    with Image.open(download / 'raw' / name) as im:\n        assert im.mode == 'P' and im.getpalette()[:6] == [0,0,0,255,255,255]\n        expected = np.asarray(im.convert('L'))\n        assert np.array_equal(canonical, expected)\n        palette_checks[name] = {'source_mode': im.mode, 'source_palette_0_rgb': [0,0,0], 'source_palette_1_rgb': [255,255,255], 'canonical_pixels_match_palette_colors': True}\n    del expected\npoints = np.argwhere((labels > 0) & (mask > 0))\npatch_size = 64\nchosen = None\nfor position in np.linspace(0, len(points)-1, 200, dtype=int):\n    y, x = (int(v) for v in points[position])\n    y, x = max(0, min(labels.shape[0]-patch_size, y-32)), max(0, min(labels.shape[1]-patch_size, x-32))\n    label_patch = labels[y:y+64, x:x+64]\n    if np.all(mask[y:y+64, x:x+64] == 255) and set(np.unique(label_patch)) == {0,255}:\n        chosen = (y,x)\n        break\nassert chosen is not None\ndel points, mask\ny,x = chosen\ncatalog = Path('/tmp/vesuvius-fr47-example-patches.json')\ncatalog.write_text(json.dumps({'patches':[{'y':y,'x':x}]}))\nsettings = dict(mask_path=str(prepared/'mask.png'),patch_size=64,num_layers=2,seed=42,cache_dir='/tmp/vesuvius-fr47-example-cache',jitter=False,strict_reads=True,use_ridges=False,use_lasagna=False,patches_json=str(catalog))\ndataset = VesuviusLabeledDataset(str(prepared/'surface_volume.zarr'),str(prepared/'inklabels.png'),depth_band=[0,2],**settings)\nct,label,fiber = dataset[0]\nreader = FastVesuviusVolume(str(prepared/'surface_volume.zarr'),strict_reads=True,use_ridges=False)\nnormalized = reader.read_ct(0,y,x,2,64,64)\nnp.testing.assert_allclose(ct[0].numpy(), normalized, rtol=0, atol=1e-7)\nnp.testing.assert_array_equal(label.numpy(), labels[y:y+64,x:x+64].astype(np.float32)/255)\nassert ct.shape == (1,2,64,64) and label.shape == (64,64) and fiber.shape == (1,1,64,64)\nassert torch.isfinite(ct).all() and not torch.any(fiber)\ntry:\n    VesuviusLabeledDataset(str(prepared/'surface_volume.zarr'),str(prepared/'inklabels.png'),depth_band=[16,18],**settings)\nexcept ValueError as exc:\n    wrong_band = str(exc)\nelse:\n    raise AssertionError('original TIFF indices incorrectly accepted as output depth band')\nresult = {\n    'scope':'Original public fragment data; lossless importer and strict CPU loader check only. Explicit label-conditioned patch, no training/metrics or physical-registration proof.',\n    'shape_zyx':list(stored.shape), 'ct_dtype':str(stored.dtype), 'source_origin_zyx':stored.attrs['source_origin_zyx'],\n    'all_ct_values_match_sources':True, 'ct_decoded_sha256':decoded.hexdigest(), 'layer_stats':layer_stats,\n    'palette_checks': palette_checks,\n    'selected_patch_yx':list(chosen),'patch_selection':'First of 200 evenly spaced labeled points yielding a 64x64 mixed-class, fully masked patch; compatibility fixture, not a scientific sample.',\n    'dataset_ct_shape':list(ct.shape),'dataset_label_shape':list(label.shape),'dataset_fiber_shape':list(fiber.shape),\n    'normalization_max_abs_error':float(np.max(np.abs(ct[0].numpy()-normalized))),\n    'label_patch_matches_canonical_png':True, 'output_depth_band':[0,2], 'invalid_source_index_band_diagnostic':wrong_band,\n}\nPath('/tmp/vesuvius-fr47-example-verified.json').write_text(json.dumps(result,indent=2)+'\\n')\nprint(json.dumps(result))\n",
+  "validation": {
+    "integration": {
+      "passed": 189,
+      "skipped": 0,
+      "seconds": 44.72,
+      "modules": [
+        "tests/test_fragment_example.py",
+        "tests/test_surface_volume_import.py",
+        "tests/test_detector_conversion_contracts.py",
+        "tests/test_convert_fragment.py",
+        "tests/test_validation_suite_covers_the_loop.py",
+        "tests/test_file_modes.py"
+      ]
+    },
+    "final_focused": {
+      "passed": 95,
+      "skipped": 0,
+      "modules": [
+        "tests/test_fragment_example.py",
+        "tests/test_surface_volume_import.py"
+      ],
+      "phase": "After adding the bundled-default-manifest preflight case; no runtime changes after the integration selection.",
+      "seconds": 5.51
+    },
+    "curated_modules": 226,
+    "portable_modules": 16,
+    "counts_are_additive": false,
+    "source_phase_note": "The real HTTP fetch completed before adding staged-byte readback to the fetcher. The final readback helper was checked against all five actual downloaded files by the real-data verifier; synthetic integration covers final fetch publication/failure behavior. No extra 198 MiB refetch was needed.",
+    "document_guards": {
+      "passed": 138,
+      "skipped": 1,
+      "seconds": 38.98,
+      "skip": "Real-repository arm coverage requires absent local spiral_out artifacts."
+    },
+    "final_registry_mode_preservation_guards": {
+      "passed": 33,
+      "skipped": 0,
+      "seconds": 11.02,
+      "modules": [
+        "tests/test_validation_suite_covers_the_loop.py",
+        "tests/test_file_modes.py",
+        "tests/test_preserved_source_policy.py"
+      ]
+    },
+    "mypy": {
+      "result": "pass",
+      "source_files": 1021,
+      "scope": "Separate CPU dependency view, not a complete CUDA-locked installation."
+    },
+    "ruff": {
+      "version": "0.9.10",
+      "maintained_sources": "pass",
+      "changed_python_formatting": "pass"
+    },
+    "offline_lock": {
+      "result": "pass",
+      "resolved_packages": 258,
+      "dependency_changes": false
+    },
+    "runtime": {
+      "python": "3.10.21",
+      "numpy": "2.2.6",
+      "pillow": "12.3.0",
+      "zarr": "2.18.3",
+      "torch": "2.9.1+cpu",
+      "webknossos": "4.3.3",
+      "scope": "SDK environment with CPU ML fallback packages appended; live research environment unchanged."
+    },
+    "changed_document_references": "All extracted repository-path references exist in the four changed Markdown documents."
+  },
+  "limitations": [
+    "Source/grid consistency is checked, not independent physical registration or annotation truth.",
+    "The strict loader patch was selected using labels as a compatibility fixture, not a scientific sample or performance estimate.",
+    "Two slices do not supply the research loop default depth/context; no existing experiment configuration was redirected.",
+    "No GPU, training, accuracy, full curated-suite repeat or Windows/macOS runtime validation.",
+    "Source pins identify retrieved HTTPS bytes; no separately published upstream checksum or signed provenance is claimed.",
+    "No data bytes, Zarr stores or CT/label images are committed."
+  ]
+}

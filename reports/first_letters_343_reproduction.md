@@ -72,8 +72,9 @@ Host memory of the ink jobs was not recorded. The render's container was sampled
   `$HOME/.VC3D/remote_cache`, so the container was given a persistent `HOME`.
 - **Ink environment.** A virtual environment built with villa `0fb38c45`'s own bootstrap script (Python 3.14.3,
   torch 2.13.0+cu130) instead of the recipe's draft Dockerfile.
-- **Checkpoints.** The historical record claims all four load with `torch.load(weights_only=True)`, but that
-  flag was hardcoded and the checker could return success after a refusal or no inputs. No identity-bound
+- **Checkpoints.** The historical record claims all four load with `torch.load(weights_only=True)`, but the
+  record's `true` was typed into the record builder, not read from the checker's output, and the checker
+  exited 0 even after a refusal or with no inputs. The checker's output was not kept. No identity-bound
   load receipts are committed, so this claim is unverified, not a checkpoint safety certification.
   The JSON now marks verification unknown and retains the original claim with immutable source provenance;
   every other historical field is unchanged. This correction does not show that any checkpoint failed or was unsafe.

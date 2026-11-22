@@ -189,7 +189,9 @@ class CheckpointReporting(unittest.TestCase):
         report = " ".join(
             (ROOT / "reports/first_letters_343_reproduction.md").read_text().split()
         )
-        self.assertIn("flag was hardcoded", report)
+        self.assertIn(
+            "typed into the record builder, not read from the checker's output", report
+        )
         self.assertIn("this claim is unverified", report)
         self.assertIn("does not show that any checkpoint failed or was unsafe", report)
 

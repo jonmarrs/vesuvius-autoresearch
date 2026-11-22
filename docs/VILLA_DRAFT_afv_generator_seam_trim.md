@@ -2,7 +2,9 @@
 
 **NOT POSTED.** Prepared 2026-11-07 from [finding 106](../reports/afv_generator_block_seams.md), whose registered
 verdict is `SUPPORTED`. Its case at villa's defaults is [finding 107](../reports/afv_generator_default_zone.md)
-(2026-11-09, `BITES_AT_DEFAULTS`). Whether to post, and in what form, is the owner's decision.
+(2026-11-09, `BITES_AT_DEFAULTS`). Its confirmation on Scrolls 1 and 5 is
+[finding 109](../reports/afv_generator_seam_confirmation.md) (2026-11-10, `CONFIRMED`). Whether to post, and in what
+form, is the owner's decision.
 
 **Recommended form: a PR.** This fixes a defect in villa's own active code (`cli.generate` → `extend.stitch`, what VC3D
 runs). villa merges fixes of that kind, and the patch is ready:
@@ -30,6 +32,8 @@ runs). villa merges fixes of that kind, and the patch is ready:
 6. **No AI-authorship markers** in the commit or the body, including `Co-Authored-By`.
 7. **Whether to bundle finding 108's change** is the owner's decision: see "Option: bundle the cross-block change" at
    the end. The body below is the trim alone.
+8. **Whether to add finding 109's figures** for Scrolls 1 and 5 is part of the same decision: see "On other scrolls"
+   below. The body's measurement is still the eight Scroll-3 cubes.
 
 ---
 
@@ -141,6 +145,42 @@ copies cost when using the output.]
   * the 1024³ zone at the default block size: its registration,
     `docs/preregistration/2026-11-08_afv_generator_default_zone.md`, script, `scripts/afv_generator_default_zone.py`,
     and report, `reports/afv_generator_default_zone.md`.
+
+## On other scrolls (finding 109)
+
+Prepared 2026-11-10 from [finding 109](../reports/afv_generator_seam_confirmation.md), whose registered verdict is
+`CONFIRMED`: by its registration, the PR can state both scrolls' figures. It is not in the body above.
+
+* **What ran:** the same measurement on ten more hand-traced cubes (fiber-skeletons, 7.91 µm), three of Scroll 1 and
+  seven of Scroll 5, that no step of the generator work had used.
+  * Four are 512³ in 8 blocks of 256, as the Scroll-3 cubes were.
+  * Six are 256³ in 8 blocks of 128, a block size no villa user runs. They carry the ten-cube medians, so give the
+    block-256 figures first.
+* **Text to add to "Measurement", for the trim alone:**
+  * **The four cubes in blocks of 256:** merge-penalized ERL up on 4 of 4, by a median +13.6% at τ = 4 (+4.2% to
+    +21.2%) and +8.3% at τ = 2; merges at τ = 2 277 → 259; the median written-twice share 0.251 → 0.113.
+  * **All ten:** up on 10 of 10, by a median +18.9% at τ = 4 (+4.2% to +63.6%) and +19.4% at τ = 2; merges at τ = 2
+    325 → 298; the median written-twice share 0.409 → 0.148.
+* **Text to add if finding 108's change is bundled, both changes over main:**
+  * **The four cubes in blocks of 256:** merge-penalized ERL up on 4 of 4, by a median +23.0% at τ = 4 (+7.5% to
+    +32.1%) and +12.4% at τ = 2; merges at τ = 2 277 → 258; the median written-twice share 0.251 → 0.033.
+  * **All ten:** up on 10 of 10, by a median +31.2% at τ = 4 (+7.5% to +90.3%) and +36.2% at τ = 2; merges at τ = 2
+    325 → 297; the median written-twice share 0.409 → 0.043. Over the trim alone, up on 10 of 10 at τ = 4, by a
+    median +10.2%.
+  * **Against one block:** eight blocks reach 0.704 to 1.110 of the same cube's merge-penalized ERL at τ = 4 (main:
+    0.557 to 0.932).
+* **What it costs there:**
+  * Coverage at τ = 4 falls on every cube: by a median 3.5% with the trim (2.0% to 6.7%), and 2.3% with both changes
+    (1.1% to 6.2%).
+  * Of 910 face crossings, 148 are lost with the trim and 125 with both, against 84 on main.
+* **Limits to state:**
+  * Seven of the ten cubes are in the base model's training set. The three that are not rose +7.5%, +32.1% and +57.4%
+    at τ = 4 with both changes.
+  * No cube ran at villa's default block size of 512.
+  * `s5_16997_03497_03997_256` stays at 0.704 of its one-block ERL with both changes (main: 0.587). Not diagnosed.
+  * With these added, "eight cubes, all Scroll 3" in "Limits" above becomes eighteen cubes of Scrolls 1, 3 and 5.
+* **Records:** finding 109's registration, `docs/preregistration/2026-11-09_afv_generator_seam_confirmation.md`,
+  script, `scripts/afv_generator_seam_confirmation.py`, and report, `reports/afv_generator_seam_confirmation.md`.
 
 ## Option: bundle the cross-block change (finding 108)
 
