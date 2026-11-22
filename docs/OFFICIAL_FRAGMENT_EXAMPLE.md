@@ -72,12 +72,17 @@ uv run --no-sync python scripts/training/prepare_surface_volume.py plan \
 uv run --no-sync python scripts/training/prepare_surface_volume.py build \
   --manifest /tmp/fr47-example-import-plan.json \
   --output /tmp/fr47-example-prepared
+
+uv run --no-sync python scripts/training/prepare_surface_volume.py verify \
+  --fragment /tmp/fr47-example-prepared
 ```
 
 See the [importer contract](TRAINING_DATA_IMPORT.md) for output files, readback
-checks, masks, resource budgets and publication behavior. It verifies every CT
-plane after writing, preserving uint16 values in little-endian Zarr. The prepared
-volume has shape **[2, 8181, 6330]** and `source_origin_zyx: [16, 0, 0]`.
+checks, masks, resource budgets and publication behavior. Build reads each CT
+plane back after writing it, preserving uint16 values in little-endian Zarr.
+The prepared volume has shape **[2, 8181, 6330]** and
+`source_origin_zyx: [16, 0, 0]`. The `verify` command checks the saved chunk files
+and hashes against the receipt, which travels with the prepared fragment.
 
 The strict reader uses **output-relative** indices: this example's `num_layers`
 is 2 and its depth band is `[0, 2)`. `[16, 18)` refers to the original TIFF names

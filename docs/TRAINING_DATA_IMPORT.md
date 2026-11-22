@@ -2,7 +2,8 @@
 
 The maintained CPU command `scripts/training/prepare_surface_volume.py` converts
 already-downloaded TIFF layers and aligned binary PNG labels into a **new**
-training-fragment directory. It preserves CT values and records source hashes.
+training-fragment directory. It preserves CT values, records source hashes and
+can verify the prepared fragment against its receipt.
 It needs the checkout's NumPy, Pillow, OpenCV and Zarr 2 dependencies; `--help`
 works without importing them. It does not use CUDA or train a model.
 
@@ -92,6 +93,34 @@ the new path. The reader normalizes this uint16 CT by 65535. Reevaluate the
 incumbent under the resulting inputs/protocol before restarting the research
 loop; see the [quick start](../README.md).
 
+## Verify a prepared fragment
+
+Run this check after moving a fragment or before reusing a stored copy:
+
+```sh
+python scripts/training/prepare_surface_volume.py verify \
+  --fragment /path/to/prepared-fragment
+```
+
+Keep `import.json` with the fragment. The checker uses the existing contract 1
+receipt and can run after the original TIFFs and manifest have been removed.
+It checks the importer's uncompressed Zarr layout, axes and source origin, then
+reads each expected chunk at its full encoded size. Each chunk must exist even
+if its voxels are all zero. A normal Zarr read can substitute a fill value for
+a missing chunk.
+
+The checker recomputes the decoded CT digest one plane at a time and verifies
+the original `inklabels.png` and optional `mask.png` against their recorded
+file hashes. A saved fragment with no mask must still have no `mask.png`.
+On success, it prints `status: verified`, the receipt hash, CT hash and chunk
+count, and the image hashes. On failure it prints a diagnostic and exits 2.
+Run it with a stable fragment and serialize verification with writers.
+
+The receipt is a local record of the original import. Physical alignment, label
+quality, additional refined labels and training split independence require
+their own checks. The verifier covers the importer's dense layout and its
+original PNGs. Copy the uncompressed store and receipt together.
+
 ## Choose the training read policy
 
 For an experiment that must stop on failed or malformed CT reads, set
@@ -117,8 +146,8 @@ The report includes the selected read policy. It does not establish that the
 data are readable or correctly registered. A policy default change, failure
 budget, retry/skip behavior and real-data failure-rate measurements remain
 separate decisions in the [audit](REPOSITORY_AUDIT.md#items-for-owner-review).
-The policy checks returned chunks; it does not prove that a Zarr store is
-complete or that a readable fill value represents acquired CT.
+The training policy checks returned values. Use `verify` separately to confirm
+the original layout and stored chunk presence for fragments from this importer.
 
 ## Supply an explicit patch catalog
 
@@ -141,11 +170,11 @@ and its source data together and confirm alignment as part of split review.
 
 ## Resource and publication limits
 
-Defaults apply separately to both subcommands:
+The three subcommands accept these defaults:
 
 | Flag | Default | Scope |
 | --- | --- | --- |
-| `--max-file-bytes` | 536870912 (512 MiB) | Maximum captured encoded bytes per source file. |
+| `--max-file-bytes` | 536870912 (512 MiB) | Maximum encoded bytes per source file or verified PNG. |
 | `--max-pixels` | 167772160 | Maximum decoded Y×X pixels per image; also the hard supported ceiling. |
 | `--max-volume-bytes` | 1073741824 (1 GiB) | Padded, uncompressed CT chunk storage. |
 
@@ -156,7 +185,10 @@ input acceptance limits, not measured total RAM, free-space or runtime guarantee
 A full fragment may need substantially larger storage; supply an explicit larger
 budget on **both** `plan` and `build` after checking the host. Build uses the
 smaller of its own limits and the manifest's, so editing a manifest cannot raise
-the command's configured limits. The manifest itself is limited to 2 MiB.
+the command's configured limits. Verification uses the smallest of its own limit,
+the manifest limit and the effective build limit for each budget. The manifest
+has a 2 MiB cap. Verification reads the receipt and each Zarr header with an
+8 MiB cap, and captures each CT chunk at its expected size.
 
 The directory is staged beside its destination and published only after all
 checks succeed. Caught failures clean staging and leave no published fragment.

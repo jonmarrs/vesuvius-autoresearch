@@ -157,6 +157,23 @@
       "effects": "artifacts"
     },
     {
+      "id": "fragment-verify",
+      "summary": "Verify a prepared CT fragment against its saved receipt",
+      "kind": "script",
+      "argv": [
+        "python",
+        "scripts/training/prepare_surface_volume.py",
+        "verify"
+      ],
+      "source": "scripts/training/prepare_surface_volume.py",
+      "stack": "scientific",
+      "layout": "checkout",
+      "villa": "none",
+      "guide": "docs/TRAINING_DATA_IMPORT.md",
+      "needs": "NumPy, Pillow, OpenCV, Zarr 2 and a prepared fragment with import.json.",
+      "effects": "observe"
+    },
+    {
       "id": "proofreader-check",
       "summary": "Verify recorded proofreading inputs and optional TIFF exports",
       "kind": "script",
