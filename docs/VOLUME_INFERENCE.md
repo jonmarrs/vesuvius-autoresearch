@@ -110,9 +110,72 @@ This is a cap on the three persistent blend planes, **not a peak RAM/VRAM
 estimate or a guarantee the run fits**. Checkpoint capture/deserialization,
 resident ensemble models, activations, normalization temporaries, tile inputs,
 host copies, exports and CT decoding consume additional memory. All ensemble
-members still reside together. No 4090 profiling or streaming accumulator was
-added. Production planning has its own contract below; this option applies only
-to the two regional commands.
+members still reside together. Representative 4090 measurements and streaming
+accumulators remain open work. Production planning has its own contract below;
+this option applies only to the two regional commands.
+
+## Regional memory observations
+
+Add `--profile_memory` to either regional command to record observed memory in
+its existing metadata sidecar:
+
+```bash
+uv run --no-sync python -m scripts.inference.predict \
+  --checkpoint best_model.pt --uri /path/to/ct.zarr \
+  --x 0 --y 0 --z 0 --width 1024 --height 1024 \
+  --profile_memory --output_img predictions/profile_single.png
+
+uv run --no-sync python -m scripts.inference.ensemble_predict \
+  --uri /path/to/ct.zarr --x 0 --y 0 --z 0 --width 1024 --height 1024 \
+  --checkpoints best_model.pt /path/to/second_model.pt \
+  --profile_memory --output_img predictions/profile_ensemble.png
+```
+
+The flag defaults off. It does not alter probabilities, tile geometry, model
+residency or the accumulator acceptance policy. Without it, no memory profiler
+is initialized and no `memory_profile` field is added. Use the same input,
+recipe, optional exports and model settings that you intend to measure, with
+sources held stable and other GPU jobs stopped.
+
+The `memory_profile` object records the selected logical device, Torch build,
+GPU name/capacity when using CUDA, units and chronological observations:
+
+| phase | observation point |
+| --- | --- |
+| `before_models` | After the first checkpoint/configuration preflight, before model construction. |
+| `models_loaded` | The model is loaded; all members are resident for an ensemble. |
+| `inference_complete` | Tiling, blend normalization and host probability copies have completed. |
+| `metadata_ready` | Array, image, Zarr and preview exports and scalar statistics are ready, before metadata JSON encoding/writing. |
+
+Each observation contains current process RSS from psutil and the OS-reported
+process-lifetime high-water RSS from `getrusage`. Linux KiB and macOS bytes are
+converted to bytes explicitly; an unsupported platform records a null lifetime
+peak. The lifetime peak includes imports and checkpoint reads before the
+profiler started. The two APIs can differ in OS accounting; both raw values and
+their sources are retained. These are cumulative process measurements, not
+independent per-phase peaks, and they exclude child-process RSS.
+
+On CUDA, the profiler synchronizes and resets the selected device's PyTorch
+peak counters before model construction. It then synchronizes at observations
+and records current/peak allocated and reserved bytes. Peaks include allocations
+already live at reset. They cover that PyTorch allocator, excluding other
+allocators, CUDA-context overhead and other processes. The recorded GPU capacity
+is a device property, not measured free memory or a whole-device peak. On CPU,
+the profiler records null CUDA observations and performs no CUDA calls.
+
+Profiling adds synchronization and collection overhead, so it is unsuitable for
+throughput comparisons with unprofiled runs. It resets this process's PyTorch
+peak counters for the selected device; use a dedicated process/device session.
+Successful optional coherence
+evaluation rewrites metadata with a later `metadata_ready` observation. The
+profile ends at the latest recorded observation, not at process exit. Failed or
+interrupted runs may have no completed profile; a metadata-collection failure
+during primary publication cannot publish a success sidecar.
+
+The CPU smoke checks validate the recording path and unchanged outputs, including
+a two-model ensemble. No real 4090 capacity, full-scroll peak or throughput result
+has been measured here. Collect representative profiles before deciding whether
+to stream accumulators, change ensemble residency or raise the memory cap.
 
 ## Production planning
 

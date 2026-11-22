@@ -181,6 +181,55 @@ def test_remote_ct_is_not_opened_and_local_outputs_are_required(tmp_path):
     assert not list(tmp_path.iterdir())
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "run-08:00.pt",
+        "a:b.pt",
+        "run:8000",
+        "exp_2026-11-13T08:00.pt",
+        "trials/run-08:00.pt",
+        "/abs/run-08:00.pt",
+        "model.pt",
+        "C:\\x.pt",
+    ],
+)
+def test_a_colon_in_a_local_checkpoint_name_is_not_a_url(tmp_path, name):
+    """urlsplit used to read run-08:00.pt as a URL scheme and refuse the write."""
+    validate_checkpoint_writes([name], base_dir=tmp_path)
+    validate_training_checkpoint_writes(
+        config(name, eval_every_steps=4), step=4, base_dir=tmp_path
+    )
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "s3:/bucket/output.pt",
+        "file:/tmp/output.pt",
+        "https://host/output.pt",
+        "http://host/output.pt",
+        "gs://bucket/output.pt",
+        "file:///tmp/output.pt",
+        "S3://bucket/output.pt",
+        "FILE:/tmp/output.pt",
+        " s3://b/x.pt",
+        " s3:/b/x",
+        "dir/s3://b/x.pt",
+        "s3:bucket/x.pt",
+        "https:host/x.pt",
+        "file:x.pt",
+        "hf:org/m.pt",
+        "data:,x",
+    ],
+)
+def test_a_url_checkpoint_is_still_refused(tmp_path, name):
+    with pytest.raises(ValueError, match="not URLs"):
+        validate_checkpoint_writes([name], base_dir=tmp_path)
+    assert not list(tmp_path.iterdir())
+
+
 @pytest.mark.parametrize("blank", ["", " "])
 def test_a_blank_output_path_is_refused(tmp_path, blank):
     with pytest.raises(ValueError, match="nonempty local filesystem"):

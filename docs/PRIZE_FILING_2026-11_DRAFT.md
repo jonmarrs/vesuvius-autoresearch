@@ -48,6 +48,16 @@ What this means here:
   fiber volume, keep fractional seed planes on the global grid. It merged after October's deadline (2026-11-01 06:59
   UTC), so it is November's.
 
+**Open, and recommended for merging by villa's review on 2026-11-20** (checked 2026-11-20 22:05 Pacific). Each goes
+above only once it merges, with its date:
+* [villa #2463](https://github.com/ScrollPrize/villa/pull/2463): lasagna, put `tifxyz-flow-gate-channels` in `args`
+  in both FlowSnap presets. **Its case in practice:** as shipped, both presets fail before optimizing with an unknown
+  loss-term error (villa #2458). They are used by `fit.py` and offered in VC3D's config picker. The review reproduced
+  the error on main and loaded both presets at the PR's head.
+* [villa #2465](https://github.com/ScrollPrize/villa/pull/2465): docs, a note that the harmonized Scroll 1
+  instance-label volumes mix `uint8` and `uint16`. The review pushed a wording change to the branch and checked all 80
+  volume headers. It is documentation, weak under #2450 on its own, and belongs in a bundle.
+
 ## Queued, not posted
 
 * **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)).
@@ -87,6 +97,106 @@ What this means here:
     Suppressing such a copy (`catalog.py` +18/−2) raised ERLpen over the trim alone on every cube, a median +5.7% at
     tolerance 4 and +5.4% at tolerance 2, with merges 386 → 384 at tolerance 2. With both changes, eight blocks reach
     0.905 to 1.026 of one block's ERLpen at tolerance 4. Bundling it into the seam-trim PR is the owner's decision.
+  * **On other scrolls** is [finding 109](../reports/afv_generator_seam_confirmation.md) (`CONFIRMED`): ten
+    hand-traced cubes of Scrolls 1 and 5 that no step of the generator work had used.
+    * **The four cut as Scroll 3's were** (512³ in blocks of 256): both changes raised ERLpen over main on every cube,
+      a median +23.0% at tolerance 4 and +12.4% at tolerance 2, with merges 277 → 258 at tolerance 2.
+    * **All ten:** a median +31.2% at tolerance 4 and +36.2% at tolerance 2, up on every cube, with merges 325 → 297
+      at tolerance 2. The six 256³ cubes, in blocks of 128 that no villa user runs, carry these medians.
+    * **The cost:** coverage at tolerance 4 fell on every cube, a median −2.3%.
+
+## Done here in November, not in villa: the PHerc. 343 recipe on one RTX 4090
+
+The prize page's \$1,000 tier names "spiral fitting on consumer GPUs" and an end-to-end First Letters attempt
+"published with its commands, failures and costs". This is that kind of work, on a 4-core, 31 GB host with one
+RTX 4090. Whether to file it, and at what length, is the owner's decision. Scripts: `repro/first_letters/`.
+
+* **The published PHerc. 343 image rebuilt from the published windings**
+  ([report](../reports/first_letters_343_reproduction.md)): 99.95% of pixels identical, none off by more than 5 of 255.
+* **The mesh step run here** ([report](../reports/first_letters_343_mesh_step.md)): distance field, 30,000-step
+  spiral fit, snap, flatten, render, ink.
+  * **Result:** 76% and 81% of the published windings' nodes within 2 voxels of ours; ink r = 0.86 over the letter
+    boxes against controls of 0.17.
+  * **Cost:** 3 h 31 min from inputs on disk, 3 h 09 min of it the fit, at 10.8 GB of host memory and 12.7 GB of GPU
+    memory.
+  * **A failure and its cause:** the first fit was killed for memory pressure. A track file fetched over HTTP loses
+    the nanosecond timestamp villa `0fb38c45` checks, so the fit unpickled 9 GiB in Python while it was also packing
+    a 5.9 GiB pool. villa main already validates by content digest (#2041); restoring the timestamp fixes the old
+    commit.
+* **The recipe's ink models on a scroll outside their training list**
+  ([report](../reports/first_letters_0841_surface_control.md)): on the team's three labelled PHerc. 0841
+  surfaces, AUC 0.75 and 0.72 against the labels on the two held-out segments, with a slid-map floor of 0.53 and the
+  team's own model at 0.92 and 0.87. One side of the stack reads the ink and the other is near chance.
+  * **Caution:** this is a measurement of released models. Under #2450 it counts only for what it changes: an
+    eligible-scroll band has to be swept on both sides, and a blank band is weak evidence.
+
+* **The same pipeline end to end, at the place where PHerc. 211's First Letters prize was won** (findings 118 to
+  124). The prize was announced on 2026-11-15 and the winner published the surface, the probability map and the CT
+  image under CC BY-NC 4.0. That gave a known text place to measure this pipeline against, for the first time on a
+  crushed scroll.
+  * **The reader on the winner's surface**
+    ([report](../reports/first_letters_0211_reader_control.md)): the recipe's four models put ink where the winning
+    reader did, r = 0.53 against controls of 0.09 and below, and no letter can be read from their map.
+  * **The fit** ([report](../reports/first_letters_0211_winner_band.md)): the recipe's 30,000-step fit of a
+    1,500-slice band around the surface (3 h 32 min, 12.3 GB of GPU memory) reaches the winner's sheet in two
+    pieces.
+    * 88% of the winner's nodes lie within 2 voxels of some winding.
+    * One winding follows the sheet for 34 mm and a winding two further in follows the rest, each at the PHerc. 343
+      mesh step's line (half the nodes within 2 voxels).
+    * The two windings between them sit between predicted sheets.
+  * **A second, MIT-licensed reader** ([report](../reports/first_letters_0211_reader_v3.md)): Reader V3 on the
+    winner's surface gives r = 0.63, closer than the four models but short of the registered margin. Its map shows
+    a few letter shapes and no readable word.
+  * **End to end** ([report](../reports/first_letters_0211_end_to_end.md)): our own fit's four windings, snapped,
+    flattened, rendered, read and carried onto the winner's surface, give r = 0.52 on 83% of its cells, in 42
+    minutes unattended. The same models on the winner's own surface give 0.54 on those cells, and Reader V3 loses
+    nothing (0.629 against 0.627).
+  * **A third permissive reader** ([report](../reports/first_letters_0211_gp_timesformer.md)): the 2023 Grand Prize
+    TimeSformer finds the ink only weakly there (r = 0.24) and draws no letter shape.
+  * **The winning reader, on this machine** ([report](../reports/first_letters_0211_studio_reproduction.md)): Studio
+    (the winner's reader; code MIT, weights CC BY-NC 4.0, used with the owner's approval) reproduces the winner's
+    map from the winner's own weights and input on one RTX 4090. r = 1.0 over 8.8 million pixels, with differences of
+    bfloat16 rounding, in 75 seconds at 14.5 GB of GPU memory.
+  * **Our own fit, read by the winning reader** ([report](../reports/first_letters_0211_studio_e2e.md)): the same four
+    windings of our unrefined fit, read by Studio and carried onto the winner's surface, give r = 0.82 against the
+    winner's map (reversed planes −0.05, slid 0.11). The image draws the winner's letters. Studio on our render of
+    the winner's surface gives 0.97, so our renderer costs almost nothing and the geometry the rest.
+  * **The winning reader on a second scroll** ([report](../reports/first_letters_343_studio.md)).
+    On the PHerc. 343 recipe's published surface, Studio's map gives r = 0.6238 against the recipe's ensemble map.
+    - **How that compares:** it is above each of the ensemble's four models measured against the other three (0.41
+      to 0.6195).
+    - **Controls:** 0.10 (reversed planes) and 0.21 (slid).
+    - **The image:** it draws both published rows of letters, more legibly than the ensemble.
+    - **Caveat:** Studio was not trained on this scroll, but its training includes a fragment, PHerc0343P, that may
+      come from the same roll.
+  * **Studio's faster default tiling does not reproduce its map**
+    ([report](../reports/studio_published_tiling.md)). It is 2.4 times faster, but gives r = 0.94
+    against the winner's command, short of the 0.98 line. Band reads keep the winner's command.
+  * **Two geometry changes tested at the known place** (findings 131 and 134, on PHerc. 211's winner surface;
+    reports: [denser grid](../reports/first_letters_0211_dense_read.md),
+    [three passes](../reports/first_letters_0211_snap_passes.md)). Both put more of every winding on the predicted
+    sheet, and neither read better beyond the noise:
+    - **Subdividing the windings twice before the snap:** +0.034 at the median within 2 voxels of the sheet; r 0.8168
+      against 0.8267 for the same route on the fit's grid (margin 0.02).
+    - **Three snap passes of those windings:** a further +0.036; r 0.8217 against 0.8188 for one pass.
+    - **What it changes:** the band reads keep both, on registered tie-breaks. Each extra snap pass adds about a
+      quarter of an hour to a band read. The share of a winding on the predicted sheet did not predict how well
+      Studio reads it, within these changes.
+  * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
+    with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
+    reader was the missing piece, not the geometry.
+  * **Failures and fixes on the way:**
+    * a depth bug in the PHerc. 343 mesh step's transfer code;
+    * the band verdict crashing on an unscored fit (also fixed in #441);
+    * villa's environment unable to read the winner's LZW surface files;
+    * villa's `_spliced` twins counted as windings;
+    * the need to render our windings with flipped normals;
+    * this machine's uv lacking the winner's pinned Python, solved by the winner's own bootstrap.
+  * **Caution under #2450:** this measures the recipe and released readers. It counts only for what it changes:
+    which reader to use, and how to read a band.
+
+Not for this filing: anything made from a still-eligible scroll. PHerc. 211's prize was announced on 2026-11-15,
+so its results may be described.
 
 ## Filing-day checklist
 

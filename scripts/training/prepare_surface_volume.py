@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pin and import aligned local TIFF layers and binary PNG labels into a new CT training fragment."""
+"""Plan, build or verify a local CT training fragment."""
 
 import argparse
 import json
@@ -38,7 +38,11 @@ def main(argv=None):
     build.add_argument(
         "--output", type=Path, required=True, help="new fragment directory"
     )
-    for command in (plan, build):
+    verify = commands.add_parser(
+        "verify", help="check a prepared fragment against its saved import receipt"
+    )
+    verify.add_argument("--fragment", type=Path, required=True)
+    for command in (plan, build, verify):
         command.add_argument("--max-file-bytes", type=int, default=512 * 1024**2)
         command.add_argument("--max-pixels", type=int, default=160 * 1024**2)
         command.add_argument("--max-volume-bytes", type=int, default=1024**3)
@@ -47,6 +51,7 @@ def main(argv=None):
     from vesuvius_autoresearch.core.surface_volume_import import (
         build_import,
         plan_import,
+        verify_import,
         write_plan,
     )
 
@@ -67,8 +72,11 @@ def main(argv=None):
                 **limits,
             )
             result = write_plan(value, args.output)
-        else:
+        elif args.command == "build":
             result = build_import(args.manifest, args.output, **limits)
+        else:
+            print(json.dumps(verify_import(args.fragment, **limits), allow_nan=False))
+            return 0
         print(json.dumps({"status": "complete", "path": str(result)}, allow_nan=False))
         return 0
     except ARTIFACT_ERRORS as exc:

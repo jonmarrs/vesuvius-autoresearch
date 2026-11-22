@@ -25,6 +25,7 @@ def generate_config(
     *,
     patch_size=64,
     dataset_out_path="local_data/Proofread_Patches",
+    record_session=False,
 ):
     """Write the pinned proofreader's scalar cubic-patch configuration."""
     if type(patch_size) is not int or patch_size < 1:
@@ -41,6 +42,12 @@ def generate_config(
             }
         },
     }
+    if record_session:
+        from vesuvius_autoresearch.core.proofreader_session import recorded_config
+
+        config = recorded_config(
+            volume_path, predictions_path, dataset_out_path, patch_size
+        )
     Path(config_out_path).write_text(json.dumps(config, indent=2) + "\n")
     return config_out_path
 
@@ -107,9 +114,24 @@ def main(argv=None):
     parser.add_argument(
         "--out-dir", type=Path, default=Path("local_data/Proofread_Patches")
     )
+    parser.add_argument(
+        "--record-session",
+        action="store_true",
+        help="hash bounded source trees and record initial inputs before GUI launch; does not enable resume",
+    )
+    parser.add_argument("--max-source-bytes", type=int, default=8 * 1024**3)
+    parser.add_argument("--max-file-bytes", type=int, default=64 * 1024**2)
+    parser.add_argument("--max-entries", type=int, default=100_000)
     args = parser.parse_args(argv)
     proofreader = ROOT / "villa/segmentation/vc_proofreader/main.py"
     try:
+        from vesuvius_autoresearch.core.proofreader_session import limits
+
+        budget = limits(
+            max_source_bytes=args.max_source_bytes,
+            max_file_bytes=args.max_file_bytes,
+            max_entries=args.max_entries,
+        )
         if args.patch_size < 1:
             raise ValueError("patch_size must be a positive integer")
         if not proofreader.is_file():
@@ -130,7 +152,15 @@ def main(argv=None):
                 config,
                 patch_size=args.patch_size,
                 dataset_out_path=output,
+                record_session=args.record_session,
             )
+            if args.record_session:
+                from vesuvius_autoresearch.core.proofreader_session import create_record
+
+                record = create_record(
+                    json.loads(config.read_bytes()), proofreader, budget
+                )
+                print(f"Initial input record: {record}")
             env = dict(os.environ)
             env["PYTHONPATH"] = os.pathsep.join(
                 value for value in (str(ROOT / "villa"), env.get("PYTHONPATH")) if value

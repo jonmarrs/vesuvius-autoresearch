@@ -11,6 +11,8 @@ model unnormalised. See docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-13_LABELED_DATAS
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections import defaultdict
 from types import SimpleNamespace
 
@@ -307,8 +309,6 @@ def test_a_multichannel_mask_still_places_patches(tmp_path, monkeypatch, mode):
 
 
 def test_a_mask_replaced_by_patches_json_is_not_checked(tmp_path, monkeypatch):
-    import json
-
     monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
     volume_uri, labels = _fragment(tmp_path)
     mask = _mask(tmp_path, hw=(28, 32))  # 4 px short: refused when it places patches
@@ -327,6 +327,82 @@ def test_a_mask_replaced_by_patches_json_is_not_checked(tmp_path, monkeypatch):
         patches_json=str(catalogue),
     )
     assert len(ds) == 2
+
+
+@pytest.mark.parametrize("strict_reads", [False, True])
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        ('{"patches":[{"y":17,"x":0}]}', "cannot fit"),
+        ('{"patches":[{"y":0,"x":-1}]}', "cannot fit"),
+        ('{"patches":[{"y":true,"x":0}]}', "must be integers"),
+        ('{"patches":[{"y":0,"x":1.0}]}', "must be integers"),
+        ('{"patches":[{"y":0}]}', "must be integers"),
+        ('{"patches":[{"y":0,"y":16,"x":0}]}', "duplicate JSON key"),
+        ('{"patches":[]}', "nonempty patches list"),
+        ('{"patch_size":8,"patches":[{"y":0,"x":0}]}', "patch_size inconsistent"),
+        ('{"num_patches":2,"patches":[{"y":0,"x":0}]}', "num_patches inconsistent"),
+    ],
+)
+def test_invalid_explicit_patch_catalog_cannot_select_a_different_crop(
+    tmp_path, strict_reads, raw, message
+):
+    volume, labels = _fragment(tmp_path)
+    catalog = tmp_path / "patches.json"
+    catalog.write_text(raw)
+    with pytest.raises(ValueError, match=message):
+        VesuviusLabeledDataset(
+            volume,
+            labels,
+            patch_size=16,
+            patches_json=catalog,
+            strict_reads=strict_reads,
+        )
+
+
+def test_explicit_missing_catalog_does_not_fall_back(tmp_path):
+    volume, labels = _fragment(tmp_path)
+    with pytest.raises(ValueError, match="must be a regular file"):
+        VesuviusLabeledDataset(volume, labels, patches_json=tmp_path / "missing.json")
+
+
+def test_explicit_catalog_keeps_order_repetitions_and_exact_input_identity(tmp_path):
+    volume, labels = _fragment(tmp_path)
+    catalog = tmp_path / "patches.json"
+    raw = json.dumps(
+        {
+            "volume": "old-checkout/fragment.zarr",
+            "patch_size": 16,
+            "num_patches": 3,
+            "patches": [{"y": 16, "x": 0}, {"y": 0, "x": 16}, {"y": 16, "x": 0}],
+        },
+        indent=4,
+    ).encode()
+    catalog.write_bytes(raw)
+    ds = VesuviusLabeledDataset(
+        volume,
+        labels,
+        patch_size=16,
+        num_layers=4,
+        patches_json=catalog,
+        jitter=False,
+        strict_reads=True,
+    )
+    np.testing.assert_array_equal(ds.valid_coords, [[16, 0], [0, 16], [16, 0]])
+    assert ds.patch_catalog_sha256 == hashlib.sha256(raw).hexdigest()
+    image, label, _ = ds[0]
+    assert image.shape == (1, 4, 16, 16) and label.shape == (16, 16)
+
+
+def test_oversized_catalog_fails_before_parsing(tmp_path):
+    from vesuvius_autoresearch.core.patch_catalog import MAX_PATCH_CATALOG_BYTES
+
+    volume, labels = _fragment(tmp_path)
+    catalog = tmp_path / "patches.json"
+    with catalog.open("wb") as stream:
+        stream.truncate(MAX_PATCH_CATALOG_BYTES + 1)
+    with pytest.raises(ValueError, match="exceeds .* bytes"):
+        VesuviusLabeledDataset(volume, labels, patch_size=16, patches_json=catalog)
 
 
 def test_a_width_by_depth_label_is_named_as_transposed(tmp_path, monkeypatch):
@@ -350,3 +426,44 @@ def test_big_endian_volumes_are_read_and_normalised(
     patch, _, _ = ds[0]
     assert patch.dtype == torch.float32
     assert 0.0 < float(patch.max()) <= 250.0 / scale
+
+
+def _read_catalog(tmp_path, document, patch_size=16):
+    from vesuvius_autoresearch.core.patch_catalog import read_patch_catalog
+
+    path = tmp_path / "patches.json"
+    path.write_text(document)
+    return read_patch_catalog(path, (4, 32, 32), patch_size)
+
+
+@pytest.mark.parametrize("patch_size", [16.5, True, 0, "16"])
+def test_a_catalog_is_read_only_for_a_positive_integer_patch_size(tmp_path, patch_size):
+    with pytest.raises(ValueError, match="patch_size must be a positive integer"):
+        _read_catalog(tmp_path, '{"patches": [{"y": 0, "x": 0}]}', patch_size)
+    coords, _ = _read_catalog(
+        tmp_path, '{"patches": [{"y": 16, "x": 16}]}', np.int64(16)
+    )
+    assert coords == [(16, 16)]
+
+
+@pytest.mark.parametrize(
+    ("document", "message"),
+    [
+        ('{"patches": {"y": 0, "x": 0}}', "needs a nonempty patches list"),
+        ('{"patches": "yx"}', "needs a nonempty patches list"),
+        (
+            '{"patch_size": 16.0, "patches": [{"y": 0, "x": 0}]}',
+            "has patch_size inconsistent with 16",
+        ),
+        (
+            '{"num_patches": true, "patches": [{"y": 0, "x": 0}]}',
+            "has num_patches inconsistent with 1",
+        ),
+        ('{"patches": [{"y": -1, "x": 0}]}', r"origin \(-1, 0\) cannot fit"),
+        ("[" * 100_000 + "]" * 100_000, "invalid patch catalog"),
+    ],
+    ids=["dict", "string", "float_size", "boolean_count", "negative_y", "deep"],
+)
+def test_a_catalog_of_the_wrong_form_is_refused(tmp_path, document, message):
+    with pytest.raises(ValueError, match=message):
+        _read_catalog(tmp_path, document)

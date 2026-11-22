@@ -11,7 +11,6 @@ import re
 import shutil
 import tempfile
 import zlib
-from contextlib import contextmanager
 from itertools import product
 from pathlib import Path
 
@@ -19,6 +18,7 @@ import numpy as np
 import zarr
 
 from vesuvius_autoresearch.core.file_modes import replacement_mode
+from vesuvius_autoresearch.core.new_artifacts import separate_paths, staged_directory
 
 ARTIFACT_ERRORS = (
     OSError,
@@ -78,57 +78,6 @@ def integer(value, name, minimum=0):
         return result
     except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"{name} must be an integer >= {minimum}") from exc
-
-
-def separate_paths(source, destination):
-    source, destination = Path(source).resolve(), Path(destination).resolve()
-    if (
-        source == destination
-        or source in destination.parents
-        or destination in source.parents
-    ):
-        raise ValueError("source and output paths must not overlap or alias")
-    return source, destination
-
-
-@contextmanager
-def staged_directory(destination):
-    """Publish only after success; keep an existing directory if building fails.
-
-    Replacement uses two renames on the same filesystem and rolls back rename
-    errors. Callers must serialize writers; this is not a concurrent writer API.
-    """
-    destination = Path(destination)
-    if destination.is_symlink() or (destination.exists() and not destination.is_dir()):
-        raise ValueError(
-            f"output must be a directory, not a file or symlink: {destination}"
-        )
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    workspace = Path(
-        tempfile.mkdtemp(prefix=f".{destination.name}-", dir=destination.parent)
-    )
-    staging, backup = workspace / "new.zarr", workspace / "previous"
-    staging.mkdir()
-    published = False
-    try:
-        yield staging
-        if destination.exists():
-            destination.rename(backup)
-        try:
-            staging.rename(destination)
-            published = True
-        except BaseException:
-            if backup.exists():
-                try:
-                    backup.rename(destination)
-                except OSError as exc:
-                    raise RuntimeError(
-                        f"publication rollback failed; previous output retained at {backup}"
-                    ) from exc
-            raise
-    finally:
-        if published or not backup.exists():
-            shutil.rmtree(workspace)
 
 
 def spatial_blocks(shape, block_size=64, step=1):

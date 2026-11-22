@@ -1,0 +1,393 @@
+{
+  "schema_version": 1,
+  "review_date_utc": "2026-11-15",
+  "baseline_commit": "3581fe404a0e3f02b43a37b84fbbaa8db452e399",
+  "scope": "Opt-in regional inference memory observations. Synthetic CPU tests and fresh-process smoke runs only; CUDA API sequencing/device selection is mocked. No GPU, original-data, representative capacity or throughput measurement.",
+  "implementation": [
+    "--profile_memory is opt-in for both single and ensemble regional commands; the default does not initialize the profiler or add a metadata field.",
+    "Memory collection begins after the first checkpoint/configuration preflight and accumulator policy check, before first model construction. All ensemble members retain their existing simultaneous residency.",
+    "Phases observe model residency, completed inference/normalization/host copies and the latest metadata-ready point after exports/statistics, before JSON encoding.",
+    "Process RSS and getrusage process-lifetime high-water RSS retain their distinct sources. Lifetime peaks include pre-profile work; Linux KiB/macOS bytes convert explicitly, and unsupported platforms record null high-water RSS.",
+    "The selected CUDA device is synchronized; PyTorch allocator peak counters reset once and then remain cumulative. GPU identity/capacity and Torch build are recorded; other allocators, contexts/processes and free/whole-device peak memory are excluded.",
+    "Failed primary metadata collection leaves no success sidecar after output replacement. Existing artifact planning and accumulator refusal still apply."
+  ],
+  "manifest_sha256_before": "6324df10f0cfe0b110c56aafa8fc51965cc772ca9b2d08e6b0a9abd0ebcef16e",
+  "manifest_sha256_after": "4e63bee1b0825dda41e47228bd1f831f6ef0a98adb921bea19ebbc1e66eff3b4",
+  "lock_sha256_before": "3ada19311ecf8de447595d96abcd48446f47411fc29c810ccb1190bd0a9524d6",
+  "lock_sha256_after": "5a125ea8ea9d0067151a5fd544682e6517bdb6e56add6a479b69772529eee431",
+  "resolved_package_versions_and_sources_unchanged": true,
+  "direct_dependency_change": "Declare psutil >=6,<7 explicitly; locked psutil remains 6.0.0. The lock changes only the root dependency edge/requirement metadata.",
+  "validation_environment": {
+    "python": "3.10.21",
+    "torch": "2.9.1+cpu",
+    "numpy": "2.2.6",
+    "psutil": "6.0.0",
+    "runtime": "Isolated SDK review environment with read-only CPU ML dependency fallback, as documented in the earlier November 15 migration/packaging records.",
+    "CUDA_VISIBLE_DEVICES": "",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  },
+  "validation": [
+    {
+      "command": "python -m pytest tests/test_regional_memory_profile.py tests/test_regional_resource_preflight.py tests/test_regional_resource_plan.py tests/test_regional_artifact_plan.py tests/test_volume_inference_contracts.py tests/test_predict_checkpoint_loading.py tests/test_pseudo_label_prediction_handoff.py tests/test_uncertainty_handoff.py tests/test_validation_runner.py tests/test_wheel_installation.py -q --tb=short",
+      "scope": "Ten-module regional/artifact/queue/runner/wheel selection before the final added optional-export/coherence case and metric-source captions.",
+      "counts": {
+        "passed": 371
+      },
+      "duration_seconds": 77.593,
+      "junit_sha256": "784fed024a9da65dd965d8dbac1e92cf01559457b6a1fe04c94e6e58c1618861"
+    },
+    {
+      "command": "python -m pytest tests/test_regional_memory_profile.py tests/test_production_predict.py tests/test_production_artifact_plan.py -q --tb=short",
+      "scope": "Final memory-profile tests, including optional uncertainty/coherence, and production users of the shared metadata writer. Overlaps the earlier selection.",
+      "counts": {
+        "passed": 60
+      },
+      "duration_seconds": 10.85,
+      "junit_sha256": "7635c268c4232bf71c4af1ff8aa408f4175661ca3efedfdcda3ea625e1bd1dc4"
+    },
+    {
+      "command": "python -m pytest tests/test_validation_suite_covers_the_loop.py tests/test_file_modes.py -q --tb=short",
+      "scope": "Final staged-source registry coverage and publication-mode guards. Overlaps earlier coverage.",
+      "counts": {
+        "passed": 18
+      },
+      "duration_seconds": 11.186,
+      "junit_sha256": "103b839444b218711aadec5de77c8d24f26deee145afae3d3b57a7fee59d720f"
+    }
+  ],
+  "synthetic_cpu_probe": {
+    "purpose": "Exercise the real regional CLIs with small random, untrained gated_unet checkpoints and synthetic uint16 CT. These values are not representative memory-capacity results.",
+    "source_sha256": "ee3addec9345c1e195e0ce88f7d31f231d239ac44a51f6c010cb78a04477db04",
+    "source_lines": [
+      "import hashlib",
+      "import json",
+      "import os",
+      "import subprocess",
+      "import sys",
+      "from pathlib import Path",
+      "",
+      "import numpy as np",
+      "import torch",
+      "import zarr",
+      "",
+      "sys.path[:0] = ['/workspace/vesuvius-repository-audit', '/workspace/vesuvius-repository-audit/src']",
+      "from vesuvius_autoresearch.core.model_wrappers import build_inference_model",
+      "",
+      "root = Path('/tmp/vesuvius-memory-smoke')",
+      "root.mkdir(exist_ok=True)",
+      "volume = root/'ct.zarr'",
+      "values = np.random.default_rng(19).integers(0, 65536, (6, 16, 16), dtype=np.uint16)",
+      "zarr.array(values, store=str(volume), chunks=(2, 8, 8), overwrite=True)",
+      "checkpoints = []",
+      "torch.manual_seed(17)",
+      "for index, features in enumerate((4, 8)):",
+      "    config = dict(architecture='gated_unet', patch_size=8, num_layers=4, base_feat=features,",
+      "                  num_blocks=1, num_heads=1, use_ridges=False, dropout=0.0)",
+      "    model = build_inference_model(**config)",
+      "    checkpoint = root/f'model{index}.pt'",
+      "    torch.save({'config':config, 'model_state_dict':model.state_dict()}, checkpoint)",
+      "    checkpoints.append(checkpoint)",
+      "",
+      "env = dict(os.environ)",
+      "env.update(OMP_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1', MKL_NUM_THREADS='1',",
+      "           CUDA_VISIBLE_DEVICES='', MPLBACKEND='Agg', MPLCONFIGDIR='/tmp/vesuvius-memory-mpl')",
+      "records = {}",
+      "for mode in ('single','ensemble'):",
+      "    outputs = {}",
+      "    for profiled in (False, True):",
+      "        stem = mode + ('_profiled' if profiled else '_plain')",
+      "        command = [sys.executable, '-m', 'scripts.inference.' + ('predict' if mode=='single' else 'ensemble_predict'),",
+      "                   '--uri', str(volume), '--x','0','--y','0','--z','1','--width','12','--height','10',",
+      "                   '--stride','4','--artifact_stem',stem,'--output_img',str(root/'out'/f'{stem}.png')]",
+      "        if mode=='single': command += ['--checkpoint',str(checkpoints[0]),'--skip_active_learning']",
+      "        else: command += ['--checkpoints',*[str(p) for p in checkpoints]]",
+      "        if profiled: command += ['--profile_memory']",
+      "        run = subprocess.run(command, cwd='/workspace/vesuvius-repository-audit', env=env,",
+      "                             capture_output=True, text=True, timeout=120)",
+      "        (root/f'{stem}.log').write_text(run.stdout+run.stderr)",
+      "        assert run.returncode == 0, run.stdout+run.stderr",
+      "        metadata = json.loads((root/'out'/f'{stem}_meta.json').read_text())",
+      "        outputs[profiled] = {name:np.load(root/'out'/f'{stem}_{name}.npy') for name in ('ink','fiber')}",
+      "        if profiled:",
+      "            records[mode] = {'command':command,'memory_profile':metadata['memory_profile'],",
+      "                             'model_configs':metadata.get('ensemble_model_configs',[metadata['model_config']]),",
+      "                             'inference_recipe':metadata['inference_recipe'],",
+      "                             'resource_plan':metadata['resource_plan']}",
+      "        else: assert 'memory_profile' not in metadata",
+      "    for name in ('ink','fiber'):",
+      "        np.testing.assert_array_equal(outputs[False][name],outputs[True][name])",
+      "    records[mode]['profiling_preserves_probability_arrays_exactly'] = True",
+      "records['checkpoint_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in checkpoints}",
+      "records['ct_decoded_sha256'] = hashlib.sha256(values.tobytes()).hexdigest()",
+      "(root/'probe.json').write_text(json.dumps(records,indent=2)+'\\n')",
+      "print(json.dumps({mode:{'device':records[mode]['memory_profile']['device'],",
+      "                        'phases':[o['phase'] for o in records[mode]['memory_profile']['observations']],",
+      "                        'unchanged_probabilities':True} for mode in ('single','ensemble')},indent=2))"
+    ],
+    "results": {
+      "single": {
+        "command": [
+          "/tmp/vesuvius-sdk4-env/bin/python",
+          "-m",
+          "scripts.inference.predict",
+          "--uri",
+          "/tmp/vesuvius-memory-smoke/ct.zarr",
+          "--x",
+          "0",
+          "--y",
+          "0",
+          "--z",
+          "1",
+          "--width",
+          "12",
+          "--height",
+          "10",
+          "--stride",
+          "4",
+          "--artifact_stem",
+          "single_profiled",
+          "--output_img",
+          "/tmp/vesuvius-memory-smoke/out/single_profiled.png",
+          "--checkpoint",
+          "/tmp/vesuvius-memory-smoke/model0.pt",
+          "--skip_active_learning",
+          "--profile_memory"
+        ],
+        "memory_profile": {
+          "schema_version": 1,
+          "device": "cpu",
+          "torch_version": "2.9.1+cpu",
+          "cuda_device": null,
+          "units": "bytes",
+          "start": "after first checkpoint/configuration preflight, before first model construction",
+          "end": "latest metadata_ready observation, before JSON serialization",
+          "cpu_peak_scope": "process lifetime, including work before profiling",
+          "cpu_rss_source": "psutil.Process.memory_info().rss",
+          "cpu_peak_source": "resource.getrusage(RUSAGE_SELF).ru_maxrss, converted to bytes; null on unsupported platforms",
+          "cuda_peak_scope": "selected device PyTorch allocator since reset; includes already-live allocations",
+          "cuda_peak_counters_reset": false,
+          "cuda_synchronized_at_observations": false,
+          "total_device_peak_measured": false,
+          "capacity_guaranteed": false,
+          "observations": [
+            {
+              "phase": "before_models",
+              "elapsed_seconds": 1.0841991752386093e-05,
+              "process_rss_bytes": 284626944,
+              "process_lifetime_peak_rss_bytes": 285741056,
+              "cuda": null
+            },
+            {
+              "phase": "models_loaded",
+              "elapsed_seconds": 0.016740084975026548,
+              "process_rss_bytes": 292904960,
+              "process_lifetime_peak_rss_bytes": 292515840,
+              "cuda": null
+            },
+            {
+              "phase": "inference_complete",
+              "elapsed_seconds": 0.08974817098351195,
+              "process_rss_bytes": 307716096,
+              "process_lifetime_peak_rss_bytes": 307511296,
+              "cuda": null
+            },
+            {
+              "phase": "metadata_ready",
+              "elapsed_seconds": 0.3852468550030608,
+              "process_rss_bytes": 320598016,
+              "process_lifetime_peak_rss_bytes": 320225280,
+              "cuda": null
+            }
+          ]
+        },
+        "model_configs": [
+          {
+            "architecture": "gated_unet",
+            "patch_size": 8,
+            "num_layers": 4,
+            "base_feat": 4,
+            "num_blocks": 1,
+            "num_heads": 1,
+            "use_ridges": false,
+            "dropout": 0.0
+          }
+        ],
+        "inference_recipe": {
+          "ink_probability": "sigmoid(ink)",
+          "ridge_depth_context": "none (no ridge channel)",
+          "fiber_probability": "sigmoid(mean(fiber, z))",
+          "tta_mirrors": [
+            "none",
+            "x",
+            "y",
+            "xy"
+          ],
+          "blend_window": "gaussian"
+        },
+        "resource_plan": {
+          "schema_version": 1,
+          "width": 12,
+          "height": 10,
+          "accumulator_arrays": 3,
+          "accumulator_dtype": "float32",
+          "accumulator_bytes": 1440,
+          "max_accumulator_bytes": 536870912,
+          "whole_process_peak_estimated": false
+        },
+        "profiling_preserves_probability_arrays_exactly": true
+      },
+      "ensemble": {
+        "command": [
+          "/tmp/vesuvius-sdk4-env/bin/python",
+          "-m",
+          "scripts.inference.ensemble_predict",
+          "--uri",
+          "/tmp/vesuvius-memory-smoke/ct.zarr",
+          "--x",
+          "0",
+          "--y",
+          "0",
+          "--z",
+          "1",
+          "--width",
+          "12",
+          "--height",
+          "10",
+          "--stride",
+          "4",
+          "--artifact_stem",
+          "ensemble_profiled",
+          "--output_img",
+          "/tmp/vesuvius-memory-smoke/out/ensemble_profiled.png",
+          "--checkpoints",
+          "/tmp/vesuvius-memory-smoke/model0.pt",
+          "/tmp/vesuvius-memory-smoke/model1.pt",
+          "--profile_memory"
+        ],
+        "memory_profile": {
+          "schema_version": 1,
+          "device": "cpu",
+          "torch_version": "2.9.1+cpu",
+          "cuda_device": null,
+          "units": "bytes",
+          "start": "after first checkpoint/configuration preflight, before first model construction",
+          "end": "latest metadata_ready observation, before JSON serialization",
+          "cpu_peak_scope": "process lifetime, including work before profiling",
+          "cpu_rss_source": "psutil.Process.memory_info().rss",
+          "cpu_peak_source": "resource.getrusage(RUSAGE_SELF).ru_maxrss, converted to bytes; null on unsupported platforms",
+          "cuda_peak_scope": "selected device PyTorch allocator since reset; includes already-live allocations",
+          "cuda_peak_counters_reset": false,
+          "cuda_synchronized_at_observations": false,
+          "total_device_peak_measured": false,
+          "capacity_guaranteed": false,
+          "observations": [
+            {
+              "phase": "before_models",
+              "elapsed_seconds": 1.2316013453528285e-05,
+              "process_rss_bytes": 284434432,
+              "process_lifetime_peak_rss_bytes": 284028928,
+              "cuda": null
+            },
+            {
+              "phase": "models_loaded",
+              "elapsed_seconds": 0.029680542997084558,
+              "process_rss_bytes": 295124992,
+              "process_lifetime_peak_rss_bytes": 294813696,
+              "cuda": null
+            },
+            {
+              "phase": "inference_complete",
+              "elapsed_seconds": 0.11870340601308271,
+              "process_rss_bytes": 310214656,
+              "process_lifetime_peak_rss_bytes": 309997568,
+              "cuda": null
+            },
+            {
+              "phase": "metadata_ready",
+              "elapsed_seconds": 0.34259506000671536,
+              "process_rss_bytes": 317874176,
+              "process_lifetime_peak_rss_bytes": 322359296,
+              "cuda": null
+            }
+          ]
+        },
+        "model_configs": [
+          {
+            "architecture": "gated_unet",
+            "patch_size": 8,
+            "num_layers": 4,
+            "base_feat": 4,
+            "num_blocks": 1,
+            "num_heads": 1,
+            "use_ridges": false,
+            "dropout": 0.0
+          },
+          {
+            "architecture": "gated_unet",
+            "patch_size": 8,
+            "num_layers": 4,
+            "base_feat": 8,
+            "num_blocks": 1,
+            "num_heads": 1,
+            "use_ridges": false,
+            "dropout": 0.0
+          }
+        ],
+        "inference_recipe": {
+          "ink_probability": "sigmoid(ink)",
+          "ridge_depth_context": "none (no ridge channel)",
+          "fiber_probability": "sigmoid(mean(fiber, z))",
+          "tta_mirrors": [
+            "none",
+            "x",
+            "y",
+            "xy"
+          ],
+          "blend_window": "gaussian"
+        },
+        "resource_plan": {
+          "schema_version": 1,
+          "width": 12,
+          "height": 10,
+          "accumulator_arrays": 3,
+          "accumulator_dtype": "float32",
+          "accumulator_bytes": 1440,
+          "max_accumulator_bytes": 536870912,
+          "whole_process_peak_estimated": false
+        },
+        "profiling_preserves_probability_arrays_exactly": true
+      },
+      "checkpoint_sha256": {
+        "model0.pt": "b3dbbe948f44df435c4a265e6e360834889635d8f8c18bb68004c7fe7cec6221",
+        "model1.pt": "da935ff87332841ffd1207f600d32e71254d72dbadf854af7e2101259c488371"
+      },
+      "ct_decoded_sha256": "c8dcc35e736f23e53e526c861855bf428b5fb4ca619749feccbba1ab68061f7b"
+    }
+  },
+  "other_checks": {
+    "mypy": "1007 source files passed",
+    "ruff": "Maintained sources and changed Python formatting passed",
+    "lock": "Offline uv lock --check passed, 258 records",
+    "full_curated_rerun": false
+  },
+  "source_sha256_after": {
+    "pyproject.toml": "4e63bee1b0825dda41e47228bd1f831f6ef0a98adb921bea19ebbc1e66eff3b4",
+    "uv.lock": "5a125ea8ea9d0067151a5fd544682e6517bdb6e56add6a479b69772529eee431",
+    "scripts/inference/predict.py": "869f7841b96815e92a9a7cddc4f9f75dc1f174b447ce3c167512351d6d39d081",
+    "scripts/inference/ensemble_predict.py": "0a715c669bf9502aa52018c34781cf193bf15194180ada1e7e2ce81b590d4f09",
+    "scripts/run_validation_tests.py": "fef1fd1050163effcd8fd40e4c29c1c8ab97e2bf7550f4046e1af230d18ea774",
+    "src/vesuvius_autoresearch/core/regional_memory.py": "88a9aaff7d9fdae314ff0cacfb2515cb7ade70032f0d2182aa96f700a063d55e",
+    "tests/test_regional_memory_profile.py": "9d99441f4234e7e359694be124610314a10a9150dd1ff0ef4cca8979aa749951"
+  },
+  "remaining_owner_review_items": 9,
+  "not_validated": [
+    "Actual CUDA counters, GPU capacity or representative RTX 4090 workloads",
+    "Windows/macOS runtime execution",
+    "Full-scroll memory or throughput",
+    "Real CT/label registration or scientific accuracy",
+    "Production-path memory profiling",
+    "Streaming accumulators or sequential ensemble member residency"
+  ]
+}

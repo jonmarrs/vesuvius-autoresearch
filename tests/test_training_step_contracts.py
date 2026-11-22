@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 import numpy as np
 import pytest
@@ -35,6 +36,37 @@ def _bar_batch(batch=6, channels=2, depth=8):
 
 
 # --- UA-MT --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("unlabeled_depth", "compress", "offset"),
+    [(24, False, 7), (21, False, 5), (21, True, 5), (16, False, 0)],
+)
+def test_training_windows_keep_a_full_depth_at_the_shared_offset(
+    monkeypatch, unlabeled_depth, compress, offset
+):
+    config = ExperimentConfig(
+        num_layers=16, patch_size=4, disable_augmentation=not compress
+    )
+    labeled = torch.arange(24.0)[None, None, :, None, None].expand(1, 1, 24, 4, 4)
+    unlabeled = labeled[:, :, :unlabeled_depth] + 100
+
+    def highest_offset(low, high):
+        assert low == 0 and high == offset + 1
+        return high - 1
+
+    monkeypatch.setattr(train.np.random, "randint", highest_offset)
+    monkeypatch.setattr(train.np.random, "rand", lambda: 0.9)
+    actual, actual_unlabeled = train._training_windows(labeled, unlabeled, config)
+    length = 12 if compress else config.num_layers
+    expected = labeled[:, :, offset : offset + length]
+    if compress:
+        expected = torch.nn.functional.interpolate(
+            expected, (16, 4, 4), mode="trilinear", align_corners=False
+        )
+    assert actual.shape == actual_unlabeled.shape == (1, 1, 16, 4, 4)
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    torch.testing.assert_close(actual_unlabeled - 100, expected)
 
 
 def test_uamt_student_and_teacher_see_the_same_view():
@@ -102,6 +134,125 @@ def test_mean_ap_key_matches_villa():
 # --- augmentation modes -------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [("architecture", "typo"), ("aug_mode", "typo"), ("num_layers", -8)],
+)
+def test_mutated_training_choices_fail_before_gpu_setup(monkeypatch, field, value):
+    config = ExperimentConfig()
+    setattr(config, field, value)
+    monkeypatch.setattr(
+        train.torch,
+        "set_float32_matmul_precision",
+        lambda *args: pytest.fail("GPU setup before rejecting an unknown recipe"),
+    )
+    with pytest.raises(ValueError, match=field):
+        train.train(config)
+
+
+@pytest.mark.parametrize("depth", [-8, 0, True, 2.5])
+def test_config_refuses_invalid_model_depth(depth):
+    with pytest.raises(ValueError, match="num_layers must be a positive integer"):
+        ExperimentConfig(num_layers=depth)
+
+
+def test_model_builder_cannot_silently_construct_gated_unet_for_an_unknown_name(
+    monkeypatch,
+):
+    config = ExperimentConfig()
+    settings = train.build_vconfig(config)
+    settings.architecture = "resenc_unett"
+    monkeypatch.setattr(
+        train,
+        "InkDetectorOptimized",
+        lambda *args: pytest.fail("constructed Gated UNet for another architecture"),
+    )
+    with pytest.raises(ValueError, match="architecture"):
+        train.build_model(config, settings, "cpu")
+
+
+def test_an_unknown_augmentation_mode_cannot_fall_through_to_albumentations(
+    monkeypatch,
+):
+    config = ExperimentConfig()
+    config.aug_mode = "batchgeneratorv2"
+    monkeypatch.setattr(
+        train,
+        "_get_villa_aug",
+        lambda *args: pytest.fail("used Albumentations for an unknown mode"),
+    )
+    with pytest.raises(ValueError, match="aug_mode"):
+        train.apply_augmentations(
+            _bar_batch(),
+            torch.zeros(6, 1, H, W),
+            torch.zeros(6, 1, 1, H, W),
+            0,
+            None,
+            config,
+        )
+
+
+@pytest.mark.parametrize("setting", train._VILLA_SCROLL_AUGMENTATIONS)
+def test_batchgenerators_cache_tracks_each_pipeline_probability(monkeypatch, setting):
+    """Two in-process runs with equal shapes must use their own configured recipe."""
+    built = []
+
+    class Pipeline:
+        def __init__(self, transforms=()):
+            self.offset = sum(getattr(t, "offset", 0) for t in transforms)
+
+        def __call__(self, **sample):
+            return {**sample, "image": sample["image"] + self.offset}
+
+    def build(shape):
+        built.append(shape)
+        return Pipeline()
+
+    def transform(*args, **kwargs):
+        return object()
+
+    prefix = "vesuvius.models.augmentation.transforms."
+    modules: dict[str, dict[str, object]] = {
+        "noise.extranoisetransforms": {
+            "BlankRectangleTransform": transform,
+            "RicianNoiseTransform": transform,
+        },
+        "spatial.sheet_compression": {"SheetCompressionTransform": transform},
+        "spatial.thick_slice": {"SimulateThickSliceTransform": transform},
+        "utils.compose": {"ComposeTransforms": Pipeline},
+        "utils.random": {
+            "RandomTransform": lambda t, apply_probability: SimpleNamespace(
+                offset=apply_probability
+            ),
+        },
+    }
+    for name, attributes in modules.items():
+        module = ModuleType(prefix + name)
+        module.__dict__.update(attributes)
+        monkeypatch.setitem(sys.modules, prefix + name, module)
+    monkeypatch.setattr(train, "create_training_transforms", build)
+    monkeypatch.setattr(train, "_bg2_aug_cache", {})
+    monkeypatch.setattr(
+        train,
+        "apply_scroll_specific_3d_augmentations",
+        lambda x, ink, fiber, c: (x, ink, fiber),
+    )
+    config = ExperimentConfig(aug_mode="batchgeneratorsv2")
+    x = _bar_batch(batch=2, channels=1)
+    for probability in (0.0, 0.25, 0.75, 0.75):
+        setattr(config, setting, probability)
+        actual, _, _ = train.apply_augmentations(
+            x,
+            torch.zeros(2, 1, H, W),
+            torch.zeros(2, 1, 1, H, W),
+            0,
+            None,
+            config,
+        )
+        torch.testing.assert_close(actual, x + probability)
+    assert len(built) == 3  # the final identical configuration reuses its pipeline
+
+
 def test_an_unavailable_batchgeneratorsv2_mode_fails_preflight(monkeypatch):
     monkeypatch.setattr(train, "create_training_transforms", None)
     monkeypatch.setattr(train, "TRAINING_TRANSFORMS_IMPORT_ERROR", "No module 'x'")
@@ -132,7 +283,11 @@ class _Identity:
 def _bg2(monkeypatch, transform, **probs):
     x = _bar_batch(batch=2, channels=1, depth=8)
     monkeypatch.setattr(train, "create_training_transforms", lambda shape: transform)
-    monkeypatch.setitem(train._bg2_aug_cache, tuple(x.shape[2:]), transform)
+    recipe_key = (
+        tuple(x.shape[2:]),
+        *(probs.get(name, 0.0) for name in train._VILLA_SCROLL_AUGMENTATIONS),
+    )
+    monkeypatch.setitem(train._bg2_aug_cache, recipe_key, transform)
     seen = []
 
     def record(x, ink, fiber, config):

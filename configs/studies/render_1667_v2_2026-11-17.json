@@ -1,0 +1,69 @@
+{
+  "protocol": "pherc1667-renderer-v2-compatibility/1",
+  "baseline_commit": "57a849d890770a8e3c1c5e5be6c4790f9f1b4917",
+  "design": {
+    "geometry": "vesuvius-challenge-open-data/PHerc1667/segments/20260108140509-w011_20260108140509268_flatboi/mesh/20260108140509-on-20251217075048-2.399um.tifxyz",
+    "raw": "vesuvius-challenge-open-data/PHerc1667/volumes/20251217075048-2.399um-0.2m-78keV-masked.zarr",
+    "reference": "vesuvius-challenge-open-data/PHerc1667/segments/20260108140509-w011_20260108140509268_flatboi/surface-volumes/2.399um-0.22m-78keV-volume-20251217075048.zarr",
+    "geometry_shape": [
+      1975,
+      736
+    ],
+    "geometry_scale": [
+      0.05,
+      0.05
+    ],
+    "raw_shape": [
+      9269,
+      3808,
+      3808
+    ],
+    "reference_shape": [
+      109,
+      2469,
+      920
+    ],
+    "source_dtype": "uint8",
+    "raw_level": 2,
+    "reference_level": 4,
+    "region_yxhw": [
+      736,
+      112,
+      128,
+      128
+    ],
+    "normal_halo": 1,
+    "reference_region_yxhw": [
+      920,
+      140,
+      160,
+      160
+    ],
+    "reference_depths": [
+      50,
+      52,
+      54,
+      56,
+      58
+    ],
+    "normal_sign": 1,
+    "layers": 26,
+    "k0": -13,
+    "tile": 32,
+    "group": 2,
+    "minimum_supported_fraction": 0.9,
+    "minimum_pixels": 1024,
+    "ncc_gate": 0.6,
+    "max_download_bytes": 201326592,
+    "max_object_bytes": 16777216,
+    "max_cache_bytes": 134217728
+  },
+  "source_sha256": {
+    "repro/sota_data/revalidate_render_1667_v2.py": "25c9b5bca180e1e2d03d99a3a3b5fe79ee5e35e980fcbe944e5f048cc956ae70",
+    "repro/sota_data/render_surface.py": "9a2d8a0a074ae26e5d0db0b68a896e048c6c30369c42a1dbf01102c39f109da5",
+    "repro/sota_data/fragment.py": "c898654cf14dd0356c724283e198524188781a45a1674b4e8ed264fb244b13a2",
+    "src/vesuvius_autoresearch/core/file_capture.py": "0c70a434fd167610ee1dd5eb4680196cef4dc3737a687c7c3350f1aceb2a8308",
+    "src/vesuvius_autoresearch/core/file_modes.py": "96dff3c1cf15d3abc2a94da890a2bf128f8342ba7ea3101d4faa566a2457a922",
+    "src/vesuvius_autoresearch/core/new_artifacts.py": "85ba38f4c6a2c6091cce9ff14ab453fe38fd7e4fe0e3d53c527c4f5240cd76b0"
+  }
+}
