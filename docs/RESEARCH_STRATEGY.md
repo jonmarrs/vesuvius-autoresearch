@@ -449,6 +449,17 @@ finding 134's, read best with no shift: they give r 0.8247 and 0.8135 at D = 0 (
 recipe's PHerc. 343 surface it also falls faster outward. This measures a uniform depth error only, not a sheet
 switch or an uneven surface.
 
+**A submission image can be made from a band read the same day (November 22).** The PHerc. 343 recipe's MIT
+`make_submission_image.py` draws the image the rules ask for: the area in cm², a 1 cm scale bar, the row lines, a
+letter-size table and a sidecar. `repro/first_letters/submission/` feeds it a band read's mesh, 66-layer render
+and Studio map. It also adds a reversed-plane control drawn with the same stretch, and a check of the flattening's
+distortion ([README](../repro/first_letters/submission/README.md)). Dry runs at PHerc. 343 (our w047, 14 carried
+letters in 4.00 cm²) and PHerc. 211 (our w035, at the winner's crop) show the known letters in reading order.
+Our flattenings are as near isometric as the accepted meshes: 0.93 to 0.98 of edges within 10% of their flat
+length, against 0.89 to 0.98. The script's own orientation rule holds only in PHerc. 343's frame. On PHerc. 211 it
+turned the image by 180 degrees, so the flips now come from the catalog's flags, as on the band pages. PHerc. 0358
+shares PHerc. 211's flags.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
