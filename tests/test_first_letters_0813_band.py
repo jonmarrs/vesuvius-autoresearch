@@ -159,3 +159,69 @@ def test_the_chain_densifies_the_selected_windings_only_when_asked():
     )
     assert 'bash "$HERE/run_studio_band.sh" "$READ_ARM"' in text
     assert (BAND / "densify_winding.py").exists()
+
+
+def test_each_scroll_has_its_scans_resolution_and_the_caller_cannot_change_it(tmp_path):
+    def env(scroll):
+        out = subprocess.run(
+            ["bash", "-c", '. "$0"; printf "%s\\n" "$VOXEL_UM" "$CT_NAME" "$SENSE" "$UMBILICUS_KEY"', str(BAND / "env.sh")],
+            env={"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path), "FL_SCROLL": scroll, "SCAN": "bogus"},
+            capture_output=True, text=True, check=True,
+        ).stdout.splitlines()  # fmt: skip
+        return out
+
+    assert env("PHerc0826")[:2] == [
+        "9.362",
+        "20250821151701-9.362um-1.2m-113keV-masked.zarr",
+    ]
+    assert env("PHerc0800") == [
+        "8.640",
+        "20250521135224-8.640um-1.2m-116keV-masked.zarr",
+        "CW",
+        "PHerc0800/representations/umbilicus/20250521135224-umbilicus-20260924033751.json",
+    ]
+
+
+def test_a_render_is_refused_when_the_disk_is_nearly_full(tmp_path):
+    text = (BAND / "run_studio_band.sh").read_text()
+    guard = text[
+        text.index("room_for_render() {") : text.index(
+            "\n}\n", text.index("room_for_render() {")
+        )
+        + 3
+    ]
+    (tmp_path / "work").mkdir()
+    for limit, code in (("0", 0), ("999999999", 1), ("", 0)):
+        run = subprocess.run(["bash", "-uc", f'R="{tmp_path}"; FL_MIN_FREE_GB="{limit}"; [ -z "$FL_MIN_FREE_GB" ] && unset FL_MIN_FREE_GB\n{guard}\nroom_for_render'],
+                             capture_output=True, text=True)  # fmt: skip
+        assert run.returncode == code, (limit, run.stderr)
+    render = text[
+        text.index("render_one() {") : text.index("\n}\n", text.index("render_one() {"))
+    ]
+    assert render.index("room_for_render") < render.index("run_render.sh")
+    assert "return 28" in render
+    assert "FL_MIN_FREE_GB:-50" in guard
+    assert (
+        " rm " not in guard and "trash" not in guard
+    )  # nothing is deleted to make room
+
+
+def test_finding_129_is_registered_with_the_band_the_reader_and_the_tiling_decided(
+    tmp_path,
+):
+    reg = (
+        ROOT / "docs/preregistration/2026-11-20_first_letters_0813_band_read.md"
+    ).read_text()
+    flat = " ".join(reg.split())
+    assert (
+        "Finding 129" in reg
+        and "before any input of PHerc. 0813 has been downloaded" in flat
+    )
+    assert (
+        "FL_SCROLL=PHerc0813 FL_Z_BEGIN=9996 FL_Z_END=11496 FL_DENSIFY=2 run_band_and_read.sh"
+        in flat
+    )
+    assert "STUDIO_TILING=published" not in flat
+    assert "`STUDIO_343_AGREES`" in flat and "`WINNERS_TILING_KEPT`" in flat
+    env = _env(tmp_path, FL_SCROLL="PHerc0813", FL_Z_BEGIN="9996", FL_Z_END="11496")
+    assert env["sense"] == "CW" and env["ct_name"].startswith("20250821151723-9.362um")

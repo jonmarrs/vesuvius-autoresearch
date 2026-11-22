@@ -35,9 +35,11 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pherc343" / "mesh_step"))
 
 import mesh_step_analysis as analysis  # noqa: E402
+from render_frame import frame_index  # noqa: E402
 
 TILE = 380  # pixels: 19 nodes of 20, finding 117's tile
 INK = 0.5
@@ -120,10 +122,13 @@ def summarise(out: Path, maps: Path, renders: Path) -> dict:
     for path in sorted(maps.glob("w*.npy")):
         name = path.stem
         prob = np.load(path, allow_pickle=False).astype(np.float32)
-        level0 = zarr.open(str(renders / f"{name}_66.zarr"), mode="r")["0"]
+        found = sorted(renders.glob(f"{name}_*.zarr"))
+        if len(found) != 1:
+            raise SystemExit(f"{name} has {len(found)} renders in {renders}, not one")
+        level0 = zarr.open(str(found[0]), mode="r")["0"]
         rendered = (
-            np.asarray(level0[33]) > 0
-        )  # the surface layer: where the winding was rendered
+            np.asarray(level0[frame_index(level0.shape[0], 33)]) > 0
+        )  # the surface layer (33 of the 66-layer frame): where the winding was rendered
         if rendered.shape != prob.shape:
             raise SystemExit(f"{path} is {prob.shape}, its render {rendered.shape}")
         image = np.clip(np.round(prob * 255), 0, 255).astype(np.uint8)
