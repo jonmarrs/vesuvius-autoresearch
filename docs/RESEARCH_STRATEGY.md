@@ -273,6 +273,17 @@ three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surfa
 On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
 step reads every winding of a still-eligible band that way, for the owner to inspect.
 
+**All 70 windings of PHerc. 0826's fitted band read by Studio; the images wait for the owner (November 20).** Every
+winding of finding 115's fit was snapped, flattened, rendered and read with no failure, in 8 h 48 min against the
+registered four hours, because this band's render canvases are more than three times the size of finding 124's
+([report](../reports/first_letters_0826_studio_band.md), finding 125). No automatic verdict was registered: the
+images stay on this machine and the owner reads them. Described from the geometry alone: the registered render rule
+(normals against the band's centre) kept the two innermost windings, which the scroll's axis says should have been
+flipped, so their maps read the other side; the inner windings w010 to w026 are stacked; and in the median winding
+two thirds of the rendered nodes lie within 2 voxels of the predicted sheet, falling from 0.79 at the inner third of
+radii to 0.54 at the outer, where the snap's grid is coarsest. Later band reads orient against the axis and snap on
+a denser grid.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
