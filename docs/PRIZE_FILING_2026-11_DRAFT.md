@@ -182,6 +182,14 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     - **What it changes:** the band reads keep both, on registered tie-breaks. Each extra snap pass adds about a
       quarter of an hour to a band read. The share of a winding on the predicted sheet did not predict how well
       Studio reads it, within these changes.
+  * **The depth Studio reads at, tested at the known place**
+    ([report](../reports/first_letters_0211_depth_sweep.md)). Studio's 16 planes were moved from 8 layers in to 8
+    layers out of the window the band reads use, on both geometries above. Both read best with no shift: r 0.8247 and
+    0.8135.
+    - **The tolerance:** over ±2 layers r changes by at most 0.041. It halves 6 layers outward and stays above half 8
+      layers inward.
+    - **What it changes:** the band reads keep their window. A uniform depth offset of a layer or more is not what
+      keeps r at 0.82 there.
   * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
     with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
     reader was the missing piece, not the geometry.
