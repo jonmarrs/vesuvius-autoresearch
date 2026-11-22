@@ -1296,3 +1296,100 @@ def test_each_slide_reads_only_the_cells_its_slid_map_covers(label, down, right,
     control = an.slid_control(target, moved, everywhere, ~hole)
     assert control[label] == pytest.approx(sign)
     assert control["largest_absolute"] == pytest.approx(1.0)
+
+
+# Added by the design review of 2026-11-17: transfer_maps' map reader, letter boxes, normals check and counts.
+
+
+def _blocks(values, lattice=None):
+    """An image whose LATTICE x LATTICE blocks hold `values` along one row."""
+    lattice = lattice or an.LATTICE
+    return np.kron(np.array([values]), np.ones((lattice, lattice)))
+
+
+def test_a_villa_map_is_scaled_as_the_recipe_does_and_a_hecate_map_by_255(tmp_path):
+    import cv2
+
+    raw = _blocks([0, 64, 128, 192, 255]).astype(np.uint8)
+    canvas = raw.shape
+    cv2.imwrite(str(tmp_path / "villa.tif"), raw)
+    cv2.imwrite(str(tmp_path / "hecate.png"), raw)
+    villa = tm.read_map(tmp_path / "villa.tif", "dnative", canvas)
+    hecate = tm.read_map(tmp_path / "hecate.png", "hecate", canvas)
+    assert villa.tolist() == [[0.0, 0.0, 0.5, 1.0, 1.0]]
+    assert hecate[0].tolist() == pytest.approx(
+        [0.0, 64 / 255, 128 / 255, 192 / 255, 1.0]
+    )
+
+
+def test_a_map_that_is_not_8_bit_or_not_the_renders_size_is_refused(tmp_path):
+    import cv2
+
+    canvas = (4, 20)
+    cv2.imwrite(
+        str(tmp_path / "deep.tif"), _blocks([0, 1000, 0, 0, 0]).astype(np.uint16)
+    )
+    with pytest.raises(SystemExit, match="8-bit grey map"):
+        tm.read_map(tmp_path / "deep.tif", "dnative", canvas)
+    cv2.imwrite(str(tmp_path / "small.tif"), np.zeros((4, 16), np.uint8))
+    with pytest.raises(SystemExit, match="the render is"):
+        tm.read_map(tmp_path / "small.tif", "dnative", canvas)
+
+
+def test_a_letter_box_covers_every_cell_it_touches():
+    # render pixels x 6 to 13 and y 2 to 9 touch cells x 1 to 3 and y 0 to 2
+    mask, windows = tm.letter_mask([{"id": 7, "box": [6.0, 2.0, 13.0, 9.0]}], (5, 6))
+    expected = np.zeros((5, 6), bool)
+    expected[0:3, 1:4] = True
+    assert np.array_equal(mask, expected)
+    assert windows == [(7, (slice(0, 3), slice(1, 4)))]
+    # a box past the edge is cut to the lattice
+    mask, _ = tm.letter_mask([{"id": 8, "box": [-8.0, 12.0, 40.0, 40.0]}], (5, 6))
+    assert mask[3:].all() and not mask[:3].any()
+
+
+def test_a_normal_cosine_of_exactly_zero_is_refused(tmp_path, monkeypatch):
+    argv, _ = scene(tmp_path)
+    monkeypatch.setattr(tm.analysis, "normals_agree", lambda *args: 0.0)
+    with pytest.raises(SystemExit, match="does not sample along the published normals"):
+        tm.main(argv)
+
+
+def test_a_winding_that_gives_no_cells_has_no_cosine_and_is_not_refused(
+    tmp_path, monkeypatch
+):
+    argv, _ = scene(tmp_path)
+    real = tm.analysis.normals_agree
+    monkeypatch.setattr(
+        tm.analysis,
+        "normals_agree",
+        lambda p, s, which, cell, k: None if k == 1 else real(p, s, which, cell, k),
+    )
+    assert tm.main(argv) == 0
+    result = json.loads((tmp_path / "out.json").read_text())
+    assert [o["normal_cosine_median"] for o in result["ours"]] == [1.0, None]
+
+
+def test_the_record_counts_cells_per_winding_and_against_the_published_cells(tmp_path):
+    argv, empty = scene(tmp_path)
+    # a second box half over the cells with an empty CT layer, which are never accepted
+    boxes = {
+        "letters": [
+            {"id": 1, "box": [80.0, 60.0, 240.0, 200.0]},
+            {"id": 2, "box": [0.0, 220.0, 60.0, 300.0]},
+        ]
+    }
+    (tmp_path / "boxes.json").write_text(json.dumps(boxes))
+    assert tm.main(argv) == 0
+    result = json.loads((tmp_path / "out.json").read_text())
+    given = [o["cells_given"] for o in result["ours"]]
+    assert sum(given) == result["cells_accepted"] and min(given) > 0
+    assert result["accepted_fraction_of_published"] == round(
+        result["cells_accepted"] / result["published_cells"], 4
+    )
+    assert result["published_cells"] < empty.size
+    window = np.zeros(empty.shape, bool)
+    window[55:75, 0:15] = True
+    second = result["letter_boxes"][1]
+    assert second["id"] == 2
+    assert second["cells"] <= int((window & ~empty).sum())
