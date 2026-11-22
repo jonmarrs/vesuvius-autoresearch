@@ -2397,3 +2397,45 @@ def test_an_invalid_config_band_is_a_clear_refusal_not_a_crash(
     (tmp_path / "config.json").write_text(json.dumps(config))
     assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
     assert "Not starting: depth_band [17, 30]" in capsys.readouterr().out
+
+
+def _validation_png(tmp_path):
+    import hashlib
+
+    from PIL import Image
+
+    path = tmp_path / "inklabels.png"
+    Image.fromarray(np.full((4, 4), 255, dtype=np.uint8)).save(path)
+    return path, hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_a_validation_image_is_decoded_only_with_its_recorded_digest(tmp_path):
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    path, digest = _validation_png(tmp_path)
+    assert np.all(vesuvius_loader._read_validation_image(path, digest) == 1)
+    with pytest.raises(RuntimeError, match="validation image changed while read"):
+        vesuvius_loader._read_validation_image(path, "0" * 64)
+    # An image absent when the inputs were fingerprinted, present when read.
+    with pytest.raises(RuntimeError, match="validation image changed while read"):
+        vesuvius_loader._read_validation_image(path, None)
+
+
+def test_a_fingerprinted_validation_image_cannot_be_passed_over(tmp_path):
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    _, digest = _validation_png(tmp_path)
+    assert vesuvius_loader._read_validation_image(None, None) is None
+    with pytest.raises(RuntimeError, match="selected validation image is missing"):
+        vesuvius_loader._read_validation_image(None, digest)
+
+
+def test_a_validation_image_is_read_within_the_fingerprint_s_byte_cap(
+    tmp_path, monkeypatch
+):
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    path, digest = _validation_png(tmp_path)
+    monkeypatch.setattr(vesuvius_loader, "MAX_VALIDATION_IMAGE_BYTES", 8)
+    with pytest.raises(ValueError, match="exceeds 8 bytes"):
+        vesuvius_loader._read_validation_image(path, digest)
