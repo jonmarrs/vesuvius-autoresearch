@@ -389,16 +389,23 @@ def _open_edited_labels(path, shape, budget):
     _, states, _ = _inventory(path, budget)
     if ".zarray" not in states:
         raise ValueError(f"edited-label Zarr must be a bare Zarr v2 array: {path}")
-    array = zarr.open_array(str(path), mode="r")
+    try:
+        array = zarr.open_array(str(path), mode="r")
+    except zarr.errors.MetadataError as exc:
+        raise ValueError(f"invalid edited-label Zarr metadata: {path}") from exc
     if (
         array.shape != shape
+        or any(type(n) is not int for n in array.shape)
         or array.dtype != np.dtype("uint8")
         or array.fill_value != 0
     ):
         raise ValueError(
             f"edited-label Zarr must match the CT shape with uint8 labels and zero fill: {path}"
         )
-    if math.prod(array.chunks) > budget["max_file_bytes"]:
+    chunks = array.chunks
+    if len(chunks) != len(shape) or any(type(n) is not int or n < 1 for n in chunks):
+        raise ValueError(f"invalid edited-label Zarr chunk geometry: {path}")
+    if math.prod(chunks) > budget["max_file_bytes"]:
         raise ValueError(
             f"decoded edited-label Zarr chunk exceeds max_file_bytes: {path}"
         )
@@ -530,7 +537,8 @@ def verify_record(
     effective = {key: min(own[key], saved[key]) for key in own}
     if _file_hash(proofreader) != record["proofreader_sha256"]:
         raise ValueError("pinned proofreader source differs from the input record")
-    ct, ct_state = None, None
+    check_exports = verify_approved_patches or verify_edited_labels
+    ct, source_states = None, {}
     for role, source in sources.items():
         fingerprint, snapshot = _fingerprint_source(source["path"], effective)
         if fingerprint != source:
@@ -540,8 +548,10 @@ def verify_record(
             raise ValueError(
                 f"{role} source shape differs from the proofreader input record"
             )
-        if role == "ct" and (verify_approved_patches or verify_edited_labels):
-            ct, ct_state = volume, snapshot
+        if check_exports:
+            source_states[role] = (Path(source["path"]), snapshot)
+            if role == "ct":
+                ct = volume
     progress = _progress_summary(
         root,
         config,
@@ -552,9 +562,11 @@ def verify_record(
         if verify_edited_labels
         else None,
     )
-    if ct is not None:
-        if _inventory(ct.path, effective)[1] != ct_state:
-            raise ValueError("recorded CT changed during export verification")
+    if check_exports:
+        for role, (path, snapshot) in source_states.items():
+            if _inventory(path, effective)[1] != snapshot:
+                name = "CT" if role == "ct" else role
+                raise ValueError(f"recorded {name} changed during export verification")
         if _file_hash(root / RECORD_NAME) != record_sha256:
             raise ValueError(
                 "proofreader input record changed during export verification"

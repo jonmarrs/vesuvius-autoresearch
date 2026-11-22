@@ -105,7 +105,8 @@ uv run --no-sync python scripts/check_proofreader_session.py \
 
 Villa can save both TIFFs and log approval even when writing
 `edited_labels.zarr` fails. This check requires the recorded output directory
-to hold a bare uint8 Zarr v2 array with the CT shape and zero fill. It compares
+to hold a bare uint8 Zarr v2 array with the CT shape, positive 3D chunk sizes
+and zero fill. It compares
 every voxel of each approved label TIFF to the stored crop at the logged ZYX
 coordinates. It reports the coordinates of a mismatch and exits 1.
 An all-zero approved crop can use Zarr's sparse zero fill. If approved crops
@@ -148,7 +149,8 @@ Both commands accept these positive integer limits:
 With `--verify-approved-patches`, the checker also applies the effective limits
 to the two export directories as a combined set. The per-file limit bounds the
 decoded size of one TIFF, CT patch or CT chunk. The checker validates one pair
-at a time and checks for ordinary source or export changes during the reads.
+at a time and checks the CT, source labels and exports for ordinary changes
+during the reads.
 With `--verify-edited-labels`, the same limits apply separately to the encoded
 edited-label directory, and the decoded size of one edited-label chunk must
 fit the per-file limit. The checker checks the edited directory before and

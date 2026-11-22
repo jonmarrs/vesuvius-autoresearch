@@ -319,6 +319,9 @@ def test_checker_compares_the_pinned_writers_label_tiff_and_zarr(
         ("dtype", "with uint8 labels"),
         ("fill_value", "and zero fill"),
         ("chunks", "decoded edited-label Zarr chunk exceeds max_file_bytes"),
+        ("zero_chunk", "invalid edited-label Zarr chunk geometry"),
+        ("chunk_rank", "invalid edited-label Zarr chunk geometry"),
+        ("missing_chunks", "invalid edited-label Zarr metadata"),
     ],
 )
 def test_edited_store_preflight_rejects_invalid_layout_and_size(
@@ -341,12 +344,17 @@ def test_edited_store_preflight_rejects_invalid_layout_and_size(
     else:
         metadata = edited / ".zarray"
         header = json.loads(metadata.read_text())
-        header[change] = {
-            "shape": [8, 16, 17],
-            "dtype": "<u2",
-            "fill_value": 1,
-            "chunks": [512, 512, 512],
-        }[change]
+        if change == "missing_chunks":
+            del header["chunks"]
+        elif change in {"zero_chunk", "chunk_rank"}:
+            header["chunks"] = [0, 8, 8] if change == "zero_chunk" else [8, 8]
+        else:
+            header[change] = {
+                "shape": [8, 16, 17],
+                "dtype": "<u2",
+                "fill_value": 1,
+                "chunks": [512, 512, 512],
+            }[change]
         metadata.write_text(json.dumps(header))
 
     def no_crop_reads(*args, **kwargs):
@@ -479,26 +487,40 @@ def test_absent_progress_differs_from_zero_approved_exports(inputs, monkeypatch)
     assert checked["progress"]["approved_exports"] == {"pairs_verified": 0, "pairs": []}
 
 
-def test_ct_mutation_during_export_read_refuses_verification(inputs, monkeypatch):
+@pytest.mark.parametrize(
+    ("source", "check_edited_labels", "diagnostic"),
+    [(0, False, "recorded CT changed"), (1, True, "recorded labels changed")],
+)
+def test_input_mutation_during_export_read_refuses_verification(
+    inputs, monkeypatch, source, check_edited_labels, diagnostic
+):
     from volume_cartographer_wrapper.volume import FastLocalVolume
 
     assert (
-        _launch(inputs, monkeypatch, lambda c: _pinned_progress(c, save=True))[0] == 0
+        _launch(
+            inputs,
+            monkeypatch,
+            lambda c: _pinned_progress(
+                c, save=True, save_edited_labels=check_edited_labels
+            ),
+        )[0]
+        == 0
     )
     original = FastLocalVolume.get_chunk
 
     def change_after_read(self, *args):
         values = original(self, *args)
-        zarr.open(str(self.path), mode="r+")[0, 0, 0] = 22
+        zarr.open(str(inputs[source]), mode="r+")[0, 0, 0] = 22
         return values
 
     monkeypatch.setattr(FastLocalVolume, "get_chunk", change_after_read)
-    with pytest.raises(ValueError, match="recorded CT changed"):
+    with pytest.raises(ValueError, match=diagnostic):
         sessions.verify_record(
             inputs[2],
             PROOFREADER,
             sessions.DEFAULT_LIMITS,
-            verify_approved_patches=True,
+            verify_approved_patches=not check_edited_labels,
+            verify_edited_labels=check_edited_labels,
         )
 
 

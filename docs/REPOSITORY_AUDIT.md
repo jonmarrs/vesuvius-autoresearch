@@ -1910,6 +1910,13 @@ edited Zarr's layout and byte limits are checked before crop reads, and a
 second inventory checks for ordinary changes during verification.
 [Verification usage](PROOFREADER_SESSION_RECORDS.md#compare-approved-labels-with-the-edited-zarr)
 
+PR review reproduced a traceback from zero-sized chunks, acceptance of
+wrong-rank chunk geometry until crop decoding, and an uncaught error from
+incomplete Zarr metadata. It also reproduced acceptance of a source-label
+change during export checks. The preflight now checks chunk geometry and
+reports unreadable metadata. Both input directories are rechecked before
+reporting export verification success.
+
 The fixtures execute Villa's pinned writer and progress serializer without
 opening the GUI. The report compares approved crop values. The category
 semantics, physical alignment, values outside those crops, resume behavior and
@@ -1921,3 +1928,5 @@ one edited voxel was changed. Both invocations kept all session bytes intact.
 The nine-module integration selection passed **250 tests**. The final
 proofreader selection passed **87 tests**, and the portable CPU profile passed
 **436 tests**. Ruff, formatting and Mypy passed.
+With the PR review fixes, the nine-module selection passed **254 tests** and
+the CLI returned status 1 for all three malformed metadata fixtures.
