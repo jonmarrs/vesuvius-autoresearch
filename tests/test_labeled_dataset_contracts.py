@@ -426,3 +426,44 @@ def test_big_endian_volumes_are_read_and_normalised(
     patch, _, _ = ds[0]
     assert patch.dtype == torch.float32
     assert 0.0 < float(patch.max()) <= 250.0 / scale
+
+
+def _read_catalog(tmp_path, document, patch_size=16):
+    from vesuvius_autoresearch.core.patch_catalog import read_patch_catalog
+
+    path = tmp_path / "patches.json"
+    path.write_text(document)
+    return read_patch_catalog(path, (4, 32, 32), patch_size)
+
+
+@pytest.mark.parametrize("patch_size", [16.5, True, 0, "16"])
+def test_a_catalog_is_read_only_for_a_positive_integer_patch_size(tmp_path, patch_size):
+    with pytest.raises(ValueError, match="patch_size must be a positive integer"):
+        _read_catalog(tmp_path, '{"patches": [{"y": 0, "x": 0}]}', patch_size)
+    coords, _ = _read_catalog(
+        tmp_path, '{"patches": [{"y": 16, "x": 16}]}', np.int64(16)
+    )
+    assert coords == [(16, 16)]
+
+
+@pytest.mark.parametrize(
+    ("document", "message"),
+    [
+        ('{"patches": {"y": 0, "x": 0}}', "needs a nonempty patches list"),
+        ('{"patches": "yx"}', "needs a nonempty patches list"),
+        (
+            '{"patch_size": 16.0, "patches": [{"y": 0, "x": 0}]}',
+            "has patch_size inconsistent with 16",
+        ),
+        (
+            '{"num_patches": true, "patches": [{"y": 0, "x": 0}]}',
+            "has num_patches inconsistent with 1",
+        ),
+        ('{"patches": [{"y": -1, "x": 0}]}', r"origin \(-1, 0\) cannot fit"),
+        ("[" * 100_000 + "]" * 100_000, "invalid patch catalog"),
+    ],
+    ids=["dict", "string", "float_size", "boolean_count", "negative_y", "deep"],
+)
+def test_a_catalog_of_the_wrong_form_is_refused(tmp_path, document, message):
+    with pytest.raises(ValueError, match=message):
+        _read_catalog(tmp_path, document)
