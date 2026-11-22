@@ -7,10 +7,14 @@ import yaml
 
 def main():
     """
-    Launcher for official Vesuvius Uncertainty-Aware Mean Teacher.
-    Trains on labeled Fragment 1 data and unlabeled Scroll 2/3 volumes to solve the Domain Gap.
+    Archived (November 2026): nothing calls this launcher and it has no tests.
+
+    It writes a config for the official Vesuvius Uncertainty-Aware Mean Teacher
+    and prints the command to run it. Its labeled data is PHercParis2Fr47
+    (not Fragment 1, as an earlier description said) and its unlabeled data is
+    two PHerc0125 divisions.
     """
-    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     VILLA_PATH = os.path.join(PROJECT_ROOT, "villa/vesuvius/src")
     sys.path.append(VILLA_PATH)
 
