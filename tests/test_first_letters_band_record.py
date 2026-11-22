@@ -70,9 +70,22 @@ def _run(tmp_path: Path) -> Path:
             }
         },
     )
+    _write(studio / "geometry.json", {"summary": {"trusted_median": 0.6}, "windings": {
+        "w010": {"trusted": 0.5, "other_side": 0.1, "inward_against_axis": 0.9,
+                 "predicted_sheet": {"final": {"within_2": 0.7}}},
+    }})  # fmt: skip
     (r / "logs").mkdir()
     (r / "logs" / "studio_a_gpu_mib.log").write_text("1 0\n2 14481\n3 900\n4\n")
+    for w, shape in (("w010", [66, 1000, 2000]), ("w011", [66, 3000, 4000])):
+        _write(work / "render_a" / f"{w}_66.zarr" / "0" / ".zarray", {"shape": shape})
+        (work / "render_a" / f"{w}_66.zarr" / "0" / "0.0.0").write_bytes(b"x" * 500)
+    (studio / "maps").mkdir()
+    (studio / "maps" / "w010.npy").write_bytes(b"y" * 70)
     return r
+
+
+def _apparent(folder: Path) -> int:
+    return sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
 
 
 def test_the_record_counts_each_step_and_carries_a_failure_forward(tmp_path):
@@ -111,6 +124,40 @@ def test_the_record_summarises_orientation_ink_and_gpu(tmp_path):
         rec["by_winding"]["w011"]["flip_lr"] is True
         and rec["by_winding"]["w010"]["excess"] == -0.02
     )
+    assert rec["geometry"] == {"trusted_median": 0.6}
+    assert rec["by_winding"]["w010"]["geometry"] == {"trusted": 0.5, "other_side": 0.1, "inward_against_axis": 0.9,
+                                                     "final_within_2": 0.7}  # fmt: skip
+    assert "geometry" not in rec["by_winding"]["w011"]
+
+
+def test_a_winding_orient_found_no_normal_for_is_left_out_of_the_spread(tmp_path):
+    r = _run(tmp_path)
+    orient = r / "work" / "studio_a" / "orient.json"
+    windings = json.loads(orient.read_text())["windings"]
+    windings["w012"] = {"share_of_normals_pointing_inward": None, "render": None}
+    _write(orient, {"windings": windings})
+    rec = br.record(r, "a")
+    assert rec["render_orientation"]["share_of_normals_pointing_inward"] == {
+        "median": 0.695,
+        "min": 0.49,
+        "max": 0.9,
+    }
+    assert br._spread([]) is None
+
+
+def test_the_record_carries_the_render_canvases_and_the_disk_they_take(tmp_path):
+    r = _run(tmp_path)
+    rec = br.record(r, "a")
+    assert rec["render_canvas_megapixels"] == {"median": 7.0, "min": 2.0, "max": 12.0}
+    assert rec["by_winding"]["w011"]["render_canvas_megapixels"] == 12.0
+    assert (
+        "render_canvas_megapixels" not in rec["by_winding"]["w012"]
+    )  # its render failed
+    assert rec["bytes_on_disk"] == {
+        "renders": _apparent(r / "work" / "render_a"),
+        "studio_maps": 70,
+    }
+    assert rec["bytes_on_disk"]["renders"] >= 1000
 
 
 def test_the_cli_refuses_to_overwrite_a_record(tmp_path):
@@ -124,3 +171,109 @@ def test_the_cli_refuses_to_overwrite_a_record(tmp_path):
         assert "exists" in str(e)
     else:
         raise AssertionError("overwrote the record")
+
+
+def test_a_later_band_read_names_its_own_finding_and_registration(tmp_path):
+    r = _run(tmp_path)
+    rec = br.record(
+        r, "a", finding=126, registration="docs/x.md", registration_commit="3c97310a"
+    )
+    assert (rec["finding"], rec["registration"], rec["registration_commit"]) == (
+        126,
+        "docs/x.md",
+        "3c97310a",
+    )
+    default = br.record(r, "a")
+    assert (default["finding"], default["registration_commit"]) == (125, "d6e5ca0f")
+    out = tmp_path / "rec126.json"
+    argv = [
+        str(r),
+        "a",
+        str(out),
+        "--finding",
+        "126",
+        "--registration",
+        "docs/x.md",
+        "--registration-commit",
+        "3c97310a",
+    ]
+    assert br.main(argv) == 0
+    assert json.loads(out.read_text())["finding"] == 126
+
+
+def test_the_canvas_is_read_from_a_thinner_render(tmp_path):
+    r = _run(tmp_path)
+    renders = r / "work" / "render_a"
+    for w in (
+        "w010",
+        "w011",
+    ):  # the band read of finding 129 renders 18 layers, written as wNNN_18.zarr
+        (renders / f"{w}_66.zarr" / "0" / ".zarray").rename(
+            renders / f"{w}_66.zarr" / "0" / "zarray.bak"
+        )
+        _write(renders / f"{w}_18.zarr" / "0" / ".zarray", {"shape": [18, 1000, 2000]})
+    rec = br.record(r, "a")
+    assert rec["by_winding"]["w010"]["render_canvas_megapixels"] == 2.0
+
+
+def test_two_renders_of_one_winding_are_refused(tmp_path):
+    r = _run(tmp_path)
+    _write(
+        r / "work" / "render_a" / "w010_18.zarr" / "0" / ".zarray",
+        {"shape": [18, 1000, 2000]},
+    )
+    import pytest
+
+    with pytest.raises(SystemExit):
+        br.record(r, "a")
+
+
+def test_a_densified_read_takes_its_excess_from_the_fit_arm(tmp_path):
+    r = _run(tmp_path)
+    work = r / "work"
+    (work / "quality_a.json").rename(
+        work / "quality_full.json"
+    )  # the read arm `a` is no fit arm
+    rec = br.record(r, "a", finding=126, quality_arm="full")
+    assert rec["quality_arm"] == "full" and rec["by_winding"]["w011"]["excess"] == 0.2
+    assert "quality_arm" not in br.record(
+        _run(tmp_path / "plain"), "a"
+    )  # finding 125's record is unchanged
+    out = tmp_path / "rec.json"
+    assert (
+        br.main([str(r), "a", str(out), "--finding", "126", "--quality-arm", "full"])
+        == 0
+    )
+    assert json.loads(out.read_text())["by_winding"]["w010"]["excess"] == -0.02
+
+
+def test_a_chained_read_carries_its_chain_fit_table_and_gpu_window(tmp_path):
+    r = _run(tmp_path)
+    work = r / "work"
+    for name, seconds in (
+        ("fetch_volumes", 2198),
+        ("fit_full", 11690),
+        ("read", 48489),
+    ):
+        _write(work / "gate_chain" / f"{name}.json", {"exit": 0, "seconds": seconds})
+    fit = {"verdict": "ON_SHEETS", "p1": True, "p2": True, "smoke": {"excess_median": 0.0},
+           "full": {"excess_median": 0.0863}, "full_by_index": []}  # fmt: skip
+    _write(work / "fit_verdict.json", fit)
+    (r / "inputs" / "ct").mkdir(parents=True)
+    (r / "inputs" / "ct" / "c").write_bytes(b"z" * 40)
+    (r / "dataset" / "tracks").mkdir(parents=True)
+    (r / "dataset" / "tracks" / "t").write_bytes(b"z" * 25)
+    rec = br.record(r, "a", finding=126, quality_arm=None)
+    assert rec["chain"] == {
+        "steps": {"fetch_volumes": {"exit": 0, "seconds": 2198}, "fit_full": {"exit": 0, "seconds": 11690},
+                  "read": {"exit": 0, "seconds": 48489}},
+        "seconds": 2198 + 11690 + 48489,
+        "bytes_on_disk": {"inputs": 40, "tracks": 25},
+    }  # fmt: skip
+    assert rec["fit"] == fit
+    # the GPU log's samples: 4 lines, 3 with a value, from epoch 1 to 3
+    assert rec["gpu_samples"] == {"count": 3, "first_epoch": 1, "last_epoch": 3}
+    plain = br.record(_run(tmp_path / "plain"), "a")
+    assert (
+        "chain" not in plain and "fit" not in plain
+    )  # finding 125's record is unchanged
