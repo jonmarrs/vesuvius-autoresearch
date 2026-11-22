@@ -98,6 +98,24 @@ def test_distance_to_triangles_is_zero_on_the_surface_and_the_offset_off_it():
     assert np.all((d > 5.0) & (d < 7.5))
 
 
+def test_a_degenerate_triangle_gives_a_distance_not_nan():
+    p = np.array([[5.0, 5.0, 5.0], [3.0, 0.0, 4.0]])
+    corner = np.zeros((2, 3))
+    # all three corners at one point: the distance to that point (0 / 0 on an edge used to overwrite it with NaN)
+    assert np.allclose(
+        bg._closest_on_triangles(p, corner, corner, corner), [np.sqrt(75.0), 5.0]
+    )
+    # a plane grid 10 voxels apart with three corners of its first cell on one point: every distance stays finite
+    ii, jj = np.meshgrid(np.arange(4) * 10.0, np.arange(4) * 10.0, indexing="ij")
+    grid = np.stack([ii, jj, np.zeros_like(ii)], -1)
+    grid[1, 0] = grid[0, 1] = grid[0, 0]
+    q = np.array(
+        [[0.0, 0.0, 1.0], [1.0, 1.0, 1.0], [15.0, 15.0, 1.0], [25.0, 5.0, 2.0]]
+    )
+    d = bg.distance_to_triangles(q, grid, np.ones(grid.shape[:2], bool))
+    assert np.allclose(d, [1.0, 1.0, 1.0, 2.0])
+
+
 def _band(tmp_path):
     import tifffile
 
@@ -161,6 +179,27 @@ def test_a_sheet_the_field_does_not_have_is_off_it(tmp_path):
         and rec["windings"]["w011"]["other_side"] == 0.0
     )
     assert rec["windings"]["w011"]["predicted_sheet"]["final"]["within_2"] == 0.0
+
+
+def test_a_winding_with_no_normal_is_left_out_of_the_orientation_summary(tmp_path):
+    import tifffile
+
+    r = _band(tmp_path)
+    final = r / "work" / "final_a" / "w011.tifxyz"
+    xyz = np.stack([tifffile.imread(final / f"{a}.tif") for a in "xyz"], -1)
+    lone = np.full_like(xyz, -1.0)
+    lone[5, 40] = xyz[5, 40]  # one node and no neighbour, so no normal
+    for i, axis in enumerate("xyz"):
+        tifffile.imwrite(final / f"{axis}.tif", lone[..., i])
+    rec = bg.geometry(r, "a", None, field=_Sheets(1000.0, 1015.0))
+    assert rec["windings"]["w011"]["inward_against_axis"] is None
+    w010 = rec["windings"]["w010"]["inward_against_axis"]
+    assert rec["summary"]["inward_against_axis"] == {
+        "median": w010,
+        "min": w010,
+        "max": w010,
+    }
+    assert rec["summary"]["rendered_against_the_axis_rule"] == []
 
 
 def test_the_page_shows_the_trusted_share_and_the_mask_turned_like_the_image(tmp_path):

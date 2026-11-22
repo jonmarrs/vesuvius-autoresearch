@@ -87,7 +87,12 @@ def fixed_centre(xy: np.ndarray):
 def _closest_on_triangles(
     p: np.ndarray, a: np.ndarray, b: np.ndarray, c: np.ndarray
 ) -> np.ndarray:
-    """Distance from each point to its triangle (Ericson, Real-Time Collision Detection, 5.1.5), row by row."""
+    """Distance from each point to its triangle (Ericson, Real-Time Collision Detection, 5.1.5), row by row.
+
+    The regions are tested in Ericson's order and the first that holds wins, as his early returns do. On a proper
+    triangle they meet only on their borders, where they give the same point. On a triangle with coincident corners
+    several hold at once, and a corner then wins over an edge whose parameter is 0 / 0. An edge of zero length can
+    still give NaN; distance_to_triangles skips it."""
     ab, ac, ap = b - a, c - a, p - a
     d1, d2 = (ab * ap).sum(-1), (ac * ap).sum(-1)
     bp = p - b
@@ -102,12 +107,12 @@ def _closest_on_triangles(
         regions = [
             ((d1 <= 0) & (d2 <= 0), a),
             ((d3 >= 0) & (d4 <= d3), b),
-            ((d6 >= 0) & (d5 <= d6), c),
             ((vc <= 0) & (d1 >= 0) & (d3 <= 0), a + ab * (d1 / (d1 - d3))[:, None]),
+            ((d6 >= 0) & (d5 <= d6), c),
             ((vb <= 0) & (d2 >= 0) & (d6 <= 0), a + ac * (d2 / (d2 - d6))[:, None]),
             ((va <= 0) & (d4 - d3 >= 0) & (d5 - d6 >= 0), b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)))[:, None]),
         ]  # fmt: skip
-    for mask, point in regions:
+    for mask, point in reversed(regions):  # the last written wins: Ericson's first
         closest[mask] = point[mask]
     return np.linalg.norm(p - closest, axis=-1)
 
@@ -131,7 +136,8 @@ def distance_to_triangles(
     best = np.full(len(points), np.inf)
     for j in range(k):
         i = index[:, j]
-        best = np.minimum(best, _closest_on_triangles(points, a[i], b[i], c[i]))
+        # fmin: a degenerate candidate's NaN does not hide the other candidates' distances
+        best = np.fmin(best, _closest_on_triangles(points, a[i], b[i], c[i]))
     return best
 
 
@@ -224,12 +230,14 @@ def geometry(root: Path, arm: str, masks: Path | None = None, field=None) -> dic
         v = [x for x in values if x is not None]
         return round(float(np.median(v)), 4) if v else None
 
+    # a winding with no node that has a normal has no share (inward_share gives None): it is left out
+    axis = [x["inward_against_axis"] for x in w if x["inward_against_axis"] is not None]
     out["summary"] = {
         "windings": len(w),
         "inward_against_axis": {
-            "median": med(x["inward_against_axis"] for x in w),
-            "min": min(x["inward_against_axis"] for x in w),
-            "max": max(x["inward_against_axis"] for x in w),
+            "median": med(axis),
+            "min": min(axis, default=None),
+            "max": max(axis, default=None),
         },
         "inward_against_band_centre_median": med(x["inward_against_band_centre"] for x in w),
         "snapped_inward_against_axis_median": med(x["snapped_inward_against_axis"] for x in w),
@@ -249,7 +257,8 @@ def geometry(root: Path, arm: str, masks: Path | None = None, field=None) -> dic
         "on_snapped_triangles_median": med(x["on_snapped_triangles"] for x in w),
         "rendered_against_the_axis_rule": sorted(
             n for n, x in out["windings"].items()
-            if (x["inward_against_axis"] > 0.5) != (x["inward_against_band_centre"] > 0.5)
+            if None not in (x["inward_against_axis"], x["inward_against_band_centre"])
+            and (x["inward_against_axis"] > 0.5) != (x["inward_against_band_centre"] > 0.5)
         ),
     }  # fmt: skip
     return out
