@@ -38,6 +38,37 @@ def _bar_batch(batch=6, channels=2, depth=8):
 # --- UA-MT --------------------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    ("unlabeled_depth", "compress", "offset"),
+    [(24, False, 7), (21, False, 5), (21, True, 5), (16, False, 0)],
+)
+def test_training_windows_keep_a_full_depth_at_the_shared_offset(
+    monkeypatch, unlabeled_depth, compress, offset
+):
+    config = ExperimentConfig(
+        num_layers=16, patch_size=4, disable_augmentation=not compress
+    )
+    labeled = torch.arange(24.0)[None, None, :, None, None].expand(1, 1, 24, 4, 4)
+    unlabeled = labeled[:, :, :unlabeled_depth] + 100
+
+    def highest_offset(low, high):
+        assert low == 0 and high == offset + 1
+        return high - 1
+
+    monkeypatch.setattr(train.np.random, "randint", highest_offset)
+    monkeypatch.setattr(train.np.random, "rand", lambda: 0.9)
+    actual, actual_unlabeled = train._training_windows(labeled, unlabeled, config)
+    length = 12 if compress else config.num_layers
+    expected = labeled[:, :, offset : offset + length]
+    if compress:
+        expected = torch.nn.functional.interpolate(
+            expected, (16, 4, 4), mode="trilinear", align_corners=False
+        )
+    assert actual.shape == actual_unlabeled.shape == (1, 1, 16, 4, 4)
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    torch.testing.assert_close(actual_unlabeled - 100, expected)
+
+
 def test_uamt_student_and_teacher_see_the_same_view():
     config = ExperimentConfig(aug_mode="albumentations", aug_scroll_squeeze_p=1.0)
     x = _bar_batch()
@@ -104,7 +135,8 @@ def test_mean_ap_key_matches_villa():
 
 
 @pytest.mark.parametrize(
-    "field,value", [("architecture", "typo"), ("aug_mode", "typo")]
+    "field,value",
+    [("architecture", "typo"), ("aug_mode", "typo"), ("num_layers", -8)],
 )
 def test_mutated_training_choices_fail_before_gpu_setup(monkeypatch, field, value):
     config = ExperimentConfig()
@@ -116,6 +148,12 @@ def test_mutated_training_choices_fail_before_gpu_setup(monkeypatch, field, valu
     )
     with pytest.raises(ValueError, match=field):
         train.train(config)
+
+
+@pytest.mark.parametrize("depth", [-8, 0, True, 2.5])
+def test_config_refuses_invalid_model_depth(depth):
+    with pytest.raises(ValueError, match="num_layers must be a positive integer"):
+        ExperimentConfig(num_layers=depth)
 
 
 def test_model_builder_cannot_silently_construct_gated_unet_for_an_unknown_name(

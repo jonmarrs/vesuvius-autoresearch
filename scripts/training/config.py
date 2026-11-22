@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 
 from vesuvius_autoresearch.core.inference_constants import (
     DEPTH_MARGIN,
+    positive_integer,
     validate_architecture,
 )
 
@@ -25,6 +26,7 @@ def validate_augmentation_mode(value):
 def validate_training_choices(config):
     validate_architecture(getattr(config, "architecture", "gated_unet"), training=True)
     validate_augmentation_mode(getattr(config, "aug_mode", "albumentations"))
+    positive_integer(config.num_layers, "num_layers")
 
 
 def configuration_fingerprint(values: dict) -> str:
