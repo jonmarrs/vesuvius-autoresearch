@@ -30,7 +30,9 @@ import numpy as np
 STEPS = ("flatten", "render", "studio")
 
 
-def _spread(values: list[float]) -> dict:
+def _spread(values: list[float]) -> dict | None:
+    if not values:
+        return None
     a = np.asarray(values, dtype=np.float64)
     return {
         "median": round(float(np.median(a)), 4),
@@ -134,7 +136,12 @@ def record(
     geometry_path = studio / "geometry.json"
     geometry = json.loads(geometry_path.read_text()) if geometry_path.exists() else None
 
-    inward = [o["share_of_normals_pointing_inward"] for o in orient.values()]
+    # orient gives a winding with no usable normal a share of None (and no render): it is left out of the spread
+    inward = [
+        o["share_of_normals_pointing_inward"]
+        for o in orient.values()
+        if o["share_of_normals_pointing_inward"] is not None
+    ]
     read = sorted(summary)
     shares = [
         summary[w]["ink_share"] for w in read if summary[w]["ink_share"] is not None

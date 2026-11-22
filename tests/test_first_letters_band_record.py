@@ -130,6 +130,21 @@ def test_the_record_summarises_orientation_ink_and_gpu(tmp_path):
     assert "geometry" not in rec["by_winding"]["w011"]
 
 
+def test_a_winding_orient_found_no_normal_for_is_left_out_of_the_spread(tmp_path):
+    r = _run(tmp_path)
+    orient = r / "work" / "studio_a" / "orient.json"
+    windings = json.loads(orient.read_text())["windings"]
+    windings["w012"] = {"share_of_normals_pointing_inward": None, "render": None}
+    _write(orient, {"windings": windings})
+    rec = br.record(r, "a")
+    assert rec["render_orientation"]["share_of_normals_pointing_inward"] == {
+        "median": 0.695,
+        "min": 0.49,
+        "max": 0.9,
+    }
+    assert br._spread([]) is None
+
+
 def test_the_record_carries_the_render_canvases_and_the_disk_they_take(tmp_path):
     r = _run(tmp_path)
     rec = br.record(r, "a")
