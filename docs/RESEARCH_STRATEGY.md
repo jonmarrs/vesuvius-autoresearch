@@ -391,6 +391,14 @@ tiling would read 2.4 times faster but differs from the winner's command (r 0.94
 the winner's command (`WINNERS_TILING_KEPT`, not as predicted; [report](../reports/studio_published_tiling.md),
 finding 128).
 
+**Studio also draws PHerc. 343's letters on our own fit of the place (November 22).** Finding 110's own windings
+w047 and w048, read by Studio and carried onto the published surface, give r 0.8999 against Studio's map of that
+surface (`STUDIO_343_OWN_CLOSE`, as predicted; [report](../reports/first_letters_343_studio_own.md), finding 136).
+Against the published ensemble image they give 0.6042, where Studio on the published surface gives 0.6286 on the
+same cells. So the whole route (fit, snap, flatten, render, Studio) is checked at two places with known text, one
+crushed and anticlockwise (PHerc. 211) and one clockwise (PHerc. 343). A blank band of PHerc. 0813, which is
+clockwise, would carry the same weight as one of PHerc. 0826 or 0358.
+
 **All 70 windings of PHerc. 0826's fitted band read by Studio; the images wait for the owner (November 20).** Every
 winding of finding 115's fit was snapped, flattened, rendered and read with no failure, in 8 h 48 min against the
 registered four hours, because this band's render canvases are more than three times the size of finding 124's

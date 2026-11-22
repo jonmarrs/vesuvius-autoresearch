@@ -169,6 +169,13 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     - **The image:** it draws both published rows of letters, more legibly than the ensemble.
     - **Caveat:** Studio was not trained on this scroll, but its training includes a fragment, PHerc0343P, that may
       come from the same roll.
+  * **Our own fit of PHerc. 343, read by the winning reader**
+    ([report](../reports/first_letters_343_studio_own.md)). The mesh step's two windings, read by Studio and carried
+    onto the published surface, give r = 0.90 against Studio's map of that surface (reversed planes 0.18, slid
+    0.31), and draw the same letters.
+    - **What it changes:** the whole route is now checked at two places with known text, a crushed anticlockwise
+      scroll and a clockwise one.
+    - **Cost:** 7 minutes from renders on disk.
   * **Studio's faster default tiling does not reproduce its map**
     ([report](../reports/studio_published_tiling.md)). It is 2.4 times faster, but gives r = 0.94
     against the winner's command, short of the 0.98 line. Band reads keep the winner's command.
