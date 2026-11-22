@@ -23,6 +23,20 @@ other renders, especially the campaign's 66-layer stacks. Establish native slice
 spacing, surface-normal direction, origin and side for the particular render first.
 The note records the caller's reasoning; this adapter cannot verify it.
 
+### The campaign's 66-layer renders
+
+Since this adapter was written, the First Letters campaign fixed Studio's window for
+its 66-layer renders: **layers 41 down to 26**, which is `--first-plane 41 --depth-step -1`
+on a full 66-layer render. The renderer places layer *i* at *i* − 32.5 voxels along the
+render's normal, so the window spans +8.5 to −6.5 voxels. Finding 124
+([report](../reports/first_letters_0211_studio_e2e.md)) used it at PHerc. 211, where the
+reading is known; finding 135 found no shift of up to 8 layers either way that reads
+better; finding 127 ([report](../reports/first_letters_343_studio.md)) used it on PHerc. 343.
+Those reads made their inputs with `repro/first_letters/pherc0211_control/studio_e2e.py planes`,
+which takes the whole render width and writes no `input.json`. This adapter counts planes
+in the array it is given, so on a centred render of *n* layers subtract (66 − *n*)/2 from
+41 (`repro/first_letters/eligible_band/render_frame.py` does that mapping).
+
 The exporter does not transpose axes, reverse rows/columns, interpolate, normalize,
 clip, downsample, pad or convert dtype. Upstream inference applies its own intensity
 clipping/normalization. Non-uint8 arrays must be dealt with explicitly outside this
