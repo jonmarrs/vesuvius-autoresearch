@@ -245,3 +245,35 @@ def test_a_densified_read_takes_its_excess_from_the_fit_arm(tmp_path):
         == 0
     )
     assert json.loads(out.read_text())["by_winding"]["w010"]["excess"] == -0.02
+
+
+def test_a_chained_read_carries_its_chain_fit_table_and_gpu_window(tmp_path):
+    r = _run(tmp_path)
+    work = r / "work"
+    for name, seconds in (
+        ("fetch_volumes", 2198),
+        ("fit_full", 11690),
+        ("read", 48489),
+    ):
+        _write(work / "gate_chain" / f"{name}.json", {"exit": 0, "seconds": seconds})
+    fit = {"verdict": "ON_SHEETS", "p1": True, "p2": True, "smoke": {"excess_median": 0.0},
+           "full": {"excess_median": 0.0863}, "full_by_index": []}  # fmt: skip
+    _write(work / "fit_verdict.json", fit)
+    (r / "inputs" / "ct").mkdir(parents=True)
+    (r / "inputs" / "ct" / "c").write_bytes(b"z" * 40)
+    (r / "dataset" / "tracks").mkdir(parents=True)
+    (r / "dataset" / "tracks" / "t").write_bytes(b"z" * 25)
+    rec = br.record(r, "a", finding=126, quality_arm=None)
+    assert rec["chain"] == {
+        "steps": {"fetch_volumes": {"exit": 0, "seconds": 2198}, "fit_full": {"exit": 0, "seconds": 11690},
+                  "read": {"exit": 0, "seconds": 48489}},
+        "seconds": 2198 + 11690 + 48489,
+        "bytes_on_disk": {"inputs": 40, "tracks": 25},
+    }  # fmt: skip
+    assert rec["fit"] == fit
+    # the GPU log's samples: 4 lines, 3 with a value, from epoch 1 to 3
+    assert rec["gpu_samples"] == {"count": 3, "first_epoch": 1, "last_epoch": 3}
+    plain = br.record(_run(tmp_path / "plain"), "a")
+    assert (
+        "chain" not in plain and "fit" not in plain
+    )  # finding 125's record is unchanged

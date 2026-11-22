@@ -22,6 +22,12 @@ case "$SCROLL" in
   PHerc0826) VOLUME_ID=20250821151701; UMBILICUS_STAMP=20260808113303; SENSE=ACW ;;
   PHerc0125) VOLUME_ID=20250821151825; UMBILICUS_STAMP=20260808111524
              SENSE=${FL_SENSE:?PHerc0125 has no published direction: set FL_SENSE} ;;
+  # axis published 2026-09-22; catalog metadata.json read 2026-11-20: z_direction_is_top_to_bottom true,
+  # left_handed_coordinates false; tracked range z 4500-14744 (extract.json effective_z_bounds)
+  PHerc0358) VOLUME_ID=20250821151737; UMBILICUS_STAMP=20260922235631; SENSE=ACW ;;
+  # axis published 2026-09-24; catalog metadata.json read 2026-11-20: z_direction_is_top_to_bottom false,
+  # left_handed_coordinates false, so clockwise as PHerc. 343; tracked range z 4500-16993
+  PHerc0813) VOLUME_ID=20250821151723; UMBILICUS_STAMP=20260924033203; SENSE=CW ;;
   *) echo "unknown scroll $SCROLL" >&2; return 2 2>/dev/null || exit 2 ;;
 esac
 VOXEL_UM=9.362
