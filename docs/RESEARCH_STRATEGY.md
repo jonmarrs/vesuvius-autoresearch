@@ -26,6 +26,113 @@ recipe on eligible scrolls. The campaign ranks first anyway because its kill tes
 the kind of work the monthly prize has paid for, and nothing else measured here has a route to more than about
 \$1,000.
 
+## Operating workflow — November 22, 2026
+
+Use this strategy as the common entry point for Villa contributions and milestone research.
+The [November 12 roadmap](PRIZE_ROADMAP_2026-11-12.md) supplies candidate work and its gates;
+the [November 16 review](STRATEGY_REVIEW_2026-11-16.md) supplies the later assessment;
+the [November filing draft](PRIZE_FILING_2026-11_DRAFT.md) holds the evidence for owner review.
+The [dated GPU-worker handoff](LAB_NOTEBOOK.md#2026-11-22-gpu-worker-handoff-prize-evidence-and-execution-gates)
+records the next worker's evidence, prerequisites and owner decisions in the existing notebook.
+Their dated proposals, historical tables, frozen reports and registrations remain intact.
+This section connects those records to the existing engineering workflow; it creates no new
+schedule, experiment registration, filing or permission to resume held work.
+
+### Monthly Progress Prize: evidence from useful shipped work
+
+The [September filing](PRIZE_FILING_2026-09_SUBMIT.md) lists five upstream Villa merges.
+The [first October receipt](PRIZE_FILING_2026-10_SUBMITTED.md) and
+[second October receipt](PRIZE_FILING_2026-10_SECOND_SUBMITTED.md) together record five more,
+with both submissions received before the October deadline. Three October fixes were
+documentation (#2022, #2155 and #2259). #2044 also completed actual Scroll 1 scoring at a
+recorded 13.8 GB peak after stock scoring ran out of memory. Keep that measured run's
+recorded settings, cost and limitations.
+The [award record](PROGRESS_PRIZE_AWARDS.md) and
+[official winners page](https://scrollprize.org/winners) credit
+September's \$250 to useful merged Villa PRs. October's practical-contribution comparables
+include Liam Warner, Giovanni Pellerano and Eugenio Giuseppe Nerelli. The checked public
+awards and filing records contain no private judging rationale. A merge, a timely filing
+or a comparable award does not establish scientific validation, reviewer endorsement,
+prize qualification or a future payment for our work.
+
+For November, keep Villa #2258 in the filing as supporting CPU seed-placement evidence;
+it establishes neither tracing nor reading gain. At the November 22 upstream check,
+[#2463](https://github.com/ScrollPrize/villa/pull/2463),
+[#2465](https://github.com/ScrollPrize/villa/pull/2465) and
+[#2501](https://github.com/ScrollPrize/villa/pull/2501) were open and unmerged.
+Record an exact merge commit and date before changing their credit to merged; review
+activity alone is insufficient. The filing draft remains subject to owner review and
+the official rules checked on filing day.
+
+For December, give first consideration to the existing measured multi-block fiber seam
+trim/deduplication lane, findings 106–109 (see the
+[seam confirmation](../reports/afv_generator_seam_confirmation.md) and roadmap).
+First check current upstream overlap and ownership, then obtain fresh native validation
+of the actual consumer path. Preserve the registered comparisons, coverage losses and
+the distinction between generated crossing diagnostics and hand-traced ERL evaluation.
+The one-block default is unaffected by the trim. These findings justify investigating
+an integration candidate; they establish neither reading gain nor current PR readiness.
+
+### Milestone research: one controlled campaign
+
+First Letters remains the priority on the single RTX 4090 with 24 GB VRAM: one GPU
+campaign at a time, only when the card is available and existing owner gates permit it.
+Use the existing preregistration, positive and negative controls, clean held-out data
+and separation of training, selection and final evaluation. Retain the campaign's
+existing continue/stop gates and the [existing kill criterion](#the-first-letters-campaign);
+a failed control or exhausted gate returns the work to owner review rather than an
+unbounded search. Possible letter candidates, identifying locations, renders and
+predictions stay private under the existing disclosure restrictions. Release and filing
+decisions remain with the owner. Title work is opportunistic within those gates;
+the Grand Prize is a possible team contribution, not a separate solo campaign.
+
+### Route campaign failures through normal engineering
+
+1. **Capture the failure before coding.** Keep the command, input provenance and license,
+   upstream revision, environment, resource limit, expected behavior and actual failure.
+   Prefer reproducible failures in tools being used on public, licensed inputs. Separate
+   synthetic reproduction, real-input execution and scientific performance in the log.
+2. **Check overlap and route to the existing worker.** Inspect current issues, PRs and
+   ownership before assigning a fix. Reuse the active Villa or AutoResearch lane instead
+   of opening a competing effort. Preserve other workers' branches and frozen studies.
+3. **Verify a narrow change.** Reproduce the baseline failure, compare the fixed behavior
+   on the same inputs, add relevant regressions and obtain independent review. Record
+   exact commits, commands, resource costs, regressions and unavailable checks. CPU
+   contracts do not substitute for required native, GPU or real-data validation.
+4. **Return evidence to the shared record.** Link the result from the existing findings,
+   reports and filing draft as appropriate. Distinguish local, posted, merged, adopted
+   and scientifically validated work; preserve negative and null results. Bundle shipped
+   small fixes for the existing monthly owner review instead of treating each as a prize.
+
+Keep the existing limits of **three open Villa PRs and two code-fix PRs per week**, plus
+the owner decision for posting and the required user-facing explanation of actual use,
+before/after behavior and limits. These are the existing weekly and owner gates, not
+a new quota to fill. The monthly and milestone tracks share failures and evidence;
+neither bypasses publication holds, competing ownership or validation requirements.
+
+### Villa report checklist for agents
+
+For a Villa-facing lab/test report, use the [existing test-report sections](../.github/TEST_REPORT_TEMPLATE.md)
+with the fields below. Keep one evidence record and link it from the notebook and filing draft as appropriate.
+
+- **Issue and real user impact:** link the issue, identify the actual workflow and expected behavior,
+  and explain the observed failure, who it affects and the useful outcome the change should enable.
+- **Pinned comparison:** name exact baseline and candidate commits and relevant dependency/native-reader
+  versions. Use the identical licensed public input in both arms; record source URL/version, SHA-256,
+  crop origin/shape, axes and pyramid level where applicable. State any controlled difference explicitly.
+- **Reproduction:** give runnable commands, settings, seeds and resource bounds for both arms, plus
+  the expected and observed before/after behavior. Link captured outputs/logs and their hashes;
+  report the measured useful outcome with units, scope and any cost or regression.
+- **Checks and attribution:** list passed, failed, skipped and unrun required checks separately.
+  Distinguish synthetic fixtures from real inputs, Python metadata checks from native pixel/reader
+  execution, and reported evidence from tests independently run by the reviewer. State who ran what.
+- **Limits and decision:** state what the result establishes and what remains unverified, including
+  whether tracing or reading was evaluated. Preserve the owner, overlap and publication gates.
+
+Retain all required checks. Link existing receipts once and reuse evidence only for its verified
+commits, inputs and settings; repeat validation when those change or a required gate calls for it.
+Omit duplicate screenshots, logs and restatements that add no distinct evidence.
+
 ## Current rules and our local experimental contracts
 
 The [official prize rules][prizes], read at Villa commit
