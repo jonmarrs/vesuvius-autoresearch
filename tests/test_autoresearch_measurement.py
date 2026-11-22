@@ -59,6 +59,40 @@ class MeanInk(torch.nn.Module):
         return (x[:, :1].mean(2) - 0.4) * 8, None
 
 
+def test_validation_scores_only_full_depth_windows_at_the_protocol_offset():
+    target = torch.ones(4, 4)
+    fiber = torch.zeros(1, 1, 4, 4)
+    reads = [
+        (torch.full((1, 11, 4, 4), 29.0), target, fiber),
+        (torch.arange(12.0)[None, :, None, None].expand(1, 12, 4, 4), target, fiber),
+    ]
+    seen = []
+
+    def probabilities(model, batch):
+        seen.append(batch.clone())
+        return torch.zeros(1, 1, 4, 4)
+
+    _, _, diag = train.collect_validation_predictions(
+        MeanInk(),
+        reads,
+        8,
+        torch.device("cpu"),
+        batch_size=1,
+        probabilities=probabilities,
+    )
+    assert diag["batch_errors"] == 1
+    assert diag["scored_patches"] == 1 and not diag["complete"]
+    assert len(seen) == 1
+    torch.testing.assert_close(seen[0][0, 0, :, 0, 0], torch.arange(4.0, 12.0))
+
+
+def test_validation_rejects_an_invalid_model_depth_before_scoring():
+    with pytest.raises(ValueError, match="num_layers must be a positive integer"):
+        train.collect_validation_predictions(
+            MeanInk(), Catalogue(4), -8, torch.device("cpu")
+        )
+
+
 # --- validation sample --------------------------------------------------------
 
 

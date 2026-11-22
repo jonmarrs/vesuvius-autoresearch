@@ -1930,3 +1930,35 @@ proofreader selection passed **87 tests**, and the portable CPU profile passed
 **436 tests**. Ruff, formatting and Mypy passed.
 With the PR review fixes, the nine-module selection passed **254 tests** and
 the CLI returned status 1 for all three malformed metadata fixtures.
+
+## Training and validation crop depth (2026-11-22 UTC)
+
+This pass starts from main `bd85f8e9`. The readers can return fewer context
+slices than a trainer requests when a volume is shallow. The trainer drew
+offsets as if every read had the full context. In a 21-slice fixture, offset
+7 yielded 14 layers for a 16-layer model. A separate fixture scored an
+11-slice validation read as complete for an eight-layer model with a fixed
+offset of four.
+
+Training now bounds the shared offset to the available labeled and UA-MT
+read depths. It rejects sources shallower than the model window and groups
+whose differing buffered depths would prevent batch collation. Validation
+checks for enough slices to keep its fixed offset. Short runtime reads count
+as failed batches, and the periodic AUC path uses the same fixed-window check.
+[Depth requirements](TRAINING_DATA_IMPORT.md#check-depth-for-training-and-validation)
+
+PR review found that zero, negative, boolean and fractional `num_layers`
+values could reach the crop code. Training configuration, direct reader
+construction and validation scoring now use the shared positive-integer
+check. Training configuration can still load without Torch.
+
+On CPU, 128 full-context cases matched the parent crop tensors and the next
+random draw exactly across 32 seeds, augmentation on and off, and with and
+without an unlabeled batch. The 21-slice fixture now yields 16 layers. These
+checks exercise crop geometry. A representative failure-rate measurement
+and the strict-training policy decision remain open.
+
+The twelve-module CPU integration selection passed **576 tests**. Two skips
+require CuPy and the local PHercParis2Fr143 volume, respectively. The portable
+profile passed **436 tests**, and repository guards passed **46 tests**.
+Ruff, formatting and Mypy passed.
