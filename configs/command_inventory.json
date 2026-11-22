@@ -175,7 +175,7 @@
     },
     {
       "id": "proofreader-check",
-      "summary": "Verify recorded proofreading inputs and optional TIFF exports",
+      "summary": "Verify proofreading inputs, approved TIFFs and edited Zarr crops",
       "kind": "script",
       "argv": [
         "python",
@@ -186,7 +186,7 @@
       "layout": "checkout",
       "villa": "required",
       "guide": "docs/PROOFREADER_SESSION_RECORDS.md",
-      "needs": "NumPy/Zarr and the pinned proofreader source; --verify-approved-patches also needs tifffile. Napari is unnecessary for the checker.",
+      "needs": "NumPy/Zarr and the pinned proofreader source. --verify-approved-patches and --verify-edited-labels also need tifffile.",
       "effects": "observe"
     },
     {

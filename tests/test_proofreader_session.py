@@ -74,25 +74,37 @@ def _pinned_function(name, namespace):
     return namespace[name]
 
 
-def _pinned_progress(config, *, save=False):
+def _pinned_progress(
+    config,
+    *,
+    save=False,
+    save_edited_labels=False,
+    label_value=42,
+    approved_origin=(0, 0, 0),
+):
     """Exercise the pinned writer/serializer without constructing a viewer."""
     root = Path(config["dataset_out_path"])
     root.mkdir(exist_ok=True)
     selected = config["volumes"]["Autoresearch_Prediction"]
+    image = zarr.open(selected["volume_path"], mode="r")
+    patch_size = config["patch_size"]
+    grid = _pinned_function("generate_patch_coords", {})(
+        image.shape, patch_size, "sequence"
+    )
     state = {
         "save_progress": True,
         "progress_file": config["progress_file"],
-        "patch_size": config["patch_size"],
+        "patch_size": patch_size,
         "image_zarr": selected["volume_path"],
         "label_zarr": selected["label_path"],
-        "image_volume": zarr.open(selected["volume_path"], mode="r"),
+        "image_volume": image,
         "dataset_out_path": str(root),
         "images_out_dir": str(root / "imagesTr"),
         "labels_out_dir": str(root / "labelsTr"),
         "progress_log": [
             {
-                "index": 0,
-                "coords": (0, 0, 0),
+                "index": grid.index(approved_origin),
+                "coords": approved_origin,
                 "percentage": 100.0,
                 "status": "approved",
             },
@@ -108,19 +120,31 @@ def _pinned_progress(config, *, save=False):
         ),
     }
     if save:
+        if save_edited_labels:
+            state["output_zarr_array"] = zarr.open_array(
+                config["output_label_zarr"],
+                mode="w",
+                shape=state["image_volume"].shape,
+                chunks=(128,) * 3,
+                dtype="u1",
+                compressor=zarr.Blosc(
+                    cname="zstd", clevel=3, shuffle=zarr.Blosc.BITSHUFFLE
+                ),
+                write_empty_chunks=False,
+            )
         Path(state["images_out_dir"]).mkdir()
         Path(state["labels_out_dir"]).mkdir()
-        state["current_patch"] = {
-            "coords": (0, 0, 0),
-            "image": state["image_volume"][:8, :8, :8],
-        }
+        crop = tuple(slice(origin, origin + patch_size) for origin in approved_origin)
+        state["current_patch"] = {"coords": approved_origin, "image": image[crop]}
         namespace.update(
             os=os,
             tifffile=tifffile,
             np=np,
             viewer=SimpleNamespace(
                 layers={
-                    "patch_label": SimpleNamespace(data=np.full((8,) * 3, 42, "u2"))
+                    "patch_label": SimpleNamespace(
+                        data=np.full((8,) * 3, label_value, "u2")
+                    )
                 }
             ),
         )
@@ -225,6 +249,154 @@ def test_checker_verifies_pinned_writer_exports_read_only(inputs, monkeypatch, c
 
 
 @pytest.mark.parametrize(
+    ("label_value", "failed_write"), [(42, False), (0, False), (42, True)]
+)
+def test_checker_compares_the_pinned_writers_label_tiff_and_zarr(
+    inputs, monkeypatch, capsys, label_value, failed_write
+):
+    _, _, root = inputs
+
+    def fail_zarr_write(array, selection, value):
+        raise OSError("injected edited Zarr write failure")
+
+    def child(config):
+        with monkeypatch.context() as gui:
+            if failed_write:
+                gui.setattr(zarr.Array, "__setitem__", fail_zarr_write)
+            _pinned_progress(
+                config,
+                save=True,
+                save_edited_labels=True,
+                label_value=label_value,
+                approved_origin=(0, 8, 0),
+            )
+
+    assert _launch(inputs, monkeypatch, child)[0] == 0
+    output = capsys.readouterr().out
+    if failed_write:
+        assert (
+            "Error saving to output zarr: injected edited Zarr write failure" in output
+        )
+    before = _all_bytes(root.parent)
+    tiff_check = sessions.verify_record(
+        root, PROOFREADER, sessions.DEFAULT_LIMITS, verify_approved_patches=True
+    )
+    assert tiff_check["progress"]["approved_exports"]["pairs_verified"] == 1
+
+    exit_code = check.main(["--session", str(root), "--verify-edited-labels"])
+    captured = capsys.readouterr()
+    if failed_write:
+        assert exit_code == 1
+        assert (
+            "approved label TIFF differs from edited-label Zarr at [0, 8, 0]"
+            in captured.err
+        )
+        assert not captured.out
+    else:
+        assert exit_code == 0
+        report = json.loads(captured.out)
+        assert report["approved_patch_files_verified"] is True
+        assert report["progress"]["approved_exports"]["pairs"][0]["coords_zyx"] == [
+            0,
+            8,
+            0,
+        ]
+        assert report["progress"]["approved_exports"]["edited_labels"] == {
+            "path": "edited_labels.zarr",
+            "shape_zyx": [8, 16, 16],
+            "dtype": "uint8",
+            "approved_crops_verified": 1,
+        }
+    assert _all_bytes(root.parent) == before
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("missing", "missing edited-label Zarr"),
+        ("linked", "edited-label Zarr must be a nonsymlink directory"),
+        ("shape", "must match the CT shape"),
+        ("dtype", "with uint8 labels"),
+        ("fill_value", "and zero fill"),
+        ("chunks", "decoded edited-label Zarr chunk exceeds max_file_bytes"),
+        ("zero_chunk", "invalid edited-label Zarr chunk geometry"),
+        ("chunk_rank", "invalid edited-label Zarr chunk geometry"),
+        ("missing_chunks", "invalid edited-label Zarr metadata"),
+    ],
+)
+def test_edited_store_preflight_rejects_invalid_layout_and_size(
+    inputs, monkeypatch, change, message
+):
+    root = inputs[2]
+    assert (
+        _launch(
+            inputs,
+            monkeypatch,
+            lambda config: _pinned_progress(config, save=True, save_edited_labels=True),
+        )[0]
+        == 0
+    )
+    edited = root / "edited_labels.zarr"
+    if change in {"missing", "linked"}:
+        moved = edited.rename(root / "other.zarr")
+        if change == "linked":
+            edited.symlink_to(moved, target_is_directory=True)
+    else:
+        metadata = edited / ".zarray"
+        header = json.loads(metadata.read_text())
+        if change == "missing_chunks":
+            del header["chunks"]
+        elif change in {"zero_chunk", "chunk_rank"}:
+            header["chunks"] = [0, 8, 8] if change == "zero_chunk" else [8, 8]
+        else:
+            header[change] = {
+                "shape": [8, 16, 17],
+                "dtype": "<u2",
+                "fill_value": 1,
+                "chunks": [512, 512, 512],
+            }[change]
+        metadata.write_text(json.dumps(header))
+
+    def no_crop_reads(*args, **kwargs):
+        pytest.fail("invalid edited Zarr reached TIFF decoding")
+
+    monkeypatch.setattr(sessions, "_capture_tiff", no_crop_reads)
+    with pytest.raises(ValueError, match=message):
+        sessions.verify_record(
+            root, PROOFREADER, sessions.DEFAULT_LIMITS, verify_edited_labels=True
+        )
+
+
+def test_edited_store_changes_during_crop_verification_are_detected(
+    inputs, monkeypatch
+):
+    root = inputs[2]
+    assert (
+        _launch(
+            inputs,
+            monkeypatch,
+            lambda config: _pinned_progress(config, save=True, save_edited_labels=True),
+        )[0]
+        == 0
+    )
+    capture_tiff = sessions._capture_tiff
+
+    def capture_then_edit_metadata(path, edge, limit, role):
+        result = capture_tiff(path, edge, limit, role)
+        if role == "label":
+            (root / "edited_labels.zarr" / ".zattrs").write_text('{"edited":true}')
+        return result
+
+    monkeypatch.setattr(sessions, "_capture_tiff", capture_then_edit_metadata)
+    with pytest.raises(
+        ValueError, match="edited-label Zarr changed during export verification"
+    ):
+        sessions.verify_record(
+            root, PROOFREADER, sessions.DEFAULT_LIMITS, verify_edited_labels=True
+        )
+
+
+@pytest.mark.parametrize(
     ("change", "message"),
     [
         ("missing", "missing approved TIFF"),
@@ -315,26 +487,40 @@ def test_absent_progress_differs_from_zero_approved_exports(inputs, monkeypatch)
     assert checked["progress"]["approved_exports"] == {"pairs_verified": 0, "pairs": []}
 
 
-def test_ct_mutation_during_export_read_refuses_verification(inputs, monkeypatch):
+@pytest.mark.parametrize(
+    ("source", "check_edited_labels", "diagnostic"),
+    [(0, False, "recorded CT changed"), (1, True, "recorded labels changed")],
+)
+def test_input_mutation_during_export_read_refuses_verification(
+    inputs, monkeypatch, source, check_edited_labels, diagnostic
+):
     from volume_cartographer_wrapper.volume import FastLocalVolume
 
     assert (
-        _launch(inputs, monkeypatch, lambda c: _pinned_progress(c, save=True))[0] == 0
+        _launch(
+            inputs,
+            monkeypatch,
+            lambda c: _pinned_progress(
+                c, save=True, save_edited_labels=check_edited_labels
+            ),
+        )[0]
+        == 0
     )
     original = FastLocalVolume.get_chunk
 
     def change_after_read(self, *args):
         values = original(self, *args)
-        zarr.open(str(self.path), mode="r+")[0, 0, 0] = 22
+        zarr.open(str(inputs[source]), mode="r+")[0, 0, 0] = 22
         return values
 
     monkeypatch.setattr(FastLocalVolume, "get_chunk", change_after_read)
-    with pytest.raises(ValueError, match="recorded CT changed"):
+    with pytest.raises(ValueError, match=diagnostic):
         sessions.verify_record(
             inputs[2],
             PROOFREADER,
             sessions.DEFAULT_LIMITS,
-            verify_approved_patches=True,
+            verify_approved_patches=not check_edited_labels,
+            verify_edited_labels=check_edited_labels,
         )
 
 
