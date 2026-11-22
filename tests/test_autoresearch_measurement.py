@@ -180,6 +180,18 @@ def test_a_volume_rebuilt_in_place_changes_the_fingerprint(tmp_path, monkeypatch
     assert promotion.validation_inputs_fingerprint("frag/surface_volume.zarr") != base
 
 
+@pytest.mark.parametrize("filename", ["inklabels.png", "mask.png"])
+def test_validation_fingerprint_refuses_an_oversized_image(
+    tmp_path, monkeypatch, filename
+):
+    frag = _fragment(tmp_path)
+    (frag / filename).write_bytes(b"123456789")
+    monkeypatch.setattr(promotion, "MAX_VALIDATION_IMAGE_BYTES", 8, raising=False)
+    with pytest.raises(ValueError, match="input exceeds 8 bytes") as error:
+        promotion.validation_inputs_fingerprint(str(frag / "surface_volume.zarr"))
+    assert filename in str(error.value)
+
+
 def test_inputs_changed_while_the_dataset_reads_them_are_refused(tmp_path, monkeypatch):
     frag = _fragment(tmp_path)
     monkeypatch.chdir(tmp_path)

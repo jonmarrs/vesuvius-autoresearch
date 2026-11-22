@@ -27,7 +27,7 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
 from vesuvius_autoresearch.fibers import detect_ridges
 from vesuvius_autoresearch.fibers.provenance import atomic_file
 
-from .file_capture import capture_bytes
+from .file_capture import MAX_VALIDATION_IMAGE_BYTES, capture_bytes
 from .patch_catalog import read_patch_catalog
 
 
@@ -82,7 +82,6 @@ _WARNING_COUNTS = defaultdict(int)
 # Largest per-axis size difference accepted between a 2D label/mask and its
 # volume: export rounding, not a different crop or scale.
 LABEL_SHAPE_TOLERANCE_PX = 2
-MAX_VALIDATION_IMAGE_BYTES = 512 * 1024**2
 
 
 def _coordinate_cache_path(

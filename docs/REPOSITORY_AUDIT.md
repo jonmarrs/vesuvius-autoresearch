@@ -1865,6 +1865,11 @@ changes the file after capture and checks that the decoder still uses the
 captured bytes. The existing fingerprint format and catalog check are retained.
 See [validation image checks](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy).
 
+PR review found that the initial fingerprint could read an oversized image in
+full before the loader refused it. Both checks now use the same 512 MiB encoded
+file limit. Fingerprinting inspects the opened file's size and hashes in blocks.
+The added regressions cover both image roles and file changes during hashing.
+
 On a temporary copy of the [two-slice Frag1 import](OFFICIAL_FRAGMENT_EXAMPLE.md),
 the selected labels and mask produced the same validation fingerprint as the
 parent implementation and identical CT, label and fiber tensors. The explicit

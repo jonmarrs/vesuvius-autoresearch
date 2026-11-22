@@ -47,6 +47,10 @@ from scripts.training.validation_protocol import (
     VALIDATION_SAMPLE_SEED,
     validation_protocol,
 )
+from vesuvius_autoresearch.core.file_capture import (
+    MAX_VALIDATION_IMAGE_BYTES,
+    capture_sha256,
+)
 from vesuvius_autoresearch.core.file_modes import replacement_mode
 from vesuvius_autoresearch.core.patch_catalog import capture_patch_catalog
 
@@ -78,6 +82,12 @@ def _file_sha256(path: str) -> str | None:
         for block in iter(lambda: handle.read(1 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _validation_image_sha256(path: str) -> str | None:
+    if not os.path.isfile(path):
+        return None
+    return capture_sha256(path, MAX_VALIDATION_IMAGE_BYTES)
 
 
 def validation_inputs_record(
@@ -125,8 +135,11 @@ def validation_inputs_record(
             for level in ("", "0/")
             for name in ZARR_METADATA_FILES
         },
-        "labels": [os.path.basename(paths["labels"]), _file_sha256(paths["labels"])],
-        "mask": _file_sha256(paths["mask"]),
+        "labels": [
+            os.path.basename(paths["labels"]),
+            _validation_image_sha256(paths["labels"]),
+        ],
+        "mask": _validation_image_sha256(paths["mask"]),
         "patches_json": catalog_sha256,
     }
 
