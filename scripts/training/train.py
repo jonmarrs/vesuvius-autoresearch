@@ -2133,10 +2133,15 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
             labels_path = training_labels[uri]
             mask_path = os.path.join(parent_dir, "mask.png")
             patches_json_path = os.path.join(parent_dir, "patches.json")
+            catalog_path = (
+                patches_json_path if os.path.lexists(patches_json_path) else None
+            )
             ds = VesuviusLabeledDataset(
                 uri,
                 labels_path,
-                mask_path if os.path.exists(mask_path) else None,
+                mask_path
+                if catalog_path is None and os.path.exists(mask_path)
+                else None,
                 config.patch_size,
                 config.num_layers + 2 * DEPTH_MARGIN,
                 seed=seed,
@@ -2149,12 +2154,11 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 target_fiber_source="sobel_z",
                 target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
                 strict_reads=getattr(config, "strict_training_reads", False),
-                patches_json=patches_json_path
-                if os.path.lexists(patches_json_path)
-                else None,
+                patches_json=catalog_path,
                 depth_band=getattr(config, "depth_band", None),
                 depth_margin=DEPTH_MARGIN,
                 min_read_depth=config.num_layers,
+                require_input_images=True,
             )
             datasets.append(ds)
 

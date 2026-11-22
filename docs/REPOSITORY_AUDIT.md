@@ -1962,3 +1962,29 @@ The twelve-module CPU integration selection passed **576 tests**. Two skips
 require CuPy and the local PHercParis2Fr143 volume, respectively. The portable
 profile passed **436 tests**, and repository guards passed **46 tests**.
 Ruff, formatting and Mypy passed.
+
+## Selected training images (2026-11-22 UTC)
+
+This pass starts from main `ca063025`. The trainer selected each labeled
+source's image before model setup. When the selected file disappeared before
+dataset creation, the loader skipped it and returned zero targets. Losing a
+selected mask similarly removed the patch-selection constraint. The real
+trainer fixture reproduced both behaviors in strict and permissive CT modes,
+including with a conventional label file still beside a source whose selected
+refined or pseudo-label file disappeared.
+
+Supervised training now requires the selected label and any selected mask to
+open. A missing selected image fails during dataset construction with its
+path. An explicit training patch catalog replaces mask-based discovery, so
+the trainer skips the unused mask. A real trainer fixture with an unreadable
+unused mask reached the loader using its catalog coordinates. Sixteen
+synthetic patch tuples matched exactly with and without requiring selected
+images, across both read policies and with or without a mask. This checks
+readability during setup. Read-failure frequency on representative CT and the
+default CT read policy remain open.
+[Training input behavior](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy)
+
+The twelve-module integration selection passed **666 tests**. Two skips
+require the local PHercParis2Fr143 volume and CuPy, respectively. The
+portable profile passed **613 tests** and repository guards passed
+**46 tests**. Ruff, formatting and Mypy passed.
