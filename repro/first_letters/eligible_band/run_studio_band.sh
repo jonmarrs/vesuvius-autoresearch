@@ -22,9 +22,12 @@
 # changes. The renders use the CPUs and Studio the GPU, which the serial read leaves idle in turn (PHerc. 0826,
 # finding 125: 2.66 h of renders, then 4.41 h of Studio). Default 0, the serial read, as findings 125, 126 and 129
 # ran or were registered.
+# STUDIO_SKIP_EMPTY=1 runs Studio through pherc0211_control/studio_fast.py --skip-empty (finding 132): the winner's
+# loop, file, weights, command and batch size, without the windows whose crop holds no CT. Default 0, the winner's
+# inference.py, as every read before finding 133.
 #
 # usage: FL_SCROLL=PHerc0826 [STUDIO_WINDINGS=FILE] [STUDIO_TILING=winner|published] [FL_OVERLAP=0|1]
-#        run_studio_band.sh ARM
+#        [STUDIO_SKIP_EMPTY=0|1] run_studio_band.sh ARM
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/env.sh"
@@ -52,6 +55,11 @@ case "${FL_OVERLAP:-0}" in
   0|1) ;;
   *) echo "FL_OVERLAP is 0 or 1, not '$FL_OVERLAP'" >&2; exit 2 ;;
 esac
+case "${STUDIO_SKIP_EMPTY:-0}" in
+  0) RUNNER=(inference.py) ;;
+  1) RUNNER=(-I "$ROOT/repro/first_letters/pherc0211_control/studio_fast.py" run --code "$CODE" --skip-empty) ;;
+  *) echo "STUDIO_SKIP_EMPTY is 0 or 1, not '$STUDIO_SKIP_EMPTY'" >&2; exit 2 ;;
+esac
 mkdir -p "$OUT/planes" "$OUT/maps" "$R/logs"
 
 stage() {  # NAME COMMAND...: a band-wide stage; stop the read if it fails
@@ -69,7 +77,7 @@ stage() {  # NAME COMMAND...: a band-wide stage; stop the read if it fails
 studio() {  # WINDING FLIP: planes and Studio for one winding
   "$PYW" -I "$ROOT/repro/first_letters/pherc0211_control/studio_e2e.py" planes \
     "$R/work/render_$ARM/${1}_${SLICES}.zarr" "$OUT/planes/$1.npy" || return 1
-  (cd "$CODE" && env -u PYTHONPATH PYTHONNOUSERSITE=1 HF_HUB_OFFLINE=1 "$ENV/bin/python" inference.py \
+  (cd "$CODE" && env -u PYTHONPATH PYTHONNOUSERSITE=1 HF_HUB_OFFLINE=1 "$ENV/bin/python" "${RUNNER[@]}" \
      --input "$OUT/planes/$1.npy" --output "$OUT/maps/$1.npy" --checkpoint "$WEIGHTS" "${TILING[@]}" \
      --batch-size 32) || return 1
   rm -f "$OUT/planes/$1.npy"
@@ -152,7 +160,7 @@ else
 fi
 [ -s "$R/work/windings_$ARM.txt" ] || { echo "no windings to read" >&2; exit 2; }
 mapfile -t LIVE < "$R/work/windings_$ARM.txt"
-echo "READ_START $ARM ${#LIVE[@]} windings tiling=${STUDIO_TILING:-winner} $(date -Is)"
+echo "READ_START $ARM ${#LIVE[@]} windings tiling=${STUDIO_TILING:-winner} skip_empty=${STUDIO_SKIP_EMPTY:-0} overlap=${FL_OVERLAP:-0} $(date -Is)"
 stage snap bash "$HERE/run_snap.sh" "$ARM"
 stage stacked "$PYW" -I "$HERE/studio_band.py" stacked "$OUT/stacked.json" "$R/work/snap_$ARM"
 for_each flatten bash "$HERE/run_flatten.sh" "$ARM"
