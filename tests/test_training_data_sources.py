@@ -422,3 +422,101 @@ def test_resolving_the_training_labels_prints_each(tmp_path, capsys):
     }
     out = capsys.readouterr().out
     assert all(f"Training labels for {u}: {p}" in out for u, p in labels.items())
+
+
+class _ReachedTheLoader(Exception):
+    pass
+
+
+@pytest.mark.parametrize(
+    ("kind", "depths", "batch_size", "outcome"),
+    [
+        ("labeled", [15], 2, r"source-0/surface_volume\.zarr: CT read has 15 slices"),
+        ("labeled", [24, 21], 2, "cannot batch labeled volumes"),
+        ("unlabeled", [24, 21], 2, "cannot batch unlabeled volumes"),
+        ("labeled", [24, 21], 1, None),
+    ],
+)
+def test_the_trainer_s_depth_checks_run_with_explicit_patch_catalogs(
+    tmp_path, monkeypatch, kind, depths, batch_size, outcome
+):
+    # The test above, with a patches.json beside every volume, so that reaching
+    # the trainer's depth checks needs no patch discovery. The run stops where
+    # the loader under test would be built; with UA-MT, the labeled loader is
+    # built first and let through.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, "0")
+
+    def volume(name, depth):
+        uri = _volume(tmp_path / name, depth=depth)
+        (tmp_path / name / "patches.json").write_text('{"patches":[{"y":0,"x":0}]}')
+        return uri
+
+    original, calls = train.shuffled_loader, []
+
+    def reached(*args, **kwargs):
+        calls.append(args)
+        if use_uamt and len(calls) == 1:
+            return original(*args, **kwargs)
+        raise _ReachedTheLoader
+
+    use_uamt = kind == "unlabeled"
+    sources = [volume(f"source-{index}", depth) for index, depth in enumerate(depths)]
+    config = ExperimentConfig(
+        val_uri=volume("heldout", 24),
+        uris=[volume("labeled", 24)] if use_uamt else sources,
+        unlabeled_uris=sources if use_uamt else [],
+        use_uamt=use_uamt,
+        num_layers=16,
+        patch_size=16,
+        batch_size=batch_size,
+        cache_dir=str(tmp_path / "cache"),
+        use_wandb=False,
+    )
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    monkeypatch.setattr(train, "shuffled_loader", reached)
+    if outcome is None:
+        # With one patch per batch, sources may differ in depth.
+        with pytest.raises(_ReachedTheLoader):
+            train.train(config)
+    else:
+        with pytest.raises(ValueError, match=outcome):
+            train.train(config)
+
+
+def test_a_read_may_be_exactly_its_required_depth():
+    from vesuvius_autoresearch.core.vesuvius_loader import _read_depth
+
+    assert _read_depth(16, 24, 16, "volume") == 16
+    assert _read_depth(40, 24, None, "volume") == 24
+    with pytest.raises(ValueError, match="volume: CT read has 15 slices"):
+        _read_depth(15, 24, 16, "volume")
+
+
+def test_positive_integer_returns_a_python_int_and_names_a_nonnegative_rule():
+    from vesuvius_autoresearch.core.inference_constants import positive_integer
+
+    value = positive_integer(np.int64(3), "count")
+    assert value == 3 and type(value) is int
+    assert positive_integer(0, "offset", minimum=0) == 0
+    with pytest.raises(ValueError, match="offset must be a nonnegative integer"):
+        positive_integer(-1, "offset", minimum=0)
+
+
+@pytest.mark.parametrize("num_layers", [16.5, True])
+def test_validation_needs_an_integer_depth_before_reading(tmp_path, num_layers):
+    config = ExperimentConfig(
+        val_uri=_volume(tmp_path / "heldout", depth=24),
+        num_layers=16,
+        patch_size=16,
+        cache_dir=str(tmp_path / "cache"),
+    )
+    # The configuration checks its depth when built. build_validation_dataset
+    # checks it again, for a configuration changed after it was built.
+    config.num_layers = num_layers
+    with pytest.raises(ValueError, match="num_layers must be a positive integer"):
+        train.build_validation_dataset(config)
