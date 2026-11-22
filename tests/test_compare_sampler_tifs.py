@@ -186,7 +186,7 @@ def test_cli_reports_a_slice_present_in_only_one_run(tmp_path, only_in):
     tifffile.imwrite(test / "00.tif", a)
     tifffile.imwrite((ref if only_in == "ref" else test) / "01.tif", a)
     output = tmp_path / "report.json"
-    script = Path(__file__).resolve().parents[1] / "scripts" / "compare_sampler_tifs.py"
+    script = Path(sys.modules[compare_slice.__module__].__file__)
     result = subprocess.run(
         [sys.executable, str(script), str(ref), str(test), "--json", str(output)],
         capture_output=True,
