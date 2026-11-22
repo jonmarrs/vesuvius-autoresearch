@@ -532,11 +532,13 @@ def _require_chunks(
         )
     compressor = meta.get("compressor")
     if isinstance(compressor, Mapping) and compressor.get("id") == "blosc":
-        short = [name for name in names if not _complete_blosc_frame(array_dir / name)]
-        if short:
+        bad = [name for name in names if not _complete_blosc_frame(array_dir / name)]
+        if bad:
+            # Usually a cut-short download; an empty file, an unreadable header
+            # or bytes past the declared frame are refused the same way.
             raise ValueError(
                 f"{array_dir.name} has a chunk in this window that does not decode: "
-                f"{short[0]} is shorter than the Blosc frame its header declares"
+                f"{bad[0]} does not match the Blosc frame size its header declares"
             )
 
 
