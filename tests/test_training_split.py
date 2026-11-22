@@ -364,3 +364,40 @@ def test_active_unlabeled_volumes_are_a_list(tmp_path):
         validate_training_split(
             config(use_uamt=True, unlabeled_uris="other.zarr"), base_dir=tmp_path
         )
+
+
+@pytest.mark.parametrize(
+    "training, validation",
+    [
+        ("s3://reader@bucket/val.zarr", "s3://bucket/val.zarr"),
+        # A password with an unencoded @: the host follows the last one.
+        ("https://reader:p@ss@host/val.zarr", "https://host/val.zarr"),
+        # Full-width letters are the same host after NFKC.
+        ("https://ｈｏｓｔ/val.zarr", "https://host/val.zarr"),
+        ("https://[::1]:443/val.zarr", "https://[::1]/val.zarr"),
+        ("https://[FE80::1]/val.zarr", "https://[fe80::1]/val.zarr"),
+        ("s3://bucket/val.zarr ;v=1", "s3://bucket/val.zarr"),
+    ],
+)
+def test_credentials_wide_hosts_and_ipv6_hosts_spell_one_volume(training, validation):
+    with pytest.raises(ValueError, match="overlaps val_uri"):
+        validate_training_split(config(uris=[training], val_uri=validation))
+
+
+@pytest.mark.parametrize(
+    "training, validation",
+    [
+        ("https://[::1]:8443/val.zarr", "https://[::1]/val.zarr"),
+        # An Arabic-Indic digit is a key, not a pyramid level.
+        ("s3://bucket/scroll/٣", "s3://bucket/scroll/1"),
+        ("s3://bucket/٣", "s3://bucket/1"),
+        # A ".." inside a path parameter leaves one key, not the bucket root.
+        ("s3://bucket/;..", "s3://bucket/val.zarr"),
+        # An unclosed (percent-encoded) bracket keeps the whole host.
+        ("https://%5B::1/val.zarr", "https://%5B::2/val.zarr"),
+    ],
+)
+def test_other_ports_non_ascii_digits_and_parameter_keys_stay_unverified(
+    training, validation
+):
+    validate_training_split(config(uris=[training], val_uri=validation))
