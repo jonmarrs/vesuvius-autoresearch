@@ -17,7 +17,7 @@ python3.10 -m venv /tmp/vesuvius-cpu-tests
 /tmp/vesuvius-cpu-tests/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short
 ```
 
-The seventeen-module portable profile checks process cleanup, setup diagnostics,
+The portable profile checks command discovery, process cleanup, setup diagnostics,
 bounded file captures, validation selection, retired launchers and the standalone
 geometry tools, regional accumulator byte arithmetic and research-prerequisite
 policy and recovery prechecks, held-out data separation and experiment checkpoint
@@ -51,6 +51,10 @@ Inspect setup without installing dependencies or starting work:
 `python3 scripts/workspace_status.py` ([status guide](docs/WORKSPACE_STATUS.md)).
 An `ok` report checks local paths and configuration parsing; it does not certify
 GPU readiness or checkpoint compatibility.
+
+Find reviewed entrypoints and their declared runtime boundaries with
+`python3 scripts/list_commands.py` ([command inventory](docs/COMMANDS.md)). It
+does not import or execute the listed tools or certify an environment.
 
 ```sh
 uv sync

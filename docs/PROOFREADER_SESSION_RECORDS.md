@@ -59,14 +59,65 @@ for `approved`, `skipped`, `auto-skipped` and `pending`. If progress is absent,
 it reports `present: false`; unchanged inputs do not imply that work was saved.
 The JSON includes hashes of the receipt and present progress file, calculated
 from the same captured bytes that were parsed.
-Approval counts describe the log, without authenticating approvals or verifying
-the TIFFs, edited-label Zarr, or the progress file's approved-patch export list.
+The default checker reports approval counts from the log and sets
+`approved_patch_files_verified: false`.
 
-The JSON always reports:
+## Verify saved TIFF pairs
 
-- `resume_supported: false`
-- `approved_patch_files_verified: false`
-- `ink_training_ingestion_supported: false`
+Close the proofreader before running this check. Keep the source stores and
+session stable until it finishes.
+
+```sh
+uv run --no-sync python scripts/check_proofreader_session.py \
+  --session local_data/new_proofreading_session --verify-approved-patches
+```
+
+The optional check requires a saved progress log. It derives the expected
+`imagesTr` and `labelsTr` filenames from the approved ZYX coordinates and
+matches the export list and count against the log. It reports missing or
+unlisted files and refuses repeated approvals at the same coordinates because
+Villa uses the same filenames for both saves.
+Villa's **Previous Patch** control can rewind the log while leaving a saved
+pair on disk. If a rewound patch is later skipped, the checker reports the
+leftover files as unlisted. Review those files before using the exports.
+
+Each TIFF must be a complete uncompressed cube of the recorded patch size,
+with strip byte counts that match the page dimensions.
+The image must match the recorded CT crop voxel for voxel and preserve its
+dtype. The labels must be integers or booleans in `0..255`. On success,
+`progress.approved_exports` reports the pair count, coordinates, relative
+paths, sizes and SHA-256 digests of the bytes decoded. A saved log with zero
+approvals reports zero pairs. NumPy, Zarr and tifffile are sufficient for the
+array checks alongside the pinned Villa source file.
+
+This verifies file and CT consistency. Assess the edited categorical labels
+with a separate review.
+
+## Compare approved labels with the edited Zarr
+
+Use this check before handing off the edited-label array. It includes the
+approved TIFF pair checks above.
+
+```sh
+uv run --no-sync python scripts/check_proofreader_session.py \
+  --session local_data/new_proofreading_session --verify-edited-labels
+```
+
+Villa can save both TIFFs and log approval even when writing
+`edited_labels.zarr` fails. This check requires the recorded output directory
+to hold a bare uint8 Zarr v2 array with the CT shape, positive 3D chunk sizes
+and zero fill. It compares
+every voxel of each approved label TIFF to the stored crop at the logged ZYX
+coordinates. It reports the coordinates of a mismatch and exits 1.
+An all-zero approved crop can use Zarr's sparse zero fill. If approved crops
+overlap, both TIFFs must agree with the stored values in the overlap.
+
+On success, `progress.approved_exports.edited_labels` reports the array path,
+shape, dtype and number of approved crops compared. A log with zero approvals
+still requires a compatible array and reports zero compared crops. The
+comparison covers approved crop contents. Values elsewhere in the edited
+array and whether the categories are correct still require review. The report
+retains `resume_supported: false` and `ink_training_ingestion_supported: false`.
 
 Existing sessions without the initial receipt cannot be adopted by this checker.
 Receipts are editable local provenance, not signed evidence or protection against
@@ -95,6 +146,16 @@ Both commands accept these positive integer limits:
 | `--max-file-bytes` | 64 MiB | Maximum captured bytes for one source file. |
 | `--max-entries` | 100,000 | Files and directories per selected source tree, including its root. |
 
+With `--verify-approved-patches`, the checker also applies the effective limits
+to the two export directories as a combined set. The per-file limit bounds the
+decoded size of one TIFF, CT patch or CT chunk. The checker validates one pair
+at a time and checks the CT, source labels and exports for ordinary changes
+during the reads.
+With `--verify-edited-labels`, the same limits apply separately to the encoded
+edited-label directory, and the decoded size of one edited-label chunk must
+fit the per-file limit. The checker checks the edited directory before and
+after reading its crops.
+
 Record/progress JSON and the proofreader source file have a separate 2 MiB cap.
 Hashing reads all source bytes each time; use a bounded crop or explicitly raise
 limits on both commands after checking the host. Hash buffers, tree inventories,
@@ -105,5 +166,5 @@ crash durability are not guaranteed. No existing receipt is overwritten.
 
 CPU regression tests are in `tests/test_proofreader_session.py` and
 `tests/test_proofreader_launcher.py`. They use small synthetic Zarrs and execute
-the pinned `update_progress` serializer in isolation. They do not start Napari,
-exercise interactive edits or validate real annotation data.
+the pinned `save_current_patch` writer and `update_progress` serializer in
+isolation with fixture label edits and an injected Zarr write failure.

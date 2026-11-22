@@ -168,6 +168,70 @@ def _config(uri, **kwargs):
     )
 
 
+def test_validation_refuses_a_fragment_shorter_than_the_fixed_window(tmp_path):
+    uri = _volume(tmp_path / "heldout", depth=19)
+    config = ExperimentConfig(
+        val_uri=uri, num_layers=16, patch_size=16, cache_dir=str(tmp_path / "cache")
+    )
+    with pytest.raises(ValueError, match="19 slices.*requires at least 20"):
+        train.build_validation_dataset(config)
+
+
+def test_uamt_refuses_a_volume_shorter_than_the_model_window(tmp_path):
+    training = _volume(tmp_path / "Fr47")
+    other = _volume(tmp_path / "other", depth=15)
+    with pytest.raises(ValueError, match="15 slices.*requires at least 16"):
+        train.unlabeled_dataset(other, _config(training), seed=0)
+
+
+@pytest.mark.parametrize(
+    ("kind", "depths", "diagnostic"),
+    [
+        ("labeled", [15], "15 slices.*requires at least 16"),
+        (
+            "labeled",
+            [24, 21],
+            "cannot batch labeled volumes with different CT read depths",
+        ),
+        (
+            "unlabeled",
+            [24, 21],
+            "cannot batch unlabeled volumes with different CT read depths",
+        ),
+    ],
+)
+def test_real_trainer_refuses_incompatible_volume_depths_before_training(
+    tmp_path, monkeypatch, kind, depths, diagnostic
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, "0")
+    val = _volume(tmp_path / "heldout", depth=24)
+    sources = [
+        _volume(tmp_path / f"source-{index}", depth=depth)
+        for index, depth in enumerate(depths)
+    ]
+    use_uamt = kind == "unlabeled"
+    config = ExperimentConfig(
+        val_uri=val,
+        uris=[_volume(tmp_path / "labeled", depth=24)] if use_uamt else sources,
+        unlabeled_uris=sources if use_uamt else [],
+        use_uamt=use_uamt,
+        num_layers=16,
+        patch_size=16,
+        batch_size=2,
+        cache_dir=str(tmp_path / "cache"),
+        use_wandb=False,
+    )
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    with pytest.raises(ValueError, match=diagnostic):
+        train.train(config)
+    assert not (tmp_path / "run_result.json").exists()
+
+
 def test_a_training_volume_read_by_uamt_is_read_inside_the_band(tmp_path):
     """The production layout: unlabeled_uris is the training volume, 33 slices,
     band [1, 27), 24-slice reads. The band widened by the 4-slice margin is

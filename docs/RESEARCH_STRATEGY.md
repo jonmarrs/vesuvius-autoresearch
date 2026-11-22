@@ -203,6 +203,129 @@ gave `PARTLY_ON_SHEETS` (median excess 0.103, 78.6% of 70 windings positive;
 finding 113 has shown whether the blinded protocol works. A new scroll needs its winding count before its fit
 is scored; so far that has taken a first fit with the default.
 
+**The sheet-following score fails its control (November 15).** The same band fitted with the spiral declared to
+turn the wrong way scored a median excess of 0.099 against 0.103, and would have passed finding 112's table as
+`ON_SHEETS` (`SCORE_BLIND_TO_DIRECTION`; [report](../reports/first_letters_0826_wrong_hand_control.md)). A
+wrong-handed spiral has to cross sheets twice a turn, so the score sees "near a predicted sheet, locally" and not
+"follows one sheet round the scroll". The `ON_SHEETS` and `PARTLY_ON_SHEETS` verdicts of findings 112 and 115 mean
+that and no more. No further band is read for ink on this score alone: the next step is a second instrument that
+a wrong-handed spiral fails, checked first on PHerc. 343, where published windings exist. Finding 113's read
+stands, with that caveat. The score cannot find PHerc. 0125's direction either.
+
+**The same score works per tile, on PHerc. 343 (November 15).** Taken over tiles of 3.6 mm within finding 110's
+raw fitted windings, the excess picks out the tiles that lie on the published windings (`LOCAL_GATE_WORKS`: AUC
+0.895 against a floor of 0.777; all 32 tiles at 0.07 or above right, against 76% of all tiles;
+[report](../reports/first_letters_343_tile_gate.md)). Every wrong tile scored below zero, and none lay on a
+neighbouring sheet. So the score fails at how the turns join and works at the scale a First Letters tile read
+needs, on one round scroll. Choosing tiles of PHerc. 0826's band by tile excess is the next read, registered
+separately, if the owner agrees.
+
+**PHerc. 0211 was awarded on November 15 and is now a positive control.** On the winner's published surface our
+four ink models put ink where the winning reader put it (`READER_AGREES`: r 0.53 against controls of 0.09 and
+below, the same at every depth tried; [report](../reports/first_letters_0211_reader_control.md), finding 118), and
+no letter can be read from our map, where the winner's shows letters. Our reader finds ink and does not draw
+letters; a reader that does is the missing piece, and whether the winning reader's CC BY-NC weights may be used in
+a submission is the owner's question. Whether the recipe's own fit lands on the winner's sheet is finding 119.
+
+**The recipe's fit reaches the winner's sheet in two pieces (November 16).** Fitted unchanged on a band around the
+winner's surface and snapped, the chosen winding has 31% of the winner's nodes within 2 voxels (`PARTLY_ON_IT`, as
+predicted; [report](../reports/first_letters_0211_winner_band.md), finding 119). Described after the verdict: 88%
+of the winner's nodes lie within 2 voxels of some winding. One winding follows the winner's sheet for 34 mm, at
+finding 110's line, and a winding two further in follows the rest. The two windings between them sit between
+predicted sheets. So a read of one unrefined winding can follow a text-bearing sheet for a few centimetres and
+then leave it, and a blank read of one winding says little about the next. Which of the two surfaces changes sheets
+is not settled. The next step is our fit and reader together at this known place, registered separately.
+
+**Reader V3, an MIT reader, is closer to the winning map and still not legible (November 16).** On the same render
+and cells it beats the four models in r by 0.097 and in overlap with the winner's ink by 0.10, at every depth tried,
+short of the registered r margin of 0.10 (`V3_NO_CLOSER`; [report](../reports/first_letters_0211_reader_v3.md),
+finding 120). Its map has a clean ground and a few letter shapes where the winner's has letters, and no word can be
+read from it. So the ensemble stays as the registered reader, Reader V3's map is cheap to make beside it (8
+minutes a surface), and the winning reader, CC BY-NC, is the only reader known to draw letters on this surface.
+Whether it may be used in a submission is the owner's decision.
+
+**End to end at the known place, our pipeline finds the ink and our geometry costs almost nothing (November 16).**
+Our own fit's four windings nearest the winner's surface were snapped, flattened, rendered and read, then carried
+onto the winner's surface. They give r 0.52 against the winning map (`E2E_AGREES`, as predicted;
+[report](../reports/first_letters_0211_end_to_end.md), finding 121), on 83% of its cells. On the same cells the
+same models on the winner's own surface give 0.54, and Reader V3 loses nothing (0.629 against 0.627). So a band read
+with this pipeline is a working detection test where its windings lie on sheets, and on the known text what
+separates it from letters is the reader. Neither reader we have draws a readable word there; the winning reader
+(CC BY-NC) is the owner's decision.
+
+**The 2023 Grand Prize TimeSformer is the weakest of the three permissive readers there (November 16).** On the
+winner's surface it gives r 0.24 against the four models' 0.53 (`GP_FARTHER`, as predicted;
+[report](../reports/first_letters_0211_gp_timesformer.md), finding 122): it finds the ink, weakly, and draws no
+letter shape. Of the permissive readers on this machine Reader V3 is the best, and none draws a readable word on
+this surface. The reader question rests on the owner's decision about the winning reader.
+
+**The owner approved the winning reader, and it runs here (November 16).** Studio (code MIT, weights CC BY-NC
+4.0) reproduces the winner's PHerc. 211 map on this RTX 4090 from the winner's own weights and input: r 1.0 over
+8.8 million pixels, differences of bfloat16 rounding (`REPRODUCED`, as predicted;
+[report](../reports/first_letters_0211_studio_reproduction.md), finding 123). It took 75 seconds at 14.5 GB of GPU
+memory. Next it reads our own geometry at the same place.
+
+**Our own fit, read by Studio, draws the winner's letters at the known place (November 16).** Finding 121's four
+windings of our unrefined fit, read by Studio and carried onto the winner's surface, give r 0.82 against the
+winner's map (`STUDIO_E2E_CLOSE`, as predicted; [report](../reports/first_letters_0211_studio_e2e.md), finding 124).
+The controls are −0.05 (reversed planes) and 0.11 (slid). In my reading the image shows the winner's letters in all
+three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surface); the geometry costs the rest.
+On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
+step reads every winding of a still-eligible band that way, for the owner to inspect.
+
+**Studio draws PHerc. 343's published letters too, so a blind Studio band read tests the band (November 20).** On
+the recipe's published surface of PHerc. 343, a scroll it was not trained on, Studio's map gives r 0.6238 against the
+recipe's ensemble map, above every one of the ensemble's four models against the other three (0.41 to 0.6195), with
+controls of 0.10 (reversed planes) and 0.21 (slid) (`STUDIO_343_AGREES`, as predicted;
+[report](../reports/first_letters_343_studio.md), finding 127). In my reading it draws both published rows of
+letters, more legibly than the ensemble. Its training did include a fragment that may come from the same roll.
+Studio stays the reader of the blind band reads, and the ensemble is not needed beside it. Studio's published
+tiling would read 2.4 times faster but differs from the winner's command (r 0.94, short of 0.98), so the reads keep
+the winner's command (`WINNERS_TILING_KEPT`, not as predicted; [report](../reports/studio_published_tiling.md),
+finding 128).
+
+**All 70 windings of PHerc. 0826's fitted band read by Studio; the images wait for the owner (November 20).** Every
+winding of finding 115's fit was snapped, flattened, rendered and read with no failure, in 8 h 48 min against the
+registered four hours, because this band's render canvases are more than three times the size of finding 124's
+([report](../reports/first_letters_0826_studio_band.md), finding 125). No automatic verdict was registered: the
+images stay on this machine and the owner reads them. Described from the geometry alone: the registered render rule
+(normals against the band's centre) kept the two innermost windings, which the scroll's axis says should have been
+flipped, so their maps read the other side; the inner windings w010 to w026 are stacked; and in the median winding
+two thirds of the rendered nodes lie within 2 voxels of the predicted sheet, falling from 0.79 at the inner third of
+radii to 0.54 at the outer, where the snap's grid is coarsest. Later band reads orient against the axis and snap on
+a denser grid.
+
+**PHerc. 0358's band fits on the sheets, and all 111 selected windings were read; the images wait for the owner
+(November 21).** The recipe's fit of z 8872 to 10372 at villa's defaults is `ON_SHEETS` by finding 112's table
+(median excess 0.0863, 0.925 of windings positive), one line better than predicted. The outermost third fits best
+([report](../reports/first_letters_0358_studio_band.md), finding 126). The 111 windings with positive excess were
+subdivided twice, oriented against the axis and read by Studio with no failure, in 17 h 56 min against the
+registered eight hours. Described from the geometry alone: every render points outward; 7 of 104 neighbouring pairs
+are stacked, all inside w037; and the rendered share within 2 voxels of the predicted sheet holds from 0.73 at the
+inner third of radii to 0.71 at the outer. That fits finding 130, though another scroll is not a controlled
+comparison. No automatic verdict was registered: the images stay on this machine and the owner reads them.
+
+**The twice-denser snap reads the same as the fit's own grid at the known place (November 21).** At PHerc. 211's
+winner surface, finding 121's four windings subdivided twice before the snap give r 0.8168 against 0.8267 for the
+same route on the fit's grid (`DENSE_READS_SAME`, as predicted; change −0.0099, margin 0.02;
+[report](../reports/first_letters_0211_dense_read.md), finding 131). Yet they sit more on the predicted sheet: +0.0343
+at the median within 2 voxels. So that geometric gain did not buy a better read here. The band reads keep the denser
+snap, as registered, on geometry alone.
+
+**Studio skips the windows with no CT and gives the same map in under 0.6 of the time (November 21).** Run with
+the winner's command, the winner's loop without those windows gives maps within 0.00075 of the full loop's on two
+of PHerc. 0826's windings and PHerc. 211's input. No pixel crosses 0.5, and the full loop's maps are identical to
+the references. The skip took 0.5918 and 0.5781 of the time (`SKIP_ADOPTED`, as predicted;
+[report](../reports/studio_skip_empty_windows.md), finding 132). Band reads registered after it use the skip, so
+Studio, the slowest step, shrinks by about two fifths.
+
+**A three-pass snap reads the same as one pass at the known place, and sits more on the sheet (November 21).** At
+PHerc. 211's winner surface, finding 131's densified windings snapped three times give r 0.8217 against 0.8188
+snapped once (`SNAP3_READS_SAME`, as predicted; change +0.0029, margin 0.02;
+[report](../reports/first_letters_0211_snap_passes.md), finding 134). Their geometry gain is +0.0357 at the median,
+so three passes are adopted by the registered tie-break, and finding 133 uses them. As with the denser grid
+(finding 131), the gain on the sheet did not show in the read.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 

@@ -19,6 +19,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 VALIDATION_TESTS = [
+    "tests/test_command_inventory.py",
     "tests/test_artifact_hashes.py",
     "tests/test_evaluate_villa_metrics.py",
     "tests/test_villa_modules.py",
@@ -76,6 +77,7 @@ VALIDATION_TESTS = [
     "tests/test_prepare_studio_input_zarr.py",
     "tests/test_prepare_studio_input_model_smoke.py",
     "tests/test_surface_render_contracts.py",
+    "tests/test_render_revalidation.py",
     "tests/test_surface_control_v2.py",
     "tests/test_render_surface.py",
     "tests/test_sota_convert.py",
@@ -127,6 +129,7 @@ VALIDATION_TESTS = [
     "tests/test_proofreader_launcher.py",
     "tests/test_proofreader_session.py",
     "tests/test_surface_volume_import.py",
+    "tests/test_fragment_example.py",
     "tests/test_wheel_installation.py",
     "tests/test_training_split.py",
     "tests/test_training_checkpoint_paths.py",
@@ -258,6 +261,7 @@ VALIDATION_TESTS = [
 
 PORTABLE_TESTS = [
     "tests/test_prepare_studio_input.py",
+    "tests/test_command_inventory.py",
     "tests/test_training_split.py",
     "tests/test_training_checkpoint_paths.py",
     "tests/test_legacy_figure_retirement.py",

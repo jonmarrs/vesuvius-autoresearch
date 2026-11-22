@@ -488,3 +488,571 @@ def test_the_verdict_command_does_not_run_without_the_full_arm(tmp_path):
     assert record["verdict"] == "DOES_NOT_RUN"
     assert record["full"] is None and record["full_by_index"] is None
     assert (record["p1"], record["p2"]) == (False, False)
+
+
+def _unscored(written: int) -> dict:
+    """A score file that wrote windings and scored none of them."""
+    return {
+        "summary": {"windings": written, "windings_scored": 0},
+        "windings": {f"w{10 + i:03d}": None for i in range(written)},
+    }
+
+
+@pytest.mark.parametrize("written", [0, 2])
+def test_the_verdict_command_records_a_full_fit_that_scored_no_winding(
+    tmp_path, written
+):
+    record = _judge(tmp_path, _quality(0.0, 0.5), _unscored(written))
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert (record["p1"], record["p2"]) == (False, False)
+    assert record["full"]["windings_scored"] == 0
+    assert record["full_by_index"] == []
+    assert record["smoke"]["excess_median"] == 0.0
+    assert bv.by_index(_unscored(written)) == []
+
+
+def test_an_unscored_smoke_fit_still_records_the_full_arm(tmp_path):
+    record = _judge(tmp_path, _unscored(3), _quality(0.2, 0.9))
+    assert record["verdict"] == "DOES_NOT_RUN"
+    assert (record["p1"], record["p2"]) == (True, True)
+    assert [part["windings"] for part in record["full_by_index"]] == [40, 40, 40]
+
+
+def test_the_fit_launcher_flips_only_the_direction_for_an_otherhand_arm():
+    text = (HERE / "run_fit.sh").read_text()
+    lines = text.splitlines()
+    first = next(
+        i
+        for i, line in enumerate(lines)
+        if "-otherhand-smoke) KIND=smoke; FLIP=1" in line
+    )
+    plain = next(
+        i for i, line in enumerate(lines) if "outer[1-9]*-smoke) KIND=smoke" in line
+    )
+    assert first < plain, (
+        "the otherhand patterns must be tried before the plain outer ones"
+    )
+    assert 'case "$SENSE" in ACW) SENSE=CW ;; CW) SENSE=ACW ;;' in text
+    assert 'spec["spiral_outward_sense"] = sys.argv[3]' in text
+    assert 'fit_spiral.py --dataset "$DATASET" --cache' in text
+    assert 'ln -s "$R/dataset/tracks" "$DATASET/tracks"' in text
+
+
+# Added by the design review of 2026-11-16: guards of the spacing description that the tests above do not reach.
+
+
+def _profile(values, default):
+    """A share at each of the spacing script's offsets: `values[o]` where given, else `default`."""
+    return [values.get(o, default) for o in bs.OFFSETS]
+
+
+def _symmetric(values):
+    return {**values, **{-o: v for o, v in values.items()}}
+
+
+@pytest.mark.parametrize(
+    ("values", "default", "expected"),
+    [
+        # the neighbouring sheet can be at exactly 8, and 6 is still the winding's own sheet
+        (_symmetric({0: 1.0, 2: 0.1, 4: 0.1, 6: 0.6, 8: 0.5}), 0.2, 8.0),
+        # a dip at 8 is a candidate, not part of what the rise must clear
+        (_symmetric({0: 1.0, 2: 0.3, 4: 0.3, 6: 0.3, 8: 0.1}), 0.25, None),
+        # nor is a trough at 0
+        (_symmetric({0: 0.05, 2: 0.3, 4: 0.3, 6: 0.3}), 0.25, None),
+        # the two directions are averaged
+        (
+            {**_symmetric({0: 1.0, 2: 0.1, 4: 0.1, 6: 0.1}), -10: 0.5, 14: 0.5},
+            0.2,
+            12.0,
+        ),
+        # a tie goes to the nearer offset, on the negative side too
+        (
+            {
+                **_symmetric({0: 1.0, 2: 0.1, 4: 0.1, 6: 0.1}),
+                -16: 0.5,
+                -10: 0.5,
+                12: 0.5,
+            },
+            0.2,
+            11.0,
+        ),
+        # a rise only as high as the dip before it is no rise
+        (_symmetric({0: 1.0}), 0.2, None),
+    ],
+)
+def test_sheet_spacing_takes_each_side_from_eight_voxels_out(values, default, expected):
+    assert bs.sheet_spacing(list(bs.OFFSETS), _profile(values, default)) == expected
+
+
+def test_sheet_spacing_needs_offsets_between_zero_and_eight():
+    assert bs.sheet_spacing([-16, -8, 0, 8, 16], [0.5, 0.1, 1.0, 0.1, 0.5]) is None
+
+
+def test_the_spacing_summary_names_its_percentiles_and_rounds_the_profile():
+    falling = [0.3 - 0.004 * abs(o) for o in bs.OFFSETS]
+    falling[0] = 0.123456
+    summary = bs.summarise(list(bs.OFFSETS), falling, [*range(1, 11), 100.0])
+    assert summary["share_inside"][0] == 0.1235
+    assert summary["pairs"] == 11
+    assert summary["winding_spacing_median"] == 6.0
+    assert (summary["winding_spacing_p10"], summary["winding_spacing_p90"]) == (
+        2.0,
+        10.0,
+    )
+
+
+def _spacing_command(tmp_path, monkeypatch, windings, field):
+    """The spacing command on stand-in windings; a winding given as None is a folder that holds no mesh."""
+    meshes = tmp_path / "meshes"
+    for name, nodes in windings.items():
+        (meshes / name).mkdir(parents=True)
+        if nodes is not None:
+            (meshes / name / "x.tif").write_bytes(b"")
+    opened = []
+
+    def open_field(store, group):
+        opened.append((str(store), group))
+        return field
+
+    monkeypatch.setattr(bs.quality, "DistanceField", open_field)
+    monkeypatch.setattr(
+        bs.analysis, "load_tifxyz", lambda folder: windings[Path(folder).name]
+    )
+    out = tmp_path / "spacing.json"
+    return bs.main([str(out), "sdt.zarr", str(meshes)]), out, opened
+
+
+def test_the_spacing_command_pools_raw_windings_and_measures_consecutive_ones(
+    tmp_path, monkeypatch, capsys
+):
+    windings = {
+        "w010": _plane(160.0),
+        "w011": _plane(176.0),
+        "w012_spliced": _plane(168.0),
+        "w013": None,
+        "w014": _plane(192.0),
+    }
+    code, out, opened = _spacing_command(tmp_path, monkeypatch, windings, Sheets())
+    assert code == 0 and opened == [("sdt.zarr", "1")]
+    result = json.loads(out.read_text())
+    # every winding is on a sheet, and the sheets are 16 voxels apart
+    assert result["share_inside"] == [1.0 if o % 16 == 0 else 0.0 for o in bs.OFFSETS]
+    assert result["sheet_spacing"] == 16.0 and result["pairs"] == 2
+    assert result["winding_spacing_median"] == 16.0 and result["ratio"] == 1.0
+
+    before = out.read_text()
+    assert bs.main([str(out), "sdt.zarr", str(tmp_path / "meshes")]) == 2
+    assert "measured once" in capsys.readouterr().err
+    assert out.read_text() == before and len(opened) == 1
+
+
+class Recording:
+    def __init__(self):
+        self.asked = []
+
+    def at(self, xyz):
+        self.asked.append(xyz.copy())
+        return np.zeros(len(xyz))
+
+
+def test_the_profile_reads_every_fourth_node_with_a_normal_along_its_own_normal(
+    tmp_path, monkeypatch
+):
+    rows, cols = np.indices((30, 40)).astype(float)
+    x = 5 * cols
+    curved = np.stack([x, 5 * rows, 160 + 0.01 * (x - 100) ** 2], -1)
+    valid = np.ones(rows.shape, dtype=bool)
+    valid[10, 10] = False
+    curved[10, 10] = -1.0
+    field = Recording()
+    code, _, _ = _spacing_command(
+        tmp_path, monkeypatch, {"w010": (curved, valid)}, field
+    )
+    assert code == 0
+    normals, has_normal = bs.analysis.grid_normals(curved, valid)
+    use = valid & has_normal
+    points, n = curved[use][::4], normals[use][::4]
+    assert len(field.asked) == len(bs.OFFSETS)
+    for asked, offset in zip(field.asked, bs.OFFSETS, strict=True):
+        assert np.array_equal(asked, points + offset * n)
+
+
+class Halves:
+    """Inside at and above z 160 where x < 150. Where x >= 150: outside, with no value 12 or more voxels below."""
+
+    def at(self, xyz):
+        x, z = xyz[:, 0], xyz[:, 2]
+        out = np.where(x < 150, 160.0 - z, 5.0)
+        out[(x >= 150) & (z <= 148)] = np.nan
+        return out
+
+
+def test_the_profile_counts_a_node_only_where_every_offset_has_a_value(
+    tmp_path, monkeypatch
+):
+    code, out, _ = _spacing_command(
+        tmp_path, monkeypatch, {"w010": _plane(160.0)}, Halves()
+    )
+    assert code == 0
+    # the nodes at x 150 and beyond are left out; the rest are inside from offset 0 up, the face included
+    share = json.loads(out.read_text())["share_inside"]
+    assert share == [1.0 if o >= 0 else 0.0 for o in bs.OFFSETS]
+
+
+def test_a_pair_of_windings_too_far_apart_sideways_has_no_spacing(
+    tmp_path, monkeypatch
+):
+    far, valid = _plane(176.0)
+    far[..., 0] += 5000.0
+    windings = {"w010": _plane(160.0), "w011": (far, valid)}
+    code, out, _ = _spacing_command(tmp_path, monkeypatch, windings, Sheets())
+    result = json.loads(out.read_text())
+    assert code == 0 and result["pairs"] == 0
+    assert result["winding_spacing_median"] is None and result["ratio"] is None
+
+
+class Nowhere:
+    def at(self, xyz):
+        return np.full(len(xyz), np.nan)
+
+
+def test_the_spacing_command_writes_nothing_when_no_node_is_in_the_field(
+    tmp_path, monkeypatch, capsys
+):
+    code, out, _ = _spacing_command(
+        tmp_path, monkeypatch, {"w010": _plane(160.0)}, Nowhere()
+    )
+    assert code == 1 and not out.exists()
+    assert "no node inside the distance field" in capsys.readouterr().err
+
+
+# Added by the design review of 2026-11-16: the fit launcher's own blocks, run, and the verdict command's arguments.
+
+
+def _launcher_block(start, end):
+    text = (HERE / "run_fit.sh").read_text()
+    first = text.index(start)
+    return text[first : text.index(end, first)]
+
+
+def _arm(*argv):
+    """The fit launcher's handling of its arguments, run alone: kind, outer winding, flip and step count."""
+    import subprocess
+
+    block = _launcher_block("ARM=${1:?", "OUT=$R/work/fit_$ARM")
+    script = "set -u\n" + block + 'echo "$KIND|$OUTER|$FLIP|$STEPS"\n'
+    return subprocess.run(
+        ["bash", "-c", script, "run_fit.sh", *argv], capture_output=True, text=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("argv", "parsed"),
+    [
+        (("full",), "full|||30000"),
+        (("smoke", "300"), "smoke|||300"),
+        (("outer80",), "full|80||30000"),
+        (("outer80-smoke", "300"), "smoke|80||300"),
+        (("outer80-otherhand",), "full|80|1|30000"),
+        (("outer80-otherhand-smoke", "300"), "smoke|80|1|300"),
+    ],
+)
+def test_the_fit_launcher_reads_each_arm(argv, parsed):
+    result = _arm(*argv)
+    assert (result.returncode, result.stdout.strip()) == (0, parsed), result.stderr
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (("outer0",), "unknown arm"),
+        (("outer80x",), "unknown arm"),
+        (("outer8-0-smoke", "300"), "unknown arm"),
+        (("other",), "unknown arm"),
+        (("full", "300"), "takes no step count"),
+        (("outer80-otherhand", "300"), "takes no step count"),
+        (("smoke",), "a smoke arm needs a step count"),
+    ],
+)
+def test_the_fit_launcher_refuses_an_arm_it_does_not_know(argv, message):
+    result = _arm(*argv)
+    assert result.returncode != 0 and result.stdout == ""
+    assert message in result.stderr
+
+
+def _overrides(outer, steps="300"):
+    """The settings the fit launcher hands villa, from its own snippet."""
+    import subprocess
+
+    code = _launcher_block(
+        'FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY" -I -c \'', '\' "$Z_BEGIN"'
+    ).split("'", 1)[1]
+    argv = [sys.executable, "-I", "-c", code, "10250", "11750", steps, outer]
+    return json.loads(
+        subprocess.run(argv, capture_output=True, text=True, check=True).stdout
+    )
+
+
+def _settings_assignment(path: Path):
+    """The launcher's override assignment, through the export, and nothing after it."""
+    text = path.read_text()
+    start = text.index('FIT_SPIRAL_CONFIG_OVERRIDES=$("$PY"')
+    export = "export FIT_SPIRAL_CONFIG_OVERRIDES\n"
+    end = text.index(export, start) + len(export)
+    return text[start:end]
+
+
+def _run_settings(path: Path, **variables):
+    """Run that assignment in a clean shell. A later line prints only if it returns."""
+    import os
+    import subprocess
+
+    script = "set -u\n" + _settings_assignment(path) + "echo CONTINUED\n"
+    env = {"PATH": os.environ["PATH"], "PY": sys.executable, **variables}
+    return subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "variables"),
+    [
+        (
+            HERE / "run_fit.sh",
+            {"Z_BEGIN": "10250", "Z_END": "11750", "STEPS": "300", "OUTER": ""},
+        ),
+        (HERE / "run_sense.sh", {"ZB": "10250", "ZE": "11750", "STEPS": "300"}),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            {"STEPS": "300"},
+        ),
+    ],
+)
+def test_a_fit_launcher_keeps_going_when_its_settings_are_whole_numbers(
+    path, variables
+):
+    result = _run_settings(path, **variables)
+    assert (result.returncode, result.stdout) == (0, "CONTINUED\n"), result.stderr
+
+
+@pytest.mark.parametrize(
+    ("path", "bad"),
+    [
+        (HERE / "run_fit.sh", {"Z_BEGIN": "10250x"}),
+        (HERE / "run_fit.sh", {"Z_END": "11750x"}),
+        (HERE / "run_fit.sh", {"STEPS": "300x"}),
+        (HERE / "run_fit.sh", {"OUTER": "80x"}),
+        (HERE / "run_sense.sh", {"ZB": "10250x"}),
+        (HERE / "run_sense.sh", {"ZE": "11750x"}),
+        (HERE / "run_sense.sh", {"STEPS": "300x"}),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            {"STEPS": "300x"},
+        ),
+    ],
+)
+def test_a_fit_launcher_stops_when_its_settings_snippet_fails(path, bad):
+    """A bad number used to leave the overrides empty and the fit still started."""
+    if path.name == "run_sense.sh":
+        variables = {"ZB": "10250", "ZE": "11750", "STEPS": "300"}
+    elif "pherc343" in path.parts:
+        variables = {"STEPS": "300"}
+    else:
+        variables = {
+            "Z_BEGIN": "10250",
+            "Z_END": "11750",
+            "STEPS": "300",
+            "OUTER": "80",
+        }
+    variables.update(bad)
+    result = _run_settings(path, **variables)
+    assert result.returncode == 2, result.stderr
+    assert result.stdout == ""
+    (value,) = bad.values()
+    assert f"={value}): not a whole number" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def _launch(tmp_path, path, *argv):
+    """The whole launcher, run with stand-ins for env.sh, nvidia-smi, /usr/bin/time and villa's fit."""
+    import os
+    import subprocess
+
+    band, bin_, spiral, here = (tmp_path / d for d in ("band", "bin", "spiral", "here"))
+    for d in (band / "dataset" / "tracks", bin_, spiral, here):
+        d.mkdir(parents=True, exist_ok=True)
+    (band / "dataset" / "spiral-scroll.json").write_text(
+        '{"spiral_outward_sense": "ACW"}'
+    )
+    (band / "dataset" / "umbilicus.json").write_text("{}")
+    (here / "env.sh").write_text(
+        f"R={band}; SPIRAL={spiral}; PY={sys.executable}; SCROLL=t; SENSE=ACW\n"
+        "Z_BEGIN=10250; Z_END=11750\n"
+        'mkdir -p "$R/work" "$R/logs"\n'
+        "gate() { :; }\n"
+    )
+    (bin_ / "nvidia-smi").write_text("#!/bin/sh\nexit 0\n")
+    (bin_ / "time").write_text('#!/bin/sh\n[ "$1" = -v ] && shift\nexec "$@"\n')
+    for stub in bin_.iterdir():
+        stub.chmod(0o755)
+    (spiral / "fit_spiral.py").write_text(
+        "import os, pathlib\n"
+        f"pathlib.Path({str(band / 'launched')!r}).write_text("
+        'os.environ["FIT_SPIRAL_CONFIG_OVERRIDES"])\n'
+    )
+    launcher = here / path.name
+    launcher.write_text(path.read_text().replace("/usr/bin/time", str(bin_ / "time")))
+    argv = [a.replace("ENV_SH", str(here / "env.sh")) for a in argv]
+    env = dict(os.environ, PATH=f"{bin_}:{os.environ['PATH']}")
+    result = subprocess.run(
+        ["bash", str(launcher), *argv], capture_output=True, text=True, env=env
+    )
+    return result, band
+
+
+@pytest.mark.parametrize(
+    ("path", "bad", "good", "folder"),
+    [
+        (HERE / "run_fit.sh", ("smoke", "300x"), ("smoke", "300"), "fit_smoke"),
+        (
+            HERE / "run_sense.sh",
+            ("ENV_SH", "10250x", "11750", "ACW", "300"),
+            ("ENV_SH", "10250", "11750", "ACW", "300"),
+            "sense_ACW_300",
+        ),
+        (
+            ROOT / "repro/first_letters/pherc343/mesh_step/run_fit.sh",
+            ("smoke", "300x"),
+            ("smoke", "300"),
+            "fit_smoke",
+        ),
+    ],
+)
+def test_a_bad_setting_leaves_no_folder_so_the_corrected_rerun_starts(
+    tmp_path, path, bad, good, folder
+):
+    """The arm's folder used to be made first: a typo left it empty and the rerun was refused."""
+    result, band = _launch(tmp_path, path, *bad)
+    assert result.returncode == 2, result.stderr
+    assert "invalid settings" in result.stderr
+    assert not (band / "work" / folder).exists()
+    assert not (band / "launched").exists()
+
+    result, band = _launch(tmp_path, path, *good)
+    assert result.returncode == 0, result.stderr
+    assert "run once" not in result.stderr
+    assert (band / "work" / folder).is_dir()
+    launched = json.loads((band / "launched").read_text())
+    assert launched["optimizer_num_training_steps"] == 300
+
+
+def test_the_fit_launcher_changes_the_winding_count_only_for_an_outer_arm():
+    recipe = {
+        "z_begin": 10250,
+        "z_end": 11750,
+        "input_disable_patches": True,
+        "loss_weight_shell_outer": 0,
+        "loss_weight_shell_patch_radius": 0,
+        "dense_spacing_mode": "phase",
+        "optimizer_num_training_steps": 300,
+    }
+    assert _overrides("") == recipe
+    assert _overrides("80", steps="30000") == {
+        **recipe,
+        "optimizer_num_training_steps": 30000,
+        "shell_outer_winding_idx": 80,
+        "model_gap_expander_num_windings": 83,
+    }
+
+
+def _flip(tmp_path, sense, flip="1"):
+    """The fit launcher's dataset step, run alone, on a band directory in `tmp_path`."""
+    import os
+    import subprocess
+
+    band = tmp_path / "band"
+    dataset = band / "dataset"
+    (dataset / "tracks").mkdir(parents=True)
+    spec = {"spiral_outward_sense": sense, "volume": "v"}
+    (dataset / "spiral-scroll.json").write_text(json.dumps(spec))
+    (dataset / "umbilicus.json").write_text('{"points": [1, 2]}')
+    out = band / "work" / "fit_outer80-otherhand"
+    out.mkdir(parents=True)
+    block = _launcher_block("DATASET=$R/dataset\n", "export FIT_SPIRAL_OUT_DIR=$OUT")
+    env = dict(os.environ, R=str(band), OUT=str(out), PY=sys.executable)
+    env.update(SENSE=sense, FLIP=flip)
+    script = "set -u\n" + block + 'echo "$DATASET|$SENSE"\n'
+    result = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env
+    )
+    return result, dataset, out / "dataset"
+
+
+@pytest.mark.parametrize(("sense", "other"), [("ACW", "CW"), ("CW", "ACW")])
+def test_an_otherhand_arm_fits_a_copy_of_the_dataset_turned_the_other_way(
+    tmp_path, sense, other
+):
+    result, published, copy = _flip(tmp_path, sense)
+    assert (result.returncode, result.stdout.strip()) == (0, f"{copy}|{other}")
+    assert json.loads((copy / "spiral-scroll.json").read_text()) == {
+        "spiral_outward_sense": other,
+        "volume": "v",
+    }
+    assert (copy / "tracks").resolve() == (published / "tracks").resolve()
+    umbilicus = (published / "umbilicus.json").read_text()
+    assert (copy / "umbilicus.json").read_text() == umbilicus
+    # the published description is left as it was
+    assert (
+        json.loads((published / "spiral-scroll.json").read_text())[
+            "spiral_outward_sense"
+        ]
+        == sense
+    )
+
+
+def test_an_arm_that_does_not_flip_fits_the_published_dataset(tmp_path):
+    result, published, copy = _flip(tmp_path, "ACW", flip="")
+    assert (result.returncode, result.stdout.strip()) == (0, f"{published}|ACW")
+    assert not copy.exists()
+
+
+def test_the_verdict_command_takes_both_arms_or_neither(tmp_path, capsys):
+    out = tmp_path / "verdict.json"
+    for argv in (
+        [str(tmp_path)],
+        [str(tmp_path), str(out), "outer80"],
+        [str(tmp_path), str(out), "outer80-smoke", "outer80", "extra"],
+    ):
+        assert bv.main(argv) == 2
+        assert "usage:" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def _env(tmp_path, **extra):
+    """The variables env.sh sets, sourced in a clean shell with its run root under tmp_path."""
+    import subprocess
+
+    env = {"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path), **extra}
+    out = subprocess.run(
+        ["bash", "-c", '. "$0"; printf "%s\\n" "$R" "$SURF_CHUNKS" "$CT_CHUNKS" "$LASAGNA_CHUNKS"', str(HERE / "env.sh")],
+        env=env, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()  # fmt: skip
+    return dict(zip(("R", "surface", "ct", "lasagna"), out, strict=True))
+
+
+def test_the_default_band_fetches_the_chunks_it_always_did(tmp_path):
+    v = _env(tmp_path)
+    assert v["R"] == f"{tmp_path}/pherc0211_band"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("25 31", "39 46", "79 92")
+    assert _env(tmp_path, FL_SCROLL="PHerc0826")["R"] == f"{tmp_path}/pherc0826_band"
+
+
+def test_another_band_gets_its_own_directory_and_the_chunks_that_cover_it(tmp_path):
+    v = _env(tmp_path, FL_BAND="z7650", FL_Z_BEGIN="7650", FL_Z_END="9150")
+    assert v["R"] == f"{tmp_path}/pherc0211_band_z7650"
+    assert (v["surface"], v["ct"], v["lasagna"]) == ("18 24", "29 35", "59 71")
+    # every chunk range covers the band and the 64 slices either side, at its level and chunk size
+    lo, hi = 7650 - 64, 9150 + 64
+    for key, voxels_per_chunk in (("surface", 384), ("ct", 256), ("lasagna", 128)):
+        first, last = (int(x) for x in v[key].split())
+        assert first * voxels_per_chunk <= lo and (last + 1) * voxels_per_chunk > hi

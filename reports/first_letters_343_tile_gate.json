@@ -1,0 +1,107 @@
+{
+ "finding": 117,
+ "date": "2026-11-15",
+ "scroll": "PHerc. 343 (awarded)",
+ "band_z": [
+  9500,
+  11000
+ ],
+ "registration": "docs/preregistration/2026-11-15_first_letters_343_tile_gate.md",
+ "registration_commit": "381705e7",
+ "fit": "finding 110's recipe fit, raw windings w047 and w048",
+ "published": "the recipe's w047_R5B2 and w048_R5B2",
+ "tile_nodes": 19,
+ "within_voxels": 2.0,
+ "script_exit": 0,
+ "seconds": 10,
+ "peak_rss_kb": 1847044,
+ "raw": {
+  "tiles": 70,
+  "right": 53,
+  "wrong": 17,
+  "auc": 0.8946,
+  "share_right_overall": 0.7571,
+  "tiles_at_line": 32,
+  "share_right_at_line": 1.0,
+  "floor": {
+   "shifts": 10,
+   "p95": 0.7772,
+   "max": 0.7923
+  }
+ },
+ "verdict": "LOCAL_GATE_WORKS",
+ "described": {
+  "raw_within_4": {
+   "tiles": 70,
+   "right": 61,
+   "wrong": 9,
+   "auc": 0.8561,
+   "share_right_overall": 0.8714,
+   "tiles_at_line": 32,
+   "share_right_at_line": 1.0,
+   "floor": {
+    "shifts": 10,
+    "p95": 0.7141,
+    "max": 0.7466
+   }
+  },
+  "snapped": {
+   "tiles": 122,
+   "right": 122,
+   "wrong": 0,
+   "auc": null,
+   "share_right_overall": 1.0,
+   "tiles_at_line": 119,
+   "share_right_at_line": 1.0,
+   "floor": {
+    "shifts": 0,
+    "p95": null,
+    "max": null
+   }
+  }
+ },
+ "per_winding": {
+  "w047": {
+   "tiles": 35,
+   "right": 23
+  },
+  "w048": {
+   "tiles": 35,
+   "right": 30
+  }
+ },
+ "not_registered": {
+  "floor_by_shift": {
+   "1": 0.759,
+   "2": 0.603,
+   "3": 0.51,
+   "4": 0.371,
+   "5": 0.333,
+   "6": 0.297,
+   "7": 0.393,
+   "8": 0.479,
+   "9": 0.618,
+   "10": 0.792
+  },
+  "tiles_a_row": 11,
+  "wrong_tiles": {
+   "count": 17,
+   "excess_max": -0.0042,
+   "excess_min": -0.4003,
+   "within_2_range": [
+    0.13,
+    0.49
+   ],
+   "within_4_range": [
+    0.34,
+    0.71
+   ]
+  },
+  "right_tiles": {
+   "count": 53,
+   "excess_median": 0.1884,
+   "excess_p10": -0.1183,
+   "with_negative_excess": 14
+  }
+ }
+}

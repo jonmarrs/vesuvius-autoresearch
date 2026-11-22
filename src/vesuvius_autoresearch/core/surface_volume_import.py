@@ -10,7 +10,7 @@ import hashlib
 import json
 import math
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import numpy as np
 import zarr
@@ -25,10 +25,13 @@ from vesuvius_autoresearch.core.new_artifacts import (
     publish_new,
     publish_new_file,
 )
+from vesuvius_autoresearch.core.prediction_artifacts import validate_output_file
 
 DEFAULT_FILE_BYTES = 512 * 1024**2
 DEFAULT_VOLUME_BYTES = 1024**3
 MANIFEST_BYTES = 2 * 1024**2
+RECEIPT_BYTES = 4 * MANIFEST_BYTES
+CT_HASH_ENCODING = "ZYX, C order, little-endian uint16"
 LIMIT_KEYS = {"max_file_bytes", "max_pixels", "max_volume_bytes"}
 
 
@@ -95,6 +98,15 @@ def _storage(shape):
         * ((width + chunks[2] - 1) // chunks[2])
     )
     return chunks, count * math.prod(chunks) * 2
+
+
+def _ct_attrs(plan):
+    return {
+        "axes": ["z", "y", "x"],
+        "source_origin_zyx": [plan["source_z_range"][0], 0, 0],
+        "normalization": "uint16_div_65535",
+        "alignment_basis": plan["alignment_basis"],
+    }
 
 
 def _entries(plan):
@@ -186,7 +198,19 @@ def write_plan(plan, output):
     return target
 
 
-def _validate_plan(plan):
+def _recorded_source_path(value, portable):
+    if isinstance(value, str):
+        local = Path(value)
+        if local.is_absolute():
+            return local
+        if portable:
+            for path in (PurePosixPath(value), PureWindowsPath(value)):
+                if path.is_absolute():
+                    return path
+    raise ValueError("manifest source paths must be absolute")
+
+
+def _validate_plan(plan, *, portable_paths=False):
     keys = {
         "contract",
         "kind",
@@ -250,19 +274,16 @@ def _validate_plan(plan):
         ):
             raise ValueError("source layer indices must remain consecutive and ordered")
         if (
-            not isinstance(record.get("path"), str)
-            or Path(record["path"]).name != f"{index:02d}.tif"
+            _recorded_source_path(record.get("path"), portable_paths).name
+            != f"{index:02d}.tif"
         ):
             raise ValueError("source layer filename must match its declared index")
     for role, record in _entries(plan):
         keys = {"path", "bytes", "sha256"} | ({"index"} if role == "layer" else set())
         if not isinstance(record, dict) or set(record) != keys:
             raise ValueError("invalid source record")
-        if (
-            not isinstance(record["path"], str)
-            or not Path(record["path"]).is_absolute()
-        ):
-            raise ValueError("manifest source paths must be absolute")
+        if role != "layer":
+            _recorded_source_path(record["path"], portable_paths)
         _integer(record["bytes"], "source byte count")
         if not isinstance(record["sha256"], str) or not re.fullmatch(
             "[0-9a-f]{64}", record["sha256"]
@@ -310,15 +331,10 @@ def build_import(
             chunks=chunks,
             dtype="<u2",
             compressor=None,
+            write_empty_chunks=True,
+            dimension_separator=".",
         )
-        array.attrs.update(
-            {
-                "axes": ["z", "y", "x"],
-                "source_origin_zyx": [plan["source_z_range"][0], 0, 0],
-                "normalization": "uint16_div_65535",
-                "alignment_basis": plan["alignment_basis"],
-            }
-        )
+        array.attrs.update(_ct_attrs(plan))
         for role, expected in entries:
             record, data, state = _capture(expected["path"], limits["max_file_bytes"])
             if any(record[key] != expected[key] for key in ("path", "bytes", "sha256")):
@@ -348,7 +364,7 @@ def build_import(
             "plan": plan,
             "effective_limits": limits,
             "ct_decoded_sha256": digest.hexdigest(),
-            "decoded_hash_encoding": "ZYX, C order, little-endian uint16",
+            "decoded_hash_encoding": CT_HASH_ENCODING,
             "ct_chunk_bytes": stored_bytes,
             "scope": "Verified captured values and readback; physical alignment and label quality remain caller-declared. No GPU/training or official-source verification.",
         }
@@ -359,3 +375,157 @@ def build_import(
             if _state(path) != state:
                 raise ValueError(f"source changed during import: {path}")
     return target
+
+
+def _verified_json(raw, path):
+    def unique(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError(f"duplicate JSON key {key!r}")
+            result[key] = value
+        return result
+
+    def invalid(token):
+        raise ValueError(f"nonfinite JSON token {token!r}")
+
+    try:
+        value = json.loads(raw, object_pairs_hook=unique, parse_constant=invalid)
+    except (ValueError, RecursionError) as exc:
+        raise ValueError(f"invalid JSON in {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"expected a JSON object in {path}")
+    return value
+
+
+def verify_import(
+    fragment,
+    *,
+    max_file_bytes=DEFAULT_FILE_BYTES,
+    max_pixels=MAX_PIXELS,
+    max_volume_bytes=DEFAULT_VOLUME_BYTES,
+):
+    """Check the local dense CT and copied PNGs against an existing import receipt."""
+    root = Path(fragment).resolve(strict=True)
+    store = root / "surface_volume.zarr"
+    if store.is_symlink() or not store.is_dir():
+        raise ValueError(f"expected the original local CT directory: {store}")
+    states = {root: _state(root), store: _state(store)}
+
+    def read(path, limit):
+        validate_output_file(path, label="prepared fragment")
+        record, raw, state = _capture(path, limit)
+        states[path] = state
+        return record, raw
+
+    receipt_path = root / "import.json"
+    receipt_id, raw = read(receipt_path, RECEIPT_BYTES)
+    receipt = _verified_json(raw, receipt_path)
+    if (
+        type(receipt.get("contract")) is not int
+        or receipt["contract"] != 1
+        or receipt.get("decoded_hash_encoding") != CT_HASH_ENCODING
+        or not isinstance(receipt.get("ct_decoded_sha256"), str)
+        or not re.fullmatch("[0-9a-f]{64}", receipt["ct_decoded_sha256"])
+    ):
+        raise ValueError("unsupported fragment import receipt or CT hash encoding")
+    plan = receipt.get("plan")
+    # Source paths in a completed import are provenance. A copy may have come
+    # from a machine with a different filesystem path syntax.
+    _validate_plan(plan, portable_paths=True)
+    saved = receipt.get("effective_limits")
+    if not isinstance(saved, dict) or set(saved) != LIMIT_KEYS:
+        raise ValueError("invalid receipt resource limits")
+    saved = _limits(**saved)
+    requested = _limits(max_file_bytes, max_pixels, max_volume_bytes)
+    limits = {
+        key: min(saved[key], plan["limits"][key], requested[key]) for key in LIMIT_KEYS
+    }
+    shape = plan["shape_zyx"]
+    depth, height, width = shape
+    chunks, stored_bytes = _storage(shape)
+    if (
+        height * width > limits["max_pixels"]
+        or stored_bytes > limits["max_volume_bytes"]
+    ):
+        raise ValueError("prepared fragment exceeds max_pixels/max_volume_bytes")
+    if (
+        type(receipt.get("ct_chunk_bytes")) is not int
+        or receipt["ct_chunk_bytes"] != stored_bytes
+    ):
+        raise ValueError("receipt chunk byte count disagrees with geometry")
+
+    header_path = store / ".zarray"
+    header = _verified_json(read(header_path, RECEIPT_BYTES)[1], header_path)
+    separator = header.pop("dimension_separator", ".")
+    expected_header = {
+        "zarr_format": 2,
+        "shape": shape,
+        "chunks": list(chunks),
+        "dtype": "<u2",
+        "compressor": None,
+        "filters": None,
+        "fill_value": 0,
+        "order": "C",
+    }
+    if separator != "." or json.dumps(header, sort_keys=True) != json.dumps(
+        expected_header, sort_keys=True
+    ):
+        raise ValueError(
+            f"CT Zarr metadata differs from the import contract: {header_path}"
+        )
+    attrs_path = store / ".zattrs"
+    attrs = _verified_json(read(attrs_path, RECEIPT_BYTES)[1], attrs_path)
+    for key, value in _ct_attrs(plan).items():
+        if json.dumps(attrs.get(key)) != json.dumps(value):
+            raise ValueError(f"CT Zarr attribute {key} differs from the import receipt")
+
+    images = {}
+    for role, filename in (("labels", "inklabels.png"), ("mask", "mask.png")):
+        path = root / filename
+        expected = plan["sources"][role]
+        if expected is None:
+            if path.exists() or path.is_symlink():
+                raise ValueError(f"unexpected {filename} in prepared fragment")
+            continue
+        record, raw = read(path, limits["max_file_bytes"])
+        if any(record[key] != expected[key] for key in ("bytes", "sha256")):
+            raise ValueError(f"{filename} differs from the import receipt")
+        if _image(raw, path, role, limits["max_pixels"]).shape != (height, width):
+            raise ValueError(f"{filename} shape differs from the import receipt")
+        images[filename] = record["sha256"]
+    del raw
+
+    digest = hashlib.sha256()
+    _, tile_y, tile_x = chunks
+    chunk_bytes = math.prod(chunks) * 2
+    plane = np.empty((height, width), dtype="<u2")
+    for z in range(depth):
+        for cy, y in enumerate(range(0, height, tile_y)):
+            for cx, x in enumerate(range(0, width, tile_x)):
+                chunk = store / f"{z}.{cy}.{cx}"
+                try:
+                    _, raw = read(chunk, chunk_bytes)
+                except FileNotFoundError as exc:
+                    raise ValueError(f"missing CT chunk: {chunk}") from exc
+                if len(raw) != chunk_bytes:
+                    raise ValueError(f"incomplete CT chunk: {chunk}")
+                tile = np.frombuffer(raw, dtype="<u2").reshape(tile_y, tile_x)
+                target = plane[y : y + tile_y, x : x + tile_x]
+                target[:] = tile[: target.shape[0], : target.shape[1]]
+        digest.update(memoryview(plane).cast("B"))
+    actual = digest.hexdigest()
+    if actual != receipt["ct_decoded_sha256"]:
+        raise ValueError("decoded CT digest differs from the import receipt")
+    for path, state in states.items():
+        if path.is_symlink() or _state(path) != state:
+            raise ValueError(f"prepared fragment changed during verification: {path}")
+    return {
+        "status": "verified",
+        "path": str(root),
+        "import_receipt_sha256": receipt_id["sha256"],
+        "shape_zyx": shape,
+        "ct_chunk_count": stored_bytes // chunk_bytes,
+        "ct_decoded_sha256": actual,
+        "image_sha256": images,
+    }

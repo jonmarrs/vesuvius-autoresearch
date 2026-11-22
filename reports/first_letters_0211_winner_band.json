@@ -1,0 +1,540 @@
+{
+ "finding": 119,
+ "registration": "docs/preregistration/2026-11-16_first_letters_0211_winner_band.md",
+ "registration_commit": "64db6973",
+ "surface": "PHerc0211-crop1711-lines123-manual-20261028-1316-legacyuv20-v9",
+ "volume": "20250821151803-9.362um-1.2m-113keV-masked.zarr",
+ "band": [
+  7650,
+  9150
+ ],
+ "steps": {
+  "distance_field": {
+   "exit": 0,
+   "seconds": 591
+  },
+  "fit_smoke": {
+   "exit": 0,
+   "seconds": 218,
+   "steps": 300,
+   "gpu_peak_mib_all_processes": 10611
+  },
+  "fit_full": {
+   "exit": 0,
+   "seconds": 12733,
+   "steps": 30000,
+   "gpu_peak_mib_all_processes": 12290
+  },
+  "quality": {
+   "exit": 0,
+   "seconds": 389
+  },
+  "choose": {
+   "exit": 0,
+   "seconds": 301
+  },
+  "snap": {
+   "exit": 0,
+   "seconds": 29
+  },
+  "verdict": {
+   "exit": 0,
+   "seconds": 0
+  }
+ },
+ "records_sha256": {
+  "work/winner_choose.json": "dedb45652b2c4fd10f8dd229c61d5b2076d5d26d72e3e9d225c16c03a5dc061d",
+  "work/winner_verdict.json": "de6b244135634764b00d16515bd3c7801f23d30b6f3c522ddd3a08d4cb84799b",
+  "work/quality_full.json": "0415617f1d322fcfff53432d956f92ba3ca5487dbcd9e8afde2fd56e07fc1ed1",
+  "work/snap_full/snap_report.tsv": "332fb337a114ff033d48ad3a13ea3f741b154f323b4754348f73a72d92997451"
+ },
+ "winner_tifxyz_sha256": {
+  "x.tif": "7dcbf7b1b2870f4c1265c9982dcd897a26a4db84ad9f942f80f583ea170801a1",
+  "y.tif": "6b9956c81a1d7fc3b4629ec1b550e7400c9ddb4ab06ae73a8f9cd2d126f2f15d",
+  "z.tif": "8647c633fad706ca393caa63439702b0c176e87a1403d5d140ea7a645ced38a2"
+ },
+ "winner_nodes": 22900,
+ "winner_nodes_in_band": 21888,
+ "raw_windings": 120,
+ "chosen": "w035",
+ "snap_list": [
+  "w034",
+  "w035",
+  "w036"
+ ],
+ "registered": {
+  "snapped_chosen": {
+   "a_nodes": 21888,
+   "b_nodes": 11878,
+   "covered_fraction": 0.9827,
+   "median": 4.59,
+   "quantiles": {
+    "p5": 0.29,
+    "p25": 1.49,
+    "p50": 4.59,
+    "p75": 14.72,
+    "p95": 21.52
+   },
+   "fraction_within": {
+    "1": 0.1687,
+    "2": 0.3122,
+    "3": 0.4086,
+    "5": 0.5034
+   },
+   "signed_median": 1.29,
+   "normal_cosine_median": -0.9969
+  },
+  "lines": {
+   "on_share_within_2": 0.5,
+   "on_median": 3.0,
+   "partly_share_within_2": 0.25
+  }
+ },
+ "verdict": "PARTLY_ON_IT",
+ "predicted": "PARTLY_ON_IT",
+ "described": {
+  "chosen_raw": {
+   "a_nodes": 21888,
+   "b_nodes": 11878,
+   "covered_fraction": 0.9827,
+   "median": 4.75,
+   "quantiles": {
+    "p5": 0.3,
+    "p25": 1.62,
+    "p50": 4.75,
+    "p75": 14.48,
+    "p95": 22.03
+   },
+   "fraction_within": {
+    "1": 0.1568,
+    "2": 0.2976,
+    "3": 0.3946,
+    "5": 0.4996
+   },
+   "signed_median": 1.4,
+   "normal_cosine_median": -0.9966
+  },
+  "three_closest_raw": [
+   {
+    "winding": "w035",
+    "a_nodes": 21888,
+    "b_nodes": 11878,
+    "covered_fraction": 0.9827,
+    "median": 4.75,
+    "quantiles": {
+     "p5": 0.3,
+     "p25": 1.62,
+     "p50": 4.75,
+     "p75": 14.48,
+     "p95": 22.03
+    },
+    "fraction_within": {
+     "1": 0.1568,
+     "2": 0.2976,
+     "3": 0.3946,
+     "5": 0.4996
+    },
+    "signed_median": 1.4,
+    "normal_cosine_median": -0.9966
+   },
+   {
+    "winding": "w034",
+    "a_nodes": 21888,
+    "b_nodes": 11586,
+    "covered_fraction": 0.9836,
+    "median": 8.11,
+    "quantiles": {
+     "p5": 1.71,
+     "p25": 5.79,
+     "p50": 8.11,
+     "p75": 10.5,
+     "p95": 15.36
+    },
+    "fraction_within": {
+     "1": 0.0282,
+     "2": 0.0575,
+     "3": 0.0919,
+     "5": 0.1905
+    },
+    "signed_median": -4.39,
+    "normal_cosine_median": -0.9962
+   },
+   {
+    "winding": "w036",
+    "a_nodes": 21888,
+    "b_nodes": 12243,
+    "covered_fraction": 0.9834,
+    "median": 8.95,
+    "quantiles": {
+     "p5": 1.45,
+     "p25": 5.07,
+     "p50": 8.95,
+     "p75": 21.51,
+     "p95": 32.5
+    },
+    "fraction_within": {
+     "1": 0.0319,
+     "2": 0.0681,
+     "3": 0.1139,
+     "5": 0.2409
+    },
+    "signed_median": 8.87,
+    "normal_cosine_median": -0.9954
+   }
+  ],
+  "near_any_raw_winding": {
+   "nodes": 21888,
+   "within_2_of_any_winding": 0.8794,
+   "within_4_of_any_winding": 0.9714
+  },
+  "snapped_neighbours": {
+   "w034": {
+    "a_nodes": 21888,
+    "b_nodes": 11586,
+    "covered_fraction": 0.9836,
+    "median": 5.25,
+    "quantiles": {
+     "p5": 0.35,
+     "p25": 1.89,
+     "p50": 5.25,
+     "p75": 12.91,
+     "p95": 19.87
+    },
+    "fraction_within": {
+     "1": 0.1393,
+     "2": 0.258,
+     "3": 0.3536,
+     "5": 0.4803
+    },
+    "signed_median": -0.32,
+    "normal_cosine_median": -0.9945
+   },
+   "w036": {
+    "a_nodes": 21888,
+    "b_nodes": 12243,
+    "covered_fraction": 0.9838,
+    "median": 11.73,
+    "quantiles": {
+     "p5": 0.51,
+     "p25": 3.21,
+     "p50": 11.73,
+     "p75": 21.83,
+     "p95": 39.13
+    },
+    "fraction_within": {
+     "1": 0.0933,
+     "2": 0.1733,
+     "3": 0.2351,
+     "5": 0.3163
+    },
+    "signed_median": 11.39,
+    "normal_cosine_median": -0.9939
+   }
+  },
+  "snap_report": {
+   "w034": {
+    "median_abs_offset": 5.53,
+    "share_already_within_2_of_a_sheet": 0.055,
+    "share_rejected": 0.208
+   },
+   "w035": {
+    "median_abs_offset": 0.68,
+    "share_already_within_2_of_a_sheet": 0.792,
+    "share_rejected": 0.036
+   },
+   "w036": {
+    "median_abs_offset": 5.19,
+    "share_already_within_2_of_a_sheet": 0.065,
+    "share_rejected": 0.186
+   }
+  },
+  "tiles_of_chosen_raw_winding": {
+   "tiles": 24,
+   "right": 19,
+   "wrong": 5,
+   "auc": 0.8947,
+   "share_right_overall": 0.7917,
+   "tiles_at_line": 24,
+   "share_right_at_line": 0.7917,
+   "floor": {
+    "shifts": 7,
+    "p95": 0.7842,
+    "max": 0.8
+   },
+   "auc_reported": false,
+   "why": "the registration reports the AUC only with at least 15 tiles of each label; 5 are wrong"
+  },
+  "sheet_following_score_full_fit": {
+   "windings": 120,
+   "windings_scored": 120,
+   "excess_median": 0.1096,
+   "excess_p10": -0.0297,
+   "excess_p90": 0.456,
+   "share_of_windings_with_positive_excess": 0.6667,
+   "on_sheet_median": 0.288
+  }
+ },
+ "not_registered": {
+  "note": "computed after the verdict, on this machine; the column split was chosen after seeing the column runs",
+  "nearest_raw_winding_by_winner_column": [
+   {
+    "winding": "w035",
+    "from_column": 0,
+    "to_column": 93
+   },
+   {
+    "winding": "w034",
+    "from_column": 94,
+    "to_column": 94
+   },
+   {
+    "winding": "w035",
+    "from_column": 95,
+    "to_column": 122
+   },
+   {
+    "winding": "w036",
+    "from_column": 123,
+    "to_column": 123
+   },
+   {
+    "winding": "w035",
+    "from_column": 124,
+    "to_column": 158
+   },
+   {
+    "winding": "w036",
+    "from_column": 159,
+    "to_column": 163
+   },
+   {
+    "winding": "w035",
+    "from_column": 164,
+    "to_column": 168
+   },
+   {
+    "winding": "w036",
+    "from_column": 169,
+    "to_column": 169
+   },
+   {
+    "winding": "w035",
+    "from_column": 170,
+    "to_column": 174
+   },
+   {
+    "winding": "w036",
+    "from_column": 175,
+    "to_column": 175
+   },
+   {
+    "winding": "w035",
+    "from_column": 176,
+    "to_column": 176
+   },
+   {
+    "winding": "w036",
+    "from_column": 177,
+    "to_column": 177
+   },
+   {
+    "winding": "w035",
+    "from_column": 178,
+    "to_column": 181
+   },
+   {
+    "winding": "w033",
+    "from_column": 182,
+    "to_column": 183
+   },
+   {
+    "winding": "w034",
+    "from_column": 184,
+    "to_column": 192
+   },
+   {
+    "winding": "w033",
+    "from_column": 193,
+    "to_column": 298
+   },
+   {
+    "winding": "w034",
+    "from_column": 299,
+    "to_column": 299
+   },
+   {
+    "winding": "w033",
+    "from_column": 300,
+    "to_column": 300
+   }
+  ],
+  "share_of_winner_nodes_within_2_by_nearest_winding": {
+   "w029": 0.0001,
+   "w031": 0.0007,
+   "w032": 0.0032,
+   "w033": 0.2983,
+   "w034": 0.085,
+   "w035": 0.3729,
+   "w036": 0.1028,
+   "w037": 0.0162
+  },
+  "within_2_of_any_of_w028_w042": 0.8794,
+  "lengths_along_middle_row_voxels": {
+   "winner": 5836.3,
+   "w028": 3438.1,
+   "w029": 3602.2,
+   "w030": 3802.0,
+   "w031": 4162.5,
+   "w032": 4362.7,
+   "w033": 4538.1,
+   "w034": 4611.2,
+   "w035": 4627.9,
+   "w036": 4706.3,
+   "w037": 4803.1,
+   "w038": 4935.1,
+   "w039": 5053.5,
+   "w040": 5269.3,
+   "w041": 5538.3,
+   "w042": 5596.8
+  },
+  "scores_by_part_of_the_winner_surface": {
+   "raw w035 cols 0-158": {
+    "nodes": 11346,
+    "within_2": 0.5253,
+    "median": 1.86,
+    "covered": 0.9871
+   },
+   "raw w035 cols 0-181": {
+    "nodes": 13100,
+    "within_2": 0.4959,
+    "median": 1.98,
+    "covered": 0.9853
+   },
+   "raw w035 cols 193-300": {
+    "nodes": 7944,
+    "within_2": 0.0013,
+    "median": 15.88,
+    "covered": 0.9865
+   },
+   "snapped w035 cols 0-158": {
+    "nodes": 11346,
+    "within_2": 0.5481,
+    "median": 1.74,
+    "covered": 0.987
+   },
+   "snapped w035 cols 0-181": {
+    "nodes": 13100,
+    "within_2": 0.5173,
+    "median": 1.87,
+    "covered": 0.9852
+   },
+   "snapped w035 cols 193-300": {
+    "nodes": 7944,
+    "within_2": 0.0043,
+    "median": 15.84,
+    "covered": 0.9868
+   },
+   "raw w033 cols 0-158": {
+    "nodes": 11346,
+    "within_2": 0.0066,
+    "median": 17.56,
+    "covered": 0.9822
+   },
+   "raw w033 cols 0-181": {
+    "nodes": 13100,
+    "within_2": 0.0066,
+    "median": 17.07,
+    "covered": 0.9802
+   },
+   "raw w033 cols 193-300": {
+    "nodes": 7944,
+    "within_2": 0.5515,
+    "median": 1.74,
+    "covered": 0.9903
+   }
+  },
+  "winner_ink_share_by_part": {
+   "columns_0_181": 0.501,
+   "columns_182_300": 0.499,
+   "definition": "pixels with winner probability >= 0.5 inside the winner's mask, 20 pixels per node column"
+  },
+  "snap_of_w028_to_w042": {
+   "w028": {
+    "median_abs_offset": 2.7,
+    "share_already_within_2_of_a_sheet": 0.301,
+    "share_rejected": 0.175
+   },
+   "w029": {
+    "median_abs_offset": 1.23,
+    "share_already_within_2_of_a_sheet": 0.637,
+    "share_rejected": 0.07
+   },
+   "w030": {
+    "median_abs_offset": 1.1,
+    "share_already_within_2_of_a_sheet": 0.513,
+    "share_rejected": 0.127
+   },
+   "w031": {
+    "median_abs_offset": 0.9,
+    "share_already_within_2_of_a_sheet": 0.714,
+    "share_rejected": 0.05
+   },
+   "w032": {
+    "median_abs_offset": 1.08,
+    "share_already_within_2_of_a_sheet": 0.674,
+    "share_rejected": 0.05
+   },
+   "w033": {
+    "median_abs_offset": 1.18,
+    "share_already_within_2_of_a_sheet": 0.68,
+    "share_rejected": 0.038
+   },
+   "w034": {
+    "median_abs_offset": 5.53,
+    "share_already_within_2_of_a_sheet": 0.055,
+    "share_rejected": 0.208
+   },
+   "w035": {
+    "median_abs_offset": 0.68,
+    "share_already_within_2_of_a_sheet": 0.792,
+    "share_rejected": 0.036
+   },
+   "w036": {
+    "median_abs_offset": 5.19,
+    "share_already_within_2_of_a_sheet": 0.065,
+    "share_rejected": 0.186
+   },
+   "w037": {
+    "median_abs_offset": 1.89,
+    "share_already_within_2_of_a_sheet": 0.515,
+    "share_rejected": 0.051
+   },
+   "w038": {
+    "median_abs_offset": 3.14,
+    "share_already_within_2_of_a_sheet": 0.299,
+    "share_rejected": 0.065
+   },
+   "w039": {
+    "median_abs_offset": 3.43,
+    "share_already_within_2_of_a_sheet": 0.304,
+    "share_rejected": 0.109
+   },
+   "w040": {
+    "median_abs_offset": 2.11,
+    "share_already_within_2_of_a_sheet": 0.429,
+    "share_rejected": 0.119
+   },
+   "w041": {
+    "median_abs_offset": 0.95,
+    "share_already_within_2_of_a_sheet": 0.691,
+    "share_rejected": 0.049
+   },
+   "w042": {
+    "median_abs_offset": 3.14,
+    "share_already_within_2_of_a_sheet": 0.248,
+    "share_rejected": 0.114
+   }
+  },
+  "snap_of_w028_to_w042_note": "the recipe's snap run on w028-w042 into a scratch folder after the verdict, to describe the neighbours; its rows for w034-w036 equal the registered snap's"
+ }
+}
