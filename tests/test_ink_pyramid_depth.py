@@ -981,3 +981,49 @@ def test_a_level_finer_in_z_than_level_0_is_inconsistent():
         _levels(("0", [65, 8, 8], [1, 1, 1]), ("1", [130, 4, 4], [0.5, 2, 2]))
     )
     assert records[1]["status"] == "inconsistent"
+
+
+def _blosc_pyramid(tmp_path):
+    level0 = _pattern(8, 16, 16).astype(np.float32)
+    root = tmp_path / "frames.zarr"
+    group = zarr.open_group(str(root), mode="w")
+    datasets = []
+    for path, array, scale in (
+        ("0", level0, [1.0, 1.0, 1.0]),
+        ("1", _xy_pool(level0, 2).astype(np.float32), [1.0, 2.0, 2.0]),
+    ):
+        group.create_dataset(
+            path, data=array, chunks=(4, 8, 8), compressor=numcodecs.Blosc()
+        )
+        datasets.append(
+            {
+                "path": path,
+                "coordinateTransformations": [{"type": "scale", "scale": scale}],
+            }
+        )
+    group.attrs["multiscales"] = [{"axes": AXES, "datasets": datasets}]
+    return root, ["--compare", "1", "--origin", "0", "0", "--size", "16", "16"]
+
+
+@pytest.mark.parametrize(
+    ("chunk", "edit"),
+    [
+        ("0.0.0", lambda data: b"\x00" + data[1:]),
+        ("0.0.0", lambda data: data[:4] + bytes(4) + data[8:]),
+        ("0.0.0", lambda data: data + b"\x00"),
+        ("1.1.1", lambda data: data[:-1]),
+    ],
+    ids=["unknown_version", "declares_no_bytes", "byte_past_frame", "later_chunk"],
+)
+def test_every_blosc_frame_in_the_window_must_match_its_header(
+    tmp_path, capsys, chunk, edit
+):
+    root, window = _blosc_pyramid(tmp_path)
+    assert main([str(root), *window]) == 0
+    capsys.readouterr()
+    path = root / "0" / chunk
+    path.write_bytes(edit(path.read_bytes()))
+    assert main([str(root), *window]) == 2
+    error = capsys.readouterr().err
+    # Refused by the frame check, before the codec is asked to decode it.
+    assert f"{chunk} does not match the Blosc frame size its header declares" in error
