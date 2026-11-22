@@ -638,3 +638,175 @@ def test_a_build_budget_below_the_manifest_s_geometry_is_refused(source, tmp_pat
     with pytest.raises(ValueError, match="manifest geometry exceeds"):
         importer.build_import(manifest, tmp_path / "out", max_pixels=8 * 10 - 1)
     assert not (tmp_path / "out").exists()
+
+
+def _prepared(source, tmp_path, **kwargs):
+    return importer.build_import(pin(source, tmp_path, **kwargs), tmp_path / "out")
+
+
+def _rewrite_receipt(dest, change):
+    path = dest / "import.json"
+    receipt = json.loads(path.read_bytes())
+    change(receipt)
+    path.write_text(json.dumps(receipt))
+
+
+def _sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_verify_reports_the_fragment_s_geometry_and_the_digests_it_checked(
+    source, tmp_path
+):
+    dest = _prepared(source, tmp_path)
+    report = importer.verify_import(dest)
+    assert report["shape_zyx"] == [3, 8, 10]
+    assert report["ct_chunk_count"] == 3
+    assert report["import_receipt_sha256"] == _sha256(dest / "import.json")
+    assert report["image_sha256"] == {
+        name: _sha256(dest / name) for name in ("inklabels.png", "mask.png")
+    }
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda r: r.update(contract=2),
+        lambda r: r.update(contract=True),
+        lambda r: r.update(decoded_hash_encoding="ZYX, C order, big-endian uint16"),
+        lambda r: r.update(ct_decoded_sha256=0),
+        lambda r: r.update(ct_decoded_sha256=r["ct_decoded_sha256"].upper()),
+    ],
+    ids=["contract", "boolean_contract", "encoding", "digest_type", "digest_form"],
+)
+def test_verify_refuses_a_receipt_of_another_contract_or_hash_form(
+    source, tmp_path, change
+):
+    dest = _prepared(source, tmp_path)
+    _rewrite_receipt(dest, change)
+    with pytest.raises(ValueError, match="unsupported fragment import receipt"):
+        importer.verify_import(dest)
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (
+            lambda r: r["effective_limits"].update(max_threads=1),
+            "invalid receipt resource limits",
+        ),
+        (
+            lambda r: r["effective_limits"].pop("max_pixels"),
+            "invalid receipt resource limits",
+        ),
+        (
+            lambda r: r["effective_limits"].update(max_pixels=importer.MAX_PIXELS + 1),
+            "max_pixels must be <=",
+        ),
+        (
+            lambda r: r["effective_limits"].update(max_volume_bytes=479),
+            "exceeds max_pixels/max_volume_bytes",
+        ),
+        (
+            lambda r: r["plan"]["limits"].update(max_volume_bytes=479),
+            "exceeds max_pixels/max_volume_bytes",
+        ),
+    ],
+    ids=["extra_key", "missing_key", "above_decoder", "saved_budget", "plan_budget"],
+)
+def test_verify_holds_to_the_receipt_s_own_resource_limits(
+    source, tmp_path, change, message
+):
+    dest = _prepared(source, tmp_path)
+    _rewrite_receipt(dest, change)
+    with pytest.raises(ValueError, match=message):
+        importer.verify_import(dest)
+
+
+def test_verify_budgets_admit_exactly_the_fragment_s_geometry(source, tmp_path):
+    dest = _prepared(source, tmp_path)
+    exact = importer.verify_import(dest, max_pixels=80, max_volume_bytes=480)
+    assert exact["status"] == "verified"
+    with pytest.raises(ValueError, match="exceeds max_pixels/max_volume_bytes"):
+        importer.verify_import(dest, max_pixels=79)
+
+
+@pytest.mark.parametrize("recorded", [481, 480.0])
+def test_verify_refuses_a_receipt_whose_chunk_bytes_disagree(
+    source, tmp_path, recorded
+):
+    dest = _prepared(source, tmp_path)
+    _rewrite_receipt(dest, lambda r: r.update(ct_chunk_bytes=recorded))
+    with pytest.raises(ValueError, match="chunk byte count disagrees"):
+        importer.verify_import(dest)
+
+
+def test_verify_refuses_a_slash_separated_ct_store(source, tmp_path):
+    dest = _prepared(source, tmp_path)
+    header_path = dest / "surface_volume.zarr" / ".zarray"
+    header = json.loads(header_path.read_bytes())
+    header["dimension_separator"] = "/"
+    header_path.write_text(json.dumps(header))
+    with pytest.raises(ValueError, match="Zarr metadata differs"):
+        importer.verify_import(dest)
+
+
+@pytest.mark.parametrize("replacement", ["link", "file"])
+def test_verify_needs_the_ct_store_itself_as_a_directory(source, tmp_path, replacement):
+    dest = _prepared(source, tmp_path)
+    store = dest / "surface_volume.zarr"
+    moved = tmp_path / "moved.zarr"
+    store.rename(moved)
+    if replacement == "link":
+        store.symlink_to(moved, target_is_directory=True)
+    else:
+        store.write_bytes(b"")
+    with pytest.raises(ValueError, match="expected the original local CT directory"):
+        importer.verify_import(dest)
+
+
+def test_verify_refuses_a_dangling_mask_link_when_no_mask_was_imported(
+    source, tmp_path
+):
+    dest = _prepared(source, tmp_path, mask=None)
+    assert importer.verify_import(dest)["image_sha256"].keys() == {"inklabels.png"}
+    (dest / "mask.png").symlink_to(tmp_path / "absent.png")
+    with pytest.raises(ValueError, match="unexpected mask.png"):
+        importer.verify_import(dest)
+
+
+def test_verify_refuses_a_label_changed_at_the_same_size(source, tmp_path):
+    dest = _prepared(source, tmp_path)
+    path = dest / "inklabels.png"
+    data = bytearray(path.read_bytes())
+    data[len(data) // 2] ^= 1
+    path.write_bytes(bytes(data))
+    with pytest.raises(ValueError, match="inklabels.png differs from the import"):
+        importer.verify_import(dest)
+
+
+def test_verify_refuses_a_label_of_another_shape_even_with_its_digest_recorded(
+    source, tmp_path
+):
+    dest = _prepared(source, tmp_path)
+    path = dest / "inklabels.png"
+    Image.fromarray(np.full((8, 11), 255, np.uint8)).save(path)
+    data = path.read_bytes()
+    _rewrite_receipt(
+        dest,
+        lambda r: r["plan"]["sources"]["labels"].update(
+            bytes=len(data), sha256=hashlib.sha256(data).hexdigest()
+        ),
+    )
+    with pytest.raises(ValueError, match="inklabels.png shape differs"):
+        importer.verify_import(dest)
+
+
+def test_verify_reads_the_receipt_as_a_finite_json_object(source, tmp_path):
+    dest = _prepared(source, tmp_path)
+    _rewrite_receipt(dest, lambda r: r.update(scope=float("nan")))
+    with pytest.raises(ValueError, match="nonfinite JSON token 'NaN'"):
+        importer.verify_import(dest)
+    (dest / "import.json").write_bytes(b"[]")
+    with pytest.raises(ValueError, match="expected a JSON object"):
+        importer.verify_import(dest)
