@@ -17,7 +17,8 @@ The JSON reports `readiness: "not_checked"` and the identity of the exact captur
 inventory bytes it parsed. Unknown command IDs, empty filter matches and invalid
 inventories exit 2. The CLI does not generate caches or modify the inventory.
 
-The inventory covers 27 reviewed entrypoints/modes, not every script or study.
+The inventory covers 28 reviewed entrypoints and modes, including the prepared
+fragment verifier.
 Individual research reproductions retain their registration-specific instructions.
 Historical sources, archived launchers and measured artifacts remain preserved.
 Run displayed script prefixes from the checkout root with the appropriate
