@@ -73,6 +73,9 @@ VALIDATION_TESTS = [
     "tests/test_check_patch_selection.py",
     "tests/test_check_patch_spatial_balance.py",
     "tests/test_execute_lasagna_pipeline_resume.py",
+    "tests/test_prepare_studio_input.py",
+    "tests/test_prepare_studio_input_zarr.py",
+    "tests/test_prepare_studio_input_model_smoke.py",
     "tests/test_surface_render_contracts.py",
     "tests/test_render_revalidation.py",
     "tests/test_surface_control_v2.py",
@@ -130,6 +133,7 @@ VALIDATION_TESTS = [
     "tests/test_wheel_installation.py",
     "tests/test_training_split.py",
     "tests/test_training_checkpoint_paths.py",
+    "tests/test_first_letters_checkpoint_reporting.py",
     "tests/test_legacy_figure_retirement.py",
     "tests/test_unsupported_launchers.py",
     "tests/test_preserved_source_policy.py",
@@ -192,6 +196,7 @@ VALIDATION_TESTS = [
     # missing.
     "tests/test_validation_suite_covers_the_loop.py",
     "tests/test_validation_runner.py",
+    "tests/test_cpu_validation_guard.py",
     "tests/test_betti_loss.py",
     "tests/test_checkout_imports_its_own_code.py",
     "tests/test_detector_depth_ablation.py",
@@ -222,6 +227,7 @@ VALIDATION_TESTS = [
     "tests/test_review_villa_pin.py",
     "tests/test_ridge_channel_augmentation.py",
     "tests/test_scroll_specific_augmentations.py",
+    "tests/test_augmentation_dependencies.py",
     "tests/test_skeleton_hist_dir.py",
     "tests/test_summarize_villa_evidence_preflight.py",
     "tests/test_topology_threshold.py",
@@ -257,9 +263,11 @@ VALIDATION_TESTS = [
 
 
 PORTABLE_TESTS = [
+    "tests/test_prepare_studio_input.py",
     "tests/test_command_inventory.py",
     "tests/test_training_split.py",
     "tests/test_training_checkpoint_paths.py",
+    "tests/test_first_letters_checkpoint_reporting.py",
     "tests/test_legacy_figure_retirement.py",
     "tests/test_unsupported_launchers.py",
     "tests/test_recover_arm_precheck.py",
@@ -267,6 +275,7 @@ PORTABLE_TESTS = [
     "tests/test_regional_resource_plan.py",
     "tests/test_text_snapshot.py",
     "tests/test_validation_runner.py",
+    "tests/test_cpu_validation_guard.py",
     "tests/test_workspace_status.py",
     "tests/test_supervisor_startup.py",
     "tests/test_loop_lifecycle.py",

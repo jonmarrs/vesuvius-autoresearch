@@ -169,6 +169,13 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     - **The image:** it draws both published rows of letters, more legibly than the ensemble.
     - **Caveat:** Studio was not trained on this scroll, but its training includes a fragment, PHerc0343P, that may
       come from the same roll.
+  * **Our own fit of PHerc. 343, read by the winning reader**
+    ([report](../reports/first_letters_343_studio_own.md)). The mesh step's two windings, read by Studio and carried
+    onto the published surface, give r = 0.90 against Studio's map of that surface (reversed planes 0.18, slid
+    0.31), and draw the same letters.
+    - **What it changes:** the whole route is now checked at two places with known text, a crushed anticlockwise
+      scroll and a clockwise one.
+    - **Cost:** 7 minutes from renders on disk.
   * **Studio's faster default tiling does not reproduce its map**
     ([report](../reports/studio_published_tiling.md)). It is 2.4 times faster, but gives r = 0.94
     against the winner's command, short of the 0.98 line. Band reads keep the winner's command.
@@ -182,6 +189,14 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     - **What it changes:** the band reads keep both, on registered tie-breaks. Each extra snap pass adds about a
       quarter of an hour to a band read. The share of a winding on the predicted sheet did not predict how well
       Studio reads it, within these changes.
+  * **The depth Studio reads at, tested at the known place**
+    ([report](../reports/first_letters_0211_depth_sweep.md)). Studio's 16 planes were moved from 8 layers in to 8
+    layers out of the window the band reads use, on both geometries above. Both read best with no shift: r 0.8247 and
+    0.8135.
+    - **The tolerance:** over ±2 layers r changes by at most 0.041. It halves 6 layers outward and stays above half 8
+      layers inward.
+    - **What it changes:** the band reads keep their window. A uniform depth offset of a layer or more is not what
+      keeps r at 0.82 there.
   * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
     with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
     reader was the missing piece, not the geometry.

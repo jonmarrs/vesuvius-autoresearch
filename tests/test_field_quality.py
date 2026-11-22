@@ -676,3 +676,20 @@ def test_prob_arrays_are_empty_when_prob_not_supplied():
     res = analyse_cube(Skeleton(fibers=[_centred_line()]), dirs, valid, (32, 32, 32))
     assert len(res["prob_at_defined_nodes"]) == 0
     assert len(res["prob_at_undefined_nodes"]) == 0
+
+
+def test_chains_covers_several_pure_cycles_each_from_its_smallest_edge():
+    # Two disjoint rings (listed out of order) beside a short open strand.
+    edges = np.array(
+        [[7, 5], [5, 6], [6, 7], [0, 1], [3, 4], [4, 2], [2, 3]], dtype=int
+    )
+    fib = Fiber(
+        id=1,
+        name="rings",
+        node_ids=np.arange(8),
+        coords=np.arange(24, dtype=float).reshape(8, 3),
+        edges=edges,
+    )
+    chains = _chains(fib)
+    assert chains == [[0, 1], [2, 3, 4, 2], [5, 6, 7, 5]]
+    assert sum(len(c) - 1 for c in chains) == len(edges)

@@ -100,15 +100,28 @@ def main() -> int:
 
     print("\n" + "=" * 60)
     exact = {k: v for k, v in verdict.items() if v}
-    if len(set(exact.values())) > 1:
-        print("THE TREE IS NOT ONE REF. Subtrees match different commits:")
-        for k, v in verdict.items():
-            print(f"  {k:16} {v or 'unmatched'}")
-        print("Any provenance statement must name each subtree separately.")
-    elif exact:
-        print(f"whole tree matches {next(iter(set(exact.values())))}")
+    for sub, commit in verdict.items():
+        print(f"  {sub:16} {commit or 'NONE of the candidates'}")
+    if not verdict:
+        print("No supported local subtrees found; nothing compared.")
+    elif len(exact) < len(verdict):
+        print(
+            f"Only {len(exact)}/{len(verdict)} compared subtrees matched a candidate; "
+            "widen --commits to search further."
+        )
+    elif len(set(exact.values())) > 1:
+        print(
+            "Compared subtrees selected different candidate matches; report each separately."
+        )
     else:
-        print("no candidate commit matched; widen --commits")
+        print(
+            f"All {len(verdict)} compared subtrees match tracked files at "
+            f"{next(iter(set(exact.values())))}"
+        )
+    print(
+        "Only candidate tracked files were compared; "
+        "extra local files and absent local subtrees were not checked."
+    )
     return 0
 
 

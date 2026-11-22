@@ -4,6 +4,8 @@ Chronological log of shift-level intent, configurations, and outcomes from the a
 
 ## How to read this notebook
 
+- **Current handoff (2026-11-22):** [GPU-worker evidence and execution gates](#2026-11-22-gpu-worker-handoff-prize-evidence-and-execution-gates), linked from the [canonical strategy](RESEARCH_STRATEGY.md#operating-workflow--november-22-2026). This is dated intent and decision support, not a new run or authorization to resume held work.
+
 - **Label-quality correction (2026-10-31).** The April 24 entry's “higher-quality” filled labels were not validated as better targets. The June cross-scroll specification records overfilled masks (89–97% ink, against 0.057–0.079 for `inklabels.png`) being set aside. The old editing commands are now retired in favor of [reviewable proposals](LABEL_EDIT_PROPOSALS.md); their existence and filename priority do not establish quality.
 
 - **Cycle-level data lives elsewhere.** This file is intent-level; for the actual per-cycle history, `results.tsv`, `autoresearch_history.json`, and `sprint_logs/sprint_log_YYYY-MM-DD_*_{day,night}_shift.md` are the authoritative records.
@@ -579,6 +581,70 @@ villa PR [#1280](https://github.com/ScrollPrize/villa/pull/1280) (ScrollGT + ren
 - **The methodological lesson.** A tight correspondence residual (7.85 vx) was read as evidence of correct placement. It is not: residual measures *scatter*, placement is a separate property, and the offset is 23–230× the residual. The one check that would have caught this — does agreement peak at zero shift — is two lines of code and was never run. Per [[fiber-tracer-preregistered-negative]]'s lesson, the favourable number (0.70 on the good segment) was the one that should have been audited hardest; instead it was used to *rebut* the concern.
 - **Not yet known:** which artifact is misplaced — `register_run.py`'s obj/tifxyz bridge, or `distill_prep.py`'s `sy = th/lh` teacher crop. Both feed the leaderboard, so it is broken either way, but the fix differs entirely. Also unscanned: rotation/scale error (translation-only search).
 - **Corrections filed** to `PRIZE_FILING_2026-07_SUBMIT.md`, `registered_gt_validation.md`, `registered_gt_heldout_validation.md`, `SURFACE_RENDERER.md`, and the published ScrollGT README + BASELINES. Probe committed as `scripts/probe_registration_offset.py`; report `reports/detector/registration_offset_2026-08-07.md`.
+
+---
+
+## [2026-11-22] GPU-worker handoff: prize evidence and execution gates
+
+**Status:** PREPARED HANDOFF; no experiment, submission or GPU launch performed for this entry.
+**As of:** November 22, 2026 UTC. Recheck upstream heads, ownership, rules and available resources before action.
+
+### Purpose and existing records
+
+Carry the [strategy's operating workflow](RESEARCH_STRATEGY.md#operating-workflow--november-22-2026)
+into the existing engineering and GPU-worker lanes. Use the
+[roadmap](PRIZE_ROADMAP_2026-11-12.md), [November 16 review](STRATEGY_REVIEW_2026-11-16.md)
+and [November filing draft](PRIZE_FILING_2026-11_DRAFT.md) together; this entry is not a competing plan.
+The [findings index](../FINDINGS.md), referenced registrations and frozen reports remain the result record.
+For a newly authorized run, link its existing registration or preregister the comparison before execution,
+then add the resulting report/manifest and hashes here. The notebook records intent and decisions;
+the [experiment-report conventions](EXPERIMENT_REPORTS.md) distinguish those from measured results.
+Use the [Villa report checklist for agents](RESEARCH_STRATEGY.md#villa-report-checklist-for-agents)
+for the upstream lab/test evidence, retaining the existing required report sections and checks.
+Do not retrofit new GPU-hour fields or scientific claims into the frozen loop TSV schema.
+
+### Monthly Progress Prize handoff
+
+The [official November Progress deadline](https://scrollprize.org/prizes#progress-prizes),
+checked November 22, is **November 30, 2026, 11:59 p.m. Pacific**.
+The prepared November filing draft is **not submitted as of November 22**. Filing is an owner decision;
+this entry does not submit it or predict an award.
+
+| Lane | Evidence already available | Next gate and limits |
+| --- | --- | --- |
+| November: Villa [#2258](https://github.com/ScrollPrize/villa/pull/2258) | Merged November 1 at [bf4392a328f293b8e11d0c95083bae731ef7fd08](https://github.com/ScrollPrize/villa/commit/bf4392a328f293b8e11d0c95083bae731ef7fd08). On the public Scroll 1 mask `s1_00497_01497_03997_256`, fractional spacing moves the third sampled plane from z104 to z105 and changes the seed count 1,589 → 1,590. At the default 64-voxel spacing, positions, directions, values, families and plane names match. See the [preserved CPU evidence](../reports/villa_fractional_plane_spacing_2026-10-20.md). | Supporting CPU seed-placement evidence only; no demonstrated tracing or reading gain. An optional bounded paired trace comparison requires separate authorization, exact source/input identities, matching baseline settings, controls and the chosen implementation's environment/native prerequisites. Use the resources that implementation requires; reserve the GPU only if it needs one and the card is free. It is not launched or promised here. |
+| Next free Villa slot: measured seam trim and cross-block deduplication | Existing findings 106–109 and the [trim draft](VILLA_DRAFT_afv_generator_seam_trim.md), [duplicate report](../reports/afv_generator_cross_block_duplicates.md) and [confirmation](../reports/afv_generator_seam_confirmation.md). The prior handoff records an exact apply check passing on Villa [c8f3ba45](https://github.com/ScrollPrize/villa/commit/c8f3ba45304f0a317a49a155929e30d294f201eb); this docs change did not repeat it. | Recheck current overlap first. [#2434](https://github.com/ScrollPrize/villa/pull/2434) remains separately owned; reconcile its test overlap at `test_stitch.py:56` without duplicating its shared-endpoint join fix. Applyability is not runtime validation: fresh native regressions on a provenance-pinned public crop remain required. Preserve multi-block scope, one-block no-effect, coverage costs and original verdicts. |
+| Villa [#2501](https://github.com/ScrollPrize/villa/pull/2501): native pyramid validation | Open at checked head [baccae69c20f958f8a128a3e668df5f1afc78a01](https://github.com/ScrollPrize/villa/commit/baccae69c20f958f8a128a3e668df5f1afc78a01). Its Python/metadata and published pixel evidence are distinct from native validation. The PR explicitly leaves the compositor and level-3 occupancy scan outside its current protection. | Pin the exact checkout and matching Python/native reader. Run the relevant Python reader and compositor regressions, then a bounded public crop retaining all **65 z planes**, with source URI, license, origin/shape, metadata and hashes pinned; compare published levels **2 and 3** with that full-depth reference. Do not replace the native or pixel check with metadata-only fixtures. No checkout, native test or crop download is performed by this entry. |
+
+Keep the three-open-Villa-PR cap, existing two-code-fix-PRs-per-week limit and owner posting gates.
+An occupied slot or another contributor's active patch is a reason to coordinate through the existing owner,
+not to open a duplicate. Recheck exact merge commits and dates before marking an open contribution merged.
+Bundle shipped small fixes for the existing monthly owner review; the filing record must separate local,
+posted, merged, adopted and validated work.
+
+### GPU campaign and read-only scorecard gate
+
+One RTX 4090 with 24 GB VRAM means **one authorized GPU campaign at a time**. First Letters retains priority;
+Title is opportunistic and the Grand Prize is a possible team contribution. The card's availability and all
+existing execution, native-environment, model/checkpoint and publication holds must be resolved by the owner
+before a run. Preserve preregistration, positive/negative controls, clean held-out evaluation and the
+[existing continue/stop criteria](RESEARCH_STRATEGY.md#the-first-letters-campaign).
+
+At the existing **read-only weekly scorecard** gate, present decision evidence rather than launching work:
+
+- Record actual GPU hours per run/campaign, source and data identities, baseline/comparison settings and
+  artifact hashes. Actual hours are unknown for any run not measured; do not substitute an estimate or zero.
+- Include repeat trials, negative and failed trials, control failures and resource-limit exits. Keep the
+  denominator and uncertainty visible instead of reporting only the best trial.
+- State incremental validated evidence against the matched baseline, with engineering correctness,
+  native execution, geometry metrics and reading evidence separated. A passing contract or a merge is not a reading gain.
+- Recommend continue, stop or owner investigation against the existing registered gates and resource budget.
+  Further spend or execution needs the existing owner decision; a scorecard is not an automatic promotion.
+
+Possible unpublished letters, candidate locations, renders and predictions remain private until the existing
+disclosure conditions are met. Keep this public handoff to licensed public inputs, source/evidence links and
+gates; exclude personal/payment information and machine-local paths. No new schedule, task or spending
+authority is created. All historical entries and studies retain their original wording and corrections.
 
 ---
 

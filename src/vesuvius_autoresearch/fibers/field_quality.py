@@ -415,7 +415,7 @@ def _chains(fiber: Fiber) -> list[list[int]]:
     def walk_from(start: int, first: int) -> list[int]:
         chain = [start, first]
         visited.add(edge_key(start, first))
-        prev, cur = start, first
+        cur = first
         while degree.get(cur, 0) == 2:
             nxts = [x for x in adj[cur] if edge_key(cur, x) not in visited]
             if not nxts:
@@ -423,7 +423,7 @@ def _chains(fiber: Fiber) -> list[list[int]]:
             nxt = nxts[0]
             visited.add(edge_key(cur, nxt))
             chain.append(nxt)
-            prev, cur = cur, nxt
+            cur = nxt
         return chain
 
     specials = [i for i in range(n) if degree.get(i, 0) != 2]
@@ -434,11 +434,11 @@ def _chains(fiber: Fiber) -> list[list[int]]:
             chains.append(walk_from(s, nbr))
 
     # Any edges not yet claimed belong to pure cycles (no special node at all).
-    remaining = sorted(all_edges - visited)
-    while remaining:
-        a, b = remaining[0]
-        chains.append(walk_from(a, b))
-        remaining = sorted(all_edges - visited)
+    # Taking them in sorted order, skipping edges a previous walk claimed, starts
+    # each cycle at its smallest unclaimed edge without re-sorting per cycle.
+    for a, b in sorted(all_edges - visited):
+        if (a, b) not in visited:
+            chains.append(walk_from(a, b))
 
     for i in range(n):
         if degree.get(i, 0) == 0:
