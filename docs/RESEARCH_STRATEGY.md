@@ -301,6 +301,13 @@ same route on the fit's grid (`DENSE_READS_SAME`, as predicted; change −0.0099
 at the median within 2 voxels. So that geometric gain did not buy a better read here. The band reads keep the denser
 snap, as registered, on geometry alone.
 
+**Studio skips the windows with no CT and gives the same map in under 0.6 of the time (November 21).** Run with
+the winner's command, the winner's loop without those windows gives maps within 0.00075 of the full loop's on two
+of PHerc. 0826's windings and PHerc. 211's input. No pixel crosses 0.5, and the full loop's maps are identical to
+the references. The skip took 0.5918 and 0.5781 of the time (`SKIP_ADOPTED`, as predicted;
+[report](../reports/studio_skip_empty_windows.md), finding 132). Band reads registered after it use the skip, so
+Studio, the slowest step, shrinks by about two fifths.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
