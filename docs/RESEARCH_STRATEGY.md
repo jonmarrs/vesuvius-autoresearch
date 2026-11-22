@@ -110,6 +110,29 @@ before/after behavior and limits. These are the existing weekly and owner gates,
 a new quota to fill. The monthly and milestone tracks share failures and evidence;
 neither bypasses publication holds, competing ownership or validation requirements.
 
+### Villa report checklist for agents
+
+For a Villa-facing lab/test report, use the [existing test-report sections](../.github/TEST_REPORT_TEMPLATE.md)
+with the fields below. Keep one evidence record and link it from the notebook and filing draft as appropriate.
+
+- **Issue and real user impact:** link the issue, identify the actual workflow and expected behavior,
+  and explain the observed failure, who it affects and the useful outcome the change should enable.
+- **Pinned comparison:** name exact baseline and candidate commits and relevant dependency/native-reader
+  versions. Use the identical licensed public input in both arms; record source URL/version, SHA-256,
+  crop origin/shape, axes and pyramid level where applicable. State any controlled difference explicitly.
+- **Reproduction:** give runnable commands, settings, seeds and resource bounds for both arms, plus
+  the expected and observed before/after behavior. Link captured outputs/logs and their hashes;
+  report the measured useful outcome with units, scope and any cost or regression.
+- **Checks and attribution:** list passed, failed, skipped and unrun required checks separately.
+  Distinguish synthetic fixtures from real inputs, Python metadata checks from native pixel/reader
+  execution, and reported evidence from tests independently run by the reviewer. State who ran what.
+- **Limits and decision:** state what the result establishes and what remains unverified, including
+  whether tracing or reading was evaluated. Preserve the owner, overlap and publication gates.
+
+Retain all required checks. Link existing receipts once and reuse evidence only for its verified
+commits, inputs and settings; repeat validation when those change or a required gate calls for it.
+Omit duplicate screenshots, logs and restatements that add no distinct evidence.
+
 ## Current rules and our local experimental contracts
 
 The [official prize rules][prizes], read at Villa commit
