@@ -294,6 +294,13 @@ are stacked, all inside w037; and the rendered share within 2 voxels of the pred
 inner third of radii to 0.71 at the outer. That fits finding 130, though another scroll is not a controlled
 comparison. No automatic verdict was registered: the images stay on this machine and the owner reads them.
 
+**The twice-denser snap reads the same as the fit's own grid at the known place (November 21).** At PHerc. 211's
+winner surface, finding 121's four windings subdivided twice before the snap give r 0.8168 against 0.8267 for the
+same route on the fit's grid (`DENSE_READS_SAME`, as predicted; change −0.0099, margin 0.02;
+[report](../reports/first_letters_0211_dense_read.md), finding 131). Yet they sit more on the predicted sheet: +0.0343
+at the median within 2 voxels. So that geometric gain did not buy a better read here. The band reads keep the denser
+snap, as registered, on geometry alone.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
