@@ -63,15 +63,16 @@ def read_volume_mask(cfg, fragment_id):
 
     Return padded arrays and the original (height, width). Training adds ink
     labels through read_image_mask; evaluation loads annotations separately after
-    inference. Keep clipping and padding identical to the training recipe.
+    inference. Keep clipping and usable windows identical to the training recipe;
+    pad only to the next tile boundary and retain one final CT stack.
     """
     cfg.validate()
     prediction_stem(fragment_id)
     root = cfg.data_root
-    images = []
+    images: np.ndarray | None = None
     pad0 = pad1 = 0
     original_shape: tuple[int, ...] | None = None
-    for i in range(cfg.start_idx, cfg.end_idx):
+    for channel, i in enumerate(range(cfg.start_idx, cfg.end_idx)):
         p = os.path.join(root, fragment_id, "layers", f"{i:02d}.tif")
         image = cv2.imread(p, 0)
         if image is None:
@@ -81,12 +82,15 @@ def read_volume_mask(cfg, fragment_id):
                 f"layer shape mismatch: {p} has {image.shape}, expected {original_shape}"
             )
         original_shape = image.shape
-        pad0 = cfg.tile_size - image.shape[0] % cfg.tile_size
-        pad1 = cfg.tile_size - image.shape[1] % cfg.tile_size
-        image = np.pad(image, [(0, pad0), (0, pad1)], constant_values=0)
-        image = np.clip(image, 0, 200)
-        images.append(image)
-    images = np.stack(images, axis=2)
+        if images is None:
+            pad0 = -image.shape[0] % cfg.tile_size
+            pad1 = -image.shape[1] % cfg.tile_size
+            images = np.zeros(
+                (image.shape[0] + pad0, image.shape[1] + pad1, cfg.in_chans),
+                dtype=image.dtype,
+            )
+        # Avoid retaining every padded layer alongside a second stacked volume.
+        images[: image.shape[0], : image.shape[1], channel] = np.clip(image, 0, 200)
     mask_path = os.path.join(root, fragment_id, f"{fragment_id}_mask.png")
     frag_mask = cv2.imread(mask_path, 0)
     if frag_mask is None:

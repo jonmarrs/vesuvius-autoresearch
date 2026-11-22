@@ -1,0 +1,189 @@
+{
+ "finding": 122,
+ "registration": "docs/preregistration/2026-11-16_first_letters_0211_gp_timesformer.md",
+ "registration_commit": "a5ccdf13",
+ "surface": "PHerc0211-crop1711-lines123-manual-20261028-1316-legacyuv20-v9",
+ "checkpoint": {
+  "name": "timesformer_wild15_20230702185753_0_fr_i3depoch=12.ckpt",
+  "sha256": "93f56e569e1f4c66b71112c41985b64445b5245ff1fb610e44f495c2a0aee36f",
+  "repository": "github.com/younader/Vesuvius-Grandprize-Winner (MIT)",
+  "pickle_imports": {
+   "archive/data.pkl": {
+    "collections.OrderedDict": 1,
+    "torch._utils._rebuild_tensor_v2": 1,
+    "torch.FloatStorage": 1,
+    "torch.optim.lr_scheduler.CosineAnnealingLR": 1,
+    "torch.optim.adamw.AdamW": 1,
+    "collections.defaultdict": 1,
+    "__builtin__.dict": 1,
+    "torch._utils._rebuild_parameter": 1
+   }
+  },
+  "audit_passes": true
+ },
+ "steps": {
+  "audit": {
+   "exit": 0,
+   "seconds": 0
+  },
+  "checksum": {
+   "exit": 0,
+   "seconds": 1
+  },
+  "compare": {
+   "exit": 0,
+   "seconds": 37
+  },
+  "infer_v9fwd": {
+   "exit": 0,
+   "seconds": 40
+  },
+  "infer_v9rev": {
+   "exit": 0,
+   "seconds": 37
+  },
+  "segments": {
+   "exit": 0,
+   "seconds": 37
+  }
+ },
+ "records_sha256": {
+  "work/gp_compare.json": "99e91e88b08f8a09eda102666cafc0cda092290fd7343e9c219e8ab0db8cd771"
+ },
+ "alignment": {
+  "layer": 33,
+  "r_at_zero_by_layer": {
+   "25": -0.0375,
+   "26": -0.0729,
+   "27": -0.1181,
+   "28": -0.1422,
+   "29": -0.0892,
+   "30": 0.0808,
+   "31": 0.3608,
+   "32": 0.6681,
+   "33": 0.8128,
+   "34": 0.7211,
+   "35": 0.506,
+   "36": 0.2782,
+   "37": 0.1136,
+   "38": 0.0339,
+   "39": 0.0114,
+   "40": 0.0087,
+   "41": 0.0058
+  },
+  "shift_pixels": [
+   0,
+   0
+  ],
+  "r_at_shift": 0.8128,
+  "aligned": true
+ },
+ "shift_applied_pixels": [
+  0,
+  0
+ ],
+ "windows": {
+  "v9fwd": 18,
+  "v9rev": 17
+ },
+ "reading_side": "v9rev",
+ "mask_cells": 550482,
+ "cells": 550480,
+ "cell_share": 1.0,
+ "winner_ink_cells": 121191,
+ "registered": {
+  "ensemble": {
+   "r": 0.53,
+   "control_wrong_side": -0.0059,
+   "control_slid": {
+    "down": 0.093,
+    "up": 0.0838,
+    "right": 0.0274,
+    "left": 0.0402,
+    "largest_absolute": 0.093
+   },
+   "overlap": 0.5076,
+   "control_overlap_slid": {
+    "down": 0.3315,
+    "up": 0.3177,
+    "right": 0.3023,
+    "left": 0.3193,
+    "largest": 0.3315
+   }
+  },
+  "gp_timesformer": {
+   "r": 0.237,
+   "control_wrong_side": -0.0035,
+   "control_slid": {
+    "down": 0.0382,
+    "up": 0.0501,
+    "right": 0.0215,
+    "left": 0.0051,
+    "largest_absolute": 0.0501
+   },
+   "overlap": 0.3652,
+   "control_overlap_slid": {
+    "down": 0.2851,
+    "up": 0.2804,
+    "right": 0.2865,
+    "left": 0.2596,
+    "largest": 0.2865
+   }
+  },
+  "delta_r": -0.293,
+  "delta_overlap": -0.1424,
+  "margins": {
+   "r": 0.1,
+   "overlap": 0.05
+  }
+ },
+ "verdict": "GP_FARTHER",
+ "predicted": "GP_FARTHER",
+ "described": {
+  "reader_v3": {
+   "r": 0.6271,
+   "control_wrong_side": -0.0194,
+   "control_slid": {
+    "down": 0.1121,
+    "up": 0.1531,
+    "right": 0.0158,
+    "left": 0.0507,
+    "largest_absolute": 0.1531
+   },
+   "overlap": 0.6095,
+   "control_overlap_slid": {
+    "down": 0.3715,
+    "up": 0.3909,
+    "right": 0.3514,
+    "left": 0.376,
+    "largest": 0.3909
+   }
+  },
+  "forward_order_as_reading_side": {
+   "r": -0.0035,
+   "control_wrong_side": 0.237,
+   "control_slid": {
+    "down": -0.0206,
+    "up": -0.0257,
+    "right": 0.023,
+    "left": 0.0169,
+    "largest_absolute": 0.0257
+   },
+   "overlap": 0.212,
+   "control_overlap_slid": {
+    "down": 0.2234,
+    "up": 0.1989,
+    "right": 0.2269,
+    "left": 0.227,
+    "largest": 0.227
+   }
+  },
+  "r_difference_bootstrap": {
+   "blocks": 168,
+   "low": -0.3424,
+   "high": -0.2449
+  },
+  "gp_r_with_ensemble": 0.1637,
+  "gp_r_with_reader_v3": 0.2436
+ }
+}

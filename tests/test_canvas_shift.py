@@ -20,6 +20,8 @@ import pytest
 sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data.canvas_shift import (
     CanvasShiftNotLocated,
+    _masked_ncc,
+    _parabola,
     correct_canvas,
     fit_shift,
     level0_centers,
@@ -599,6 +601,27 @@ def test_a_dropped_cross_term_is_refit_into_the_intercept():
     assert fitted["ay"] == pytest.approx(5.05)
     assert fitted["ax"] == pytest.approx(1.0)
     assert fitted["sx"] == 0.0 and fitted["cx"] == 0.0
+
+
+def test_a_sub_pixel_drift_collapses_even_after_a_term_is_dropped():
+    """The one-pixel rule applies to the model that is returned, not only to the full fit."""
+    points = [(0.0, 0.0), (0.0, 100.0), (100.0, 0.0), (100.0, 100.0)]
+
+    def regions(by, bx):
+        return [{"y": y, "x": x, "dy": by * y + bx * x, "dx": 0.0} for y, x in points]
+
+    # 0.95 px across y and 0.20 px across x: the full fit spans 1.15 px, and the x term is under the floor
+    fitted = fit_shift(regions(0.0095, 0.002))
+    assert fitted["model"] == "constant"
+    assert fitted["sy"] == 0.0 and fitted["cy"] == 0.0
+    assert fitted["ay"] == pytest.approx(0.575)
+    # the same 0.95 px with no x term was already a constant
+    assert fit_shift(regions(0.0095, 0.0))["model"] == "constant"
+    # 1.20 px across y stays a line once the x term is dropped
+    kept = fit_shift(regions(0.012, 0.002))
+    assert kept["model"] == "linear" and kept["cy"] == 0.0
+    assert kept["sy"] == pytest.approx(0.012)
+    assert kept["ay"] == pytest.approx(0.1)
 
 
 def test_nonzero_cross_terms_round_trip_through_the_remap():
@@ -1272,3 +1295,144 @@ def test_trilinear_does_not_read_a_zero_weight_neighbour():
     points = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.0, 1.0, 1.0]])
     out = sample_volume_trilinear(volume, points)
     assert out[0] == 0 and np.isnan(out[1]) and out[2] == 3
+
+
+def _noise(shape, seed):
+    return np.random.default_rng(seed).normal(size=shape).astype(np.float32)
+
+
+def test_a_weak_match_is_not_located_at_the_default_threshold():
+    """A peak of about 0.4 is refused at the default 0.5 and accepted when 0.3 is asked for."""
+    surface = _noise((160, 160), 1)
+    shifted = np.roll(
+        surface, (-3, 2), axis=(0, 1)
+    )  # canvas (y, x) is surface (y + 3, x - 2)
+    canvas = 0.4 * shifted + 0.9165 * _noise((160, 160), 2)
+    window = (40, 40, 64, 64)
+    with pytest.raises(CanvasShiftNotLocated, match="below 0.5"):
+        measure_shift(surface, canvas, window, max_shift=8, highpass_size=0)
+    found = measure_shift(
+        surface, canvas, window, max_shift=8, highpass_size=0, min_ncc=0.3
+    )
+    assert 0.3 < found["ncc"] < 0.5
+    assert found["dy"] == pytest.approx(3.0, abs=0.5)
+    assert found["dx"] == pytest.approx(-2.0, abs=0.5)
+
+
+def _overlap_response(finite_in_window, overlap):
+    """The response at zero shift when OVERLAP of the window's finite pixels meet finite surface."""
+    window = _noise((20, 20), 3)
+    window.flat[finite_in_window:] = np.nan
+    search = np.full((24, 24), np.nan, np.float32)
+    patch = window.copy()
+    patch.flat[overlap:] = np.nan
+    search[2:22, 2:22] = patch
+    return _masked_ncc(window, search, 2)[2, 2]
+
+
+def test_a_shift_is_scored_only_on_enough_finite_overlap():
+    """Half the window's finite pixels and at least 100 of them; a window under 100 needs only half."""
+    assert _overlap_response(400, 200) == pytest.approx(1.0)
+    assert np.isnan(_overlap_response(400, 199))
+    assert _overlap_response(150, 100) == pytest.approx(1.0)
+    assert np.isnan(_overlap_response(150, 99))
+    assert _overlap_response(80, 40) == pytest.approx(1.0)
+    assert np.isnan(_overlap_response(80, 39))
+
+
+def test_the_correlation_ignores_each_image_s_own_level():
+    window = _noise((20, 20), 4)
+    search = _noise((24, 24), 5)
+    search[3:23, 1:21] = window
+    response = _masked_ncc(window + 100.0, search + 5.0, 2)
+    assert response[3, 1] == pytest.approx(1.0, abs=1e-4)
+    assert np.nanargmax(response) == 3 * 5 + 1
+
+
+def test_the_sub_pixel_step_is_a_parabola_s_vertex_and_at_most_one_pixel():
+    assert _parabola(-0.5625, 0.9375, 0.4375) == pytest.approx(0.25)
+    assert _parabola(0.4375, 0.9375, -0.5625) == pytest.approx(-0.25)
+    assert _parabola(0.5, 1.0, 0.5) == 0.0
+    assert _parabola(1.0, 1.0, 1.0) == 0.0
+    assert _parabola(float("nan"), 1.0, 0.5) == 0.0
+    # not a peak: the vertex is far away, and the step is held to one pixel
+    assert _parabola(0.0, 1.0, 1.9) == 1.0
+    assert _parabola(1.9, 1.0, 0.0) == -1.0
+
+
+@pytest.mark.parametrize(
+    "window",
+    [(7, 40, 32, 32), (40, 7, 32, 32), (121, 40, 32, 32), (40, 121, 32, 32)],
+)
+def test_a_window_within_max_shift_of_any_surface_edge_is_refused(window):
+    image = _noise((160, 160), 6)
+    with pytest.raises(ValueError, match="max_shift pixels inside the surface"):
+        measure_shift(image, image, window, max_shift=8)
+    y, x = (40 if v in (7, 121) else v for v in window[:2])
+    inside = measure_shift(image, image, (y, x, 32, 32), max_shift=8)
+    assert inside["dy"] == pytest.approx(0.0, abs=1e-3)
+    assert inside["dx"] == pytest.approx(0.0, abs=1e-3)
+
+
+@pytest.mark.parametrize("window", [(40, 40, 1, 32), (40, 40, 32, 1)])
+def test_a_window_one_pixel_wide_is_refused(window):
+    image = _noise((160, 160), 7)
+    with pytest.raises(ValueError, match="at least 2 pixels on each side"):
+        measure_shift(image, image, window, max_shift=8)
+
+
+_GRID = [(0.0, 0.0), (0.0, 100.0), (100.0, 0.0), (100.0, 100.0)]
+
+
+def test_a_drift_under_one_pixel_is_a_constant_for_two_windows_and_for_four():
+    two = fit_shift(
+        [
+            {"y": 0.0, "x": 0.0, "dy": 2.0, "dx": 0.0},
+            {"y": 100.0, "x": 0.0, "dy": 2.7, "dx": 0.0},
+        ]
+    )
+    assert two["model"] == "constant" and two["ay"] == pytest.approx(2.35)
+    four = fit_shift([{"y": y, "x": x, "dy": 0.007 * y, "dx": 0.0} for y, x in _GRID])
+    assert four["model"] == "constant" and four["ay"] == pytest.approx(0.35)
+    assert four["sy"] == 0.0 and four["cy"] == 0.0
+    # each term is over the 0.25 px floor, and together they wander by 0.8 px
+    both = fit_shift(
+        [{"y": y, "x": x, "dy": 0.004 * y + 0.004 * x, "dx": 0.0} for y, x in _GRID]
+    )
+    assert both["model"] == "constant" and both["ay"] == pytest.approx(0.4)
+    assert both["sy"] == 0.0 and both["cy"] == 0.0
+
+
+def test_a_fitted_slope_of_half_a_pixel_per_pixel_is_not_a_canvas_residual():
+    with pytest.raises(ValueError, match=r"fitted y slope .* is outside \+/-0.5"):
+        fit_shift([{"y": y, "x": x, "dy": 0.6 * y, "dx": 0.0} for y, x in _GRID])
+    with pytest.raises(ValueError, match=r"fitted x slope .* is outside \+/-0.5"):
+        fit_shift([{"y": y, "x": x, "dy": 0.0, "dx": 0.6 * x} for y, x in _GRID])
+    # two windows fit each axis on its own, under the same bound
+    pair = [
+        {"y": 0.0, "x": 0.0, "dy": 0.0, "dx": 0.0},
+        {"y": 100.0, "x": 0.0, "dy": 60.0, "dx": 0.0},
+    ]
+    with pytest.raises(ValueError, match=r"fitted slope .* is outside \+/-0.5"):
+        fit_shift(pair)
+
+
+def test_centres_near_a_tilted_line_get_the_per_axis_fit():
+    """r squared is 0.94 here: over the 0.9 threshold, and well under 1."""
+    centres = [(0.0, 0.0), (100.0, 100.0), (200.0, 140.0)]
+    ys, xs = np.array(centres).T
+    r = np.corrcoef(ys, xs)[0, 1]
+    assert 0.9 < r * r < 0.99
+    with pytest.warns(UserWarning, match="each axis is fit on its own"):
+        fitted = fit_shift(
+            [{"y": y, "x": x, "dy": 0.02 * y, "dx": 0.0} for y, x in centres]
+        )
+    assert fitted["sy"] == pytest.approx(0.02) and fitted["cy"] == 0.0
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+@pytest.mark.parametrize("key", ["y", "x", "dy", "dx"])
+def test_a_region_with_a_non_finite_number_is_refused(key, bad):
+    region = {"y": 1.0, "x": 2.0, "dy": 0.5, "dx": -0.5, key: bad}
+    with pytest.raises(ValueError, match="must be finite"):
+        fit_shift([region])

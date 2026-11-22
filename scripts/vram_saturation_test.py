@@ -1,108 +1,142 @@
 #!/usr/bin/env python3
-"""
-Vesuvius Autoresearch: 24GB VRAM Saturation Test (Sprint 004)
-Automates the search for the maximum patch_size and batch_size without hitting OOM.
+"""Probe scratch gated_unet FP16 forward/backward memory on a CUDA device.
 
-Constraints:
-  Any evolved config with `patch_size > 64` must be tagged as non-submittable
-  per the milestone prize rules (<= 0.5x0.5 mm window).
-
-Usage:
-  uv run scripts/vram_saturation_test.py
+This is a search over tested sizes, not a full-training capacity estimate.
+There is no optimizer, data loader, checkpoint load or prize-eligibility gate.
+Use an idle device; allocator peaks cover this process's allocated tensors.
 """
 
+import argparse
 import gc
+import sys
+from pathlib import Path
 
-import torch
+ROOT = Path(__file__).resolve().parents[1]
+if __name__ == "__main__":
+    sys.path.insert(0, str(ROOT))
 
-from vesuvius_model import InkDetectorOptimized, VesuviusConfig
+BATCH_SIZES = (8, 16, 32, 64, 128)
+PATCH_SIZES = (64, 96, 128, 192, 256, 384)
 
 
-def check_memory(patch_size, batch_size, num_layers=16, base_feat=64):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if device.type != "cuda":
-        print("CUDA not available. Simulation only.")
-        return True
+def _runtime():
+    import torch
 
-    print(
-        f"Testing: patch_size={patch_size}, batch_size={batch_size}, num_layers={num_layers}"
+    return torch
+
+
+def _cuda_device(runtime, device):
+    target = runtime.device(device)
+    if target.type != "cuda":
+        raise ValueError("device must be cuda or cuda:N")
+    if not runtime.cuda.is_available():
+        raise RuntimeError("CUDA is unavailable; no memory measurement was run")
+    return target
+
+
+def _run_trial(runtime, device, patch_size, batch_size, num_layers, base_feat):
+    import vesuvius_model
+
+    if Path(vesuvius_model.__file__).resolve() != ROOT / "vesuvius_model.py":
+        raise RuntimeError("probe model came from another checkout")
+    config = vesuvius_model.VesuviusConfig(
+        patch_size=patch_size,
+        batch_size=batch_size,
+        num_layers=num_layers,
+        base_feat=base_feat,
+        in_channels=1,
     )
+    model = vesuvius_model.InkDetectorOptimized(config).to(device).train()
+    inputs = runtime.randn(
+        batch_size, 1, num_layers, patch_size, patch_size, device=device
+    )
+    with runtime.amp.autocast("cuda"):
+        outputs = model(inputs, return_fiber=True, return_qc=True)
+        loss = sum(output.float().mean() for output in outputs)
+    if not runtime.isfinite(loss).item():
+        raise RuntimeError("probe produced a nonfinite loss")
+    loss.backward()
 
-    try:
-        # Clear cache before test
-        torch.cuda.empty_cache()
+
+def check_memory(patch_size, batch_size, num_layers=16, base_feat=64, *, device="cuda"):
+    """Return a measured pass/OOM result; unavailable CUDA and other failures raise."""
+    for name, value in (
+        ("patch_size", patch_size),
+        ("batch_size", batch_size),
+        ("num_layers", num_layers),
+        ("base_feat", base_feat),
+    ):
+        if type(value) is not int or value < 1:
+            raise ValueError(f"{name} must be a positive integer")
+    runtime = _runtime()
+    target = _cuda_device(runtime, device)
+    print(
+        f"Testing scratch gated_unet: patch_size={patch_size}, batch_size={batch_size}, num_layers={num_layers}, base_feat={base_feat}, device={target}"
+    )
+    # Context matters: empty_cache() otherwise acts on the caller's current GPU.
+    with runtime.cuda.device(target):
         gc.collect()
-
-        config = VesuviusConfig(
-            patch_size=patch_size,
-            num_layers=num_layers,
-            base_feat=base_feat,
-            in_channels=1,
-        )
-        model = InkDetectorOptimized(config).to(device)
-        model.train()  # Set to train to allocate gradient memory
-
-        # Create dummy data
-        x = torch.randn(
-            batch_size, 1, num_layers, patch_size, patch_size, device=device
-        )
-
-        # Forward pass
-        with torch.amp.autocast("cuda"):
-            out_ink, out_fiber, out_qc = model(x, return_fiber=True, return_qc=True)
-
-        # Backward pass simulation
-        loss = out_ink.sum() + out_fiber.sum() + out_qc.sum()
-        loss.backward()
-
-        # Check peak memory
-        peak_mb = torch.cuda.max_memory_allocated(device) / (1024**2)
-        print(f"  Success! Peak VRAM: {peak_mb:.2f} MB")
-
-        # Cleanup
-        del model, x, out_ink, out_fiber, out_qc, loss
-        torch.cuda.empty_cache()
-        return True
-
-    except RuntimeError as e:
-        if "out of memory" in str(e).lower():
-            print(f"  OOM! Failed at patch_size={patch_size}, batch_size={batch_size}")
-            torch.cuda.empty_cache()
-            return False
-        else:
-            raise e
+        runtime.cuda.empty_cache()
+        runtime.cuda.reset_peak_memory_stats(target)
+        try:
+            try:
+                # A separate frame lets failed trial tensors go out of scope
+                # when the OOM handler ends, before cleanup and another trial.
+                _run_trial(
+                    runtime, target, patch_size, batch_size, num_layers, base_feat
+                )
+                runtime.cuda.synchronize(target)
+                peak = runtime.cuda.max_memory_allocated(target) / 1024**2
+            except runtime.cuda.OutOfMemoryError:
+                passed = False
+            else:
+                passed = True
+        finally:
+            gc.collect()
+            runtime.cuda.empty_cache()
+    if passed:
+        print(f"  PASS: peak allocated {peak:.2f} MiB")
+    else:
+        print("  OOM: this tested configuration did not fit")
+    return passed
 
 
-def main():
-    print("--- Starting 24GB VRAM Saturation Search ---")
-    print(
-        "Note: The competition strictly limits window sizes to 64x64 for submissions."
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--device", default="cuda", help="CUDA device, for example cuda:0"
     )
-    print("Configs > 64 will be flagged as non-submittable.")
-
-    # We test increasing batch sizes for patch_size=64
-    print("\nPhase 1: Max Batch Size for patch_size=64 (Submittable)")
-    best_batch_size_64 = None
-    for batch_size in [8, 16, 32, 64, 128]:
-        if check_memory(patch_size=64, batch_size=batch_size):
-            best_batch_size_64 = batch_size
-        else:
-            break
-    print(f"=> Best submittable config: patch_size=64, batch_size={best_batch_size_64}")
-
-    # We test increasing patch sizes for batch_size=4 (Research only)
-    print("\nPhase 2: Max Patch Size for batch_size=4 (Research Only)")
-    best_patch_size = None
-    for patch_size in [64, 96, 128, 192, 256, 384]:
-        if check_memory(patch_size=patch_size, batch_size=4):
-            best_patch_size = patch_size
-        else:
-            break
-
-    print(f"=> Best research config: patch_size={best_patch_size}, batch_size=4")
-
-    print("\nVRAM Saturation Search Complete.")
+    args = parser.parse_args(argv)
+    try:
+        _cuda_device(_runtime(), args.device)
+        print(
+            "Scratch gated_unet FP16 forward/backward probe; optimizer and data pipeline excluded."
+        )
+        print(
+            "These sizes do not determine prize eligibility or production-training capacity."
+        )
+        best_batch = best_patch = None
+        for batch in BATCH_SIZES:
+            if not check_memory(64, batch, device=args.device):
+                break
+            best_batch = batch
+        for patch in PATCH_SIZES:
+            if not check_memory(patch, 4, device=args.device):
+                break
+            best_patch = patch
+    except (ImportError, RuntimeError, ValueError) as exc:
+        print(f"Memory probe failed: {exc}", file=sys.stderr)
+        return 1
+    if best_batch is None or best_patch is None:
+        print(
+            "Memory probe incomplete: at least one search had no passing trial.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"Largest tested passing batch at patch_size=64: {best_batch}")
+    print(f"Largest tested passing patch at batch_size=4: {best_patch}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

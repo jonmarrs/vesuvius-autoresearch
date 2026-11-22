@@ -259,19 +259,27 @@ decision for the missing-input failures identified above.
 
 ## Items for owner review
 
-The eight remaining items below are in suggested work order, not a claim that
+The seven remaining items below are in suggested work order, not a claim that
 each has caused a measured scientific failure.
 
 | Priority | Finding and source | Recommended decision / next check |
 | --- | --- | --- |
-| High | **Dependency advisories still need migrations and applicability review.** GitHub's latest observed push banner reported 151 alerts on the default branch (6 critical); its advisory API previously returned HTTP 403. The public [root-lock audit](../reports/dependency_audit.json) now identifies 197 raw advisory records across eight remaining packages. A separate lookup for upstream Torch 2.9.1 found five candidate records; the CUDA-suffixed wheel was not directly audited. | Prioritize applicable advisories by the recorded IDs. aiohttp/dotenv updates require a WEBKNOSSOS/cluster-tools major upgrade; the scratch resolution was discarded. Windows additionally has a tensorstore constraint conflict. Review those migrations, the remaining major library updates, and advisories without a known fix using appropriate CPU/GPU/native validation. Public advisory matching does not establish reachability or replace GitHub alert access. |
-| High | **The human-feedback loop is incomplete.** Regional uncertainty is a one-plane window diagnostic with a source offset; the proofreader expects aligned volumetric categorical labels, and approved TIFF patches are not automatically consumed by ink training. See [checkpoint/labeling workflow](CHECKPOINT_ANALYSIS.md), [launcher](../scripts/launch_proofreader.py) and [training inputs](../scripts/training/input_paths.py). | Choose whether this should review 2D ink windows or 3D segmentation labels. Then specify coordinate transforms, label semantics and a reviewed-patch ingestion contract. Do not broadcast a window mask through CT depth or interpret entropy as an ink label. Existing-session resume also needs a source-bound progress manifest before this wrapper can support it safely. |
-| High | **Training-data source onboarding still needs a real example.** A maintained [local TIFF/PNG importer](TRAINING_DATA_IMPORT.md) now pins captures, preserves uint16 CT and publishes a new loader-compatible directory. Synthetic CPU tests verify conversion and failure handling, but no original fragment inputs or official download provenance were available here. | Select a supported official source, add a pinned download manifest and verify one small real-fragment example end to end. Confirm label registration and output-relative depth settings before training. Archived downloaders remain unsupported; local conversion does not establish scientific validity or source provenance. |
-| Medium | **Regional peak memory and ensemble residency still need profiling.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) now cap three persistent float32 blend planes independently of uncertainty export/sharding and load saved state on CPU. They still allocate whole-region arrays, normalization/export temporaries and all ensemble members together. | Profile on the 4090 with representative source/model settings before choosing streaming accumulators or sequential member residency. The 512 MiB default is an input acceptance policy, not a measured fit guarantee or total RAM/VRAM estimate. The [production path](../scripts/production_predict.py) is batched but also retains dense output accumulation; no full-scroll peak-memory or throughput result was measured here. |
-| Medium | **The installed package relies on checkout-only modules.** Package discovery includes `src/`, while model construction imports root `vesuvius_model`, volume access uses `volume_cartographer_wrapper`, and several public commands live under `scripts/`. See [package configuration](../pyproject.toml) and [model factory](../src/vesuvius_autoresearch/core/model_wrappers.py). | Decide whether the supported product is an editable research checkout or a standalone wheel. If wheel support is wanted, package those dependencies and add a clean-directory installation test. Do not assume that an editable-import pass validates a wheel. |
-| Medium | **Fresh scientific validation is still needed after earlier correctness changes.** The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) describe changed contracts and historical limits. Placement gates now decline additional boundary-limited results. Unit tests do not rerun those real-data comparisons. | Prioritize one source-pinned rerun before using a historical number or placement record to justify a new research direction. Preserve the original artifacts and publish the new contract/version separately. |
-| Medium | **Training read-failure defaults and recovery still need a decision.** The trainer now supports `strict_training_reads: true` for both labeled and active UA-MT inputs; strict labeled reads propagate into the underlying CT reader. Checkpoints, run results and diagnostics record the selected policy. The default still retains counted legacy fallbacks, and validation remains strict. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. No real-data failure rate was measured here. Path-separation preflight cannot establish independence of copied/overlapping crops or different remote URLs; source-pinned split review remains required. |
-| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Inventory supported commands before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+| High | **Dependency advisories still need migrations and applicability review.** The November 10 [root-lock snapshot](../reports/dependency_audit.json) recorded 197 raw advisory records across eight packages before the later migrations. The [November 14 review](../reports/dependency_migration_review_2026-11-14.json) records Pillow 12.1.1 → 12.3.0. The [November 15 review](../reports/dependency_migration_review_2026-11-15.json) records non-Windows WEBKNOSSOS 4.3.3, aiohttp 3.14.5, dotenv 1.2.4 and cryptography 50.0.2, with Python 3.10 workflow/native checks and unchanged Windows package selection. Fresh version-specific PyPI lookups report 89 → 0 raw records across the three latter packages. These dated, aliased counts are not a fresh whole-lock total or distinct reachable vulnerabilities. | Prioritize the remaining applicable IDs. Tornado 6.6, Pillow 13 and Filelock 4.2.1 require Python 3.11. Windows still selects the old SDK/aiohttp/dotenv chain because newer SDKs pin TensorStore below this project's minimum. Newer Virtualenv still conflicts with SDK typing-extensions constraints on Python 3.10. Decide Python/platform support before those migrations. GitHub's advisory API previously returned HTTP 403; public matching and CPU checks do not replace alert access, Windows execution or GPU validation. |
+| High | **The human-feedback loop is incomplete.** Regional uncertainty describes a single plane with a source offset, and the proofreader expects aligned 3D categorical labels. Opt-in [session records and export checks](PROOFREADER_SESSION_RECORDS.md) bind input bytes, check each approved TIFF pair against the log and CT, and can verify agreement between approved label TIFFs and their edited Zarr crops. | Choose whether feedback will use 2D ink windows or 3D segmentation labels, then define coordinate transforms, label semantics and ingestion into the [training inputs](../scripts/training/input_paths.py). Resume needs a separate contract for Villa's grid snapping, pending entries and incomplete GUI-setting history. Physical alignment and label correctness require their own review. |
+| Medium | **Regional peak memory and ensemble residency still need representative GPU measurements.** [Single](../scripts/inference/predict.py) and [ensemble](../scripts/inference/ensemble_predict.py) cap three persistent float32 blend planes and load saved state on CPU. The opt-in [regional profiler](VOLUME_INFERENCE.md#regional-memory-observations) now records process RSS, OS lifetime high-water RSS and selected-device PyTorch allocator peaks through the latest metadata observation. Synthetic CPU checks preserve output probabilities exactly; the CUDA path has only mocked API coverage. Whole-region arrays and all ensemble members remain resident. | Run `--profile_memory` on the 4090 with representative source/model/export settings before choosing streaming accumulators or sequential member residency. The 512 MiB cap remains an acceptance policy. CPU lifetime peaks include earlier process work; CUDA allocator peaks exclude other allocators/processes and device-context overhead, and are not independent phase peaks or fit guarantees. The [scratch CUDA probe](VRAM_PROBE.md) is a separate forward/backward path. [Production](../scripts/production_predict.py) remains outside the new regional profiling scope; no real GPU/full-scroll peak or throughput result was measured here. |
+| Medium | **Broader scientific validation is still needed after earlier correctness changes.** The [registered renderer-v2 check](../reports/render_revalidation_review_2026-11-17.md) now supplies a new real-source compatibility measurement: one fixed PHerc1667 interior crop, center-plane NCC 0.78897, complete depth support, and a bitwise offline replay. This is not a repeat of the historical whole-segment/depth experiments. The [surface-renderer guide](SURFACE_RENDERER.md) and [confidence-analysis guide](CONFIDENCE_REPRODUCIBILITY.md) retain those limits. Placement gates now decline additional boundary-limited results. | Use the new reading only within its fixed-crop compatibility scope. Rerun the confidence analysis and any broader renderer/placement comparison before using its historical number to justify a research direction. Preserve original artifacts and register new methods separately. No accuracy, independent registration, depth-direction or whole-scroll claim follows from the crop check. |
+| Medium | **Training read-failure defaults and recovery still need a decision.** The trainer supports `strict_training_reads: true` for labeled and active UA-MT inputs, and records the selected policy. Validation checks the bytes it parses for explicit catalogs and decodes for labels and masks. The [Frag1 failure exercise](#validation-image-identity-and-frag1-read-failures-2026-11-22-utc) shows that strict reads catch a short encoded chunk and that [prepared fragment verification](TRAINING_DATA_IMPORT.md#verify-a-prepared-fragment) also catches missing chunks. | Decide whether to adopt strict training by default after a source-pinned real-data run, or add bounded retries/skips with an explicit failure budget. The default uses counted legacy fallbacks for CT read failures. Review copied or overlapping crops and remote source identities separately when establishing split independence. |
+| Medium | **The prepared precision contract needs adoption in a future registration.** The as-run [Finding 111 calculator](../repro/first_letters/pherc0841/surface_control.py) rounds AUC before its decision. The new [v2 calculator and contract](SURFACE_CONTROL_V2.md) retain full precision for sweep selection, stored metrics and P1/P2, with presentation-only rounding. Synthetic CPU checks reproduce and correct the boundary case without changing the published study. | Pin v2 and its helper sources in a new registration before a new measurement. Preserve the as-run code/records; historical rounded sweeps cannot be used as v2 inputs. The published held-out verdict is unchanged, and no original-data v2 run has been performed. |
+| Lower | **Dependency and archive maintenance need a scope decision.** The default environment includes CUDA, notebook and broad research dependencies. The [command inventory](COMMANDS.md) records runtime, checkout/wheel, Villa and side-effect requirements for 28 reviewed entry points and modes. The maintained Ruff findings are fixed; preserved/upstream reproductions retain their historical lint backlog. The two root demo/evidence generators now refuse execution before scientific imports or writes; their [original source](../scripts/archive/legacy_figures/README.md) is retained byte for byte. | Use the inventory to design and test dependency closures, then decide Python/platform support before splitting CPU/GPU/research extras. Review upstream synchronization/releases for the placement-check and scroll-frames subtree fixes, required-status branch protection for the CPU job, and opt-in data/GPU CI provisioning. The [unimplemented registration/nnUNet launchers](UNSUPPORTED_LAUNCHERS.md) now refuse execution and retain their original source. Keep byte-preserved sources and measured reproduction scripts distinct from maintained code; do not bulk-delete reports, logs or reproductions solely because they are not imported. |
+
+The new First Letters image, mesh and surface controls are recorded in the
+[current strategy](RESEARCH_STRATEGY.md). They supply real-data evidence for
+that campaign; they do not rerun the older surface-renderer/confidence studies
+or validate the separate training-data importer. Broader remote-URI identity
+normalization also remains a source-contract decision: the Python volume
+wrapper currently supports local inputs, and version/query distinctions must
+be considered before remote training is enabled.
+
 
 ## Verification record
 
@@ -948,3 +956,1009 @@ Review validation in the existing Python 3.10.21 / CPU Torch 2.9.1 environment:
 These checks do not supply original-data or GPU validation. The eight owner
 items remain; the live research checkout, original study files and checkpoints
 were not modified.
+
+## Whole-tree follow-up, November 13, 2026
+
+This pass starts at main `9fa747c5f96a77481fc75d88292742ba15930218`, including
+the First Letters reproduction and the recent canvas/fiber boundary fixes.
+The isolated audit checkout keeps the original research checkout unchanged.
+
+### Coverage and reproduced defects
+
+The starting tree has **3279 tracked regular files**, including **1031 Python
+files (222455 lines), 162 shell scripts, 448 JSON files and 10 YAML files**.
+All Python files parsed, shell scripts passed `bash -n`, and JSON/YAML parsed.
+There were no duplicate top-level Python definitions or JSON object members.
+The same four previously catalogued historical JSON files retain non-finite
+tokens. Header/structure checks passed for 245 images and ten NPY payloads,
+and both ZIP archives passed CRC checks. These scans read the tracked tree;
+manual review focused on maintained training, inference, data loading,
+publication, configuration, developer and newly merged reproduction workflows.
+They do not establish every historical result or exhaustively verify every line.
+
+Six defects were reproduced with **29 initially failing regressions**:
+
+| Defect | Correction |
+| --- | --- |
+| Unknown training architectures silently selected Gated UNet while retaining another architecture name in the configuration. | Shared architecture choices now reject unsupported names during config construction and before training/model setup. The known training-only names remain explicit. |
+| Unknown augmentation modes silently used Albumentations. | Supported mode names are checked at config and augmentation boundaries, including configs mutated after construction. |
+| The batchgenerators pipeline cache used only patch geometry, retaining the previous run's four configured scroll-transform probabilities. | The cache key includes those probabilities. Stand-in pipelines verify their effect on actual output tensors and reuse for an identical configuration. |
+| Four-dimensional backbone logits became a seven-dimensional projection input. | Planar logits receive one depth axis; scalar and volumetric paths retain their behavior. Projection tests check finite outputs and gradients for all three ranks. |
+| The default unused skeleton-distance limit was Infinity, making newly trained checkpoint configurations unpublishable by either regional predictor's finite-JSON guard. | Its inactive default is `null`; loading the legacy positive-infinity sentinel normalizes it to `null` for new runs. Finite legacy values remain recorded. Existing checkpoint bytes are not rewritten. |
+| Depth-band matching disagreed with split checks for existing URI-like local paths, encoded file paths and remote level-zero aliases with queries. | Both now share a standard-library volume-location classifier. Local resources cannot also match the remote spelling under an alternate checkout base. Copies, physically overlapping crops and different remote resources remain unverified. |
+
+Removed the redundant augmentation-cache initialization and the noise probe's
+now-obsolete special-case omission of the unused infinity default. The strategy
+and proposed roadmap now distinguish September's confirmed award from unrecorded
+July/August totals, and distinguish the passed image-chain kill test from the
+unrun mesh stage. No roadmap decision was adopted and no scientific figure changed.
+
+### Verification and remaining limits
+
+The pre-fix 216-module curated CPU baseline passed **5817 tests, 42 skipped,
+1 xfailed** in 727.92 seconds. Before the shared path follow-up, six affected
+modules passed **313 tests, 1 skipped** in 66.25 seconds. The shared-path
+selection then passed **271 tests** in 48.28 seconds. These overlapping subset
+runs do not substitute for the final complete validation record.
+
+Final validation:
+
+- The complete 216-module curated CPU suite passed **5849 tests, 42 skipped,
+  1 xfailed** in 597.03 seconds, including all 32 added regression/control cases.
+- The other 250 `tests/` modules passed **2528 tests, 155 skipped** in 564.68
+  seconds. Their selection began before the final shared-identity extraction;
+  the final curated run above covers the affected paths. Missing original
+  spiral inputs, historical Villa revisions, ScrollGT targets and external
+  checkouts remain skipped coverage. One real TimeSformer inference emitted the
+  90-second faulthandler diagnostic and subsequently passed; the diagnostic was
+  not a test failure or an enforced time limit.
+- A new dependency-minimal environment, installed from the hash-pinned CPU
+  requirements, passed **360 portable tests** in 27.76 seconds. Torch and Zarr
+  were absent; the profile still contains fifteen modules.
+- Documentation/file-mode guards passed **149 tests, 1 original-corpus skip**
+  in 32.96 seconds. Maintained Ruff, formatting of all eleven changed Python
+  files and offline lock consistency pass.
+
+Exact final curated and minimal-profile commands, from this checkout:
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short --junitxml=/tmp/vesuvius-nov13-curated-final.xml -o faulthandler_timeout=90
+
+env -u PYTHONPATH PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 /tmp/vesuvius-nov13-portable/bin/python scripts/run_validation_tests.py --profile portable -- --tb=short --maxfail=1 -o faulthandler_timeout=60
+```
+
+The outside selection is every `tests/**/test_*.py` module absent from
+`VALIDATION_TESTS`; it used the same CPU environment and `pytest -q`, with
+`--tb=short --continue-on-collection-errors`, a JUnit report and the 90-second
+faulthandler diagnostic. It recorded no collection errors or failing tests.
+
+Mypy passed on **978 files**; maintained Ruff passed. Smoke passed **9/11,
+2 skipped, 0 failed** in 12.3 seconds, with original-data skips. No new dependency
+versions, running research state, measured artifacts or frozen sources changed.
+
+At that stage there were nine owner-review items; the current table includes
+later findings. This pass supplied no original-fragment/GPU runs,
+full-scroll resource profiles, standalone-wheel support and historical-artifact
+migrations were not supplied by this pass. In particular, old checkpoints whose
+stored configs contain Infinity are retained unchanged; normalizing a new
+training config is not a rewrite of an older artifact.
+
+## Current-main integration and detector-loader follow-up
+
+This pass integrated main `2a80588c` with the preceding audit fixes, yielding
+review baseline `761e24c5`. Main adds the recorded PHerc. 343 mesh reproduction,
+PHerc. 0841 surface control and further sampler/input tests. The roadmap now
+identifies those completed controls and the next eligible-scroll detection
+test. The strategy's older statement that the mesh stage's hardware capacity
+was unmeasured now points to finding 110. Existing registrations, as-run
+scripts, scientific records and the live research checkout were preserved.
+
+### Inventory and confirmed corrections
+
+The integrated starting tree contains **3328 tracked regular files**, including
+**1043 Python files (226526 lines), 184 shell scripts, 450 JSON files, two
+notebooks and ten YAML files**. Parsing, shell syntax, duplicate-definition and
+duplicate-JSON-member checks found no new structural failures. The same four
+catalogued historical JSON files retain NaN tokens. Structure/header checks
+passed for 247 images, ten NPY payloads and both ZIP archives. This remains a
+whole-tree inventory with focused manual workflow review, not independent
+verification of every historical result or every line of upstream code.
+
+Three defects were corrected:
+
+- The detector padded an aligned axis by a whole extra tile. It now pads only
+  to the next tile boundary. Original CT clipping, usable training tiles,
+  label values, probability maps and coverage match the former recipe in the
+  regression comparisons, including inputs aligned on one or both axes.
+- The loader retained every padded CT plane while allocating a second stacked
+  volume. It now fills one final zero-padded stack with per-plane temporaries.
+  The full padded CT still resides in host RAM; this is not streaming inference.
+- Coherence imports could select an already installed `vesuvius` module and
+  depended on import order. The diagnostic now uses the shared private leaf
+  loader for this checkout's Villa file. A missing pin raises ImportError for
+  the optional diagnostic rather than falling back to another implementation.
+  Ordinary imports preserve other callers' module/path state. Direct launches
+  bootstrap this checkout, and the CLI adds explicit `--device cpu` support.
+
+Seven new regression/feature cases failed before these changes; ten compatible-
+output controls already passed. After correction, seven affected modules passed
+**292 tests, 1 skipped** in 49.06 seconds. The detector-data module is now in the
+curated registry, raising it to 217 modules; the portable profile stays at fifteen.
+
+The [captured synthetic checks](../reports/repository_audit_2026-11-13_integrated.json)
+bind the baseline/current loader source hashes and describe the input recipe:
+
+| Input Y/X | Final CT array bytes, before → after | Traced peak bytes, before → after |
+| --- | --- | --- |
+| 256 × 256 | 6815744 → 1703936 | 13665025 → 1910991 |
+| 264 × 264 | 6815744 → 6815744 | 13654475 → 7227323 |
+
+The trace covers Python/NumPy allocations during loading. Package imports,
+OpenCV/native allocations, whole-process RSS and GPU memory are outside its
+scope. It is not a throughput measurement or a real-data GPU fit guarantee.
+
+### Research-method observation retained for review
+
+A valid synthetic rank-score field gives AUC **0.74996**. Finding 111's as-run
+calculator records **0.75** before evaluating P2 and therefore reports
+`LETTER_LEVEL_SIGNAL`; evaluating the threshold at raw precision gives
+`BLOB_LEVEL_SIGNAL`. Its slid floor is 0.5083, so P1 holds in either case. The
+published held-out AUCs, 0.7478 and 0.7194, remain below 0.75 and are unaffected
+by this boundary example. The frozen method and its result were not rewritten.
+The precision owner item calls for a versioned precision contract before a new
+registered run uses this logic; the follow-up below prepares that successor.
+
+### Verification
+
+- All **217 curated modules** passed: **5933 tests, 42 skipped, 1 xfailed** in
+  732.99 seconds.
+- The other **253 test modules** passed: **2607 tests, 155 skipped** in 658.04
+  seconds, with no collection errors. Original data, historical revisions and
+  external checkouts remain unavailable coverage. These checks include the
+  newly merged reproduction/analysis tests; they are not reruns of those studies.
+- Mypy passed on **989 files**. Maintained Ruff, all five changed Python files'
+  formatting and offline lock consistency pass. Dependency versions are unchanged.
+- A fresh hash-pinned minimal environment passed **380 portable tests** in
+  30.00 seconds, with Torch and Zarr absent. Smoke passed **9/11, 2 skipped,
+  0 failed** in 15.8 seconds; skips require original local CT/labels.
+
+The complete curated command used the existing CPU review interpreter:
+
+```sh
+env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= MPLCONFIGDIR=/workspace/.vesuvius-review-cache/matplotlib XDG_CACHE_HOME=/workspace/.vesuvius-review-cache /workspace/.vesuvius-review-env/bin/python scripts/run_validation_tests.py -- --tb=short --junitxml=/tmp/vesuvius-integrated-curated.xml -o faulthandler_timeout=90
+```
+
+The outside selection used every `tests/**/test_*.py` absent from
+`VALIDATION_TESTS`, with the same CPU/thread settings, `pytest -q --tb=short
+--continue-on-collection-errors`, a JUnit report and the 90-second faulthandler
+diagnostic. The ten current owner items above distinguish these software checks
+and the newly merged campaign evidence from remaining real-data/GPU, interface,
+dependency and future-method decisions.
+
+## Review-item follow-up (2026-11-14 UTC)
+
+This pass integrates main `bfbcae29`, including the owner's already measured
+Finding 109 seam-confirmation record. That integration is separate from the
+new engineering checks below. The live research checkout, historical
+registrations, as-run calculators and measured scroll artifacts remain unchanged.
+
+Two owner-review items advanced:
+
+- **Precision:** the separate [v2 surface-control calculator](SURFACE_CONTROL_V2.md)
+  compares full-precision AUCs for both sweep selection and P1/P2. JSON retains
+  those floats; only sweep console rows round them. It rejects historical sweeps,
+  recomputes the chosen row, binds the parsed choice bytes to their hash and
+  recalculates verdict flags. Missing step records fail before data loading;
+  invalid scores, undersized held-out classes and duplicate segment/gate names
+  cannot produce a successful measurement. Exclusive output creation preserves
+  an existing result even if it appears during calculation. Snapshot checks
+  preserve historical geometry/constants and guard the original calculator's
+  hash. This is a tested candidate for a new registration, not adoption or a
+  remeasurement of Finding 111.
+- **Dependencies:** the universal lock changes only Pillow **12.1.1 → 12.3.0**.
+  The [migration review](../reports/dependency_migration_review_2026-11-14.json)
+  binds both lock hashes and records a fresh, version-specific PyPI lookup:
+  **93 → 58 raw Pillow advisory records**, with 35 removed IDs and no added IDs.
+  Aliases can represent the same vulnerability. The November 10 whole-lock
+  snapshot used an earlier advisory feed and must not be arithmetically combined
+  with these counts. Remaining Pillow records include fixes requiring Python
+  3.11. No new exploitability or full-lock advisory result is claimed.
+
+The migration review also captures Python/platform blockers and the failed
+Virtualenv 20.36.1 universal solve. Windows' selected WEBKNOSSOS/cluster-tools
+requires typing-extensions below 4.13, while the candidate needs at least
+4.13.2 on Python 3.10. Newer WEBKNOSSOS requires Windows tensorstore 0.1.76,
+conflicting with this project's minimum 0.1.78. No markers, platform support or
+SDK constraints were removed to force a resolution. A scratch cryptography
+upgrade removed that package and downgraded its consumer instead of validating
+the proposed major release; that scratch result was discarded.
+
+### Verification
+
+- Method, boundary, launcher and newly integrated Finding 109 tests passed
+  **148 tests, 7 skipped** in 12.60 seconds. The missing study-input skips are
+  unavailable coverage, not reruns of the scientific studies.
+- Pillow 12.3.0 passed **486 workflow tests, 11 skipped** in 52.18 seconds and
+  **133 importer/artifact tests** in 14.44 seconds. The skips need the optional
+  WEBKNOSSOS SDK. Header/container checks passed for **247 tracked images**;
+  they do not establish complete pixel decoding or scientific image validity.
+- Mypy passed on **994 files**. Maintained Ruff and all three changed Python
+  files' formatting pass. Offline universal lock consistency passes with only
+  Pillow changed. The curated registry now has **218 modules**, with its
+  portable profile unchanged at fifteen.
+- The final v2, documentation/claim and file-mode guard selection passed
+  **191 tests, 1 original-corpus skip** in 34.32 seconds. These selections
+  overlap; their pass counts are not additive.
+- Smoke passed **9/11, 2 skipped, 0 failed** in 10.8 seconds; skips require
+  original CT/labels. The review interpreter uses Python 3.10.21, Torch 2.9.1
+  CPU and Pillow 12.3.0. No GPU experiment, original-data v2 measurement, or
+  Windows/macOS runtime validation was performed.
+
+The new method and dependency changes use focused checks; the previous full
+curated/outside-registry runs above remain the broader baseline. The ten owner
+items now distinguish completed engineering preparation from adoption, migration,
+physical registration, GPU profiling and new scientific measurements.
+
+## Fresh audit after PR 422 (2026-11-14 UTC)
+
+This pass starts at main `73c741a2`. It repeats the whole-tree structural
+inventory and manually reviews data conversion/label preparation, detector
+measurement/reporting, fiber tools, checkpoint cleanup, command launchers and
+diagnostic scope. The [captured review](../reports/repository_audit_2026-11-14.json)
+records the starting tree and reproducible defects. This is not a claim that
+every line or historical scientific conclusion has been independently verified.
+
+The initial tree contains **3341 tracked regular files**, including **1048
+Python files (228725 lines), 185 shell scripts, 454 JSON files, two notebooks
+and ten YAML files**. Python/shell/JSON/YAML structural checks passed, including
+duplicate JSON members and duplicate top-level Python definitions. Header or
+payload checks passed for **247 images, ten NPY files and two ZIP archives**.
+Only the four already catalogued historical JSON files contain NaN constants;
+they remain preserved. The scientific inputs and live research checkout were
+not changed.
+
+### Confirmed corrections
+
+- **False registration success:** the cross-scan launcher imported an alignment
+  function but never called it or wrote a transform. With importable dependencies
+  it printed “Transform saved” and returned successfully; it also created the
+  output directory before dependency checks. It now refuses execution with
+  status 2 and directs users to the separate upstream manual-alignment workflow.
+- **Unsafe, unintegrated nnUNet bridge:** the command only wrote a fixed temporary
+  YAML. Evolving one parameter discarded unrelated template settings, and using
+  that temporary path as input overwrote the input. Trainer generation and
+  training existed only as comments; its default input was absent. It now
+  refuses before reads/writes rather than presenting a working loop integration.
+  Both launchers keep their flags, dependency-free help and
+  [byte-preserved original source](../scripts/archive/legacy_launchers/README.md).
+- **Invented CPU memory capacity and stale GPU peaks:** the memory search returned
+  True without CUDA and printed batch 128/patch 384 as passing sizes. The
+  [repaired probe](VRAM_PROBE.md) now requires CUDA, selects the requested device,
+  resets each trial's peak, releases failed trial objects before cleanup, and
+  distinguishes typed CUDA OOMs from other errors. Its scratch gated_unet
+  forward/backward result excludes optimizer/data-pipeline costs and cannot
+  establish production capacity or prize eligibility. No CUDA trial ran here.
+- **Scope corrections:** the archived sprint board no longer repeats the obsolete
+  global 64-pixel prize cap or treats the scratch probe as a production-capacity
+  measurement. The archived nnUNet status now identifies the missing integration.
+  Other historical results, registrations and measured artifacts are unchanged.
+
+Fifteen regression/feature cases initially failed, including retirement/help
+and preservation guards rather than fifteen distinct bugs. The focused
+post-change selection passed **61 tests** in 5.08 seconds. It includes a real
+small CPU model's forward/backward and controlled allocator/device/OOM tests;
+the latter are software-lifecycle checks, not physical CUDA measurements.
+
+### Verification and decisions still open
+
+Mypy passes on **998 files**, and maintained Ruff passes. The validation
+registry now has **220 curated modules** and **16 portable modules**; the new
+launcher checks need only the minimal CPU test tools. Broader final checks are
+recorded with the completion results below.
+
+The ten owner items above still require their stated decisions or measurements.
+This pass adds explicit scope for the unused random-feature volumetric ink
+demo; it was not promoted into training or deleted merely because it has no
+caller. The current limits remain original-data onboarding/reruns, human-label
+semantics, Python/platform/SDK migrations, package scope and representative GPU
+profiling. Fixing the scratch probe does not supply those measurements.
+
+Completion results for this pass:
+
+- All **220 curated modules** passed: **6001 tests, 42 skipped, 1 xfailed** in
+  550.67 seconds. Skips remain unavailable coverage, including original inputs,
+  history and optional dependencies.
+- A fresh hash-pinned minimal environment passed **392 portable tests** in
+  28.56 seconds, with Torch and Zarr verified absent. Maintained Ruff also passes
+  with that environment's pinned 0.9.10 tool.
+- Documentation, historical-claim and newly integrated research-source guards
+  passed **98 tests** in 20.17 seconds. These do not rerun the scientific studies.
+- Smoke passed **9/11, 2 skipped, 0 failed** in 11.7 seconds; skips need original
+  local CT/labels. Mypy passes on **998 files**; changed Python formatting and
+  offline lock consistency pass. No dependency version changed in this pass.
+- The final staged-tree inventory covers **3349 regular files** and **1052 Python
+  files (229188 lines)**, including the new tests and retained launcher sources.
+  Python/shell/JSON/YAML/TOML/CFF/SVG parsing, duplicate checks, image headers,
+  NPY payloads and ZIP CRC checks found no new failures. The same four historical
+  JSON files retain their catalogued NaN values.
+
+The curated command and captured source hashes are in the
+[review record](../reports/repository_audit_2026-11-14.json). Selections overlap;
+their counts are not additive. The other research modules retain the earlier
+broader baseline; they were not all rerun in this pass. No GPU capacity result,
+GUI registration, nnUNet training, original-data scientific rerun or production
+training performance improvement is claimed.
+
+### PR 424 review and current-main integration
+
+The PR integrates main `04c36b46`, which adds the owner's Finding 112 band-fit
+record and scripts. These are upstream research artifacts, not new measurements
+performed by this software review. They remain unchanged in the PR diff.
+
+Review found that the four retained legacy Python snapshots were still selected
+by pre-commit auto-fix hooks and default Ruff discovery. They happen to match
+the current formatter; no formatting drift was observed. The preservation rule
+is now enforced by excluding the two frozen archive directories from default
+Ruff discovery and their Python files from hooks. Active code, other archives
+and the explanatory README files retain checks. Source bytes were preserved.
+
+Five policy guards failed before the correction and ten coverage controls
+already passed. The combined preservation, launcher, memory-probe and runner
+selection then passed **81 tests** in 5.20 seconds. The curated registry now
+contains **221 modules**, with **16 portable modules**. The review record retains
+the initial audit hashes separately from the updated registry/configuration
+hashes; the earlier full-run figures above retain their original scope.
+
+The final integration selection passed **188 tests, 7 skipped** in 28.73
+seconds, including Finding 112's source/report checks. Mypy passes on **1003
+files**, maintained Ruff/format checks pass, and offline lock consistency
+passes without changing dependency versions. These checks do not rerun
+Finding 112 or measure GPU capacity.
+
+## Dependency-review follow-up (2026-11-15 UTC)
+
+This pass starts from main `bf6e9596`. The first owner-review item advances
+without changing Python support, the TensorStore minimum or the live research
+environment. The [migration record](../reports/dependency_migration_review_2026-11-15.json)
+binds the before/after manifests and locks, platform export comparisons, public
+metadata responses and validation commands.
+
+The non-Windows WEBKNOSSOS floor is now 4.3.3. Its cluster-tools dependency
+allows typing-extensions 4.15.0, unblocking the following selected versions:
+
+| Package | Before | After (non-Windows) |
+| --- | --- | --- |
+| WEBKNOSSOS / cluster-tools | 3.4.1 | 4.3.3 |
+| aiohttp | 3.10.11 | 3.14.5 |
+| python-dotenv | 1.0.1 | 1.2.4 |
+| cryptography | 45.0.7 | 50.0.2 |
+| typing-extensions | 4.12.2 | 4.15.0 |
+| yarl | 1.23.0 | 1.25.1 |
+
+The SDK no longer brings in scm-pims on these platforms; slicerator is also
+absent from their resolved export. No maintained project caller imports either
+package. Torch, NumPy, TensorStore, Google Auth and the AWS SDK retain their
+locked versions. A marker-evaluated Windows export has **no selected package
+version changes**. This is a resolver comparison, not Windows execution.
+
+An upgrade request alone was insufficient: scratch resolutions removed
+cryptography and downgraded its consumer, or selected the old SDK everywhere.
+Those results were discarded. The explicit non-Windows SDK floor keeps the
+consumer chain present; Google Auth remains 2.49.2.
+
+Today's version-specific PyPI lookup reports **89 → 0 raw advisory records**
+across the compared aiohttp, dotenv and cryptography versions. The record keeps
+their IDs and response hashes. These are service records that can include
+aliases, not a count of distinct reachable vulnerabilities or a fresh whole-lock
+audit. Windows retains its older aiohttp/dotenv versions. Do not combine these
+figures arithmetically with the November 10 or November 14 snapshots.
+
+### Verification and remaining work
+
+- A clean Python 3.10.21 environment installed the SDK/auth/data dependencies
+  constrained to the candidate lock. Its dependency check passed on **87
+  packages**. Four maintained modules passed **291 tests with no skips** in
+  9.55 seconds, including all **81 fiber-label tests** with the real SDK,
+  nested NML round trips, CLI publication and stubbed AWS transport failures.
+- A separate six-module selection passed **323 tests with no skips** in 43.52
+  seconds, including surface rendering, model construction, training-step and
+  volume-inference checks. This run appended the existing CPU ML environment
+  after the isolated environment's packages; the new SDK/auth/typing packages
+  remained selected, while Torch 2.9.1 CPU came from that read-only fallback.
+  It is not a fully installed CUDA environment. Initial setup failures from
+  missing OpenCV and ML imports are retained in the migration record.
+- A local native compatibility probe passed PKCS8 RSA signing, X509 PEM
+  round trips, Google Auth signature/JWT verification and tampered-message /
+  wrong-audience rejection with cryptography 50.0.2 and OpenSSL 4.0.3. It used
+  an ephemeral key, no real credentials and no service requests. The report
+  retains the probe source for replay.
+- Maintained Ruff and offline universal lock consistency pass. No GPU, original
+  data, Windows/macOS runtime, live WEBKNOSSOS service or optional microscopy
+  image reader was validated. The complete curated suite was not repeated.
+
+The owner-review row remains open for applicability and the other migrations.
+Windows' SDK/TensorStore conflict remains; Virtualenv's newer Python 3.10
+typing-extensions requirement also exceeds the new cluster-tools pin. The
+previously inspected full-fix Tornado, Pillow and Filelock candidates require
+Python 3.11. No unsupported constraint overrides or platform removals were used.
+
+## Installed-package follow-up (2026-11-15 UTC)
+
+This pass continues from `aef38996`. It closes the package-boundary item with an
+explicit [wheel/checkout contract](PACKAGING.md). The research loop and pinned
+Villa integrations use an editable checkout; the wheel supplies the library
+modules, model definitions, augmentation module and local-volume wrapper.
+
+A wheel built from the previous configuration reproduced three failures from
+an empty directory: the inference factory could not import `vesuvius_model`,
+the volume wrapper was absent, and the TIFF/PNG importer could not import
+checkout-only `scripts`. Package configuration now includes the missing runtime
+sources. The importer uses shared publication helpers under `core`; script
+callers retain their existing import names. The five moved helper functions'
+ASTs match their prior implementations, preserving path checks, rollback,
+publication permissions and the requirement to serialize writers.
+
+The [installation regression](../tests/test_wheel_installation.py) builds an
+sdist, builds its wheel, installs into a fresh environment and launches isolated
+Python from an empty directory. It requires project modules to resolve inside
+that installation and verifies that `scripts` is unavailable. Raw third-party
+CPU dependency directories are appended without loading their editable-install
+hooks. The wheel's payload includes all runtime Python sources and the license;
+checkout scripts, reports, datasets, reproductions and Villa are excluded.
+
+The five installed-wheel checks passed in **16.85 seconds**. They exercise a
+small CPU model forward, strict uint16 CT reads, lossless TIFF/PNG import, the
+fiber CPU CLI and detector CLI help. An earlier focused selection passed
+**251 tests** in 17.40 seconds. These overlapping runs are not additive. Mypy
+passes on **1005 files**. The curated registry now contains **222 modules**;
+the portable profile remains at **16**.
+
+The [packaging review record](../reports/packaging_review_2026-11-15.json)
+retains artifact/source hashes, the old wheel's failures, validation scope and
+the final curated result. No dependency version, model architecture, research
+registration, original dataset or live research environment changed in this
+packaging pass. GPU execution, real-data scientific validation and broader
+CPU/GPU dependency extras remain separate work.
+
+The complete 222-module run finished with **6031 passed, 31 skipped, 1 xfailed
+and 1 failed** in 584.74 seconds. The failure was the source-preservation check
+invoking Ruff through the scratch interpreter: its Python module was visible
+through the CPU dependency fallback, but its executable was absent from that
+environment. After provisioning the locked Ruff 0.9.10 there, the final policy,
+wheel and publication-mode selection passed **31 tests** in 22.41 seconds.
+No product code changed after the full run; the full suite was not repeated.
+The skips and expected failure retain their original coverage limits.
+
+An sdist built directly from the actual checkout also builds a wheel. Its
+Python payload hashes match the installed-test wheel, and its 48 declared
+runtime requirements match the project manifest. These build/installation
+checks close the packaging defect within the documented library scope; the
+nine owner-review decisions above remain open.
+
+### PR 428 review and current-main integration
+
+The PR integrates main `c0eeecca`, including the accepted canvas-shift estimator
+fix from PR 426. The combined wheel/importer/publication, checkout-import and
+canvas selection passed **215 tests** in 38.28 seconds. Maintained Ruff, Mypy
+on **1005 files** and offline lock consistency pass.
+
+A separate fresh editable installation also resolves the model, augmentation,
+volume and core helpers from its source tree when launched outside that tree.
+An explicitly selected sibling checkout's `src` still takes precedence. Review
+found no additional code defects within this scope. The packaging guide now
+calls separately supplied trained checkpoints by name. The report retains this
+review separately from the earlier complete-run and wheel evidence.
+
+## Regional-memory follow-up (2026-11-15 UTC)
+
+This pass starts from merged main `3581fe40`. The regional resource item now
+has an opt-in [measurement path](VOLUME_INFERENCE.md#regional-memory-observations)
+for both single-model and ensemble commands. `--profile_memory` adds phased
+observations to the existing protected metadata sidecar. Default runs do not
+initialize the profiler or gain a memory-profile field. No allocation policy,
+probability recipe, model residency or scientific registration changed.
+
+The profiler starts after first-checkpoint configuration and accumulator-budget
+preflight, before constructing a model. It records process RSS and the OS's
+process-lifetime high-water RSS, keeping their distinct sources and units. On
+CUDA it records the selected device's name/capacity and Torch build, resets that
+device's PyTorch peak counters once, and synchronizes at phase observations.
+Those allocator peaks are cumulative and include already-live allocations;
+they exclude other allocators, device-context overhead and other processes.
+Sampling ends before the latest metadata JSON serialization. This is an
+observed-counter record, not a capacity estimate or fit guarantee.
+
+The [review record](../reports/regional_memory_review_2026-11-15.json) retains
+source/lock hashes, scope, commands and the raw synthetic CPU observations:
+
+- The regional/artifact/queue/runner/wheel selection passed **371 tests** in
+  77.62 seconds. The final memory-profile/production selection passed **60
+  tests** in 10.87 seconds, including optional uncertainty/coherence and the
+  production callers of the shared metadata writer. These selections overlap.
+- Tests verify opt-in behavior, unchanged probability arrays, byte units,
+  CPU lifetime-peak scope, null unavailable peaks, selected-device CUDA calls
+  with a single reset, unchanged memory refusal and absence of success metadata
+  after a primary measurement failure. CUDA behavior uses mocked APIs.
+- Fresh CPU CLI processes ran a small single-model case and two-member ensemble
+  with synthetic uint16 CT and random, untrained `gated_unet` checkpoints.
+  Profiling on/off produced exactly equal ink/fiber probability arrays. The
+  recorded RSS values validate the collection path, not representative capacity.
+- Mypy passes on **1007 files**; maintained Ruff, changed Python formatting and
+  offline lock consistency pass. Psutil is now a direct dependency; its locked
+  version remains **6.0.0**, and all resolved package versions are unchanged.
+  The curated registry now has **223 modules**, with **16 portable modules**.
+
+The nine owner-review items remain open. Actual CUDA counters and representative
+4090 source/model/export settings still need a GPU run before choosing streaming
+accumulators, sequential member residency or different limits. No full curated
+suite repeat, real-data accuracy measurement, production-path memory profile,
+Windows/macOS runtime check or GPU throughput result is supplied by this pass.
+
+## Experimental-interface follow-up (2026-11-15 UTC)
+
+This pass continues from local memory-profile commit `cd4a085f`. The interface
+scope decision is now explicit in [Experimental interfaces](EXPERIMENTAL_INTERFACES.md):
+retain the optional scalar-field TTA adapter and untrained shape demo, keep
+legacy names training-only, and keep the primary regional recipe unchanged.
+This closes that owner-review item; eight remain in the current list above.
+
+The [review record](../reports/experimental_interface_review_2026-11-15.json)
+captures before/after reproductions and source hashes:
+
+- **TTA geometry:** batched TTA accepted a `[B,1,1,4]` output for a `[B,1,2,2]`
+  input because the element counts matched, silently restoring the wrong grid.
+  Sequential TTA also turned two global-head values `[1.5, 5.5]` into `[3.5,
+  3.5]` by flipping the batch dimension. The adapter now validates spatial rank
+  and batch size before deaugmentation and the full grid for batched mirroring.
+  Valid sequential/coarser fields and axis-transpose paths are preserved.
+- **Task contract:** homogeneous scalar heads can still concatenate, with one
+  unsplit tensor returned. Mixed ink/fiber/global-QC ranks fail clearly without
+  broadcasting. Per-view shape records preserve upstream model/concatenator
+  call order, including custom callbacks and typed OOM fallback. Directional
+  vector/tensor reorientation remains outside this scalar-field contract.
+- **Gaussian safety:** zero/nonfinite or negative sigma and noninteger/nonpositive
+  patch edges now fail explicitly; unrepresentable float32 windows cannot cache
+  zeros/NaNs. Implicit CUDA cache keys resolve the current index, fixing reuse of
+  a previous GPU's tensor. The cache-routing check uses mocked device selection.
+  Default window arithmetic and all eight synthetic regional probability-array
+  files remain byte-identical; no speed or accuracy improvement is claimed.
+- **Volumetric demo:** a head declaring three layers previously returned four
+  when given that depth. It now validates channels/depth and retains its class,
+  parameter names, valid convolution and gradients. The smaller CPU demo prints
+  untrained logits shapes and no longer presents random outputs as an ink result.
+  `resnet3d`/`i3d` remain training-only names with unchanged inference rejection.
+
+The nine-module regression selection passed **437 tests, 1 skipped** in 70.88
+seconds. The skip requires CUDA for Villa's existing uint8-warp check; it is
+unavailable coverage. New cases compare valid scalar TTA exactly with the
+unchanged pinned implementation. Mypy passes on **1008 files**; maintained
+Ruff, changed Python formatting and offline lock consistency pass. The curated
+registry now has **224 modules**, with **16 portable modules**.
+
+The pinned Villa TTA file, model definitions, primary probability recipe,
+architecture dispatch/trainer and lock remain unchanged. No full curated suite,
+real CUDA execution, legacy-model training, original-data measurement or trained
+volumetric detector was supplied by this pass.
+
+## Proofreader-input record follow-up (2026-11-16 UTC)
+
+This pass starts from main `72dcb445`, after the memory/interface PR and the
+concurrent PHerc. 0826 research merges. It advances the human-feedback provenance
+subtask without deciding between 2D ink review and 3D categorical-label feedback.
+All eight owner-review items remain open.
+
+The [session-record guide](PROOFREADER_SESSION_RECORDS.md) and
+[review record](../reports/proofreader_session_review_2026-11-16.json) describe
+the opt-in `--record-session` launch and read-only checker. New sessions can now
+retain hashes of every encoded file in their selected CT/label directories,
+initial settings and the pinned proofreader source. Recorded launches use
+explicit progress and edited-label paths. Source/entry/file budgets are checked
+before receipt publication or GUI launch; normal launches remain unchanged.
+Receipts precede the child and do not attest that the GUI ran or work completed.
+
+Executing the unchanged pinned `load_progress` in isolation reproduces its
+acceptance of a log naming different CT. The new checker rejects that mismatch,
+changed chunks/metadata/inventories, malformed records, invalid progress entries
+and changed proofreader source. Receipt/progress digests bind the exact captured
+bytes that are parsed. It reports logged pending/approval counts without
+authenticating approvals or verifying the TIFFs/edited-label output.
+
+Resume stays disabled. Pinned Villa snaps the last logged coordinate to a new
+grid, and its progress metadata omits complete GUI-setting history. Source
+fingerprints cannot establish a safe resume position or approved-patch contents.
+No regional window mask is broadcast through CT depth or adopted as an ink label.
+
+An eight-module integration selection passed **332 tests** in 75.10 seconds,
+including installed-wheel and regional inference/uncertainty checks. After
+adding exact JSON-capture hashes and two additional reproduction/snapshot tests,
+the final focused selection passed **62 tests** in 1.24 seconds. The document
+and claim guards gave **138 passed, 1 skipped** in 39.89 seconds; the skip needs
+absent local arm artifacts. These selections overlap. A fresh checker subprocess
+from outside the checkout exits zero without changing files on matching synthetic
+inputs and exits one after a CT chunk changes. Mypy passes on **1014 files**,
+maintained Ruff and changed-file formatting pass, and offline lock consistency
+resolves **258 packages** without dependency changes. The curated registry now
+contains **225 modules**, with **16 portable modules**.
+
+After staging the new sources, the registry, file-mode and preserved-source
+guards passed **33 tests** in 11.64 seconds. Extracted repository-path references
+in all three changed Markdown documents exist, and all six final source hashes
+in the review record match their captured files.
+
+Validation used the existing separate Python 3.10 CPU environments. No full
+curated-suite repeat, hosted CI, Napari/interactive edit, original annotation
+data, GPU measurement or automatic training ingestion was supplied by this pass.
+
+## Official-fragment onboarding follow-up (2026-11-16 UTC)
+
+This pass starts from main `798a546d`. The bounded source/example onboarding
+item is closed by a [pinned Frag1 recipe](OFFICIAL_FRAGMENT_EXAMPLE.md), its
+[download manifest](../configs/data/fr47_two_layers.json) and a
+[real-data review record](../reports/official_fragment_example_review_2026-11-16.json).
+Seven owner-review items remain. Scientific validation, independent physical
+registration and the training read-policy decision remain separate work.
+
+Five original files from the public PHercParis2Fr47 surface export total
+**207,294,186 bytes**: TIFF slices 16 and 17, labels, mask and metadata. HTTPS
+response sizes/digests are pinned; these are retrieved-file hashes, not separately
+published upstream checksums. The new acquisition command rejects partial,
+changed, oversized or redirected responses and publishes a new directory only
+after complete checks. It preserves all original file bytes.
+
+The actual official labels and mask are **palette PNGs** with indices 0/1 for
+black/white. The generic importer correctly refuses them. A separate explicit
+adapter verifies used palette RGB colors and prepares grayscale 0/255 labels;
+it refuses transparency, intermediate colors and invalid image contracts. Its
+synthetic reversed-palette case confirms that colors define classes, not index
+nonzeroness. The generic palette refusal remains unchanged.
+
+The real files passed the maintained importer plan/build and strict CPU reader:
+
+- Every CT value in the prepared **[2, 8181, 6330]** uint16 array equals its
+  original big-endian TIFF value. The stored array is little endian; both source
+  planes retain the full 0..65535 range. The decoded CT digest is in the record.
+- Both canonical PNGs match the original palette colors at every pixel, and
+  surface metadata and all image dimensions agree on the supplied export grid.
+  This does not independently prove physical registration or annotation truth.
+- A single explicitly label-conditioned 64×64 fixture patch passes the strict
+  labeled dataset, returning CT **[1, 2, 64, 64]**, matching binary labels and the
+  documented zero fiber placeholder. CT normalization agrees exactly with the
+  strict reader on this patch. This is a compatibility check, not a performance
+  estimate or independent scientific sample.
+- Source TIFF indices **[16, 18)** map to output depth **[0, 2)**, with origin
+  `[16, 0, 0]`. Passing the source indices as the output depth band is rejected.
+  The existing loop configuration and full-depth research recipe were not changed.
+
+The six-module synthetic integration selection passed **189 tests** in 44.72
+seconds. The final focused set, including bundled-manifest preflight, passed
+**95 tests** in 5.51 seconds. These overlapping counts are not additive. The live
+HTTP fetch preceded the final additional staged-byte readback check; that final
+helper was then verified on all five actual files, and the final acquisition
+path is covered by synthetic publication/failure tests. No extra full download
+was needed. The curated registry now contains **226 modules**, with **16 portable
+modules**. No dataset images or Zarr stores are committed.
+
+The source example has only two slices. It does not provide the default model's
+depth/context and must not replace the live loop's dataset. Source/grid provenance
+does not establish training/validation independence. No training, GPU run, accuracy
+measurement, full curated-suite repeat or Windows/macOS runtime check was supplied.
+
+The configured document/claim guards passed **138 tests, 1 skipped** in 38.98
+seconds; the skip requires absent local arm artifacts. After staging, registry,
+file-mode and preserved-source guards passed **33 tests** in 11.02 seconds.
+Mypy passes on **1021 files**, maintained Ruff and all four changed Python files'
+formatting pass, and the unchanged offline lock resolves **258 packages**.
+The real-data checks used Python 3.10.21, NumPy 2.2.6, Pillow 12.3.0, Zarr 2.18.3
+and Torch 2.9.1 CPU in the separate SDK/CPU dependency view. This is not a fully
+installed CUDA environment. All nine final source bindings match; extracted
+repository-path references in the four changed Markdown documents exist.
+
+## Command/runtime inventory follow-up (2026-11-17 UTC)
+
+This pass starts from main `ee38dc92`. The dependency-scope item now has a
+[reviewed command inventory](COMMANDS.md) and a
+[review record](../reports/command_inventory_review_2026-11-17.json). All seven
+broader owner-review items remain open. No dependency extra, Python/platform
+policy, live environment or scientific default changed.
+
+The new stdlib-only discovery command lists 27 primary entrypoints/modes and
+their declared stacks, checkout/wheel layout, Villa requirements, side effects
+and usage guides. It validates a bounded JSON capture and reports the hash of
+the same bytes it parsed. It does not import targets, execute commands or check
+experiment readiness. A fresh `python -S` subprocess from another directory
+confirms discovery works without site packages and without file writes.
+Production prediction still requires Torch for dry-run imports; the live
+scroll-frames list CLI needs s3fs. These distinctions are recorded explicitly.
+
+The inventory review exposed unnecessary NumPy imports in repeatability
+planning: protocol metadata came through the array-based promotion module, and
+output-path validation came through the labeling wrapper. The planner now
+imports a stdlib-only metadata module and the existing core path helper directly.
+The moved protocol function is AST-identical to its original; all four constants
+are unchanged, and promotion reexports the existing API. Planning binds the new
+metadata source among its selected input hashes and refuses execution if it
+changes. This is not a fingerprint of the entire dependency/source closure.
+A fresh `python -S` subprocess now produces an actual dry-run plan without
+NumPy, a GPU, training data or output publication.
+
+The planning/promotion/inventory integration passed **251 tests** in 60.51 seconds.
+The portable profile passed **408 tests** across **17 modules** in 28.82 seconds.
+The configured document/claim guards gave **138 passed, 1 skipped** in 34.61
+seconds; the skip needs absent local arm artifacts. These selections overlap.
+The existing multiprocessing spawn check required local IPC permission in the
+sandbox; its initial EPERM was resolved without changing or skipping the test.
+CPU smoke from a new empty directory gave **8 passed, 3 skipped, 0 failed** in
+10.9 seconds. Its skips require a checkpoint or training CT/ink labels; the
+review checkout's checkpoint was not loaded.
+
+After staging, registry, file-mode, preserved-source and document-reference
+guards passed **46 tests** in 33.91 seconds. All ten recorded source hashes match,
+and 161 extracted local links exist across the six changed Markdown documents.
+Mypy passes on **1035 files**. Maintained Ruff, all eight changed Python files'
+formatting and offline lock consistency pass; the unchanged lock resolves
+**258 packages**. The curated
+registry now contains **227 modules**, with **17 portable modules**. Dependency
+closures, Windows/macOS execution, real-data scientific reruns, GPU capacity,
+interactive GUI behavior and a full curated-suite repeat remain unverified by
+this pass. Historical sources and scientific records were preserved.
+
+## Renderer-v2 real-source follow-up (2026-11-17 UTC)
+
+This pass starts from main `57a849d8`. It advances the scientific-validation
+item with a [new registered compatibility check](preregistration/2026-11-17_renderer_v2_1667_compatibility.md),
+[result](../reports/render_revalidation_review_2026-11-17.md) and
+[complete receipt/review](../reports/render_revalidation_review_2026-11-17.json).
+The seven broader owner-review items remain open; the separate confidence
+analysis and historical whole-segment/depth renderer experiments were not rerun.
+
+The old comparison scripts use geometry validity when scoring, while the
+corrected sampler exposes full-depth support. They and their historical
+reports remain byte-identical. The new runner compares the same full-depth
+mask at every fixed reference depth, refuses insufficient/constant comparisons,
+captures exact source objects through an optional chunk-reader transport and
+publishes only after source and plan rechecks. Default renderer transport and
+numerical behavior remain unchanged.
+
+Registration, source pins and tested runtime were committed as `f5612360`
+before geometry/CT/reference payload acquisition and scoring. The fixed
+128 × 128 PHerc1667 crop achieved maximum NCC **0.7889665783396356** against the
+released surface volume, above the registered **0.60** gate. All **16,384**
+pixels have full-depth support. One live attempt captured **82 objects**,
+**175,582,829 bytes**, inside the **192 MiB** source budget. The receipt records
+all five depth correlations and exact source/array identities. An offline replay
+with a transport that forbids network access reproduces the three arrays bit
+for bit and the same sampling/comparison records; independent NumPy correlations
+agree within **1e-14**. This is replay of the same data, not independent replication.
+
+The crop lies inside a historically selected interior region. Its full support
+means boundary exclusion is verified by the synthetic regression, not this real
+crop. Agreement with a released render does not establish ink accuracy,
+independent physical registration, depth direction/spacing, OBJ auto-scale,
+whole-scroll coverage or a 4090 capacity measurement. No raw payload or array
+is committed, and no live research configuration, checkpoint or process changed.
+
+The final synthetic integration passed **121 tests** in 10.38 seconds, including
+the **23 new revalidation tests** and all **80 surface-contract** and **18 renderer**
+checks. Registry, mode, preservation and configured document/claim guards gave
+**171 passed, 1 skipped** in 50.92 seconds; the skip requires absent local arm
+artifacts. Mypy passes on **1037 files**, maintained Ruff and all four changed
+Python files' formatting pass, and offline lock consistency still resolves
+**258 packages**. CPU smoke from a separate empty working directory gave
+**8 passed, 3 skipped, 0 failed** in 14.7 seconds; its skips need a checkpoint
+or training CT/ink labels. These selections overlap. The curated registry now
+contains **228 modules**, with **17 portable modules**.
+
+After adding the actual receipt and report, configured document/claim guards
+passed **138 tests, 1 skipped** in 38.66 seconds. All fifteen selected source,
+historical and additional file hashes match; 68 extracted local links exist
+across the four changed Markdown documents. The old scientific scripts and
+reports were checked byte for byte against the main baseline.
+
+## Approved proofreader export verification (2026-11-17 UTC)
+
+The input checker could report an approved log entry even when the image or
+label TIFF was missing or the image came from a different crop. The opt-in
+`--verify-approved-patches` check links the log to the complete saved TIFF pairs
+and verifies each image voxel and dtype against the recorded CT crop. The
+label check enforces the cubic patch shape and categorical range `0..255`.
+The report includes each pair's ZYX origin and hashes of the bytes it decoded.
+Repeated approvals at one origin fail because Villa uses one pair of filenames
+for that origin. The check also refuses unlisted files and incomplete TIFFs.
+The command and limits are in the [session-record guide](PROOFREADER_SESSION_RECORDS.md).
+
+The check runs after the GUI closes. It applies the existing receipt limits to
+the combined export directories and bounds the decoded TIFF, CT patch and CT
+chunk sizes. Source and export state checks detect ordinary changes during
+verification. The pinned Villa writer and serializer produced the TIFFs and
+progress JSON in the regression fixture. The fixture uses synthetic CT and an
+edited categorical patch. Approval authenticity, the edited-label Zarr and
+physical alignment remain outside this verification. Resume and reviewed-label
+ingestion still need design work. All seven broader audit items remain open.
+
+The CPU integration selection passed **193 tests** across proofreader sessions
+and launches, command discovery, volume reading and patch dataset artifacts.
+The portable profile passed **408 tests**. Registry, file-mode, preservation
+and document/claim guards passed **171 tests**, with one skip for absent local
+arm artifacts. CPU smoke passed **8 checks**, with three skips requiring a
+checkpoint or training inputs. Ruff, formatting and Mypy passed, and the offline
+lock resolved **258 packages**.
+
+PR review found that a contiguous TIFF could decode despite an incorrect
+strip byte count. The checker now requires declared bytes to match the stored
+page dimensions, including row padding for packed boolean images. The revised
+integration selection passed **194 tests**. A separate check decoded **24**
+default-writer TIFFs across packed boolean and numeric dtypes.
+
+## Training patch catalog validation (2026-11-17 UTC)
+
+The labeled loader on `b4702312` accepted an explicit origin `(10000, -200)`
+on an 8 × 32 × 32 synthetic volume. Even with strict reads enabled, jitter
+clamped it to the edge and returned a full patch. Explicit catalogs now
+require a nonempty list and integer YX origins that fit the full patch. The
+checker also validates producer count and size fields when present and caps
+input at 16 MiB. It reports the file and invalid entry before sampling.
+
+The loader hashes the captured JSON bytes it parses. Validation checks this
+digest against the catalog in its existing input fingerprint. A regression
+rewrites the catalog during dataset construction and restores it before the
+final disk check. The run stops because the dataset parsed the other bytes.
+An unchanged valid catalog produces the same fingerprint and patch tensors
+as the baseline on the synthetic comparison, including repeated origins and
+both jitter settings. The [catalog guide](TRAINING_DATA_IMPORT.md#supply-an-explicit-patch-catalog)
+documents the geometry, ordering and file limits.
+
+This advances the input validation part of the training read review. All
+seven owner items remain open. A wider CT read-policy change still needs
+real-data evidence on failures and a decision about retry or skip behavior.
+
+The integration selection passed **525 tests**, with one CuPy-dependent skip.
+It covered the real validation builder, labeled readers, patch selection,
+checkpoint tools and spawned training workers. Registry, file-mode, source
+preservation and document guards passed **171 tests**, with one skip for absent
+local arm artifacts. CPU smoke passed **8 checks**, with three skips requiring
+a checkpoint or training inputs. Ruff, formatting and Mypy passed. The offline
+lock check resolved **258 packages**.
+
+## Prepared fragment verification (2026-11-22 UTC)
+
+The importer checked CT as it wrote it, and stored a decoded digest in
+`import.json`. The reader could still substitute zeros for a chunk missing
+from a later copy. In the padded-grid fixture, removing one all-zero chunk
+left the entire decoded Zarr array identical. The new verifier rejected the
+copy and named the missing chunk. It also rejects short chunks, altered CT,
+changed layout or origin, and differences in the original label and mask
+files. A relocated fragment passed through the CLI with its original sources
+and separate manifest absent. [Verification usage](TRAINING_DATA_IMPORT.md#verify-a-prepared-fragment)
+
+A fresh download using the pinned Frag1 example was imported and then checked
+through the verifier. The two planes have shape `[2, 8181, 6330]` with 6,400
+physical chunks and 209,715,200 bytes of padded CT storage. The decoded CT hash
+`81844e156f8360062e8ab462f4bcb91ae64baeb6e7382e9e60455681053b3f59`
+and both PNG hashes match the November 16 reference. This is an integrity check
+on a two-slice import. Training read policy and representative failure-rate
+measurements remain open. [Reference receipt](../reports/official_fragment_example_review_2026-11-16.json)
+
+The CPU integration selection passed **267 tests** across the importer, pinned
+fragment acquisition, volume and labeled readers, and command inventory. The
+acquisition tests use local socket permission for the existing HTTP fixture.
+The portable profile passed **432 tests**. Registry, file-mode, source and
+document guards passed **171 tests**, with one skip for missing arm artifacts.
+CPU smoke passed **8 checks**, with three skips requiring a checkpoint or
+training inputs. Ruff, formatting, Mypy and the offline lock check passed.
+
+PR review reproduced a failure when a copied receipt used source paths from
+another operating system. Verification now accepts absolute Windows and POSIX
+paths as provenance. The build command still requires paths it can open on the
+host. The regression passed with the full **268-test** integration selection.
+The revised verifier also repeated the Frag1 check with the same 6,400 chunks
+and hashes.
+
+## Validation image identity and Frag1 read failures (2026-11-22 UTC)
+
+This pass starts from `d170b3b6` and advances the training read review. Two
+regressions temporarily replaced the selected validation label or mask PNG,
+let the real dataset load the replacement, then restored the original. The
+previous before-and-after disk checks accepted the original fingerprint with
+changed targets or patch coordinates. The validation reader now checks and
+decodes the same captured bytes for each selected image. A third regression
+changes the file after capture and checks that the decoder still uses the
+captured bytes. The existing fingerprint format and catalog check are retained.
+See [validation image checks](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy).
+
+PR review found that the initial fingerprint could read an oversized image in
+full before the loader refused it. Both checks now use the same 512 MiB encoded
+file limit. Fingerprinting inspects the opened file's size and hashes in blocks.
+The added regressions cover both image roles and file changes during hashing.
+
+On a temporary copy of the [two-slice Frag1 import](OFFICIAL_FRAGMENT_EXAMPLE.md),
+the selected labels and mask produced the same validation fingerprint as the
+parent implementation and identical CT, label and fiber tensors. The explicit
+catalog origin was YX `(424, 3541)`. With seed 42 and the existing jitter the
+reader sampled YX `(443, 3523)` with CT shape `[1, 2, 64, 64]`.
+
+- Removing chunk `0.3.27` changed **3,904 of 8,192** CT voxels to fill values
+  even under strict reads. Prepared-fragment verification rejected the missing
+  chunk.
+- Shortening that chunk by one byte made the strict patch read fail. Permissive
+  mode returned a zero patch and counted one `labeled_zero_patch` warning.
+  Restoring the chunk restored the original tensors.
+
+These controlled failures show when strict reads can help and when the separate
+receipt check is needed. They leave the training default and all seven owner
+items open. The exercise measured neither a natural failure rate nor model
+performance.
+
+The eleven-module CPU integration selection passed **531 tests**, with one
+skip. It covered validation, checkpoint re-evaluation, training inputs,
+spawned workers, volume reading and fragment import. The portable profile
+passed **432 tests**. Maintained Ruff, changed-file formatting and Mypy
+passed. Mypy checked 1,090 files.
+
+## Edited proofreader labels (2026-11-22 UTC)
+
+This pass starts from main `2d7463cd`. The pinned Villa writer saves the
+approved TIFF pair before writing its edited-label Zarr crop, and catches Zarr
+write exceptions. An injected write failure produced a valid progress log and
+TIFFs, while the Zarr still returned zero for the approved crop of category 42.
+The TIFF-only checker accepted that pair within its scope.
+
+The opt-in `--verify-edited-labels` mode checks each approved TIFF against the
+corresponding edited Zarr crop after the standard CT and TIFF checks. It
+rejects the failed write at the recorded ZYX origin. A normal write and an
+approved all-zero sparse crop pass without changing the session files. The
+edited Zarr's layout and byte limits are checked before crop reads, and a
+second inventory checks for ordinary changes during verification.
+[Verification usage](PROOFREADER_SESSION_RECORDS.md#compare-approved-labels-with-the-edited-zarr)
+
+PR review reproduced a traceback from zero-sized chunks, acceptance of
+wrong-rank chunk geometry until crop decoding, and an uncaught error from
+incomplete Zarr metadata. It also reproduced acceptance of a source-label
+change during export checks. The preflight now checks chunk geometry and
+reports unreadable metadata. Both input directories are rechecked before
+reporting export verification success.
+
+The fixtures execute Villa's pinned writer and progress serializer without
+opening the GUI. The report compares approved crop values. The category
+semantics, physical alignment, values outside those crops, resume behavior and
+training ingestion still need their own review.
+
+The checker also ran from a separate working directory against a fixture
+approved at ZYX `(0, 8, 0)`. It passed after the pinned write and exited 1 when
+one edited voxel was changed. Both invocations kept all session bytes intact.
+The nine-module integration selection passed **250 tests**. The final
+proofreader selection passed **87 tests**, and the portable CPU profile passed
+**436 tests**. Ruff, formatting and Mypy passed.
+With the PR review fixes, the nine-module selection passed **254 tests** and
+the CLI returned status 1 for all three malformed metadata fixtures.
+
+## Training and validation crop depth (2026-11-22 UTC)
+
+This pass starts from main `bd85f8e9`. The readers can return fewer context
+slices than a trainer requests when a volume is shallow. The trainer drew
+offsets as if every read had the full context. In a 21-slice fixture, offset
+7 yielded 14 layers for a 16-layer model. A separate fixture scored an
+11-slice validation read as complete for an eight-layer model with a fixed
+offset of four.
+
+Training now bounds the shared offset to the available labeled and UA-MT
+read depths. It rejects sources shallower than the model window and groups
+whose differing buffered depths would prevent batch collation. Validation
+checks for enough slices to keep its fixed offset. Short runtime reads count
+as failed batches, and the periodic AUC path uses the same fixed-window check.
+[Depth requirements](TRAINING_DATA_IMPORT.md#check-depth-for-training-and-validation)
+
+PR review found that zero, negative, boolean and fractional `num_layers`
+values could reach the crop code. Training configuration, direct reader
+construction and validation scoring now use the shared positive-integer
+check. Training configuration can still load without Torch.
+
+On CPU, 128 full-context cases matched the parent crop tensors and the next
+random draw exactly across 32 seeds, augmentation on and off, and with and
+without an unlabeled batch. The 21-slice fixture now yields 16 layers. These
+checks exercise crop geometry. A representative failure-rate measurement
+and the strict-training policy decision remain open.
+
+The twelve-module CPU integration selection passed **576 tests**. Two skips
+require CuPy and the local PHercParis2Fr143 volume, respectively. The portable
+profile passed **436 tests**, and repository guards passed **46 tests**.
+Ruff, formatting and Mypy passed.
