@@ -845,6 +845,7 @@ def build_validation_dataset(config: ExperimentConfig):
         depth_band=getattr(config, "depth_band", None),
         depth_margin=DEPTH_MARGIN,
         expected_image_sha256=(inputs["labels"][1], inputs["mask"]),
+        min_read_depth=config.num_layers + DEPTH_MARGIN,
     )
     # Recorded with every score (validation_diag["inputs_sha256"]) and compared
     # with the incumbent's (promotion.py). A file written while the dataset read
@@ -911,6 +912,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         depth_band=band,
         depth_margin=DEPTH_MARGIN,
         strict_reads=getattr(config, "strict_training_reads", False),
+        min_read_depth=config.num_layers,
     )
 
 
@@ -1039,6 +1041,15 @@ def check_validation_inputs(dataset, protocol, incumbent_path="best_model.pt"):
         )
 
 
+def _validation_window(batch, num_layers):
+    stop = DEPTH_MARGIN + num_layers
+    if batch.shape[2] < stop:
+        raise ValueError(
+            f"validation CT read has {batch.shape[2]} slices but requires at least {stop}"
+        )
+    return batch[:, :, DEPTH_MARGIN:stop]
+
+
 def collect_validation_predictions(
     model,
     dataset,
@@ -1081,9 +1092,7 @@ def collect_validation_predictions(
                 val_x_raw, val_target, _fiber = default_collate(
                     [dataset[int(i)] for i in chunk]
                 )
-                val_x = val_x_raw[:, :, DEPTH_MARGIN : DEPTH_MARGIN + num_layers].to(
-                    device
-                )
+                val_x = _validation_window(val_x_raw, num_layers).to(device)
                 if val_target.dim() == 3:
                     val_target = val_target.unsqueeze(1)
                 with autocast(device_type=device.type, enabled=amp_enabled):
@@ -1534,7 +1543,7 @@ def periodic_pixel_auc_eval(
         with torch.no_grad():
             for i in idxs:
                 x_raw, t, _ = val_dataset[int(i)]
-                x = x_raw[:, DEPTH_MARGIN : DEPTH_MARGIN + nl].unsqueeze(0).to(device)
+                x = _validation_window(x_raw.unsqueeze(0), nl).to(device)
                 out = model(x)
                 out = out[0] if isinstance(out, tuple) else out
                 probs.append(torch.sigmoid(out).squeeze().float().cpu().numpy().ravel())
@@ -2051,6 +2060,38 @@ def preflight_smoke(config: ExperimentConfig) -> None:
         raise ValueError("preflight: non-finite loss")
 
 
+def _training_windows(labeled, unlabeled, config):
+    """Draw a shared offset that fits a full model window in each available read."""
+    layers = config.num_layers
+    depth = labeled.shape[2]
+    if unlabeled is not None:
+        depth = min(depth, unlabeled.shape[2])
+    if depth < layers:
+        raise ValueError(
+            f"training CT read has {depth} slices but requires at least {layers}"
+        )
+
+    # Keep the historic exclusive upper bound when full context is available.
+    offset = np.random.randint(0, min(2 * DEPTH_MARGIN, depth - layers + 1))
+    length = layers
+    if not getattr(config, "disable_augmentation", False) and np.random.rand() > 0.8:
+        # Same compression recipe, limited to the context actually read.
+        length = min(depth - offset, max(4, int(layers * 0.8)))
+
+    def crop(batch):
+        window = batch[:, :, offset : offset + length]
+        if length == layers:
+            return window
+        return F.interpolate(
+            window,
+            size=(layers, config.patch_size, config.patch_size),
+            mode="trilinear",
+            align_corners=False,
+        )
+
+    return crop(labeled), crop(unlabeled) if unlabeled is not None else None
+
+
 def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None):
     validate_training_choices(config)
     read_policy = data_read_policy(config)
@@ -2109,9 +2150,24 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 else None,
                 depth_band=getattr(config, "depth_band", None),
                 depth_margin=DEPTH_MARGIN,
+                min_read_depth=config.num_layers,
             )
             datasets.append(ds)
 
+        if len(datasets) > 1 and config.batch_size > 1:
+            depths = {
+                uri: dataset.num_layers
+                for uri, dataset in zip(uris, datasets, strict=True)
+                if len(dataset)
+            }
+            if len(set(depths.values())) > 1:
+                detail = ", ".join(
+                    f"{uri} ({depth} slices)" for uri, depth in depths.items()
+                )
+                kind = "unlabeled" if is_unlabeled else "labeled"
+                raise ValueError(
+                    f"cannot batch {kind} volumes with different CT read depths: {detail}"
+                )
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
         return shuffled_loader(
             combined_ds,
@@ -2254,44 +2310,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                     x_unlabeled_raw, _ = next(unlabeled_data_iter)
                     x_unlabeled = x_unlabeled_raw.to(device)
 
-            # 2. Z-Compression Augmentation (20% chance): take a thinner Z
-            # window (80% of config.num_layers, min 4) and trilinearly resize
-            # back to the model's expected depth. Despite the historical
-            # "Anisotropic Z-Interpolation" comment, z_len is deterministic
-            # at max(4, int(num_layers*0.8)) — not random.
-            z_start = np.random.randint(0, 2 * DEPTH_MARGIN)
-            if (
-                not getattr(config, "disable_augmentation", False)
-            ) and np.random.rand() > 0.8:
-                z_len = max(4, int(config.num_layers * 0.8))
-                x_orig = x_raw[:, :, z_start : z_start + z_len]
-                if z_len != config.num_layers:
-                    x_orig = F.interpolate(
-                        x_orig,
-                        size=(config.num_layers, config.patch_size, config.patch_size),
-                        mode="trilinear",
-                        align_corners=False,
-                    )
-
-                if x_unlabeled is not None:
-                    x_unl_orig = x_unlabeled[:, :, z_start : z_start + z_len]
-                    if z_len != config.num_layers:
-                        x_unl_orig = F.interpolate(
-                            x_unl_orig,
-                            size=(
-                                config.num_layers,
-                                config.patch_size,
-                                config.patch_size,
-                            ),
-                            mode="trilinear",
-                            align_corners=False,
-                        )
-            else:
-                x_orig = x_raw[:, :, z_start : z_start + config.num_layers]
-                if x_unlabeled is not None:
-                    x_unl_orig = x_unlabeled[
-                        :, :, z_start : z_start + config.num_layers
-                    ]
+            x_orig, x_unl_orig = _training_windows(x_raw, x_unlabeled, config)
 
         except StopIteration:
             data_iter = iter(data_loader)

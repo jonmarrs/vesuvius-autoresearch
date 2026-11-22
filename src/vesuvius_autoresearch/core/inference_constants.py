@@ -1,9 +1,10 @@
 """Inference conventions shared with training, importable without torch.
 
-Training reads num_layers + 2 * DEPTH_MARGIN slices, computes the ridge channel
-over all of them, and gives the model num_layers of them: validation the centre
-(offset DEPTH_MARGIN), training a random offset below 2 * DEPTH_MARGIN. The ridge
-filter min-max normalizes the block it is given, so ridges computed over the
+Training requests num_layers + 2 * DEPTH_MARGIN slices and computes the ridge
+channel over the returned block. The model receives num_layers slices.
+Validation uses the fixed offset DEPTH_MARGIN. Training draws a random offset
+below 2 * DEPTH_MARGIN that fits in the returned block. The ridge filter
+min-max normalizes the block it is given, so ridges computed over the
 num_layers slices alone are a different input.
 
 The recipe strings are recorded in inference metadata, so outputs made under

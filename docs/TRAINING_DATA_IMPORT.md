@@ -158,6 +158,20 @@ A file that differs from the initial fingerprint stops dataset construction,
 even if the original is restored before the final on-disk check. Unchanged
 files retain their existing validation fingerprint and sampling behavior.
 
+## Check depth for training and validation
+
+Each labeled training source and active UA-MT source must provide at least
+`num_layers` CT slices. The trainer requests up to eight extra slices of
+context. When a read has less context, it draws an offset that fits a full
+model window in both the labeled and any active unlabeled batch. A batch that
+can combine patches from several sources requires matching read depths within
+that group. With a batch size of one, sources may have different read depths.
+
+Validation retains its fixed four-slice offset. A validation source must
+provide at least `num_layers + 4` slices, and the scorer marks a short batch
+as incomplete before evaluation. Review `depth_band` in output-volume
+coordinates. The two-slice Frag1 example exercises the low-level reader.
+
 ## Supply an explicit patch catalog
 
 An optional `patches.json` beside the volume replaces automatic patch discovery

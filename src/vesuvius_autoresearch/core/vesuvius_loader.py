@@ -530,6 +530,15 @@ def _read_validation_image(path, expected_sha256) -> np.ndarray | None:
     return load_unit_image(path, contents=contents)
 
 
+def _read_depth(available, requested, minimum, uri):
+    depth = min(available, requested)
+    if minimum is not None and depth < minimum:
+        raise ValueError(
+            f"{uri}: CT read has {depth} slices but requires at least {minimum}"
+        )
+    return depth
+
+
 def band_read_range(depth_band, depth_margin, depth, read, uri):
     """[start, end) of the slices reads are drawn from: depth_band widened by
     depth_margin (the context around the model's window), clamped to the volume.
@@ -594,6 +603,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
     Validation supplies expected_image_sha256 for the (labels, mask) pair.
     The image bytes must match before decoding. None represents an absent image.
+    A caller can set min_read_depth to require a minimum buffered read.
 
     Coordinate caches identify the effective fitted selection pixels and sampler
     settings. Timestamp-only caches are ignored and preserved. Explicit JSON
@@ -625,6 +635,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         depth_band=None,
         depth_margin=0,
         expected_image_sha256: tuple[str | None, str | None] | None = None,
+        min_read_depth: int | None = None,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
@@ -636,8 +647,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             strict_reads=strict_reads,
         )
         self.patch_size = patch_size
-        self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
+        self.num_layers = _read_depth(
+            self.shape[0], num_layers, min_read_depth, volume_uri
+        )
         # depth_band [start, end): the slices the model's window should show;
         # reads are drawn from the band widened by depth_margin (the context
         # around the window), clamped to the volume. None: the whole depth.
@@ -1136,6 +1149,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
 
     Strict reads propagate failures with sample context instead of zero patches.
     Lasagna is not implemented here and is refused when strict reads request it.
+    A caller can set min_read_depth to require a minimum buffered read.
     """
 
     def __init__(
@@ -1152,6 +1166,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         depth_band=None,
         depth_margin=0,
         strict_reads=False,
+        min_read_depth: int | None = None,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
@@ -1182,7 +1197,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
             strict_reads=strict_reads,
         )
         self.shape = self.volume.shape
-        self.num_layers = min(num_layers, self.shape[0])
+        self.num_layers = _read_depth(self.shape[0], num_layers, min_read_depth, uri)
         self.depth_range = band_read_range(
             depth_band, depth_margin, self.shape[0], self.num_layers, uri
         )
