@@ -816,6 +816,7 @@ def build_validation_dataset(config: ExperimentConfig):
     Reads are strict: a failed read raises instead of returning an all-zero patch,
     which would silently be scored as an ink-free patch.
     """
+    num_layers = positive_integer(config.num_layers, "num_layers")
     # The same paths the fingerprint hashes (promotion.validation_input_paths),
     # fingerprinted before and after the dataset reads them.
     band = getattr(config, "depth_band", None)
@@ -832,7 +833,7 @@ def build_validation_dataset(config: ExperimentConfig):
         labels_path,
         mask_path if inputs["mask"] is not None or os.path.exists(mask_path) else None,
         config.patch_size,
-        config.num_layers + 2 * DEPTH_MARGIN,
+        num_layers + 2 * DEPTH_MARGIN,
         seed=42,
         cache_dir=config.cache_dir,
         use_ridges=config.use_ridges,
@@ -845,7 +846,7 @@ def build_validation_dataset(config: ExperimentConfig):
         depth_band=getattr(config, "depth_band", None),
         depth_margin=DEPTH_MARGIN,
         expected_image_sha256=(inputs["labels"][1], inputs["mask"]),
-        min_read_depth=config.num_layers + DEPTH_MARGIN,
+        min_read_depth=num_layers + DEPTH_MARGIN,
     )
     # Recorded with every score (validation_diag["inputs_sha256"]) and compared
     # with the incumbent's (promotion.py). A file written while the dataset read
@@ -890,6 +891,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
     labeled reads use it. Any other unlabeled volume is read over its whole
     depth: it may number its slices differently.
     """
+    num_layers = positive_integer(config.num_layers, "num_layers")
     band = depth_band_for(
         {
             "depth_band": getattr(config, "depth_band", None),
@@ -902,7 +904,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
     return VesuviusS3Dataset(
         uri,
         config.patch_size,
-        config.num_layers + 2 * DEPTH_MARGIN,
+        num_layers + 2 * DEPTH_MARGIN,
         seed=seed,
         cache_dir=config.cache_dir,
         use_ridges=config.use_ridges,
@@ -912,7 +914,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         depth_band=band,
         depth_margin=DEPTH_MARGIN,
         strict_reads=getattr(config, "strict_training_reads", False),
-        min_read_depth=config.num_layers,
+        min_read_depth=num_layers,
     )
 
 
@@ -1075,6 +1077,7 @@ def collect_validation_predictions(
     tools pass a validating version. ``protocol`` is recorded in the diagnostics
     (validation_protocol(config.depth_band) for the dataset's depth range).
     """
+    num_layers = positive_integer(num_layers, "num_layers")
     keep_ink_free = scores_ink_free_patches(protocol)
     indices = validation_indices(len(dataset))
     diag = {
@@ -1294,9 +1297,10 @@ except ImportError:
     InceptionI3d = None
 
 from vesuvius_autoresearch.core.frangi_torch import frangi_vesselness_zcollapsed_torch
-from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
 from vesuvius_autoresearch.core.inference_constants import (
+    DEPTH_MARGIN,
     depth_band_for,
+    positive_integer,
     validate_architecture,
 )
 from vesuvius_autoresearch.core.model_wrappers import (
@@ -1531,10 +1535,10 @@ def periodic_pixel_auc_eval(
     from scripts.pixel_auc import pooled_pixel_auc
 
     read_policy = data_read_policy(config)
+    nl = positive_integer(config.num_layers, "num_layers")
     validate_training_checkpoint_writes(config, config_path=config_path, step=step)
     prefix = config.checkpoint_out or "long_model.pt"
     curve_path = f"{prefix}.curve.csv"
-    nl = config.num_layers
     try:
         n = min(config.eval_sample_patches, len(val_dataset))
         idxs = np.random.RandomState(12345).permutation(len(val_dataset))[:n]

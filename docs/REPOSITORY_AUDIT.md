@@ -1947,6 +1947,11 @@ checks for enough slices to keep its fixed offset. Short runtime reads count
 as failed batches, and the periodic AUC path uses the same fixed-window check.
 [Depth requirements](TRAINING_DATA_IMPORT.md#check-depth-for-training-and-validation)
 
+PR review found that zero, negative, boolean and fractional `num_layers`
+values could reach the crop code. Training configuration, direct reader
+construction and validation scoring now use the shared positive-integer
+check. Training configuration can still load without Torch.
+
 On CPU, 128 full-context cases matched the parent crop tensors and the next
 random draw exactly across 32 seeds, augmentation on and off, and with and
 without an unlabeled batch. The 21-slice fixture now yields 16 layers. These

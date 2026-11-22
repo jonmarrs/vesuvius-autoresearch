@@ -135,7 +135,8 @@ def test_mean_ap_key_matches_villa():
 
 
 @pytest.mark.parametrize(
-    "field,value", [("architecture", "typo"), ("aug_mode", "typo")]
+    "field,value",
+    [("architecture", "typo"), ("aug_mode", "typo"), ("num_layers", -8)],
 )
 def test_mutated_training_choices_fail_before_gpu_setup(monkeypatch, field, value):
     config = ExperimentConfig()
@@ -147,6 +148,12 @@ def test_mutated_training_choices_fail_before_gpu_setup(monkeypatch, field, valu
     )
     with pytest.raises(ValueError, match=field):
         train.train(config)
+
+
+@pytest.mark.parametrize("depth", [-8, 0, True, 2.5])
+def test_config_refuses_invalid_model_depth(depth):
+    with pytest.raises(ValueError, match="num_layers must be a positive integer"):
+        ExperimentConfig(num_layers=depth)
 
 
 def test_model_builder_cannot_silently_construct_gated_unet_for_an_unknown_name(

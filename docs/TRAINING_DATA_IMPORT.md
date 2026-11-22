@@ -160,10 +160,11 @@ files retain their existing validation fingerprint and sampling behavior.
 
 ## Check depth for training and validation
 
-Each labeled training source and active UA-MT source must provide at least
-`num_layers` CT slices. The trainer requests up to eight extra slices of
-context. When a read has less context, it draws an offset that fits a full
-model window in both the labeled and any active unlabeled batch. A batch that
+`num_layers` must be a positive integer. Each labeled training source and
+active UA-MT source must provide that many CT slices. The trainer requests up
+to eight extra slices of context. When a read has less context, it draws an
+offset that fits a full model window in both the labeled and any active
+unlabeled batch. A batch that
 can combine patches from several sources requires matching read depths within
 that group. With a batch size of one, sources may have different read depths.
 

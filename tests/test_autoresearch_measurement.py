@@ -86,6 +86,13 @@ def test_validation_scores_only_full_depth_windows_at_the_protocol_offset():
     torch.testing.assert_close(seen[0][0, 0, :, 0, 0], torch.arange(4.0, 12.0))
 
 
+def test_validation_rejects_an_invalid_model_depth_before_scoring():
+    with pytest.raises(ValueError, match="num_layers must be a positive integer"):
+        train.collect_validation_predictions(
+            MeanInk(), Catalogue(4), -8, torch.device("cpu")
+        )
+
+
 # --- validation sample --------------------------------------------------------
 
 

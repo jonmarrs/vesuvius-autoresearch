@@ -17,6 +17,7 @@ depth_band_for.
 
 import os
 import sys
+from numbers import Integral
 
 from .volume_paths import volume_location
 
@@ -34,6 +35,13 @@ INFERENCE_ARCHITECTURES = frozenset(
     }
 )
 TRAINING_ARCHITECTURES = INFERENCE_ARCHITECTURES | {"resnet3d", "i3d"}
+
+
+def positive_integer(value, name, minimum=1):
+    if not isinstance(value, Integral) or isinstance(value, bool) or value < minimum:
+        requirement = "positive" if minimum == 1 else "nonnegative"
+        raise ValueError(f"{name} must be a {requirement} integer")
+    return int(value)
 
 
 def validate_architecture(value, *, training=False):
