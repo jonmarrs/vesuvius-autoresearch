@@ -242,6 +242,8 @@ For an opt-in initial-input receipt, add `--record-session`. The
 fingerprints, explicit progress/output paths, resource limits and the read-only
 `scripts/check_proofreader_session.py` command. Add `--verify-approved-patches`
 to verify saved TIFF pairs against the progress log and the recorded CT crops.
+Use `--verify-edited-labels` to include those checks and compare approved label
+TIFFs voxel for voxel with their corresponding edited Zarr crops.
 
 ## Incumbent re-evaluation
 

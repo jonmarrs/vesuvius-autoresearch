@@ -189,7 +189,9 @@ def _json_file(path):
     )
 
 
-def _progress_summary(root, config, shape, *, ct=None, budget=None):
+def _progress_summary(
+    root, config, shape, *, ct=None, budget=None, edited_label_path=None
+):
     path = root / PROGRESS_NAME
     if not path.exists() and not path.is_symlink():
         if ct is not None:
@@ -251,7 +253,9 @@ def _progress_summary(root, config, shape, *, ct=None, budget=None):
         "status_counts": counts,
     }
     if ct is not None:
-        result["approved_exports"] = _verify_exports(root, progress, ct, config, budget)
+        result["approved_exports"] = _verify_exports(
+            root, progress, ct, config, budget, edited_label_path=edited_label_path
+        )
         if _file_hash(path) != captured_sha256:
             raise ValueError("proofreader progress changed during export verification")
     return result
@@ -372,7 +376,43 @@ def _capture_tiff(path, edge, limit, role):
     return values, {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
 
 
-def _verify_exports(root, progress, ct, config, budget):
+def _open_edited_labels(path, shape, budget):
+    import numpy as np
+    import zarr
+
+    try:
+        info = path.lstat()
+    except FileNotFoundError as exc:
+        raise ValueError(f"missing edited-label Zarr: {path}") from exc
+    if not stat.S_ISDIR(info.st_mode):
+        raise ValueError(f"edited-label Zarr must be a nonsymlink directory: {path}")
+    _, states, _ = _inventory(path, budget)
+    if ".zarray" not in states:
+        raise ValueError(f"edited-label Zarr must be a bare Zarr v2 array: {path}")
+    try:
+        array = zarr.open_array(str(path), mode="r")
+    except zarr.errors.MetadataError as exc:
+        raise ValueError(f"invalid edited-label Zarr metadata: {path}") from exc
+    if (
+        array.shape != shape
+        or any(type(n) is not int for n in array.shape)
+        or array.dtype != np.dtype("uint8")
+        or array.fill_value != 0
+    ):
+        raise ValueError(
+            f"edited-label Zarr must match the CT shape with uint8 labels and zero fill: {path}"
+        )
+    chunks = array.chunks
+    if len(chunks) != len(shape) or any(type(n) is not int or n < 1 for n in chunks):
+        raise ValueError(f"invalid edited-label Zarr chunk geometry: {path}")
+    if math.prod(chunks) > budget["max_file_bytes"]:
+        raise ValueError(
+            f"decoded edited-label Zarr chunk exceeds max_file_bytes: {path}"
+        )
+    return array, states
+
+
+def _verify_exports(root, progress, ct, config, budget, *, edited_label_path=None):
     import numpy as np
 
     edge = config["patch_size"]
@@ -383,6 +423,9 @@ def _verify_exports(root, progress, ct, config, budget):
     limit = budget["max_file_bytes"]
     if approved and max(edge**3, math.prod(ct.chunks)) * ct.dtype.itemsize > limit:
         raise ValueError("decoded CT patch or chunk exceeds max_file_bytes")
+    edited, edited_state = None, None
+    if edited_label_path is not None:
+        edited, edited_state = _open_edited_labels(edited_label_path, ct.shape, budget)
     pairs = []
     for patch in approved:
         image, image_id = _capture_tiff(
@@ -401,6 +444,12 @@ def _verify_exports(root, progress, ct, config, budget):
             )
         if int(label.min()) < 0 or int(label.max()) > 255:
             raise ValueError(f"approved categorical label outside 0..255 at {coords}")
+        if edited is not None:
+            slices = tuple(slice(origin, origin + edge) for origin in coords)
+            if not np.array_equal(edited[slices], label):
+                raise ValueError(
+                    f"approved label TIFF differs from edited-label Zarr at {coords}"
+                )
         pairs.append(
             {
                 "coords_zyx": coords,
@@ -410,11 +459,28 @@ def _verify_exports(root, progress, ct, config, budget):
         )
     if _export_inventory(root, approved, budget) != before:
         raise ValueError("proofreader exports changed during verification")
-    return {"pairs_verified": len(pairs), "pairs": pairs}
+    report = {"pairs_verified": len(pairs), "pairs": pairs}
+    if edited_label_path is not None:
+        if _inventory(edited_label_path, budget)[1] != edited_state:
+            raise ValueError("edited-label Zarr changed during export verification")
+        report["edited_labels"] = {
+            "path": edited_label_path.name,
+            "shape_zyx": list(edited.shape),
+            "dtype": str(edited.dtype),
+            "approved_crops_verified": len(pairs),
+        }
+    return report
 
 
-def verify_record(output, proofreader, budget, *, verify_approved_patches=False):
-    """Rehash sources, check progress and optionally verify saved TIFF pairs."""
+def verify_record(
+    output,
+    proofreader,
+    budget,
+    *,
+    verify_approved_patches=False,
+    verify_edited_labels=False,
+):
+    """Rehash sources, check progress and optionally verify saved TIFFs and Zarr."""
     from volume_cartographer_wrapper.volume import FastLocalVolume
 
     root = Path(output).resolve()
@@ -471,7 +537,8 @@ def verify_record(output, proofreader, budget, *, verify_approved_patches=False)
     effective = {key: min(own[key], saved[key]) for key in own}
     if _file_hash(proofreader) != record["proofreader_sha256"]:
         raise ValueError("pinned proofreader source differs from the input record")
-    ct, ct_state = None, None
+    check_exports = verify_approved_patches or verify_edited_labels
+    ct, source_states = None, {}
     for role, source in sources.items():
         fingerprint, snapshot = _fingerprint_source(source["path"], effective)
         if fingerprint != source:
@@ -481,17 +548,30 @@ def verify_record(output, proofreader, budget, *, verify_approved_patches=False)
             raise ValueError(
                 f"{role} source shape differs from the proofreader input record"
             )
-        if role == "ct" and verify_approved_patches:
-            ct, ct_state = volume, snapshot
-    progress = _progress_summary(root, config, shape, ct=ct, budget=effective)
-    if ct is not None:
-        if _inventory(ct.path, effective)[1] != ct_state:
-            raise ValueError("recorded CT changed during export verification")
+        if check_exports:
+            source_states[role] = (Path(source["path"]), snapshot)
+            if role == "ct":
+                ct = volume
+    progress = _progress_summary(
+        root,
+        config,
+        shape,
+        ct=ct,
+        budget=effective,
+        edited_label_path=Path(config["output_label_zarr"])
+        if verify_edited_labels
+        else None,
+    )
+    if check_exports:
+        for role, (path, snapshot) in source_states.items():
+            if _inventory(path, effective)[1] != snapshot:
+                name = "CT" if role == "ct" else role
+                raise ValueError(f"recorded {name} changed during export verification")
         if _file_hash(root / RECORD_NAME) != record_sha256:
             raise ValueError(
                 "proofreader input record changed during export verification"
             )
-    return {
+    report = {
         "input_record_matches": True,
         "input_record_sha256": record_sha256,
         "progress": progress,
@@ -502,3 +582,6 @@ def verify_record(output, proofreader, budget, *, verify_approved_patches=False)
         if ct is not None
         else "Configured input bytes and logged context only; not GUI-setting history, approval provenance, physical registration or patch contents.",
     }
+    if verify_edited_labels:
+        report["scope"] += " Edited-label Zarr values match within approved crops."
+    return report
