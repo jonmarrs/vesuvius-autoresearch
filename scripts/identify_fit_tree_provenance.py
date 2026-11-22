@@ -106,7 +106,8 @@ def main() -> int:
         print("No supported local subtrees found; nothing compared.")
     elif len(exact) < len(verdict):
         print(
-            f"Only {len(exact)}/{len(verdict)} compared subtrees matched a candidate."
+            f"Only {len(exact)}/{len(verdict)} compared subtrees matched a candidate; "
+            "widen --commits to search further."
         )
     elif len(set(exact.values())) > 1:
         print(
