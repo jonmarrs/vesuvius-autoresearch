@@ -326,6 +326,14 @@ snapped once (`SNAP3_READS_SAME`, as predicted; change +0.0029, margin 0.02;
 so three passes are adopted by the registered tie-break, and finding 133 uses them. As with the denser grid
 (finding 131), the gain on the sheet did not show in the read.
 
+**Studio reads our geometry best at the depth the band reads already use (November 22).** At PHerc. 211's winner
+surface, Studio's 16 planes were moved from 8 layers in to 8 layers out. Both geometries swept, finding 121's and
+finding 134's, read best with no shift: they give r 0.8247 and 0.8135 at D = 0 (`DEPTH_ZERO_BEST`, as predicted;
+[report](../reports/first_letters_0211_depth_sweep.md), finding 135). So the band reads keep layers 41 to 26. Over
+±2 layers r changes by at most 0.0407. It halves 6 layers outward but stays above half 8 layers inward, and on the
+recipe's PHerc. 343 surface it also falls faster outward. This measures a uniform depth error only, not a sheet
+switch or an uneven surface.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
