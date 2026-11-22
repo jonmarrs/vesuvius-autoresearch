@@ -11,6 +11,8 @@
 #          outerN-smoke  as smoke, with the same two settings
 #          outerN-otherhand, outerN-otherhand-smoke   as the two above, with the spiral declared to turn the
 #                        other way from the published direction: a control the sheet-following score should fail
+#          full-otherhand  as full, with only the direction declared the other way (finding 137; outer130 is not
+#                        full: it sets the gap expander to 133, villa's default is 130)
 #   STEPS  required for the smoke arms; refused for the others
 #
 # Writes R/work/fit_ARM/ (villa's own layout below it), R/logs/fit_ARM.log and a GPU-memory trace.
@@ -24,6 +26,7 @@ case "$ARM" in
   outer[1-9]*-otherhand-smoke) KIND=smoke; FLIP=1; OUTER=${ARM#outer}; OUTER=${OUTER%-otherhand-smoke} ;;
   outer[1-9]*-otherhand) KIND=full; FLIP=1; OUTER=${ARM#outer}; OUTER=${OUTER%-otherhand} ;;
   full) KIND=full ;;
+  full-otherhand) KIND=full; FLIP=1 ;;
   smoke) KIND=smoke ;;
   outer[1-9]*-smoke) KIND=smoke; OUTER=${ARM#outer}; OUTER=${OUTER%-smoke} ;;
   outer[1-9]*) KIND=full; OUTER=${ARM#outer} ;;
