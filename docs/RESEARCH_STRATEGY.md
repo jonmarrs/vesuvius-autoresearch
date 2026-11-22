@@ -273,6 +273,34 @@ three lines. Our renderer costs almost nothing (r 0.97 on the winner's own surfa
 On one RTX 4090 the recipe's fit with Studio is a pipeline that draws letters where letters are known. The next
 step reads every winding of a still-eligible band that way, for the owner to inspect.
 
+**All 70 windings of PHerc. 0826's fitted band read by Studio; the images wait for the owner (November 20).** Every
+winding of finding 115's fit was snapped, flattened, rendered and read with no failure, in 8 h 48 min against the
+registered four hours, because this band's render canvases are more than three times the size of finding 124's
+([report](../reports/first_letters_0826_studio_band.md), finding 125). No automatic verdict was registered: the
+images stay on this machine and the owner reads them. Described from the geometry alone: the registered render rule
+(normals against the band's centre) kept the two innermost windings, which the scroll's axis says should have been
+flipped, so their maps read the other side; the inner windings w010 to w026 are stacked; and in the median winding
+two thirds of the rendered nodes lie within 2 voxels of the predicted sheet, falling from 0.79 at the inner third of
+radii to 0.54 at the outer, where the snap's grid is coarsest. Later band reads orient against the axis and snap on
+a denser grid.
+
+**PHerc. 0358's band fits on the sheets, and all 111 selected windings were read; the images wait for the owner
+(November 21).** The recipe's fit of z 8872 to 10372 at villa's defaults is `ON_SHEETS` by finding 112's table
+(median excess 0.0863, 0.925 of windings positive), one line better than predicted. The outermost third fits best
+([report](../reports/first_letters_0358_studio_band.md), finding 126). The 111 windings with positive excess were
+subdivided twice, oriented against the axis and read by Studio with no failure, in 17 h 56 min against the
+registered eight hours. Described from the geometry alone: every render points outward; 7 of 104 neighbouring pairs
+are stacked, all inside w037; and the rendered share within 2 voxels of the predicted sheet holds from 0.73 at the
+inner third of radii to 0.71 at the outer. That fits finding 130, though another scroll is not a controlled
+comparison. No automatic verdict was registered: the images stay on this machine and the owner reads them.
+
+**The twice-denser snap reads the same as the fit's own grid at the known place (November 21).** At PHerc. 211's
+winner surface, finding 121's four windings subdivided twice before the snap give r 0.8168 against 0.8267 for the
+same route on the fit's grid (`DENSE_READS_SAME`, as predicted; change −0.0099, margin 0.02;
+[report](../reports/first_letters_0211_dense_read.md), finding 131). Yet they sit more on the predicted sheet: +0.0343
+at the median within 2 voxels. So that geometric gain did not buy a better read here. The band reads keep the denser
+snap, as registered, on geometry alone.
+
 **Studio skips the windows with no CT and gives the same map in under 0.6 of the time (November 21).** Run with
 the winner's command, the winner's loop without those windows gives maps within 0.00075 of the full loop's on two
 of PHerc. 0826's windings and PHerc. 211's input. No pixel crosses 0.5, and the full loop's maps are identical to
