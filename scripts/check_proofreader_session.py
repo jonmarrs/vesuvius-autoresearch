@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only check of recorded 3D proofreader inputs, progress and optional TIFFs."""
+"""Read-only check of 3D proofreader inputs, progress and saved labels."""
 
 import argparse
 import json
@@ -18,6 +18,11 @@ def main(argv=None):
         action="store_true",
         help="check saved TIFF pairs and compare each image with its recorded CT crop",
     )
+    parser.add_argument(
+        "--verify-edited-labels",
+        action="store_true",
+        help="check approved TIFF pairs and compare each label with its edited Zarr crop",
+    )
     parser.add_argument("--max-source-bytes", type=int, default=8 * 1024**3)
     parser.add_argument("--max-file-bytes", type=int, default=64 * 1024**2)
     parser.add_argument("--max-entries", type=int, default=100_000)
@@ -34,6 +39,7 @@ def main(argv=None):
                 "max_entries": args.max_entries,
             },
             verify_approved_patches=args.verify_approved_patches,
+            verify_edited_labels=args.verify_edited_labels,
         )
         print(json.dumps(result, indent=2, allow_nan=False))
         return 0

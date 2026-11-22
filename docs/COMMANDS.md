@@ -56,7 +56,8 @@ dependency availability checks or GPU capacity guarantees. For example:
 - The scroll-frames parsing API is stdlib-only, while its live `list` CLI needs
   `s3fs` and network access. The inventory describes that CLI mode.
 - Proofreader verification requires the pinned source and NumPy/Zarr. Optional
-  TIFF export checks also use tifffile. GUI launch needs Napari and its GUI dependencies.
+  TIFF and edited-label crop checks also use tifffile. GUI launch needs Napari
+  and its GUI dependencies.
 - Loop control uses Linux process facilities. A stdlib classification does not
   mean a process-control command is portable to every operating system.
 
