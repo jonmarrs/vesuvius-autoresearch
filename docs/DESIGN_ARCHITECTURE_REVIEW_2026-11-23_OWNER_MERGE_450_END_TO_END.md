@@ -54,8 +54,10 @@ No code changed. No defect was found.
 
 ## Verified, no change needed
 
-- **The orientation was decided before any ink, as registered.** All four windings have median cosines between
-  −0.9962 and −0.9983, and were rendered flipped. The chain stops if `orient` exits 1, and refuses a winding with no
+- **The orientation was decided before any ink, as registered.** `orient` recorded median cosines of −0.9950 to
+  −0.9976 for the four windings, and all four were rendered flipped. `compare` measures the cosines again on the
+  cells each winding gave: −0.9962 to −0.9983, which it negates for a flipped render. (This sentence first gave only
+  the second range; round #199 corrected it.) The chain stops if `orient` exits 1, and refuses a winding with no
   decision.
 - **This chain checks Reader V3's checkpoint before each use.** `run_end_to_end.sh` checks the SHA-256 and runs
   `check_checkpoint.py` with `|| return 1` before villa's loader sees the file. Round #197 noted that
