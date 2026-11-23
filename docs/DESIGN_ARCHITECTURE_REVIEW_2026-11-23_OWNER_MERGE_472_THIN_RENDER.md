@@ -52,8 +52,8 @@ refuses it anyway.
 
 - **The doc audit cannot resolve two commits that #524 cites.** The filing draft names `research/wrong-hand-read`
   at dc232051 and `research/studio-band-triage` at 26d5c8a5. Both are on origin: the first is on its branch, and
-  the second is its branch's head. Neither branch is merged, and the audit reads main, so it lists both as found
-  nowhere. They resolve once the branches merge.
+  the second is its branch's head. Neither branch is merged, so in a checkout of main alone the audit lists both as
+  found nowhere. They resolve once the branches merge.
 
 ## Verification
 
