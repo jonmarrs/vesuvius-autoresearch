@@ -4,6 +4,7 @@ A successful check is not a general safety certification or a persisted receipt.
 """
 
 import sys
+from pathlib import Path
 
 
 def _length_or_value(value):
@@ -22,6 +23,9 @@ def main() -> int:
 
     import torch
 
+    # python -I drops PYTHONPATH, and the portable CI venv does not install this
+    # package. The checkout's src is what pytest's pythonpath would have added.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
     from vesuvius_autoresearch.core.checkpoint_refusal import require_zip_checkpoint
 
     failed = False
