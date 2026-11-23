@@ -173,3 +173,113 @@ def test_a_winding_that_covers_too_little_of_the_winners_surface_is_not_chosen(
         == 0
     )
     assert json.loads(out.read_text())["verdict"] == "DOES_NOT_RUN"
+
+
+def test_the_band_includes_its_first_layer_and_leaves_out_missing_nodes():
+    xyz = np.zeros((3, 1, 3))
+    xyz[:, 0, 2] = [7650, 8000, 8000]
+    valid = np.array([[True], [True], [False]])
+    assert ws.in_band(xyz, valid)[:, 0].tolist() == [True, True, False]
+
+
+def test_the_snap_list_keeps_the_width_of_the_chosen_name():
+    names = ["w0099", "w0100", "w0101"]
+    assert ws.neighbours("w0100", names) == names
+
+
+def test_near_any_counts_a_node_exactly_on_each_line_and_only_the_bands_nodes():
+    winner = _plane(3000.0)
+    mask = np.zeros(winner.shape[:2], bool)
+    mask[10:] = True  # half the winner's nodes are in the band
+    whole = np.ones(winner.shape[:2], bool)
+    three_off = (_plane(3003.0), whole)
+    two_off = (_plane(3002.0), whole)
+    assert ws.near_any(winner, mask, {"a": three_off}) == {
+        "nodes": int(mask.sum()),
+        "within_2_of_any_winding": 0.0,
+        "within_4_of_any_winding": 1.0,
+    }
+    both = ws.near_any(winner, mask, {"a": three_off, "b": two_off})
+    assert both["within_2_of_any_winding"] == 1.0
+
+
+def _shifted(y: float, dx: float, **kw) -> np.ndarray:
+    xyz = _plane(y, **kw)
+    xyz[..., 0] += dx
+    return xyz
+
+
+def test_choose_and_verdict_measure_only_the_winners_nodes_inside_the_band(tmp_path):
+    # Two thirds of the winner lie below z 7650; the windings reach only a little below it. Measured over the whole
+    # winner, the right winding would cover too little of it to be chosen, and its snapped copy would read PARTLY.
+    winner = tmp_path / "winner"
+    _write_tifxyz(winner, _plane(3000.0, rows=60, z0=6850.0))
+    fit = tmp_path / "fit"
+    windings = {
+        "w030": _plane(2988.0, rows=24, z0=7610.0),
+        "w031": _plane(3000.5, rows=24, z0=7610.0),
+        "w032": _plane(3013.0, rows=24, z0=7610.0),
+        "w033": _plane(3004.0, rows=24, z0=7610.0),
+        # beside the winner: it covers none of it, so it has no median
+        "w040": _shifted(3000.0, 5000.0, rows=24, z0=7610.0),
+    }
+    for name, xyz in windings.items():
+        _write_tifxyz(fit / name, xyz)
+    chosen = tmp_path / "chosen.json"
+    snap_list = tmp_path / "snap.txt"
+    assert ws.main(["choose", str(chosen), str(winner), str(fit), str(snap_list)]) == 0
+    record = json.loads(chosen.read_text())
+    assert (record["winner_nodes"], record["winner_nodes_in_band"]) == (1800, 600)
+    assert record["windings"] == 5
+    assert record["chosen"] == "w031"
+    assert record["chosen_raw"]["fraction_within"]["2"] == 1.0
+    assert [w["winding"] for w in record["three_closest"]] == ["w031", "w033", "w030"]
+    assert record["described"]["near_any"]["nodes"] == 600
+    assert record["described"]["near_any"]["within_2_of_any_winding"] == 1.0
+    snap = tmp_path / "snap"
+    _write_tifxyz(snap / "w031", windings["w031"])
+    out = tmp_path / "verdict.json"
+    assert ws.main(["verdict", str(out), str(winner), str(chosen), str(snap)]) == 0
+    result = json.loads(out.read_text())
+    assert result["snapped"]["fraction_within"]["2"] == 1.0
+    assert result["verdict"] == "ON_THE_WINNERS_SHEET"
+
+
+@pytest.mark.parametrize("rows", [40, 15], ids=["two_tile_rows", "smaller_than_a_tile"])
+def test_the_described_tiles_are_the_chosen_windings_against_the_bands_winner(
+    tmp_path, monkeypatch, rows
+):
+    import importlib
+
+    bq = importlib.import_module("band_fit_quality")
+    opened = []
+
+    class Field:  # a sheet one voxel either side of the chosen winding
+        def __init__(self, store, group):
+            opened.append((str(store), group))
+
+        def at(self, xyz):
+            return np.abs(xyz[:, 1] - 3000.5) - 1.0
+
+    monkeypatch.setattr(bq, "DistanceField", Field)
+    winner = tmp_path / "winner"
+    _write_tifxyz(winner, _plane(3000.0, rows=40, z0=7250.0))  # half below the band
+    fit = tmp_path / "fit"
+    z0 = 7250.0 if rows == 40 else 7650.0
+    _write_tifxyz(fit / "w031", _plane(3000.5, rows=rows, z0=z0))
+    out = tmp_path / "chosen.json"
+    sdt = tmp_path / "sdt.zarr"
+    argv = ["choose", str(out), str(winner), str(fit), str(tmp_path / "s.txt")]
+    assert ws.main([*argv, "--sdt", str(sdt)]) == 0
+    record = json.loads(out.read_text())
+    assert record["chosen"] == "w031"
+    assert opened == [(str(sdt), "1")]
+    described = record["described"]["tiles"]
+    if rows == 15:
+        assert described == {"summary": None, "tiles": []}
+        return
+    # the lower tile row lies below the band, where the winner is not measured
+    (tile,) = described["tiles"]
+    assert (tile["row"], tile["winding"], tile["within"]) == (1, "chosen", 1.0)
+    assert tile["tile_excess"] == 1.0
+    assert described["summary"]["tiles"] == 1
