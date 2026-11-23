@@ -126,3 +126,105 @@ def test_finding_129_registers_the_change_before_its_data():
     assert "before any input of PHerc. 0813 has been downloaded" in amendment
     assert "`RENDER_SLICES`" in amendment and "18 layers" in amendment
     assert "Time is not claimed" in amendment
+
+
+# --- run_render.sh, run with docker and GNU time as stubs: the layer count, the flip, the record, the refusals -------
+
+_DOCKER = """#!/usr/bin/env bash
+if [ "$*" = "run --rm --entrypoint cat vc-render:sampler-75c79ac5f /opt/vcsrc/SAMPLER_SHA" ]; then
+  echo "${IMAGE_SHA:-75c79ac5f506d4b9a89bcfbef8e8c0f2f0c3acb3}"; exit 0
+fi
+echo "$*" >> "$CALLS"
+out=""; while [ $# -gt 0 ]; do [ "$1" = "--zarr-output" ] && out=$2; shift; done
+if [ -z "${NO_LEVEL_2:-}" ]; then mkdir -p "$out/2"; else mkdir -p "$out/0"; fi
+exit "${RENDER_RC:-0}"
+"""
+
+
+def _render_run(tmp_path, *args, final=True, **env):
+    """Run a copy of run_render.sh on arm a, winding w001; docker is a stub on PATH, GNU time (absent here) a stub."""
+    import json
+    import shutil
+
+    band, bin_ = tmp_path / "eligible_band", tmp_path / "bin"
+    band.mkdir(parents=True)
+    bin_.mkdir()
+    (tmp_path / "pherc343" / "mesh_step").mkdir(parents=True)
+    shutil.copy(BAND / "env.sh", band / "env.sh")
+    script = (BAND / "run_render.sh").read_text()
+    assert script.count("/usr/bin/time -v") == 1
+    (bin_ / "time_stub").write_text('#!/usr/bin/env bash\nshift\nexec "$@"\n')
+    (band / "run_render.sh").write_text(
+        script.replace("/usr/bin/time", str(bin_ / "time_stub"))
+    )
+    (bin_ / "docker").write_text(_DOCKER)
+    for stub in ("time_stub", "docker"):
+        (bin_ / stub).chmod(0o755)
+    r = tmp_path / "fl" / "pherc0358_band"
+    if final:
+        (r / "work" / "final_a" / "w001.tifxyz").mkdir(parents=True)
+        (r / "work" / "final_a" / "w001.tifxyz" / "x.tif").write_bytes(b"")
+    calls = tmp_path / "calls.log"
+    calls.touch()
+    full_env = {"PATH": f"{bin_}:/usr/bin:/bin", "FL_ROOT": str(tmp_path / "fl"), "FL_SCROLL": "PHerc0358",
+                "FL343_REPRO_DIR": str(tmp_path / "b"), "CALLS": str(calls), **env}  # fmt: skip
+    rc = subprocess.run(["bash", str(band / "run_render.sh"), "a", "w001", *args], env=full_env,
+                        capture_output=True).returncode  # fmt: skip
+    gate = r / "work" / "gate_a" / "render_w001.json"
+    return (
+        rc,
+        calls.read_text().splitlines(),
+        json.loads(gate.read_text()) if gate.exists() else None,
+        r,
+    )
+
+
+@pytest.mark.parametrize(
+    ("slices", "flip"),
+    [("18", True), (None, False)],
+    ids=["18-flipped", "66-by-default"],
+)
+def test_the_render_runs_the_centred_layers_asked_for_and_records_them(
+    tmp_path, slices, flip
+):
+    env = {"RENDER_SLICES": slices} if slices else {}
+    rc, calls, gate, r = _render_run(tmp_path, *(["flip"] if flip else []), **env)
+    n = int(slices or 66)
+    assert rc == 0 and len(calls) == 1
+    assert f"--num-slices {n} --slice-step 1" in calls[0]
+    assert ("--flip-normals" in calls[0]) is flip
+    assert f"--zarr-output {r}/work/render_a/w001_{n}.zarr" in calls[0]
+    assert {k: gate[k] for k in ("exit", "flipped", "slices")} == {
+        "exit": 0,
+        "flipped": flip,
+        "slices": n,
+    }
+
+
+def test_the_render_refuses_a_missing_winding_an_earlier_output_or_another_image(
+    tmp_path,
+):
+    assert _render_run(tmp_path / "missing", final=False)[:3] == (2, [], None)
+    (
+        tmp_path
+        / "again"
+        / "fl"
+        / "pherc0358_band"
+        / "work"
+        / "render_a"
+        / "w001_66.zarr"
+    ).mkdir(parents=True)
+    assert _render_run(tmp_path / "again")[:3] == (2, [], None)
+    assert _render_run(tmp_path / "image", IMAGE_SHA="0" * 40)[:3] == (2, [], None)
+
+
+@pytest.mark.parametrize(
+    ("env", "code"),
+    [({"NO_LEVEL_2": "1"}, 1), ({"RENDER_RC": "3"}, 3)],
+    ids=["no-level-2", "fails"],
+)
+def test_a_render_without_its_level_2_or_that_fails_is_recorded_with_its_exit(
+    tmp_path, env, code
+):
+    rc, calls, gate, _ = _render_run(tmp_path, **env)
+    assert rc == code and len(calls) == 1 and gate["exit"] == code
