@@ -13,10 +13,14 @@ torch.load reads a file as a zip archive only when the file starts with the zip 
 signature. A pickle placed in front of an archive is what that load runs, so those bytes are
 audited and the archive after them is not treated as the checkpoint. Before the concatenated
 pickles of a later legacy file, torch.load tries the ancient tar format, so every file in that
-tar is audited and the whole file is audited again as raw pickle bytes: a load from memory,
-and a tar read that fails, unpickle those leading bytes. A tar that cannot be read is refused.
-A file that is not a zip or a tar may hold several pickles in a row; each is read through its
-STOP. A parse error before any STOP, or a file that holds no pickle, is refused.
+tar is audited, and the leading bytes are audited again as a pickle: a load from memory,
+and a tar read that fails, unpickle those bytes. That second reading stops after a bounded
+prefix, so the member bodies are not copied again. A tar that cannot be read is refused.
+A file that is not a zip or a tar may hold several pickles in a row. torch.load runs five
+before the raw storage: the magic number, the protocol, the system information, the object,
+and the storage keys. A parse error before those five have finished keeps every name already
+read and refuses the file. A parse error after them is the storage tail. A file that holds
+no pickle is refused.
 
 usage: audit_pickle.py CHECKPOINT [--allow MODULE.NAME]...
 """
@@ -48,6 +52,10 @@ _ZIP_LOCAL = b"PK\x03\x04"
 # A real checkpoint has a handful of members. Tens of thousands of headers are not one.
 _MAX_TAR_MEMBERS = 1024
 _MAX_TAR_BYTES = 512 * 1024 * 1024
+# torch.load unpickles five values, then reads raw storage and does not unpickle it.
+_LEGACY_PICKLES = 5
+# The leading pickle of a tar lives in the header. The rest is member data, already audited.
+_MAX_LEADING_BYTES = 1024 * 1024
 # Raw bytes of a tar are usually not a pickle. These mean "nothing ran", not "a pickle ran".
 _RAW_TAR_IGNORE = {"unreadable pickle", "no pickle"}
 
@@ -87,24 +95,38 @@ def _tar_members(path: Path) -> list[tuple[str, bytes]]:
     """Regular files of a legacy tar, in archive order.
 
     A link is not followed and a device is not read: either one refuses the tar.
-    More members or more declared bytes than a checkpoint holds refuses it too,
-    before those bytes are read into memory.
+    A directory counts toward the member cap. Once that cap is reached, another
+    header refuses the tar before it is parsed. More declared bytes than a
+    checkpoint holds refuses it too, before those bytes are read into memory.
     """
     found: list[tuple[str, bytes]] = []
     try:
         with tarfile.open(path, mode="r:", format=tarfile.PAX_FORMAT) as archive:
             files = []
-            for member in archive.getmembers():
+            count = 0
+            total = 0
+            while True:
+                # Directories count. The next header is refused before it is parsed
+                # once the archive already holds as many members as a checkpoint.
+                if count >= _MAX_TAR_MEMBERS:
+                    archive.fileobj.seek(archive.offset)
+                    peeked = archive.fileobj.read(tarfile.BLOCKSIZE)
+                    archive.fileobj.seek(archive.offset)
+                    if peeked.strip(b"\0"):
+                        raise _UnreadableTar(path.name)
+                    break
+                member = archive.next()
+                if member is None:
+                    break
+                count += 1
                 if member.isdir():
                     continue
                 if not member.isreg():
                     raise _UnreadableTar(member.name)
+                total += member.size
+                if total > _MAX_TAR_BYTES:
+                    raise _UnreadableTar(path.name)
                 files.append(member)
-            if (
-                len(files) > _MAX_TAR_MEMBERS
-                or sum(m.size for m in files) > _MAX_TAR_BYTES
-            ):
-                raise _UnreadableTar(path.name)
             for member in files:
                 extracted = archive.extractfile(member)
                 if extracted is None:
@@ -118,18 +140,19 @@ def _tar_members(path: Path) -> list[tuple[str, bytes]]:
 def _pickle_streams(data: bytes):
     """Each complete pickle in ``data``, which may hold several back to back.
 
-    pickletools stops at the first STOP. The legacy torch format writes the magic number, the
-    protocol and the system information as pickles of their own before the object, and then the
-    tensor storage, which is not a pickle. torch.load does not unpickle that tail, so a parse
-    error after a finished pickle ends the scan. Storage bytes can look like an opcode; they
-    are not recorded and they do not refuse the file.
+    pickletools stops at the first STOP. The legacy torch format writes five pickles before the
+    tensor storage, which is not a pickle: the magic number, the protocol, the system
+    information, the object, and the storage keys. torch.load does not unpickle that tail, so a
+    parse error after those five ends the scan. Storage bytes can look like an opcode; they are
+    not recorded and they do not refuse the file.
 
-    A parse error before any STOP is not that tail. Opcodes already read are yielded, so a
-    name already seen is not dropped, and the error is raised so the file is refused.
+    A parse error before the fifth STOP is not that tail. torch.load runs that next pickle
+    opcode by opcode, including one that never reaches STOP. Opcodes already read are yielded,
+    so a name already seen is not dropped, and the error is raised so the file is refused.
     """
     stream = io.BytesIO(data)
     size = len(data)
-    finished = False
+    finished = 0
     while stream.tell() < size:
         start = stream.tell()
         ops = []
@@ -137,7 +160,7 @@ def _pickle_streams(data: bytes):
             for item in pickletools.genops(stream):
                 ops.append(item)
         except Exception as exc:
-            if finished:
+            if finished >= _LEGACY_PICKLES:
                 return
             if ops:
                 yield ops
@@ -146,7 +169,7 @@ def _pickle_streams(data: bytes):
             if not ops or stream.tell() == start:
                 return
             yield ops
-            finished = True
+            finished += 1
 
 
 def _pickle_covers(data: bytes) -> bool:
@@ -274,7 +297,8 @@ def _raw_file(path: Path) -> tuple[dict[str, int], list[str]]:
     those bytes is: torch.load of a BytesIO, and a tar read that fails, unpickle
     the leading bytes and would run them.
     """
-    names, refused = imported(path.read_bytes())
+    with path.open("rb") as handle:
+        names, refused = imported(handle.read(_MAX_LEADING_BYTES))
     return names, [item for item in refused if item not in _RAW_TAR_IGNORE]
 
 
