@@ -273,3 +273,157 @@ def test_the_wandb_stub_does_nothing():
     assert (
         "import" not in source.split('"""')[-1]
     )  # nothing imported past the docstring
+
+
+# --- the pickle audit: each opcode rule, on pickles built by hand ------------------------------------------------
+
+
+def _string(op: str, text: str) -> bytes:
+    raw = text.encode()
+    return {
+        "SHORT_BINUNICODE": b"\x8c" + bytes([len(raw)]) + raw,
+        "BINUNICODE": b"X" + len(raw).to_bytes(4, "little") + raw,
+        "BINUNICODE8": b"\x8d" + len(raw).to_bytes(8, "little") + raw,
+        "UNICODE": b"V" + raw + b"\n",
+        "SHORT_BINSTRING": b"U" + bytes([len(raw)]) + raw,
+        "BINSTRING": b"T" + len(raw).to_bytes(4, "little") + raw,
+        "STRING": b"S'" + raw + b"'\n",
+    }[op]
+
+
+def _proto4(*parts: bytes) -> bytes:
+    return b"\x80\x04" + b"".join(parts) + b"."
+
+
+def _named(module: str, name: str, op: str = "SHORT_BINUNICODE") -> bytes:
+    return _string(op, module) + _string(op, name) + b"\x93"  # STACK_GLOBAL
+
+
+@pytest.mark.parametrize("op", ["SHORT_BINUNICODE", "BINUNICODE", "BINUNICODE8", "UNICODE",
+                                "SHORT_BINSTRING", "BINSTRING", "STRING"])  # fmt: skip
+def test_stack_global_names_pushed_by_any_string_opcode_are_read(op):
+    names, refused = audit.imported(_proto4(_named("posixpath", "join", op)))
+    assert names == {"posixpath.join": 1} and refused == []
+
+
+@pytest.mark.parametrize(
+    ("put", "get"),
+    [
+        (b"\x94", b"h\x00"),  # MEMOIZE, BINGET
+        (b"q\x00", b"h\x00"),  # BINPUT, BINGET
+        (b"r\x00\x00\x00\x00", b"j\x00\x00\x00\x00"),  # LONG_BINPUT, LONG_BINGET
+        (b"p0\n", b"g0\n"),  # PUT, GET
+    ],
+    ids=["memoize", "binput", "long_binput", "put"],
+)
+def test_a_module_name_fetched_back_from_the_memo_is_read_and_counted(put, get):
+    data = _proto4(
+        _string("SHORT_BINUNICODE", "posixpath"),
+        put,
+        _string("SHORT_BINUNICODE", "join") + b"\x93",
+        get,
+        _string("SHORT_BINUNICODE", "join") + b"\x93",
+    )
+    assert audit.imported(data) == ({"posixpath.join": 2}, [])
+
+
+def test_two_strings_that_are_no_longer_on_top_name_nothing():
+    # "os" and "system", then an empty tuple: STACK_GLOBAL would take the tuple, so no name is guessed
+    names, refused = audit.imported(_proto4(_string("SHORT_BINUNICODE", "os"),
+                                            _string("SHORT_BINUNICODE", "system"), b")\x93"))  # fmt: skip
+    assert names == {} and refused
+
+
+def test_a_memo_entry_that_is_not_a_string_breaks_the_pair():
+    # memo 0 holds an empty tuple; fetched between the two names, it is not a module name
+    data = _proto4(b")\x94", _string("SHORT_BINUNICODE", "os"), b"h\x00",
+                   _string("SHORT_BINUNICODE", "system"), b"\x93")  # fmt: skip
+    names, refused = audit.imported(data)
+    assert names == {} and refused
+
+
+def test_a_class_named_inline_by_inst_is_listed_and_refused(tmp_path):
+    path = tmp_path / "inst.pkl"
+    path.write_bytes(b"(ios\nsystem\n.")  # MARK, INST os system, STOP
+    result = audit.audit(path, set())
+    assert result["outside_allowlist"] == ["os.system"] and not result["passes"]
+
+
+@pytest.mark.parametrize(
+    ("op", "code"),
+    [
+        ("EXT1", b"\x82\x01"),
+        ("EXT2", b"\x83\x01\x00"),
+        ("EXT4", b"\x84\x01\x00\x00\x00"),
+    ],
+)
+def test_every_copyreg_extension_opcode_refuses_the_file(tmp_path, capsys, op, code):
+    path = tmp_path / f"{op}.pkl"
+    path.write_bytes(b"\x80\x02" + code + b".")
+    result = audit.audit(path, set())
+    assert result["refused_opcodes"] == [op] and result["outside_allowlist"] == []
+    assert not result["passes"]
+    assert audit.main([str(path)]) == 1
+    assert "REFUSED" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("module", "name", "passes"),
+    [
+        ("torch", "FloatStorage", True),
+        (
+            "torch",
+            "FloatStorage.__class__",
+            False,
+        ),  # an attribute reached through a storage class
+        (
+            "torch.serialization",
+            "Storage",
+            False,
+        ),  # a module of torch, not torch itself
+    ],
+)
+def test_only_a_storage_class_of_torch_itself_passes_as_storage(
+    tmp_path, module, name, passes
+):
+    path = tmp_path / "global.pkl"
+    path.write_bytes(b"\x80\x04c" + module.encode() + b"\n" + name.encode() + b"\n.")
+    assert audit.audit(path, set())["passes"] is passes
+
+
+def test_the_audit_takes_exactly_one_checkpoint(capsys):
+    assert audit.main([]) == 2
+    assert audit.main(["a.pt", "b.pt"]) == 2
+    assert "usage: audit_pickle.py" in capsys.readouterr().err
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="audit_pickle reads a file up to its first STOP; a legacy (non-zip) torch file is several pickles, "
+    "and torch.load unpickles the object after the first",
+)
+def test_a_legacy_checkpoint_is_audited_past_its_first_pickle(tmp_path):
+    torch = pytest.importorskip("torch")
+    path = tmp_path / "legacy.pt"
+    payload = f120_tests._MakesADirectory(str(tmp_path / "made"))
+    torch.save(
+        {"w": torch.zeros(2), "x": payload}, path, _use_new_zipfile_serialization=False
+    )
+    assert not audit.audit(path, set())["passes"]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="audit_pickle reads a file as a zip archive wherever Python's zipfile finds one, but torch.load only "
+    "when the file starts with the zip signature: a pickle placed before an archive is loaded and never read",
+)
+def test_a_pickle_placed_before_a_zip_archive_is_audited(tmp_path):
+    torch = pytest.importorskip("torch")
+    import io
+
+    archive = io.BytesIO()
+    torch.save({"w": torch.zeros(2)}, archive)
+    payload = f120_tests._MakesADirectory(str(tmp_path / "made"))
+    path = tmp_path / "joined.pt"
+    path.write_bytes(pickle.dumps(payload, protocol=2) + archive.getvalue())
+    assert not audit.audit(path, set())["passes"]
