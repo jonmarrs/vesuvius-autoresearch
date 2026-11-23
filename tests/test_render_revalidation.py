@@ -390,3 +390,72 @@ def test_a_best_ncc_exactly_at_the_gate_passes(monkeypatch):
     best = study.compare_center(layers, supported, references)["best_ncc"]
     monkeypatch.setitem(study.DESIGN, "ncc_gate", best)
     assert study.compare_center(layers, supported, references)["verdict"] == "PASS"
+
+
+def test_a_real_redirect_is_refused_rather_than_followed(tmp_path, monkeypatch):
+    # The opener stubs above raise a 302 themselves; here urllib meets a real one.
+    import http.server
+    import threading
+
+    served = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            served.append(self.path)
+            moved = self.path == "/moved"
+            body = b"elsewhere" if moved else b""
+            self.send_response(200 if moved else 302)
+            if not moved:
+                self.send_header("Location", "/moved")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    for name in ("http_proxy", "HTTP_PROXY", "all_proxy", "ALL_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        port = server.server_port
+        monkeypatch.setattr(study, "BASE_URL", f"http://127.0.0.1:{port}/")
+        src = study.SnapshotSource(tmp_path, max_total_bytes=32, max_object_bytes=16)
+        key = study.RAW + "/2/0/0/0"
+        with pytest.raises(OSError, match="source fetch failed"):
+            src.cat([key])
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert served == ["/" + key.removeprefix(study.BUCKET + "/")]
+    assert src.records == {} and not src.path(key).exists()
+
+
+@pytest.mark.parametrize("warm", [True, False], ids=["warmed", "on_demand"])
+def test_a_missing_chunk_stops_the_render_instead_of_becoming_fill(tmp_path, warm):
+    # The renderer fills a chunk only for FileNotFoundError, so a 404 must not be one.
+    meta = {
+        "zarr_format": 2,
+        "shape": [2, 2, 2],
+        "chunks": [2, 2, 2],
+        "dtype": "|u1",
+        "compressor": None,
+        "fill_value": 0,
+        "filters": None,
+        "order": "C",
+    }
+
+    class Routes:
+        def open(self, url, timeout):
+            if url.endswith("/.zarray"):
+                return Response(json.dumps(meta).encode())
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+    src = study.SnapshotSource(tmp_path, max_total_bytes=1024, max_object_bytes=512)
+    src.opener = Routes()
+    reader = renderer.ChunkCachedZarrFetch(study.RAW, 2, fs=src)
+    with pytest.raises(OSError, match="source fetch failed.*404"):
+        if warm:
+            reader.warm([(0, 2, 0, 2, 0, 2)])
+        reader(0, 2, 0, 2, 0, 2)
