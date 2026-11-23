@@ -158,6 +158,13 @@ A file that differs from the initial fingerprint stops dataset construction,
 even if the original is restored before the final on-disk check. Unchanged
 files retain their existing validation fingerprint and sampling behavior.
 
+The supervised trainer opens the selected training label file and any mask
+it selected during setup. If a selected file disappears before loading, both
+training read policies fail and report its path. Automatic patch discovery
+supports fragments with no mask and reports a broken `mask.png` symlink.
+When an explicit catalog supplies the training coordinates, the trainer
+skips the unused mask.
+
 ## Check depth for training and validation
 
 `num_layers` must be a positive integer. Each labeled training source and

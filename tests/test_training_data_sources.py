@@ -168,6 +168,112 @@ def _config(uri, **kwargs):
     )
 
 
+@pytest.mark.parametrize("kind", ["refined", "pseudo", "mask"])
+@pytest.mark.parametrize("strict", [False, True])
+def test_selected_training_images_cannot_disappear_before_loading(
+    tmp_path, monkeypatch, kind, strict
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, "0")
+    root = tmp_path / "training"
+    uri = _volume(root, depth=24)
+    val = _volume(tmp_path / "heldout", depth=24)
+    labeled = Image.fromarray(np.full((32, 32), 255, np.uint8))
+    labeled.save(root / "inklabels.png")
+    pseudo_dir = tmp_path / "pseudo"
+    pseudo_dir.mkdir()
+    selected = {
+        "refined": root / "inklabels_refined.png",
+        "pseudo": pseudo_dir / "training_pseudo.png",
+        "mask": root / "mask.png",
+    }[kind]
+    labeled.save(selected)
+    config = ExperimentConfig(
+        val_uri=val,
+        uris=[uri],
+        num_layers=16,
+        patch_size=16,
+        cache_dir=str(tmp_path / "cache"),
+        use_wandb=False,
+        strict_training_reads=strict,
+        pseudo_label_dir=str(pseudo_dir) if kind == "pseudo" else None,
+        use_confidence_weight=kind == "pseudo",
+    )
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    build_dataset = train.VesuviusLabeledDataset
+
+    def remove_selected_image(volume, labels, mask, *args, **kwargs):
+        if volume != uri:
+            return build_dataset(volume, labels, mask, *args, **kwargs)
+        assert Path(mask if kind == "mask" else labels) == selected
+        selected.unlink()
+        dataset = build_dataset(volume, labels, mask, *args, **kwargs)
+        if kind == "mask":
+            assert dataset.mask is None
+        else:
+            assert torch.count_nonzero(dataset[0][1]).item() == 0
+        pytest.fail("the loader silently omitted a selected training image")
+
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", remove_selected_image)
+    with pytest.raises(FileNotFoundError) as caught:
+        train.train(config)
+    assert Path(caught.value.filename) == selected
+    assert (root / "inklabels.png").is_file()
+    assert not (tmp_path / "run_result.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("mask_kind", "catalog"),
+    [("unreadable", True), ("dangling", True), ("dangling", False)],
+)
+def test_training_checks_the_mask_only_when_it_guides_discovery(
+    tmp_path, monkeypatch, mask_kind, catalog
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, "0")
+    root = tmp_path / "training"
+    uri = _volume(root, depth=24)
+    mask = root / "mask.png"
+    if mask_kind == "dangling":
+        mask.symlink_to(root / "missing-mask.png")
+    else:
+        mask.write_bytes(b"unreadable")
+    if catalog:
+        (root / "patches.json").write_text('{"patches":[{"y":0,"x":0}]}')
+    config = ExperimentConfig(
+        val_uri=_volume(tmp_path / "heldout", depth=24),
+        uris=[uri],
+        num_layers=16,
+        patch_size=16,
+        cache_dir=str(tmp_path / "cache"),
+        use_wandb=False,
+    )
+
+    def probe_loader(dataset, *args, **kwargs):
+        assert catalog, "the trainer silently omitted the broken mask"
+        assert dataset.mask is None
+        assert dataset.valid_coords.tolist() == [[0, 0]]
+        raise _ReachedTheLoader
+
+    monkeypatch.setattr(train, "shuffled_loader", probe_loader)
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    if catalog:
+        with pytest.raises(_ReachedTheLoader):
+            train.train(config)
+    else:
+        with pytest.raises(FileNotFoundError) as caught:
+            train.train(config)
+        assert Path(caught.value.filename) == mask
+
+
 def test_validation_refuses_a_fragment_shorter_than_the_fixed_window(tmp_path):
     uri = _volume(tmp_path / "heldout", depth=19)
     config = ExperimentConfig(
