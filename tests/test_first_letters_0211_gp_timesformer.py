@@ -397,36 +397,43 @@ def test_the_audit_takes_exactly_one_checkpoint(capsys):
     assert "usage: audit_pickle.py" in capsys.readouterr().err
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="audit_pickle reads a file up to its first STOP; a legacy (non-zip) torch file is several pickles, "
-    "and torch.load unpickles the object after the first",
-)
 def test_a_legacy_checkpoint_is_audited_past_its_first_pickle(tmp_path):
     torch = pytest.importorskip("torch")
     path = tmp_path / "legacy.pt"
-    payload = f120_tests._MakesADirectory(str(tmp_path / "made"))
+    made = tmp_path / "made"
+    payload = f120_tests._MakesADirectory(str(made))
     torch.save(
         {"w": torch.zeros(2), "x": payload}, path, _use_new_zipfile_serialization=False
     )
-    assert not audit.audit(path, set())["passes"]
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert any(name.endswith("makedirs") for name in result["outside_allowlist"])
+    assert not made.exists()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="audit_pickle reads a file as a zip archive wherever Python's zipfile finds one, but torch.load only "
-    "when the file starts with the zip signature: a pickle placed before an archive is loaded and never read",
-)
+def test_a_legacy_checkpoint_of_tensors_passes(tmp_path):
+    torch = pytest.importorskip("torch")
+    path = tmp_path / "legacy.pt"
+    torch.save({"w": torch.zeros(2)}, path, _use_new_zipfile_serialization=False)
+    result = audit.audit(path, set())
+    assert result["passes"] is True
+    assert "torch._utils._rebuild_tensor_v2" in result["pickles"][path.name]
+
+
 def test_a_pickle_placed_before_a_zip_archive_is_audited(tmp_path):
     torch = pytest.importorskip("torch")
     import io
 
     archive = io.BytesIO()
     torch.save({"w": torch.zeros(2)}, archive)
-    payload = f120_tests._MakesADirectory(str(tmp_path / "made"))
+    made = tmp_path / "made"
+    payload = f120_tests._MakesADirectory(str(made))
     path = tmp_path / "joined.pt"
     path.write_bytes(pickle.dumps(payload, protocol=2) + archive.getvalue())
-    assert not audit.audit(path, set())["passes"]
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert any(name.endswith("makedirs") for name in result["outside_allowlist"])
+    assert not made.exists()
 
 
 # --- the segments, the prediction reader and the comparison's other branches ------------------------------------
