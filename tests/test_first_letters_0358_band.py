@@ -422,3 +422,116 @@ def test_the_chain_refuses_a_band_that_is_already_fitted(tmp_path):
     (tmp_path / "fl" / "pherc0358_band" / "work" / "fit_full").mkdir(parents=True)
     rc, calls, gates, _ = _chain(tmp_path)
     assert rc == 2 and calls == [] and gates == {}
+
+
+# --- run_snap.sh, run with the recipe's snap and the chunk check as stubs: batches, passes, refusals, failures --------
+
+_SNAP_PYTHON = """#!/usr/bin/env bash
+script=$(basename "$2")
+case "$script" in
+  snap_chunks.py) echo "chunks $3 ${8:-} $(basename "$7")" >> "$CALLS" ;;
+  snap_meshes.py)
+    echo "snap $3 $5 $(tr '\\n' ' ' < "$7")" >> "$CALLS"
+    while read -r w; do
+      if [ "${FAIL_SNAP:-}" = "$w" ]; then exit 1; fi
+      if [ "${SKIP_SNAP:-}" != "$w" ]; then mkdir -p "$5/$w"; touch "$5/$w/x.tif"; fi
+    done < "$7"
+    ;;
+esac
+"""
+
+
+def _snap(tmp_path, windings=25, list_text=None, **env):
+    """Run a copy of run_snap.sh on arm a, its python a stub; GNU time, absent here, is a stub that drops -v."""
+    import shutil
+
+    band = tmp_path / "eligible_band"
+    band.mkdir(parents=True)
+    (tmp_path / "pherc343" / "mesh_step").mkdir(parents=True)
+    shutil.copy(BAND / "env.sh", band / "env.sh")
+    timer = tmp_path / "time_stub"
+    timer.write_text('#!/usr/bin/env bash\nshift\nexec "$@"\n')
+    timer.chmod(0o755)
+    script = (BAND / "run_snap.sh").read_text()
+    assert script.count("/usr/bin/time -v") == 1
+    (band / "run_snap.sh").write_text(script.replace("/usr/bin/time", str(timer)))
+    python = tmp_path / "mesh" / "venv_spiral" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text(_SNAP_PYTHON)
+    python.chmod(0o755)
+    r = tmp_path / "fl" / "pherc0358_band"
+    (r / "work" / "fit_a" / "run" / "meshes" / "fitted").mkdir(parents=True)
+    names = [f"w{i:03d}" for i in range(10, 10 + windings)]
+    (r / "work" / "windings_a.txt").write_text(
+        list_text if list_text is not None else "".join(f"{n}\n" for n in names)
+    )
+    calls = tmp_path / "calls.log"
+    calls.touch()
+    full_env = {"PATH": "/usr/bin:/bin", "FL_ROOT": str(tmp_path / "fl"), "FL_SCROLL": "PHerc0358",
+                "FL343_MESH_DIR": str(tmp_path / "mesh"), "FL343_REPRO_DIR": str(tmp_path / "b"),
+                "CALLS": str(calls), **env}  # fmt: skip
+    rc = subprocess.run(
+        ["bash", str(band / "run_snap.sh"), "a"], env=full_env, capture_output=True
+    ).returncode
+    gate = r / "work" / "gate_a" / "snap.json"
+    return (
+        rc,
+        calls.read_text().splitlines(),
+        json.loads(gate.read_text())["exit"] if gate.exists() else None,
+        r,
+        names,
+    )
+
+
+def test_the_snap_runs_its_batches_into_one_folder_after_checking_the_chunks_online_then_offline(
+    tmp_path,
+):
+    rc, calls, gate, r, names = _snap(tmp_path, SNAP_BATCH="12")
+    fit, out = r / "work" / "fit_a" / "run" / "meshes" / "fitted", r / "work" / "snap_a"
+    assert (rc, gate) == (0, 0)
+    assert calls[:2] == [
+        f"chunks {fit}  snap_chunks_a.json",
+        f"chunks {fit} --offline snap_chunks_a.json",
+    ]
+    assert [c.split()[:3] for c in calls[2:]] == [["snap", str(fit), str(out)]] * 3
+    assert [len(c.split()) - 3 for c in calls[2:]] == [12, 12, 1]
+    assert sorted(p.name for p in out.iterdir()) == names
+
+
+def test_each_snap_pass_snaps_the_one_before_with_its_own_chunk_manifest(tmp_path):
+    rc, calls, gate, r, _ = _snap(tmp_path, windings=3, FL_SNAP_PASSES="3")
+    w = r / "work"
+    fit = w / "fit_a" / "run" / "meshes" / "fitted"
+    assert (rc, gate) == (0, 0)
+    assert [c for c in calls if c.startswith("chunks") and "--offline" not in c] == [
+        f"chunks {fit}  snap_chunks_a.json",
+        f"chunks {w}/snap_a.pass1  snap_chunks_a.pass2.json",
+        f"chunks {w}/snap_a.pass2  snap_chunks_a.pass3.json",
+    ]
+    assert [c.split()[1:3] for c in calls if c.startswith("snap")] == [
+        [str(fit), f"{w}/snap_a.pass1"], [f"{w}/snap_a.pass1", f"{w}/snap_a.pass2"], [f"{w}/snap_a.pass2", f"{w}/snap_a"],
+    ]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("env", "expected_calls"),
+    [({"FAIL_SNAP": "w015", "SNAP_BATCH": "12"}, 3), ({"FAIL_SNAP": "w011", "SNAP_BATCH": "12", "FL_SNAP_PASSES": "2"}, 3),
+     ({"SKIP_SNAP": "w030", "SNAP_BATCH": "12"}, 5)],
+    ids=["a-batch-fails", "a-pass-fails", "a-winding-is-not-written"],
+)  # fmt: skip
+def test_a_failed_snap_stops_there_and_is_gated(tmp_path, env, expected_calls):
+    rc, calls, gate, _, _ = _snap(tmp_path, **env)
+    assert (rc, gate) == (1, 1) and len(calls) == expected_calls
+
+
+def test_the_snap_refuses_to_start_on_a_bad_list_or_passes_or_an_earlier_output(
+    tmp_path,
+):
+    assert _snap(tmp_path / "empty", list_text="")[:3] == (2, [], None)
+    assert _snap(tmp_path / "passes", FL_SNAP_PASSES="6")[:3] == (2, [], None)
+    (tmp_path / "out" / "fl" / "pherc0358_band" / "work" / "snap_a").mkdir(parents=True)
+    assert _snap(tmp_path / "out")[:3] == (2, [], None)
+    (tmp_path / "pass" / "fl" / "pherc0358_band" / "work" / "snap_a.pass1").mkdir(
+        parents=True
+    )
+    assert _snap(tmp_path / "pass", FL_SNAP_PASSES="2")[:3] == (2, [], None)
