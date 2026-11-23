@@ -168,3 +168,159 @@ def test_the_driver_checks_and_runs_the_winners_command_and_uploads_nothing():
     order = ["step check", "step planes", "step infer", "step compare"]
     positions = [text.index(s) for s in order]
     assert positions == sorted(positions)
+
+
+# --- the refusals, the verdict's other edges, and the described numbers ------------------------------------------
+
+
+def _render(root: Path, layers: int, dtype=np.uint8) -> Path:
+    import zarr
+
+    path = root / f"r{layers}.zarr"
+    zarr.open(str(path), mode="w").create_dataset(
+        "0", data=np.zeros((layers, 8, 12), dtype), chunks=(layers, 8, 12)
+    )
+    return path
+
+
+def test_the_planes_refuse_a_render_without_layers_26_to_41_or_not_8_bit(tmp_path):
+    import pytest
+
+    with pytest.raises(SystemExit, match="layer 41 is not in a 10-layer render"):
+        se.planes_cmd(_render(tmp_path, 10), tmp_path / "a.npy")
+    with pytest.raises(SystemExit, match="even count"):
+        se.planes_cmd(_render(tmp_path, 31), tmp_path / "b.npy")
+    with pytest.raises(SystemExit, match="not 8-bit"):
+        se.planes_cmd(_render(tmp_path, 66, np.uint16), tmp_path / "c.npy")
+    # a centred 20-layer render holds layers 23 to 42, so it is enough
+    assert se.planes_cmd(_render(tmp_path, 20), tmp_path / "d.npy")["shape"] == [
+        16,
+        8,
+        12,
+    ]
+    assert se.main(["planes", str(_render(tmp_path, 66)), str(tmp_path / "d.npy")]) == 2
+
+
+def test_a_studio_map_of_another_size_is_refused(tmp_path):
+    import pytest
+
+    np.save(tmp_path / "m.npy", np.zeros((8, 12), np.float32))
+    with pytest.raises(SystemExit, match="the render is"):
+        se.read_studio(tmp_path / "m.npy", (8, 16))
+
+
+def test_the_verdict_table_at_its_other_edges():
+    assert se.verdict(_n(0.9, 0.0, 0.0), se.f118.MIN_CELL_SHARE) == "STUDIO_E2E_CLOSE"
+    assert se.verdict(_n(0.72, 0.36, 0.0), 1.0) == "STUDIO_E2E_CLOSE"  # exactly twice
+    assert (
+        se.verdict(_n(0.70, -0.36, 0.0), 1.0) == "STUDIO_E2E_FAR"
+    )  # its absolute value
+    assert se.verdict(_n(0.9, None, 0.0), 1.0) == "DOES_NOT_RUN"
+
+
+def test_the_r_with_background_keeps_our_maps_background_in():
+    rng = np.random.default_rng(3)
+    cells = np.ones((40, 40), bool)
+    theirs = rng.standard_normal((40, 40))
+    ours = (
+        theirs + np.linspace(0.0, 30.0, 40)[None, :]
+    )  # a broad background across the map
+    numbers = se.score(theirs, theirs > 1.0, ours, cells)
+    expected = se.f118._rounded(se.analysis.pearson(ours[cells], theirs[cells]))
+    assert numbers["r_with_background"] == expected < numbers["r"]
+
+
+def _base(root: Path, *, dy=0.0, studio_at_line=False):
+    """finding 121's winner and one mirrored winding, read by "Studio" as in the tests above."""
+    import tifffile
+
+    w = f121_tests._winner(root)
+    if studio_at_line:
+        tifffile.imwrite(
+            w["studio"],
+            np.where(tifffile.imread(w["studio"]) >= 0.3, 0.5, 0.0).astype(np.float32),
+        )
+    winding = f121_tests._ours(root, w, "w035", mirror=True, dy=dy)
+    maps = _studio_maps(root, "w035")
+    return w, [[*winding, *maps]]
+
+
+def _compare_own(root: Path, w: dict, ours: list[list[str]], own: Path) -> dict:
+    out = root / f"{own.stem}.json"
+    argv = [
+        "compare", str(out), "--winner-mesh", str(w["mesh"]), "--winner-maps", str(w["maps"]),
+        "--winner-render", str(w["render"]), "--studio", str(w["studio"]), "--studio-mask", str(w["mask"]),
+        "--ours-render-map", str(own),
+    ]  # fmt: skip
+    for paths in ours:
+        argv += ["--ours-flipped", *paths]
+    assert se.main(argv) == 0
+    return json.loads(out.read_text())
+
+
+def test_our_renders_map_is_compared_with_the_pipelines_on_the_same_cells(tmp_path):
+    import tifffile
+
+    w, ours = _base(tmp_path)
+    reading = np.load(ours[0][3])
+    px = se.analysis.PX_PER_NODE
+    same = (
+        tmp_path / "same.npy"
+    )  # the winding's own map, mirrored back: the transfer carries it exactly here
+    np.save(same, np.ascontiguousarray(np.roll(reading, px, axis=1)[:, ::-1]))
+    record = _compare_own(tmp_path, w, ours, same)
+    assert record["described"]["r_whole_pipeline_with_our_render"] == 1.0
+    # a hole in our render's map leaves those cells out of every number
+    holed = tmp_path / "holed.npy"
+    with_hole = tifffile.imread(w["studio"]).astype(np.float32)
+    with_hole[:8, :] = np.nan  # the first two cell rows
+    np.save(holed, with_hole)
+    assert _compare_own(tmp_path, w, ours, holed)["cells"] < record["cells"]
+
+
+def test_each_part_and_the_transfer_distances_are_the_pipelines(tmp_path):
+    w, ours = _base(tmp_path, dy=np.linspace(0.0, 3.0, 11))
+    code, record = _compare(tmp_path, w, ours)
+    assert code == 0
+    described = record["described"]
+    whole = described["by_part"]["columns_0_181"]  # wider than this lattice: every cell
+    assert whole["cells"] == record["cells"] and whole["r"] == record["registered"]["r"]
+    distance = described["transfer_distance_voxels"]
+    assert 0 < distance["p50"] < distance["p95"] <= se.analysis.ACCEPT
+
+
+def test_a_winding_with_a_zero_cosine_stops_the_comparison(tmp_path, monkeypatch):
+    w, ours = _base(tmp_path)
+    monkeypatch.setattr(se.analysis, "normals_agree", lambda *a: 0.0)
+    code, record = _compare(tmp_path, w, ours)
+    assert (
+        code == 0 and record["verdict"] == "DOES_NOT_RUN" and "normals" in record["why"]
+    )
+
+
+def test_an_unreadable_mask_stops_the_comparison(tmp_path):
+    import pytest
+
+    w, ours = _base(tmp_path)
+    w["mask"].write_bytes(b"not an image")
+    with pytest.raises(SystemExit, match="cannot read"):
+        _compare(tmp_path, w, ours)
+
+
+def test_lines_met_exactly_are_measured(tmp_path, monkeypatch):
+    w, ours = _base(tmp_path, studio_at_line=True)
+    code, first = _compare(tmp_path, w, ours)
+    assert code == 0
+    assert (
+        first["described"]["whole_pipeline"]["overlap"] is not None
+    )  # cells at exactly 0.5 are ink
+    (tmp_path / "studio_e2e.json").unlink()
+    monkeypatch.setattr(se.f118, "MIN_CELL_SHARE", first["cells"] / first["mask_cells"])
+    monkeypatch.setattr(
+        se.f121,
+        "MIN_WINDING_CELLS",
+        first["described"]["by_winding"]["w035.tifxyz"]["cells"],
+    )
+    code, again = _compare(tmp_path, w, ours)
+    assert code == 0 and again["registered"] == first["registered"]
+    assert again["described"]["by_winding"]["w035.tifxyz"]["r"] is not None
