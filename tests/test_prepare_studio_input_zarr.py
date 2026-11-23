@@ -183,3 +183,57 @@ def test_library_uses_validated_metadata_snapshot(source, tmp_path, monkeypatch)
     np.testing.assert_array_equal(
         np.load(tmp_path / "out/planes.npy"), array[23:7:-1, 1:5, 2:7]
     )
+
+
+_BLOSC = {"id": "blosc", "cname": "zstd", "clevel": 1, "shuffle": 1, "blocksize": 0}
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"id": "zlib"},
+        {"typesize": 1},
+        {"cname": 5},
+        {"clevel": 10},
+        {"shuffle": True},
+        {"shuffle": 3},
+        {"blocksize": 0.0},
+        {"blocksize": -1},
+    ],
+    ids=[
+        "other_id",
+        "extra_key",
+        "numeric_cname",
+        "clevel_10",
+        "boolean_shuffle",
+        "shuffle_3",
+        "float_blocksize",
+        "negative_blocksize",
+    ],
+)
+def test_each_blosc_setting_is_checked_on_its_own(
+    source, tmp_path, monkeypatch, change
+):
+    import json
+
+    root, _ = source
+    path = root / "0/.zarray"
+    metadata = json.loads(path.read_bytes())
+    metadata["compressor"] = {**_BLOSC, **change}
+    path.write_text(json.dumps(metadata))
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("unsafe metadata reached Zarr constructor")
+
+    monkeypatch.setattr(zarr, "open_array", forbidden)
+    with pytest.raises(ValueError, match="only raw or standard Blosc"):
+        run(root, tmp_path / "out")
+    assert not (tmp_path / "out").exists()
+
+
+def test_a_decoded_chunk_exactly_at_the_block_limit_is_accepted(source, tmp_path):
+    root, array = source
+    # Chunks of 2 x 3 x 4 uint8 voxels decode to 24 bytes.
+    run(root, tmp_path / "out", max_block_bytes=24)
+    actual = np.load(tmp_path / "out" / "planes.npy", allow_pickle=False)
+    np.testing.assert_array_equal(actual, array[23:7:-1, 1:5, 2:7])
