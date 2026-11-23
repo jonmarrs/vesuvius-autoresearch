@@ -133,3 +133,92 @@ def test_the_driver_checks_every_input_and_runs_the_recorded_command():
     ]
     positions = [text.index(s) for s in order]
     assert positions == sorted(positions)
+
+
+def test_the_comparison_refuses_a_map_or_a_mask_of_another_shape():
+    import pytest
+
+    ours, theirs, mask = _maps(0.0)
+    with pytest.raises(ValueError, match="shapes differ"):
+        sr.compare(ours, theirs[:, :-1], mask)
+    with pytest.raises(ValueError, match="shapes differ"):
+        sr.compare(ours, theirs, mask[:, :-1])
+
+
+def test_pixels_that_are_not_finite_are_left_out():
+    ours, theirs, mask = _maps(0.002)
+    ours[10, 10] = np.nan
+    theirs[20, 20] = np.inf
+    numbers = sr.compare(ours, theirs, mask)
+    assert numbers["pixels"] == int(mask.sum()) - 2
+    assert numbers["r"] > 0.99
+
+
+def test_the_differences_are_read_at_their_registered_percentiles():
+    rng = np.random.default_rng(2)
+    theirs = rng.random((10, 100)).astype(np.float32)
+    ours = theirs.copy()
+    ours.flat[:15] += np.float32(
+        0.5
+    )  # 1.5% of the pixels differ by 0.5, the rest not at all
+    numbers = sr.compare(ours, theirs, np.ones(theirs.shape, bool))
+    assert numbers["abs_difference"] == {"p50": 0.0, "p99": 0.5, "max": 0.5}
+
+
+def test_a_pixel_at_exactly_one_half_is_on_the_upper_side():
+    theirs = np.array([[0.5, 0.2, 0.7, 0.1]], np.float32)
+    ours = np.array([[0.49, 0.2, 0.7, 0.1]], np.float32)
+    numbers = sr.compare(ours, theirs, np.ones(theirs.shape, bool))
+    assert numbers["share_same_side_of_half"] == 0.75
+
+
+def test_the_reproduction_lines_are_inclusive():
+    at_lines = {"r": 0.99, "abs_difference": {"p99": 0.05}}
+    assert sr.verdict(0, False, at_lines) == "REPRODUCED"
+
+
+def _write_inputs(root: Path) -> list[str]:
+    import cv2
+    import tifffile
+
+    ours, theirs, mask = _maps(0.002)
+    np.save(root / "ink.npy", ours)
+    tifffile.imwrite(root / "winner.tif", theirs)
+    cv2.imwrite(str(root / "mask.png"), mask.astype(np.uint8) * 255)
+    return [str(root / "ink.npy"), str(root / "winner.tif"), str(root / "mask.png")]
+
+
+def test_the_record_counts_the_masks_pixels_and_hashes_our_output(tmp_path):
+    import hashlib
+
+    inputs = _write_inputs(tmp_path)
+    out = tmp_path / "repro.json"
+    assert sr.main([str(out), *inputs]) == 0
+    record = json.loads(out.read_text())
+    _, _, mask = _maps(0.002)
+    assert record["numbers"]["pixels"] == int(mask.sum())
+    expected = hashlib.sha256((tmp_path / "ink.npy").read_bytes()).hexdigest()
+    assert record["output_sha256"] == expected
+
+
+def test_a_missing_output_does_not_run_and_an_unreadable_mask_stops(tmp_path):
+    import pytest
+
+    inputs = _write_inputs(tmp_path)
+    missing = tmp_path / "missing.json"
+    assert sr.main([str(missing), str(tmp_path / "none.npy"), *inputs[1:]]) == 0
+    record = json.loads(missing.read_text())
+    assert record["numbers"] is None and record["verdict"] == "DOES_NOT_RUN"
+    (tmp_path / "mask.png").write_bytes(b"not an image")
+    with pytest.raises(SystemExit, match="cannot read"):
+        sr.main([str(tmp_path / "repro.json"), *inputs])
+
+
+def test_an_output_holding_python_objects_is_never_unpickled(tmp_path):
+    import pytest
+
+    inputs = _write_inputs(tmp_path)
+    _, theirs, _ = _maps(0.002)
+    np.save(tmp_path / "ink.npy", theirs.astype(object), allow_pickle=True)
+    with pytest.raises(ValueError, match="allow_pickle"):
+        sr.main([str(tmp_path / "repro.json"), *inputs])
