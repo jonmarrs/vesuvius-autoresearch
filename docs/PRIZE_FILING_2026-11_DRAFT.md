@@ -210,6 +210,39 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
   * **Caution under #2450:** this measures the recipe and released readers. It counts only for what it changes:
     which reader to use, and how to read a band.
 
+* **The submission image from a band read** ([README](../repro/first_letters/submission/README.md), our #493,
+  merged 2026-11-22). `repro/first_letters/submission/` feeds the recipe's MIT `make_submission_image.py`, the
+  script behind an accepted submission, with a band read's mesh, 66-layer render and Studio map. It adds a
+  reversed-plane control drawn with the same stretch and a check of how near isometric the flattening is. The rules
+  ask for a low-distortion flattening; the script reports only its area ratio.
+  * **Dry runs at the two places with known text:** PHerc. 343 (our w047, 14 letters carried from the published
+    image, 4.00 cm²) and PHerc. 211 (our w035, at the winner's crop) both come out in reading order.
+  * **The flattening check:** 0.93 to 0.98 of our meshes' edges are within 10% of their flat length, against 0.89 to
+    0.98 for the accepted meshes.
+* **A defect in that script, reported upstream**
+  ([Nieuwlaar/pherc343-first-letters#2](https://github.com/Nieuwlaar/pherc343-first-letters/issues/2), posted
+  2026-11-22, open, no reply). The script takes the reading orientation from the mesh and the axis alone: it flips
+  left-right when θ grows along the columns and top-bottom when z grows down the rows. That holds in PHerc. 343's
+  frame only.
+  * **The case in practice:** on the PHerc. 211 winner's published surface and axis it flips both ways, and turns
+    an image that reads upright by 180 degrees. Our wrapper passes the flips from the catalog's two flags instead.
+  * **How often it bites:** of the 57 volumes in the open-data catalog with both flags set, the rule holds on 18.
+    36 have z running top to bottom, as PHerc. 211 does, so the image comes out turned by 180 degrees. On the 3
+    volumes with left-handed coordinates it would come out mirrored; that follows from the same rule and was not
+    checked on data. The other 17 volumes have a flag unset
+    ([record](../reports/evidence/catalog_orientation_flags_2026-11-22.json), latest catalog snapshot, 2026-11-19).
+  * **Caution:** it is a report with a suggested change, not a merged fix. Once known, a turned image is undone by
+    hand. Until then, someone looks for letters in an image that is upside down.
+* **Studio without the windows that hold no CT** ([report](../reports/studio_skip_empty_windows.md)).
+  The winner's inference loop, unchanged except that it skips each window whose 128-pixel crop holds no CT, gives
+  the same map: largest difference 0.00075, no pixel across 0.5.
+  * **The gain:** 0.5918 and 0.5781 of the full loop's time on two band windings, where 41% and 43% of the windows
+    hold no CT. On the PHerc. 211 winner's input, nearly all CT, 0.9168.
+  * **What it changes:** Studio is the slowest step of a band read, and reads registered after this use the skip.
+  * **For the owner:** the two band windings are PHerc. 0826's, an eligible scroll. The report carries numbers only
+    and no image, but the line below excludes anything made from a still-eligible scroll. Whether this item is
+    filed, and whether to offer the change to the winner, is the owner's decision.
+
 Not for this filing: anything made from a still-eligible scroll. PHerc. 211's prize was announced on 2026-11-15,
 so its results may be described.
 
