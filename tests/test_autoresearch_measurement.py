@@ -2089,7 +2089,7 @@ def test_a_process_that_exits_while_its_stat_is_read_is_not_alive(monkeypatch):
 
 @pytest.mark.parametrize(("state", "alive"), [("S", True), ("Z", False), ("X", False)])
 def test_a_zombie_or_dead_process_is_not_alive(monkeypatch, state, alive):
-    """A killed hook can linger as a zombie until its parent reaps it; the wait above must count it as gone."""
+    """A killed hook can linger as a zombie until its parent reaps it; the hung-hook test's wait counts it as gone."""
     line = f"12345 (sleep) {state} 1 12345 12345 0 -1 4194560"
     monkeypatch.setattr(Path, "read_text", lambda self, *args, **kwargs: line)
     assert _alive(12345) is alive
