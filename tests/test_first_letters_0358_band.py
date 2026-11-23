@@ -310,3 +310,115 @@ def test_outer_sheets_bins_each_node_by_its_own_angle_round_the_axis(
     )
     assert out["windings"]["w050"]["angles"] == 60
     assert out["windings"]["w050"]["sheet_runs_beyond_p10_p90"] == [1.0, 1.0]
+
+
+# --- run_band_and_read.sh, run with each step a stub beside it: order, gates, the stop, the densified arm -------------
+
+_STEP_STUB = """#!/usr/bin/env bash
+echo "$(basename "$0") $* windings=${STUDIO_WINDINGS:-}" >> "$CALLS"
+if [ "$(basename "$0") ${1:-}" = "run_fit.sh full" ]; then mkdir -p "$FL_ROOT/pherc0358_band/work/fit_full/r/meshes/fitted"; fi
+if [ "${FAIL_AT:-}" = "$(basename "$0")" ]; then exit 3; fi
+exit 0
+"""
+
+_PYTHON_STUB = """#!/usr/bin/env bash
+echo "python $(basename "$2") ${*:3}" >> "$CALLS"
+case "$(basename "$2")" in
+  studio_band.py) printf 'w010\\nw012\\n' > "$5" ;;
+  densify_winding.py) if [ "${FAIL_DENSIFY:-}" = "$(basename "$3")" ]; then exit 4; fi; mkdir -p "$4" ;;
+esac
+"""
+
+
+def _chain(tmp_path, **env):
+    """Run a copy of the chain, beside a copy of env.sh, with every step and the Python a logging stub."""
+    import shutil
+
+    band = tmp_path / "eligible_band"
+    (band / "setup").mkdir(parents=True)
+    (tmp_path / "pherc343" / "mesh_step").mkdir(parents=True)
+    for name in ("run_band_and_read.sh", "env.sh"):
+        shutil.copy(BAND / name, band / name)
+    for name in ("setup/fetch_volumes.sh", "setup/fetch_tracks.sh", "setup/make_dataset.sh", "run_sdt.sh",
+                 "run_fit.sh", "run_quality.sh", "run_studio_band.sh"):  # fmt: skip
+        (band / name).write_text(_STEP_STUB)
+    python = tmp_path / "python_stub"
+    python.write_text(_PYTHON_STUB)
+    python.chmod(0o755)
+    calls = tmp_path / "calls.log"
+    calls.touch()
+    root = tmp_path / "fl"
+    full_env = {"PATH": "/usr/bin:/bin", "FL_ROOT": str(root), "FL_SCROLL": "PHerc0358", "PYW": str(python),
+                "CALLS": str(calls), **env}  # fmt: skip
+    rc = subprocess.run(
+        ["bash", str(band / "run_band_and_read.sh")], env=full_env, capture_output=True
+    ).returncode
+    r = root / "pherc0358_band"
+    gates = {
+        p.stem: json.loads(p.read_text())["exit"]
+        for p in sorted((r / "work" / "gate_chain").glob("*.json"))
+    }
+    return rc, calls.read_text().splitlines(), gates, r
+
+
+def test_the_chain_runs_each_step_once_in_order_and_reads_the_selected_windings(
+    tmp_path,
+):
+    rc, calls, gates, r = _chain(tmp_path)
+    assert rc == 0
+    windings = f"windings={r}/work/studio_windings_full.txt"
+    assert calls == [
+        "fetch_volumes.sh  windings=", "fetch_tracks.sh  windings=", "make_dataset.sh  windings=",
+        "run_sdt.sh  windings=", "run_fit.sh smoke 300 windings=", "run_fit.sh full windings=",
+        "run_quality.sh full windings=",
+        f"python studio_band.py select {r}/work/quality_full.json {r}/work/studio_windings_full.txt",
+        f"run_studio_band.sh full {windings}",
+    ]  # fmt: skip
+    assert gates == dict.fromkeys(
+        ["fetch_volumes", "fetch_tracks", "make_dataset", "sdt", "fit_smoke", "fit_full", "quality", "select",
+         "read"], 0)  # fmt: skip
+
+
+def test_the_chain_stops_at_the_first_failing_step_with_its_exit(tmp_path):
+    rc, calls, gates, _ = _chain(tmp_path, FAIL_AT="run_sdt.sh")
+    assert rc == 3 and calls[-1] == "run_sdt.sh  windings="
+    assert gates == {"fetch_volumes": 0, "fetch_tracks": 0, "make_dataset": 0, "sdt": 3}
+
+
+def test_a_densified_chain_subdivides_each_selected_winding_and_reads_that_arm(
+    tmp_path,
+):
+    rc, calls, gates, r = _chain(tmp_path, FL_DENSIFY="3")
+    base, dest = (
+        r / "work" / "fit_full" / "r" / "meshes" / "fitted",
+        r / "work" / "fit_fulldense" / "densified",
+    )
+    assert rc == 0 and gates["densify"] == 0
+    assert calls[-3:] == [
+        f"python densify_winding.py {base}/w010 {dest}/meshes/fitted/w010 --factor 3",
+        f"python densify_winding.py {base}/w012 {dest}/meshes/fitted/w012 --factor 3",
+        f"run_studio_band.sh fulldense windings={r}/work/studio_windings_full.txt",
+    ]
+
+
+def test_a_densify_that_fails_or_finds_its_arm_stops_the_chain(tmp_path):
+    rc, calls, gates, _ = _chain(
+        tmp_path / "fails", FL_DENSIFY="2", FAIL_DENSIFY="w010"
+    )
+    assert rc == 1 and gates["densify"] == 1 and "read" not in gates
+    assert not any("w012" in c for c in calls)
+    (tmp_path / "found" / "fl" / "pherc0358_band" / "work" / "fit_fulldense").mkdir(
+        parents=True
+    )
+    rc, calls, gates, _ = _chain(tmp_path / "found", FL_DENSIFY="2")
+    assert (
+        rc == 1
+        and gates["densify"] == 1
+        and not any("densify_winding" in c for c in calls)
+    )
+
+
+def test_the_chain_refuses_a_band_that_is_already_fitted(tmp_path):
+    (tmp_path / "fl" / "pherc0358_band" / "work" / "fit_full").mkdir(parents=True)
+    rc, calls, gates, _ = _chain(tmp_path)
+    assert rc == 2 and calls == [] and gates == {}
