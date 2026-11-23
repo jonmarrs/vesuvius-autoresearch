@@ -1,0 +1,69 @@
+{
+  "source": "s3://vesuvius-challenge-open-data/metadata/history/20261119T152337Z/metadata.json (latest snapshot on 2026-11-22; gzip sha256 320527d91368c77758e59d30c9d44ce7fe53359e552c7bf4225b622500ac60e2)",
+  "volumes": 74,
+  "volumes_by_case": {
+    "rule_holds": 18,
+    "turned_180": 36,
+    "mirrored_left_right": 2,
+    "mirrored_top_bottom": 1,
+    "unknown": 17
+  },
+  "volumes_with_both_flags": 57,
+  "volumes_the_rule_turns_wrong": 39,
+  "share_of_known_turned_wrong": 0.6842,
+  "samples_by_case": {
+    "rule_holds": [
+      "PHerc0172",
+      "PHerc0191",
+      "PHerc0257",
+      "PHerc0268",
+      "PHerc0343",
+      "PHerc0483B",
+      "PHerc0800",
+      "PHerc0813",
+      "PHerc0846B",
+      "PHerc1218",
+      "PHerc1667",
+      "PHercMANB",
+      "PHercParis4"
+    ],
+    "turned_180": [
+      "PHerc0009B",
+      "PHerc0139",
+      "PHerc0175A",
+      "PHerc0175B",
+      "PHerc0211",
+      "PHerc0306B",
+      "PHerc0343P",
+      "PHerc0358",
+      "PHerc0483A",
+      "PHerc0500P2",
+      "PHerc0814",
+      "PHerc0826",
+      "PHerc0841",
+      "PHerc1299",
+      "PHerc1447",
+      "PHerc1545",
+      "PHerc1667",
+      "PHercParis3"
+    ],
+    "mirrored_left_right": [
+      "PHercParis4"
+    ],
+    "mirrored_top_bottom": [
+      "PHerc0500P2"
+    ],
+    "unknown": [
+      "PHerc0125",
+      "PHerc0332",
+      "PHerc0490A",
+      "PHerc0490B",
+      "PHerc0846A",
+      "PHerc1203",
+      "PHerc1451",
+      "PHercMAN5",
+      "PHercMANBp",
+      "PHercParis4"
+    ]
+  }
+}

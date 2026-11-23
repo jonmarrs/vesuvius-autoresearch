@@ -68,7 +68,10 @@ the script's own measurement on our w035 was the 180-degree turn of the orientat
 `orient` computes the flips with the catalog flags, and the wrapper passes them as `--flip-lr/--flip-ud`. It also
 passes `--umbilicus` only in PHerc. 343's frame, where the script then checks the flips itself. PHerc. 0358's
 catalog flags are PHerc. 211's (z top to bottom, right-handed). PHerc. 0813's and 0800's are PHerc. 343's. Always
-pass the scroll's own flags.
+pass the scroll's own flags. Over the whole catalog the script's rule holds on 18 of the 57 volumes with both flags
+set (`catalog_flags.py`, [record](../../../reports/evidence/catalog_orientation_flags_2026-11-22.json)). The defect
+is reported upstream as
+[Nieuwlaar/pherc343-first-letters#2](https://github.com/Nieuwlaar/pherc343-first-letters/issues/2) (2026-11-22).
 
 **Rendered with flipped normals.** Band reads render a winding whose mesh normals point toward the axis with flipped
 normals, so that its layers run outward (finding 125's orient step). The script reads the normal from the mesh and

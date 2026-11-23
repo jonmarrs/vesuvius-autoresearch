@@ -362,3 +362,48 @@ def test_the_seam_changes_on_other_scrolls_are_finding_109s_record():
     assert all(x < 0 for x in cov)
     assert (f"coverage at tolerance 4 fell on every cube, a median {statistics.median(cov):.1f}%"
             .replace("median -", "median −")) in section  # fmt: skip
+
+
+def test_the_orientation_defect_s_counts_are_the_catalog_record():
+    """How often the recipe's orientation rule bites: the catalog volumes counted by their two flags."""
+    r = json.loads((ROOT / "reports/evidence/catalog_orientation_flags_2026-11-22.json").read_text())  # fmt: skip
+    c = r["volumes_by_case"]
+    mirrored = c["mirrored_left_right"] + c["mirrored_top_bottom"]
+    assert r["volumes_with_both_flags"] == r["volumes"] - c["unknown"]
+    assert (f"of the {r['volumes_with_both_flags']} volumes in the open-data catalog with both flags set, the rule "
+            f"holds on {c['rule_holds']}. {c['turned_180']} have z running top to bottom") in TEXT  # fmt: skip
+    assert (
+        f"On the {mirrored} volumes with left-handed coordinates it would come out mirrored"
+        in TEXT
+    )
+    assert f"The other {c['unknown']} volumes have a flag unset" in TEXT
+    assert (
+        "20261119T152337Z" in r["source"]
+        and "latest catalog snapshot, 2026-11-19" in TEXT
+    )
+
+
+def test_the_skip_s_figures_are_its_record():
+    r = json.loads((ROOT / "reports/studio_skip_empty_windows.json").read_text())
+    runs, ratio = r["runs"], r["time_ratio_skip_over_full"]
+    largest = max(
+        p["abs_difference"]["max"]
+        for name, p in r["pairs"].items()
+        if name.startswith("skip_")
+    )
+    assert r["verdict"] == "SKIP_ADOPTED"
+    assert f"largest difference {largest:g}, no pixel across 0.5" in TEXT
+    assert all(p["share_same_side_of_half"] == 1.0 for p in r["pairs"].values())
+    assert (
+        f"{ratio['w062']} and {ratio['w065']} of the full loop's time on two band windings"
+        in TEXT
+    )
+    empty = [
+        round(100 * (1 - runs[f"skip_{w}"]["run"] / runs[f"skip_{w}"]["windows"]))
+        for w in ("w062", "w065")
+    ]
+    assert f"where {empty[0]}% and {empty[1]}% of the windows hold no CT" in TEXT
+    own = round(
+        runs["skip_pherc0211"]["seconds"] / runs["full_pherc0211"]["seconds"], 4
+    )
+    assert f"nearly all CT, {own}." in TEXT
