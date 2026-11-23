@@ -340,39 +340,46 @@ def _capture_tiff(path, edge, limit, role):
     import tifffile
 
     _, raw = capture_bytes(path, limit)
-    with tifffile.TiffFile(io.BytesIO(raw), _multifile=False) as tiff:
-        if len(tiff.series) != 1:
-            raise ValueError(f"expected one TIFF series: {path}")
-        series = tiff.series[0]
-        shape, dtype = (edge,) * 3, series.dtype
-        if series.shape != shape or dtype.kind not in (
-            "bui" if role == "label" else "buif"
-        ):
-            raise ValueError(f"invalid {role} TIFF shape or dtype: {path}")
-        if edge**3 * dtype.itemsize > limit:
-            raise ValueError(f"decoded TIFF exceeds max_file_bytes: {path}")
-        pixels = 0
-        for page in tiff.pages:
-            counts, offsets = page.databytecounts, page.dataoffsets
-            planes, depth, rows, width, samples = page.shaped
-            # TIFF pads each scanline of a packed boolean page to a whole byte.
-            row_bytes = (width * samples * page.bitspersample + 7) // 8
-            if (
-                page.dtype != dtype
-                or page.compression != 1  # the pinned writer emits uncompressed TIFFs
-                or page.is_tiled
-                or not counts
-                or sum(counts) != planes * depth * rows * row_bytes
-                or any(
-                    o <= 0 or n <= 0 or o + n > len(raw)
-                    for o, n in zip(offsets, counts, strict=True)
-                )
+    try:
+        with tifffile.TiffFile(io.BytesIO(raw), _multifile=False) as tiff:
+            if len(tiff.series) != 1:
+                raise ValueError(f"expected one TIFF series: {path}")
+            series = tiff.series[0]
+            shape, dtype = (edge,) * 3, series.dtype
+            if series.shape != shape or dtype.kind not in (
+                "bui" if role == "label" else "buif"
             ):
-                raise ValueError(f"invalid or incomplete proofreader TIFF data: {path}")
-            pixels += page.size
-        if pixels != edge**3:
-            raise ValueError(f"incomplete proofreader TIFF patch: {path}")
-        values = series.asarray()
+                raise ValueError(f"invalid {role} TIFF shape or dtype: {path}")
+            if edge**3 * dtype.itemsize > limit:
+                raise ValueError(f"decoded TIFF exceeds max_file_bytes: {path}")
+            pixels = 0
+            for page in tiff.pages:
+                counts, offsets = page.databytecounts, page.dataoffsets
+                planes, depth, rows, width, samples = page.shaped
+                # TIFF pads each scanline of a packed boolean page to a whole byte.
+                row_bytes = (width * samples * page.bitspersample + 7) // 8
+                # the pinned writer emits uncompressed TIFFs
+                if (
+                    page.dtype != dtype
+                    or page.compression != 1
+                    or page.is_tiled
+                    or not counts
+                    or sum(counts) != planes * depth * rows * row_bytes
+                    or any(
+                        o <= 0 or n <= 0 or o + n > len(raw)
+                        for o, n in zip(offsets, counts, strict=True)
+                    )
+                ):
+                    raise ValueError(
+                        f"invalid or incomplete proofreader TIFF data: {path}"
+                    )
+                pixels += page.size
+            if pixels != edge**3:
+                raise ValueError(f"incomplete proofreader TIFF patch: {path}")
+            values = series.asarray()
+    except tifffile.TiffFileError as exc:
+        # a structure tifffile cannot parse is refused as the other malformed exports are
+        raise ValueError(f"unreadable proofreader TIFF: {path}: {exc}") from exc
     return values, {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
 
 

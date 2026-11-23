@@ -728,3 +728,351 @@ def test_checker_help_without_scientific_or_gui_dependencies(tmp_path):
         timeout=10,
     )
     assert result.returncode == 0 and "Read-only" in result.stdout
+
+
+# --- the approved-export check on its own, without the pinned proofreader -------------------------------------------
+# The tests above reach the export check through villa's pinned proofreader; these call it directly, on TIFF pairs
+# written as the pinned writer writes them (uncompressed, one page per slice), against an in-memory CT.
+
+EDGE = 8
+
+
+class _CT:
+    """The two members of the recorded CT volume the check reads: its geometry and get_chunk."""
+
+    def __init__(self, data, chunks=(8, 8, 8)):
+        self.data, self.shape, self.dtype, self.chunks = (
+            data,
+            data.shape,
+            data.dtype,
+            chunks,
+        )
+
+    def get_chunk(self, z, y, x, dz, dy, dx):
+        return self.data[z : z + dz, y : y + dy, x : x + dx]
+
+
+def _ct():
+    return _CT(np.random.default_rng(5).integers(0, 255, (16, 16, 16), dtype=np.uint8))
+
+
+def _exports(root: Path, ct, coords=((0, 0, 0), (8, 8, 0)), statuses=None, label=None):
+    """Approved TIFF pairs for `coords` and the progress log that lists them."""
+    (root / "imagesTr").mkdir(parents=True, exist_ok=True)
+    (root / "labelsTr").mkdir(exist_ok=True)
+    log, approved = [], []
+    for index, (z, y, x) in enumerate(coords):
+        status = statuses[index] if statuses else "approved"
+        entry = {"status": status, "coords": [z, y, x], "percentage": 50.0, "index": index,
+                 "date_processed": "2026-11-17"}  # fmt: skip
+        log.append(entry)
+        if status != "approved":
+            continue
+        stem = f"z{z}_y{y}_x{x}"
+        tifffile.imwrite(
+            root / "imagesTr" / f"{stem}_0000.tif",
+            ct.get_chunk(z, y, x, EDGE, EDGE, EDGE),
+        )
+        values = np.ones((EDGE,) * 3, np.uint8) if label is None else label
+        tifffile.imwrite(root / "labelsTr" / f"{stem}.tif", values)
+        approved.append({"volume_index": 0, "coords": [z, y, x], "percentage": 50.0, "index": index,
+                         "date_processed": "2026-11-17", "image_filename": f"{stem}_0000.tif",
+                         "label_filename": f"{stem}.tif", "patch_size": EDGE})  # fmt: skip
+    return {
+        "progress_log": log,
+        "metadata": {"total_approved": len(approved)},
+        "approved_patches": approved,
+    }
+
+
+def _verify(root, progress, ct, **budget):
+    return sessions._verify_exports(
+        root, progress, ct, {"patch_size": EDGE}, sessions.limits(**budget)
+    )
+
+
+def test_approved_pairs_equal_to_the_recorded_ct_are_verified_and_hashed(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path, ct, coords=((0, 0, 0), (8, 8, 0), (8, 0, 8)),
+                        statuses=["approved", "skipped", "approved"])  # fmt: skip
+    report = _verify(tmp_path, progress, ct)
+    assert report["pairs_verified"] == 2
+    first = report["pairs"][0]
+    assert (
+        first["coords_zyx"] == [0, 0, 0]
+        and first["image"]["path"] == "imagesTr/z0_y0_x0_0000.tif"
+    )
+    raw = (tmp_path / "labelsTr" / "z0_y0_x0.tif").read_bytes()
+    assert first["label"] == {"path": "labelsTr/z0_y0_x0.tif", "bytes": len(raw),
+                              "sha256": hashlib.sha256(raw).hexdigest()}  # fmt: skip
+
+
+def test_no_approvals_and_no_export_folders_verify_nothing(tmp_path):
+    progress = {
+        "progress_log": [],
+        "metadata": {"total_approved": 0},
+        "approved_patches": [],
+    }
+    assert _verify(tmp_path, progress, _ct()) == {"pairs_verified": 0, "pairs": []}
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["one_voxel", "another_dtype"],
+)
+def test_an_image_that_is_not_the_recorded_ct_is_refused(tmp_path, change):
+    ct = _ct()
+    progress = _exports(tmp_path, ct, coords=((0, 0, 0),))
+    image = ct.get_chunk(0, 0, 0, EDGE, EDGE, EDGE)
+    image = image.astype(np.uint16) if change == "another_dtype" else image.copy()
+    if change == "one_voxel":
+        image[3, 3, 3] ^= 1
+    tifffile.imwrite(tmp_path / "imagesTr" / "z0_y0_x0_0000.tif", image)
+    with pytest.raises(ValueError, match="differs from recorded CT"):
+        _verify(tmp_path, progress, ct)
+
+
+@pytest.mark.parametrize("value", [-1, 256])
+def test_a_label_outside_0_to_255_is_refused(tmp_path, value):
+    label = np.zeros((EDGE,) * 3, np.int16)
+    label[0, 0, 0] = value
+    with pytest.raises(ValueError, match="outside 0..255"):
+        _verify(
+            tmp_path, _exports(tmp_path, _ct(), coords=((0, 0, 0),), label=label), _ct()
+        )
+
+
+def test_labels_at_0_and_255_are_in_range(tmp_path):
+    label = np.zeros((EDGE,) * 3, np.int16)
+    label[0, 0, 0] = 255
+    assert (
+        _verify(
+            tmp_path, _exports(tmp_path, _ct(), coords=((0, 0, 0),), label=label), _ct()
+        )["pairs_verified"]
+        == 1
+    )
+
+
+@pytest.mark.parametrize(
+    ("edit", "message"),
+    [
+        (
+            lambda p: p["progress_log"].append(dict(p["progress_log"][0], index=9)),
+            "duplicate approval",
+        ),
+        (lambda p: p["metadata"].update(total_approved=3), "differs from progress log"),
+        (
+            lambda p: p["metadata"].update(total_approved=True),
+            "differs from progress log",
+        ),
+        (
+            lambda p: p["approved_patches"][0].update(date_processed="2026-11-18"),
+            "differs from progress log",
+        ),
+        (lambda p: p["approved_patches"].pop(), "differs from progress log"),
+    ],
+    ids=["duplicate", "count", "count_not_int", "listed_field", "listed_missing"],
+)
+def test_the_approved_list_must_be_the_one_the_log_implies(tmp_path, edit, message):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    edit(progress)
+    with pytest.raises(ValueError, match=message):
+        _verify(tmp_path, progress, ct)
+
+
+def test_an_approval_logged_without_a_date_is_listed_with_an_empty_one(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path, ct, coords=((0, 0, 0),))
+    del progress["progress_log"][0]["date_processed"]
+    progress["approved_patches"][0]["date_processed"] = ""
+    assert _verify(tmp_path, progress, ct)["pairs_verified"] == 1
+
+
+@pytest.mark.parametrize(
+    ("arrange", "message"),
+    [
+        (
+            lambda r: (r / "imagesTr" / "stray.tif").write_bytes(b"x"),
+            "unlisted proofreader export",
+        ),
+        (
+            lambda r: (r / "labelsTr" / "z8_y8_x0.tif").unlink(),
+            "missing approved TIFF in",
+        ),
+        (
+            lambda r: __import__("shutil").rmtree(r / "labelsTr"),
+            "missing approved TIFF directory",
+        ),
+        (
+            lambda r: os.link(r / "imagesTr" / "z0_y0_x0_0000.tif", r / "hardlink"),
+            "without hard links",
+        ),
+    ],
+    ids=["unlisted", "missing_file", "missing_folder", "hard_link"],
+)
+def test_the_export_folders_hold_exactly_the_approved_files(tmp_path, arrange, message):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    arrange(tmp_path)
+    with pytest.raises(ValueError, match=message):
+        _verify(tmp_path, progress, ct)
+
+
+def test_a_linked_export_folder_or_file_is_refused(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path / "real", ct)
+    (tmp_path / "linked").mkdir()
+    (tmp_path / "linked" / "imagesTr").symlink_to(tmp_path / "real" / "imagesTr")
+    (tmp_path / "linked" / "labelsTr").mkdir()
+    with pytest.raises(ValueError, match="must not be linked"):
+        _verify(tmp_path / "linked", progress, ct)
+    label = tmp_path / "real" / "labelsTr" / "z0_y0_x0.tif"
+    moved = tmp_path / "elsewhere.tif"
+    label.rename(moved)
+    label.symlink_to(moved)
+    with pytest.raises(ValueError, match="nonsymlink regular file"):
+        _verify(tmp_path / "real", progress, ct)
+
+
+def test_the_budgets_bound_files_bytes_entries_and_decoded_chunks(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    size = (tmp_path / "imagesTr" / "z0_y0_x0_0000.tif").stat().st_size
+    with pytest.raises(ValueError, match="exceeds max_file_bytes"):
+        _verify(tmp_path, progress, ct, max_file_bytes=size - 1)
+    total = sum(p.stat().st_size for p in tmp_path.rglob("*.tif"))
+    with pytest.raises(ValueError, match="exceed max_source_bytes"):
+        _verify(tmp_path, progress, ct, max_source_bytes=total - 1)
+    with pytest.raises(ValueError, match="exceed max_entries"):
+        _verify(
+            tmp_path, progress, ct, max_entries=5
+        )  # two pairs need 2 * 2 + 2 entries
+    assert _verify(tmp_path, progress, ct, max_entries=6)["pairs_verified"] == 2
+    with pytest.raises(ValueError, match="decoded CT patch or chunk"):
+        _verify(
+            tmp_path,
+            progress,
+            _CT(ct.data, chunks=(16, 16, 16)),
+            max_file_bytes=16**3 - 1,
+        )
+
+
+@pytest.mark.parametrize(
+    ("write", "message"),
+    [
+        (
+            lambda p, a: tifffile.imwrite(p, a, compression="zlib"),
+            "invalid or incomplete",
+        ),
+        (lambda p, a: tifffile.imwrite(p, a, tile=(16, 16)), "invalid or incomplete"),
+        (lambda p, a: tifffile.imwrite(p, a[:-1]), "invalid image TIFF shape"),
+        (
+            lambda p, a: tifffile.imwrite(p, a.astype(np.complex64)),
+            "invalid image TIFF shape or dtype",
+        ),
+    ],
+    ids=["compressed", "tiled", "short", "complex"],
+)
+def test_an_image_tiff_the_pinned_writer_would_not_write_is_refused(
+    tmp_path, write, message
+):
+    ct = _ct()
+    progress = _exports(tmp_path, ct, coords=((0, 0, 0),))
+    path = tmp_path / "imagesTr" / "z0_y0_x0_0000.tif"
+    write(path, ct.get_chunk(0, 0, 0, EDGE, EDGE, EDGE))
+    with pytest.raises(ValueError, match=message):
+        _verify(tmp_path, progress, ct)
+
+
+def test_a_float_label_is_refused_where_a_float_image_may_pass_the_type_check(tmp_path):
+    ct = _ct()
+    progress = _exports(
+        tmp_path, ct, coords=((0, 0, 0),), label=np.ones((EDGE,) * 3, np.float32)
+    )
+    with pytest.raises(ValueError, match="invalid label TIFF shape or dtype"):
+        _verify(tmp_path, progress, ct)
+
+
+@pytest.mark.parametrize(
+    ("cut", "message"),
+    [
+        ("structure", "unreadable proofreader TIFF"),
+        ("strip", "incomplete proofreader TIFF"),
+    ],
+)
+def test_a_cut_short_tiff_is_refused_with_its_reason(tmp_path, cut, message):
+    # cut through the last page's structure, tifffile cannot parse the file at all; cut through the last strip, the
+    # last page is lost and the patch is short
+    ct = _ct()
+    progress = _exports(tmp_path, ct, coords=((0, 0, 0),))
+    path = tmp_path / "labelsTr" / "z0_y0_x0.tif"
+    raw = path.read_bytes()
+    if cut == "structure":
+        path.write_bytes(raw[: len(raw) - 40])
+    else:
+        with tifffile.TiffFile(path) as tiff:
+            end = tiff.pages[-1].dataoffsets[-1] + tiff.pages[-1].databytecounts[-1]
+        path.write_bytes(raw[: end - 1])
+    with pytest.raises(ValueError, match=message):
+        _verify(tmp_path, progress, ct)
+
+
+def test_an_export_changed_while_it_is_read_is_refused(tmp_path, monkeypatch):
+    ct = _ct()
+    progress = _exports(tmp_path, ct, coords=((0, 0, 0),))
+    capture = sessions._capture_tiff
+
+    def capture_then_touch(path, *args):
+        result = capture(path, *args)
+        os.utime(path, ns=(1, 1))  # same bytes, a new modification time
+        return result
+
+    monkeypatch.setattr(sessions, "_capture_tiff", capture_then_touch)
+    with pytest.raises(ValueError, match="changed during verification"):
+        _verify(tmp_path, progress, ct)
+
+
+def test_an_approved_count_of_true_is_not_the_number_one(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path, ct, coords=((0, 0, 0),))
+    progress["metadata"]["total_approved"] = (
+        True  # equal to 1, but not an integer count
+    )
+    with pytest.raises(ValueError, match="differs from progress log"):
+        _verify(tmp_path, progress, ct)
+
+
+def test_a_tiled_page_is_refused_even_when_one_tile_is_the_whole_page(tmp_path):
+    # 16-pixel tiles on a 16-pixel patch: the tile's bytes match an untiled page's, so only the tiling tells
+    edge = 16
+    ct = _CT(
+        np.random.default_rng(6).integers(0, 255, (16, 16, 16), dtype=np.uint8),
+        chunks=(16, 16, 16),
+    )
+    (tmp_path / "imagesTr").mkdir()
+    (tmp_path / "labelsTr").mkdir()
+    tifffile.imwrite(
+        tmp_path / "imagesTr" / "z0_y0_x0_0000.tif", ct.data, tile=(16, 16)
+    )
+    tifffile.imwrite(
+        tmp_path / "labelsTr" / "z0_y0_x0.tif", np.ones((edge,) * 3, np.uint8)
+    )
+    entry = {
+        "status": "approved",
+        "coords": [0, 0, 0],
+        "percentage": 50.0,
+        "index": 0,
+        "date_processed": "d",
+    }
+    listed = {"volume_index": 0, "coords": [0, 0, 0], "percentage": 50.0, "index": 0, "date_processed": "d",
+              "image_filename": "z0_y0_x0_0000.tif", "label_filename": "z0_y0_x0.tif", "patch_size": edge}  # fmt: skip
+    progress = {
+        "progress_log": [entry],
+        "metadata": {"total_approved": 1},
+        "approved_patches": [listed],
+    }
+    with pytest.raises(ValueError, match="invalid or incomplete proofreader TIFF data"):
+        sessions._verify_exports(
+            tmp_path, progress, ct, {"patch_size": edge}, sessions.limits()
+        )
