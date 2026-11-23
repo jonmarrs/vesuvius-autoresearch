@@ -134,6 +134,7 @@ VALIDATION_TESTS = [
     "tests/test_training_split.py",
     "tests/test_training_checkpoint_paths.py",
     "tests/test_first_letters_checkpoint_reporting.py",
+    "tests/test_first_letters_checkpoint_real_torch.py",
     "tests/test_legacy_figure_retirement.py",
     "tests/test_unsupported_launchers.py",
     "tests/test_preserved_source_policy.py",
