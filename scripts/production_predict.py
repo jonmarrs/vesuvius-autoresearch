@@ -32,6 +32,7 @@ from scripts.inference.predict import (
 )
 from scripts.production_artifacts import ProductionArtifactPlan
 from scripts.text_snapshot import capture_bytes
+from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 from vesuvius_autoresearch.core.inference import (
     INK_PROBABILITY,
     hann2d,
@@ -93,16 +94,19 @@ def production_predict(argv=None):
         "blend_window": "positive_hann",
     }
 
-    # Project checkpoints are trusted training artifacts and may contain objects
-    # beyond PyTorch's restricted weights-only format.
+    # A project checkpoint is a zip of tensors plus plain config values. NumPy
+    # scalars recorded beside those tensors are allowlisted; nothing else is.
     checkpoint_path, checkpoint_bytes = capture_bytes(
         plan.checkpoint, args.max_checkpoint_bytes
     )
     args.checkpoint = str(checkpoint_path)
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
     args.checkpoint_size_bytes = len(checkpoint_bytes)
-    ckpt = torch.load(
-        io.BytesIO(checkpoint_bytes), map_location="cpu", weights_only=False
+    ckpt = load_checkpoint(
+        io.BytesIO(checkpoint_bytes),
+        map_location="cpu",
+        weights_only=True,
+        allow_numpy_scalars=True,
     )
     del checkpoint_bytes
     if not isinstance(ckpt, dict) or not isinstance(ckpt.get("config"), dict):

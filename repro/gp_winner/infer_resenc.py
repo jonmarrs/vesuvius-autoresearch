@@ -28,11 +28,34 @@ from warmup_scheduler import GradualWarmupScheduler
 
 import wandb
 
-# Patch torch.load to disable weights_only
+# Lightning and GradualWarmupScheduler are not in the weights-only allowlist, so
+# this script's loads stay weights_only=False. A legacy pickle or a tar is still
+# refused before that unpickle: torch.load only treats a leading PK header as a zip.
 _original_load = torch.load
+_ZIP_LOCAL = b"PK\x03\x04"
+
+
+def _require_zip(source) -> None:
+    if isinstance(source, (str, os.PathLike)):
+        with open(source, "rb") as handle:
+            signature = handle.read(4)
+    elif hasattr(source, "read") and hasattr(source, "seek"):
+        position = source.tell()
+        try:
+            signature = source.read(4)
+        finally:
+            source.seek(position)
+    else:
+        signature = bytes(source[:4])
+    if signature != _ZIP_LOCAL:
+        raise ValueError(
+            "refusing a non-zip checkpoint; convert it offline to zip before loading"
+        )
 
 
 def _load_no_weights_only(*args, **kwargs):
+    source = args[0] if args else kwargs["f"]
+    _require_zip(source)
     kwargs["weights_only"] = False
     return _original_load(*args, **kwargs)
 

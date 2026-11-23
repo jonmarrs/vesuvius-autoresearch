@@ -117,6 +117,8 @@ def load_model(
     """
     import torch
 
+    from vesuvius_autoresearch.core.checkpoint_tools import require_zip_checkpoint
+
     model_dir = Path(model_dir)
     plans = json.loads((model_dir / "plans.json").read_text())
     dataset = json.loads((model_dir / "dataset.json").read_text())
@@ -166,9 +168,12 @@ def load_model(
         **kwargs,
     )
 
-    ck = torch.load(
-        model_dir / fold / checkpoint, map_location="cpu", weights_only=False
-    )
+    # weights_only=False: a published nnUNet checkpoint is a trainer dump, and
+    # the trainer class is a villa type the weights-only unpickler will not rebuild.
+    # The zip gate still refuses a legacy pickle or a tar before that load.
+    weights_path = model_dir / fold / checkpoint
+    require_zip_checkpoint(weights_path)
+    ck = torch.load(weights_path, map_location="cpu", weights_only=False)
     weights = ck["network_weights"]
     # The checkpoint was saved with deep supervision on, so it carries extra
     # decoder.seg_layers.{1..n}. Those heads are unused at inference; dropping

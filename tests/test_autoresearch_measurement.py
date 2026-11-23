@@ -1184,7 +1184,7 @@ def test_a_foundation_model_that_does_not_load_stops_the_run(tmp_path):
     with pytest.raises(ValueError, match="only 0 of 2"):
         train.load_foundation_model(model, str(path))
     path.write_bytes(b"not a checkpoint")
-    with pytest.raises(pickle.UnpicklingError):  # no longer a printed warning
+    with pytest.raises(ValueError, match="convert it offline to zip"):
         train.load_foundation_model(model, str(path))
     torch.save([weight], path)
     with pytest.raises(TypeError, match="not a state dict"):
@@ -1352,7 +1352,7 @@ def _unusable(path, case, config):
 @pytest.mark.parametrize(
     "case, error, message",
     [
-        ("not a checkpoint", RuntimeError, "cannot be read .UnpicklingError"),
+        ("not a checkpoint", RuntimeError, "convert it offline to zip"),
         ("a list", ValueError, "not a checkpoint with a config; restore it"),
         ("no config dict", ValueError, "not a checkpoint with a config; restore it"),
         ("no weights", ValueError, "holds no model_state_dict; restore it"),

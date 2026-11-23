@@ -40,7 +40,9 @@ def main():
     cfg.z_count = args.z_count
     dev = torch.device("cuda")
 
-    ck = torch.load(args.ckpt, map_location="cpu")
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+    ck = load_checkpoint(args.ckpt, map_location="cpu", weights_only=True)
     m = InkSegformer(cfg.stem_channels, cfg.encoder, encoder_weights=None).to(dev)
     m.load_state_dict(ck["model"])
     m.eval()

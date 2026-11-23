@@ -1,5 +1,7 @@
 """Strict checkpoint and tensor boundaries for auxiliary research commands."""
 
+import os
+
 import torch
 
 from . import model_wrappers
@@ -10,9 +12,84 @@ from .inference import (
     validate_model_settings,
 )
 
+# torch.load's rule, not zipfile.is_zipfile's: a checkpoint is a zip only when
+# its first bytes are a local-file header.
+_ZIP_LOCAL = b"PK\x03\x04"
+NON_ZIP_CHECKPOINT = (
+    "refusing a non-zip checkpoint; convert it offline to zip before loading"
+)
+
+
+def _signature(source) -> bytes | None:
+    """The first bytes of a path or a seekable buffer, without consuming it.
+
+    None means the path is not there. The loader that follows reports that;
+    a missing file is not a legacy checkpoint.
+    """
+    if isinstance(source, (bytes, bytearray, memoryview)):
+        return bytes(source[: len(_ZIP_LOCAL)])
+    if isinstance(source, (str, os.PathLike)):
+        try:
+            with open(source, "rb") as handle:
+                return handle.read(len(_ZIP_LOCAL))
+        except FileNotFoundError:
+            return None
+    position = source.tell()
+    try:
+        return source.read(len(_ZIP_LOCAL))
+    finally:
+        source.seek(position)
+
+
+def checkpoint_is_zip(source) -> bool:
+    return _signature(source) == _ZIP_LOCAL
+
+
+def require_zip_checkpoint(source) -> None:
+    """Refuse a legacy pickle or a tar before anything unpickles it."""
+    signature = _signature(source)
+    if signature is None:
+        return
+    if signature != _ZIP_LOCAL:
+        raise ValueError(NON_ZIP_CHECKPOINT)
+
+
+def _numpy_scalar_types():
+    """NumPy scalars recorded in published project checkpoints, and nothing else."""
+    import numpy as np
+
+    try:
+        from numpy._core.multiarray import scalar
+    except ImportError:  # NumPy 1.x
+        from numpy.core.multiarray import scalar  # type: ignore[no-redef]
+    return [scalar, np.dtype, type(np.dtype("float64")), type(np.dtype("float32"))]
+
+
+def load_checkpoint(
+    source, *, map_location=None, weights_only=True, allow_numpy_scalars=False, **kwargs
+):
+    """Load a zip checkpoint. A legacy pickle or a tar is refused before torch.load.
+
+    ``weights_only=True`` is the default. ``allow_numpy_scalars`` adds only the
+    NumPy scalars a project checkpoint records beside its tensors. A caller that
+    passes ``weights_only=False`` still has to clear this zip gate first: the
+    file is a torch zip, not a tar or a legacy pickle.
+    """
+    require_zip_checkpoint(source)
+    if weights_only and allow_numpy_scalars:
+        with torch.serialization.safe_globals(_numpy_scalar_types()):
+            return torch.load(
+                source, map_location=map_location, weights_only=True, **kwargs
+            )
+    return torch.load(
+        source, map_location=map_location, weights_only=weights_only, **kwargs
+    )
+
 
 def load_tool_checkpoint(path, device):
-    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    checkpoint = load_checkpoint(
+        path, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+    )
     model, settings = build_tool_model(checkpoint, device)
     return model, settings, checkpoint
 

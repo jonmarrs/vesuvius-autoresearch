@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from vesuvius_autoresearch.core.checkpoint_tools import require_zip_checkpoint
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 
 from .data import read_volume_mask
@@ -57,8 +58,10 @@ def infer(
             model_cls = ResEncDetectorModel
         else:
             model_cls = DetectorModel
-        # weights_only=False: our checkpoint embeds the LR scheduler (CosineAnnealingLR),
-        # which PyTorch 2.6's weights_only=True default rejects. We trust our own ckpt.
+        # weights_only=False: the checkpoint embeds the LR scheduler
+        # (CosineAnnealingLR), which the weights-only unpickler rejects.
+        # The zip gate still refuses a legacy pickle or a tar before that load.
+        require_zip_checkpoint(checkpoint_path)
         model = model_cls.load_from_checkpoint(
             checkpoint_path, cfg=cfg, pred_shape=(1, 1), weights_only=False
         )

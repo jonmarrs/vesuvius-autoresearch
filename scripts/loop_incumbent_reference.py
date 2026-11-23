@@ -41,8 +41,10 @@ def checkpoint_metadata(raw: bytes) -> dict:
     except ImportError:
         from numpy.core.multiarray import scalar  # type: ignore[no-redef]  # NumPy 1.x
     allowed = [scalar, np.dtype, type(np.dtype("float64")), type(np.dtype("float32"))]
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
     with torch.serialization.safe_globals(allowed):
-        saved = torch.load(io.BytesIO(raw), map_location="cpu", weights_only=True)
+        saved = load_checkpoint(io.BytesIO(raw), map_location="cpu", weights_only=True)
     config, diag = saved.get("config", {}), saved.get("validation_diag", {})
     protocol = saved.get("val_protocol")
     if protocol != "seeded-sample-400-v3+z1-27" or diag.get("protocol") != protocol:

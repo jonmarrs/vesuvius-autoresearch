@@ -36,10 +36,20 @@ f120_tests = _load(
 # --- the pickle audit -------------------------------------------------------------------------------------------
 
 
+def _zip_of(path: Path, data: bytes, name: str = "archive/data.pkl") -> None:
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr(name, data)
+    path.write_bytes(buf.getvalue())
+
+
 def test_a_pickle_that_imports_os_system_is_refused(tmp_path):
     for protocol in (0, 2, 4):
-        path = tmp_path / f"p{protocol}.pkl"
-        path.write_bytes(pickle.dumps(os.system, protocol=protocol))
+        path = tmp_path / f"p{protocol}.pt"
+        _zip_of(path, pickle.dumps(os.system, protocol=protocol))
         result = audit.audit(path, set())
         assert not result["passes"], protocol
         assert result["outside_allowlist"] == ["posix.system"], protocol
@@ -343,8 +353,8 @@ def test_a_memo_entry_that_is_not_a_string_breaks_the_pair():
 
 
 def test_a_class_named_inline_by_inst_is_listed_and_refused(tmp_path):
-    path = tmp_path / "inst.pkl"
-    path.write_bytes(b"(ios\nsystem\n.")  # MARK, INST os system, STOP
+    path = tmp_path / "inst.pt"
+    _zip_of(path, b"(ios\nsystem\n.")  # MARK, INST os system, STOP
     result = audit.audit(path, set())
     assert result["outside_allowlist"] == ["os.system"] and not result["passes"]
 
@@ -358,8 +368,8 @@ def test_a_class_named_inline_by_inst_is_listed_and_refused(tmp_path):
     ],
 )
 def test_every_copyreg_extension_opcode_refuses_the_file(tmp_path, capsys, op, code):
-    path = tmp_path / f"{op}.pkl"
-    path.write_bytes(b"\x80\x02" + code + b".")
+    path = tmp_path / f"{op}.pt"
+    _zip_of(path, b"\x80\x02" + code + b".")
     result = audit.audit(path, set())
     assert result["refused_opcodes"] == [op] and result["outside_allowlist"] == []
     assert not result["passes"]
@@ -386,8 +396,8 @@ def test_every_copyreg_extension_opcode_refuses_the_file(tmp_path, capsys, op, c
 def test_only_a_storage_class_of_torch_itself_passes_as_storage(
     tmp_path, module, name, passes
 ):
-    path = tmp_path / "global.pkl"
-    path.write_bytes(b"\x80\x04c" + module.encode() + b"\n" + name.encode() + b"\n.")
+    path = tmp_path / "global.pt"
+    _zip_of(path, b"\x80\x04c" + module.encode() + b"\n" + name.encode() + b"\n.")
     assert audit.audit(path, set())["passes"] is passes
 
 
@@ -395,45 +405,6 @@ def test_the_audit_takes_exactly_one_checkpoint(capsys):
     assert audit.main([]) == 2
     assert audit.main(["a.pt", "b.pt"]) == 2
     assert "usage: audit_pickle.py" in capsys.readouterr().err
-
-
-def test_a_legacy_checkpoint_is_audited_past_its_first_pickle(tmp_path):
-    torch = pytest.importorskip("torch")
-    path = tmp_path / "legacy.pt"
-    made = tmp_path / "made"
-    payload = f120_tests._MakesADirectory(str(made))
-    torch.save(
-        {"w": torch.zeros(2), "x": payload}, path, _use_new_zipfile_serialization=False
-    )
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert any(name.endswith("makedirs") for name in result["outside_allowlist"])
-    assert not made.exists()
-
-
-def test_a_legacy_checkpoint_of_tensors_passes(tmp_path):
-    torch = pytest.importorskip("torch")
-    path = tmp_path / "legacy.pt"
-    torch.save({"w": torch.zeros(2)}, path, _use_new_zipfile_serialization=False)
-    result = audit.audit(path, set())
-    assert result["passes"] is True
-    assert "torch._utils._rebuild_tensor_v2" in result["pickles"][path.name]
-
-
-def test_a_pickle_placed_before_a_zip_archive_is_audited(tmp_path):
-    torch = pytest.importorskip("torch")
-    import io
-
-    archive = io.BytesIO()
-    torch.save({"w": torch.zeros(2)}, archive)
-    made = tmp_path / "made"
-    payload = f120_tests._MakesADirectory(str(made))
-    path = tmp_path / "joined.pt"
-    path.write_bytes(pickle.dumps(payload, protocol=2) + archive.getvalue())
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert any(name.endswith("makedirs") for name in result["outside_allowlist"])
-    assert not made.exists()
 
 
 def _write_tar(path: Path, members: list[tuple[str, bytes]]) -> None:
@@ -447,170 +418,8 @@ def _write_tar(path: Path, members: list[tuple[str, bytes]]) -> None:
             archive.addfile(info, io.BytesIO(data))
 
 
-def test_a_malicious_tar_legacy_checkpoint_is_refused(tmp_path):
-    # torch.load tries a tar before the concatenated legacy pickles, and unpickles
-    # the member. A header that parses as a few harmless opcodes used to end the
-    # audit early (passes=True); a member named "pickle" used to raise.
-    payload = pickle.dumps(os.system, protocol=2)
-    for name in ("storages", "pickle"):
-        path = tmp_path / f"{name}.pt"
-        _write_tar(path, [(name, payload)])
-        result = audit.audit(path, set())
-        assert result["passes"] is False, name
-        assert "posix.system" in result["outside_allowlist"], name
-        assert audit.main([str(path)]) == 1
-
-
-def test_a_benign_tar_checkpoint_passes(tmp_path):
-    path = tmp_path / "benign.pt"
-    _write_tar(
-        path,
-        [
-            ("pickle", pickle.dumps({"w": 1}, protocol=2)),
-            ("storages", pickle.dumps(0, protocol=2)),
-        ],
-    )
-    result = audit.audit(path, set())
-    assert result["passes"] is True, result
-    assert result["outside_allowlist"] == [] and result["refused_opcodes"] == []
-    # Bytes after a tar pickle are not the legacy storage tail: torch.load reads
-    # another pickle there. A member that does not end on STOP is refused.
-    tail = tmp_path / "tail.pt"
-    _write_tar(
-        tail,
-        [("storages", pickle.dumps({"w": 1}, protocol=2) + b"\x00\x00")],
-    )
-    refused = audit.audit(tail, set())
-    assert refused["passes"] is False
-    assert "unreadable pickle" in refused["refused_opcodes"]
-
-
-def test_a_truncated_pickle_fails_closed(tmp_path):
-    # PROTO, then a string opcode whose length runs past the buffer. The opcodes
-    # already read name nothing; the unread tail must not be dropped as storage.
-    path = tmp_path / "cut.pkl"
-    path.write_bytes(b"\x80\x04\x8c\x05os" + pickle.dumps(os.system, protocol=2))
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "unreadable pickle" in result["refused_opcodes"]
-    assert audit.main([str(path)]) == 1
-
-    # A failure on the first byte is the same refusal, not a traceback.
-    blank = tmp_path / "blank.pkl"
-    blank.write_bytes(b"\xff\xff")
-    refused = audit.audit(blank, set())
-    assert refused["passes"] is False
-    assert "unreadable pickle" in refused["refused_opcodes"]
-
-
-def test_an_empty_checkpoint_does_not_pass(tmp_path):
-    path = tmp_path / "empty.pt"
-    path.write_bytes(b"")
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert result["refused_opcodes"] == ["no pickle"]
-    assert audit.main([str(path)]) == 1
-
-
-def test_legacy_checkpoints_pass_across_tensor_sizes(tmp_path):
-    # Storage after the last STOP can look like an opcode. That is not a pickle
-    # torch.load runs, so none of these sizes is a reason to refuse the file.
-    torch = pytest.importorskip("torch")
-    refused = []
-    for n in range(256):
-        path = tmp_path / f"{n}.pt"
-        torch.save(torch.zeros(n), path, _use_new_zipfile_serialization=False)
-        if not audit.audit(path, set())["passes"]:
-            refused.append(n)
-    assert refused == []
-
-
-def _makedirs_name(marker: str) -> str:
-    """A NUL-free protocol-0 pickle, short enough to be a tar member name."""
-    text = f"cos\nmakedirs\n(S'{marker}'\ntR."
-    assert "\x00" not in text and len(text) <= 100
-    return text
-
-
-def test_a_pickle_in_a_tar_name_is_refused_and_bytesio_runs_it(tmp_path):
-    # The member body is a benign pickle, so the tar reading alone would pass.
-    # torch.load of a real file opens the tar. torch.load of a BytesIO never
-    # does: it unpickles the leading bytes, which are the member name.
-    torch = pytest.importorskip("torch")
-    import io
-    import tarfile
-
-    marker = Path("/tmp") / f"m{os.getpid()}"
-    if marker.exists():
-        marker.rmdir()
-    benign = pickle.dumps({"w": 1}, protocol=2)
-    path = tmp_path / "named.tar"
-    with tarfile.open(path, "w:", format=tarfile.PAX_FORMAT) as archive:
-        info = tarfile.TarInfo(_makedirs_name(str(marker)))
-        info.size = len(benign)
-        archive.addfile(info, io.BytesIO(benign))
-    assert tarfile.is_tarfile(path)
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "os.makedirs" in result["outside_allowlist"]
-    assert not marker.exists()
-    try:
-        with pytest.raises(RuntimeError):
-            torch.load(io.BytesIO(path.read_bytes()), weights_only=False)
-        assert marker.exists()
-    finally:
-        if marker.exists():
-            marker.rmdir()
-
-
-def test_a_link_or_device_member_refuses_the_tar(tmp_path):
-    import io
-    import tarfile
-
-    benign = pickle.dumps(0, protocol=2)
-
-    def build(kind: bytes, link: str | None) -> Path:
-        path = tmp_path / f"{kind.decode()}.tar"
-        with tarfile.open(path, "w:", format=tarfile.PAX_FORMAT) as archive:
-            info = tarfile.TarInfo("pickle")
-            info.size = len(benign)
-            archive.addfile(info, io.BytesIO(benign))
-            extra = tarfile.TarInfo("other")
-            extra.type = kind
-            if link is not None:
-                extra.linkname = link
-            else:
-                extra.devmajor = 1
-                extra.devminor = 3
-            archive.addfile(extra)
-        return path
-
-    for kind, link in (
-        (tarfile.SYMTYPE, "pickle"),
-        (tarfile.LNKTYPE, "pickle"),
-        (tarfile.CHRTYPE, None),
-    ):
-        result = audit.audit(build(kind, link), set())
-        assert result["passes"] is False, kind
-        assert "unreadable tar" in result["refused_opcodes"]
-
-
-def test_an_unreadable_tar_is_refused(tmp_path):
-    import gzip
-    import tarfile
-
-    raw = tmp_path / "plain.tar"
-    _write_tar(raw, [("pickle", pickle.dumps(0, protocol=2))])
-    path = tmp_path / "plain.tar.gz"
-    path.write_bytes(gzip.compress(raw.read_bytes()))
-    assert tarfile.is_tarfile(path)
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "unreadable tar" in result["refused_opcodes"]
-
-
 def _legacy_prefix() -> bytes:
-    """The three pickles torch.load finishes before it unpickles the object."""
+    """The three pickles a legacy torch.load finishes before the object."""
     torch = pytest.importorskip("torch")
     from torch.serialization import MAGIC_NUMBER, PROTOCOL_VERSION
 
@@ -625,75 +434,71 @@ def _legacy_prefix() -> bytes:
 
 
 def _stopless(module: str, name: str, arg: str) -> bytes:
-    """A protocol-0 call with no STOP. pickle.load runs it, then raises."""
+    """A protocol-0 call with no STOP."""
     text = f"c{module}\n{name}\n(S'{arg}'\ntR"
     assert "\x00" not in text
     return text.encode()
 
 
-def test_a_magic_pickle_then_a_stopless_import_is_refused(tmp_path):
-    # One finished pickle used to end the scan, so this file passed. torch.load
-    # still runs the second pickle, and a tar name is the same bytes.
-    torch = pytest.importorskip("torch")
+def _assert_non_zip_refused(path: Path) -> None:
+    """The audit and both loaders refuse ``path`` and name the offline conversion."""
     import io
-    import tarfile
 
-    from torch.serialization import MAGIC_NUMBER
+    checkpoints = importlib.import_module("vesuvius_autoresearch.core.checkpoint_tools")
+    NON_ZIP_CHECKPOINT = checkpoints.NON_ZIP_CHECKPOINT
+    load_checkpoint = checkpoints.load_checkpoint
 
-    marker = Path("/tmp") / f"s{os.getpid()}"
-    if marker.exists():
-        marker.unlink()
-    payload = pickle.dumps(MAGIC_NUMBER, protocol=0) + _stopless(
-        "os", "system", f"touch {marker}"
-    )
-    path = tmp_path / "magic.pkl"
-    path.write_bytes(payload)
     result = audit.audit(path, set())
     assert result["passes"] is False
-    assert "os.system" in result["outside_allowlist"]
-    assert not marker.exists()
-    try:
-        with pytest.raises(EOFError):
-            torch.load(path, weights_only=False)
-        assert marker.exists()
-    finally:
-        if marker.exists():
-            marker.unlink()
+    assert result["message"] == NON_ZIP_CHECKPOINT
+    assert "not a zip checkpoint" in result["refused_opcodes"]
+    assert audit.main([str(path)]) == 1
+    blob = path.read_bytes()
+    with pytest.raises(ValueError, match="convert it offline to zip"):
+        load_checkpoint(path, weights_only=False)
+    with pytest.raises(ValueError, match="convert it offline to zip"):
+        load_checkpoint(io.BytesIO(blob), weights_only=False)
 
-    named = Path("/tmp") / f"t{os.getpid()}"
-    if named.exists():
-        named.unlink()
-    name = (
+
+def test_a_legacy_checkpoint_is_refused_by_path_and_bytesio(tmp_path, capsys):
+    torch = pytest.importorskip("torch")
+    path = tmp_path / "legacy.pt"
+    torch.save({"w": torch.zeros(2)}, path, _use_new_zipfile_serialization=False)
+    _assert_non_zip_refused(path)
+    assert "convert it offline to zip" in capsys.readouterr().err
+
+
+def test_a_tar_checkpoint_is_refused_by_path_and_bytesio(tmp_path):
+    path = tmp_path / "legacy.tar"
+    _write_tar(path, [("pickle", pickle.dumps({"w": 1}, protocol=2))])
+    _assert_non_zip_refused(path)
+
+
+def test_a_magic_pickle_then_a_stopless_import_is_refused(tmp_path):
+    torch = pytest.importorskip("torch")
+    from torch.serialization import MAGIC_NUMBER
+
+    marker = tmp_path / "ran"
+    path = tmp_path / "magic.pkl"
+    path.write_bytes(
         pickle.dumps(MAGIC_NUMBER, protocol=0)
-        + _stopless("os", "system", f"touch {named}")
-    ).decode()
-    assert len(name) <= 100
-    benign = pickle.dumps(0, protocol=2)
-    tar_path = tmp_path / "named.tar"
-    with tarfile.open(tar_path, "w:", format=tarfile.PAX_FORMAT) as archive:
-        info = tarfile.TarInfo(name)
-        info.size = len(benign)
-        archive.addfile(info, io.BytesIO(benign))
-    assert tarfile.is_tarfile(tar_path)
-    named_result = audit.audit(tar_path, set())
-    assert named_result["passes"] is False
-    assert "os.system" in named_result["outside_allowlist"]
-    assert not named.exists()
-    try:
-        with pytest.raises(pickle.UnpicklingError):
-            torch.load(io.BytesIO(tar_path.read_bytes()), weights_only=False)
-        assert named.exists()
-    finally:
-        if named.exists():
-            named.unlink()
+        + _stopless("os", "system", f"touch {marker}")
+    )
+    _assert_non_zip_refused(path)
+    assert not marker.exists()
+
+
+def test_a_legacy_header_then_a_stopless_makedirs_is_refused(tmp_path):
+    pytest.importorskip("torch")
+    marker = tmp_path / "made"
+    path = tmp_path / "shaped.pkl"
+    path.write_bytes(_legacy_prefix() + _stopless("os", "makedirs", str(marker)))
+    _assert_non_zip_refused(path)
+    assert not marker.exists()
 
 
 def _bytestring_tar(path: Path, length: int, evil: bytes) -> None:
-    """A real tar whose first header is a BINBYTES8 of ``length`` bytes.
-
-    The declared string runs past the archive. ``evil`` begins where that
-    string ends, which is after the tar.
-    """
+    """A tar whose first header is a BINBYTES8 of ``length`` bytes, then ``evil``."""
     import struct
     import tarfile
 
@@ -712,52 +517,16 @@ def _bytestring_tar(path: Path, length: int, evil: bytes) -> None:
 
 
 @pytest.mark.parametrize("length", [1024 * 1024 + 4096, 4 * 1024 * 1024])
-def test_a_long_bytestring_hides_an_import_past_the_tar(tmp_path, monkeypatch, length):
-    # A 1 MiB slice used to end inside the counted string, so the import after
-    # the tar was never read. torch.load of a BytesIO skips the string and runs it.
-    torch = pytest.importorskip("torch")
-    import io
-
+def test_a_long_bytestring_hides_an_import_past_the_tar(tmp_path, length):
     marker = tmp_path / "ran"
     path = tmp_path / "long.tar"
-    evil = _stopless("os", "system", f"touch {marker}")
-    _bytestring_tar(path, length, evil)
-    got: list[int] = []
-    original = Path.open
-
-    class _Spy(io.BytesIO):
-        def read(self, size=-1):
-            data = super().read(size)
-            got.append(len(data))
-            return data
-
-    blob = path.read_bytes()
-
-    def fake_open(self, mode="r", *args, **kwargs):
-        if self == path and "b" in mode:
-            return _Spy(blob)
-        return original(self, mode, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "open", fake_open)
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "os.system" in result["outside_allowlist"]
-    assert sum(got) < length
+    _bytestring_tar(path, length, _stopless("os", "system", f"touch {marker}"))
+    _assert_non_zip_refused(path)
     assert not marker.exists()
-    try:
-        with pytest.raises(EOFError):
-            torch.load(io.BytesIO(blob), weights_only=False)
-        assert marker.exists()
-    finally:
-        if marker.exists():
-            marker.unlink()
 
 
 def test_a_frame_that_extends_past_its_stop_hides_the_next_pickle(tmp_path):
-    # pickle.load reads a FRAME up front, so the next load starts at the frame's
-    # end. Counting the pickles inside that span made the evil one look like storage.
     torch = pytest.importorskip("torch")
-    import io
     import struct
 
     from torch.serialization import MAGIC_NUMBER
@@ -765,231 +534,50 @@ def test_a_frame_that_extends_past_its_stop_hides_the_next_pickle(tmp_path):
     marker = tmp_path / "framed"
     magic = pickle.dumps(MAGIC_NUMBER, protocol=0)
     inner = magic + b"".join(pickle.dumps(0, protocol=0) for _ in range(4))
-    payload = (
+    path = tmp_path / "framed.pkl"
+    path.write_bytes(
         b"\x80\x04\x95"
         + struct.pack("<Q", len(inner))
         + inner
         + _stopless("os", "system", f"touch {marker}")
     )
-    path = tmp_path / "framed.pkl"
-    path.write_bytes(payload)
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "unreadable pickle" in result["refused_opcodes"]
+    _assert_non_zip_refused(path)
     assert not marker.exists()
-    try:
-        with pytest.raises(EOFError):
-            torch.load(io.BytesIO(payload), weights_only=False)
-        assert marker.exists()
-    finally:
-        if marker.exists():
-            marker.unlink()
 
 
-def test_a_stopless_import_in_the_fifth_pickle_is_refused(tmp_path):
-    # The storage tail starts after five finished pickles. The fifth itself still runs.
+def test_zip_tensor_checkpoints_still_load(tmp_path):
     torch = pytest.importorskip("torch")
     import io
 
-    from torch.serialization import MAGIC_NUMBER, PROTOCOL_VERSION
+    load_checkpoint = importlib.import_module(
+        "vesuvius_autoresearch.core.checkpoint_tools"
+    ).load_checkpoint
 
-    marker = tmp_path / "fifth"
-    payload = b"".join(
-        (
-            pickle.dumps(MAGIC_NUMBER, protocol=0),
-            pickle.dumps(PROTOCOL_VERSION, protocol=0),
-            pickle.dumps({"protocol_version": PROTOCOL_VERSION}, protocol=0),
-            pickle.dumps(0, protocol=0),
-            _stopless("os", "makedirs", str(marker)),
+    for n in range(256):
+        path = tmp_path / f"{n}.pt"
+        torch.save(torch.zeros(n), path)
+        assert audit.audit(path, set())["passes"] is True
+        loaded = load_checkpoint(path, map_location="cpu", weights_only=True)
+        assert tuple(loaded.shape) == (n,)
+        again = load_checkpoint(
+            io.BytesIO(path.read_bytes()), map_location="cpu", weights_only=True
         )
-    )
-    path = tmp_path / "fifth.pkl"
-    path.write_bytes(payload)
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "os.makedirs" in result["outside_allowlist"]
-    assert not marker.exists()
-    try:
-        with pytest.raises(EOFError):
-            torch.load(path, weights_only=False)
-        assert marker.is_dir()
-        marker.rmdir()
-        with pytest.raises(EOFError):
-            torch.load(io.BytesIO(payload), weights_only=False)
-        assert marker.is_dir()
-    finally:
-        if marker.exists():
-            marker.rmdir()
+        assert tuple(again.shape) == (n,)
 
 
-def test_a_legacy_header_then_a_stopless_makedirs_is_refused(tmp_path):
-    # magic, protocol, sys_info, then the object. torch.load runs that fourth
-    # pickle from a path and from a BytesIO, STOP or not.
-    torch = pytest.importorskip("torch")
-    import io
+def test_the_pinned_gp_checkpoint_still_loads():
+    pytest.importorskip("torch")
+    load_checkpoint = importlib.import_module(
+        "vesuvius_autoresearch.core.checkpoint_tools"
+    ).load_checkpoint
 
-    marker = tmp_path / "made"
-    payload = _legacy_prefix() + _stopless("os", "makedirs", str(marker))
-    path = tmp_path / "shaped.pkl"
-    path.write_bytes(payload)
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "os.makedirs" in result["outside_allowlist"]
-    assert not marker.exists()
-    try:
-        with pytest.raises(EOFError):
-            torch.load(path, weights_only=False)
-        assert marker.is_dir()
-        marker.rmdir()
-        with pytest.raises(EOFError):
-            torch.load(io.BytesIO(payload), weights_only=False)
-        assert marker.is_dir()
-    finally:
-        if marker.exists():
-            marker.rmdir()
-
-
-def test_a_tar_past_the_member_or_size_cap_is_refused(tmp_path):
-    import tarfile
-
-    tiny = pickle.dumps(0, protocol=2)
-    crowded = tmp_path / "crowded.tar"
-    _write_tar(crowded, [(f"p{i}", tiny) for i in range(audit._MAX_TAR_MEMBERS + 1)])
-    result = audit.audit(crowded, set())
-    assert result["passes"] is False
-    assert "unreadable tar" in result["refused_opcodes"]
-
-    huge = tmp_path / "huge.tar"
-    _write_tar(huge, [("pickle", tiny)])
-    header = bytearray(huge.read_bytes()[:512])
-    header[124:136] = f"{audit._MAX_TAR_BYTES + 1:011o}\0".encode()
-    header[148:156] = b"        "
-    header[148:156] = f"{sum(header):06o}\0 ".encode()
-    patched = tmp_path / "patched.tar"
-    patched.write_bytes(bytes(header) + huge.read_bytes()[512:])
-    assert tarfile.is_tarfile(patched)
-    refused = audit.audit(patched, set())
-    assert refused["passes"] is False
-    assert "unreadable tar" in refused["refused_opcodes"]
-
-
-def test_a_tar_at_the_member_and_byte_caps_is_allowed(tmp_path, monkeypatch):
-    # Equality is inside the cap. One past it is not. Directories count, so a
-    # directory on top of a full archive is already over.
-    import io
-    import tarfile
-
-    tiny = pickle.dumps(0, protocol=2)
-    full = tmp_path / "full.tar"
-    _write_tar(full, [(f"p{i}", tiny) for i in range(audit._MAX_TAR_MEMBERS)])
-    assert audit.audit(full, set())["passes"] is True
-
-    crowded = tmp_path / "dirs.tar"
-    with tarfile.open(crowded, "w:", format=tarfile.PAX_FORMAT) as archive:
-        for i in range(audit._MAX_TAR_MEMBERS):
-            directory = tarfile.TarInfo(f"d{i}")
-            directory.type = tarfile.DIRTYPE
-            archive.addfile(directory)
-        info = tarfile.TarInfo("pickle")
-        info.size = len(tiny)
-        archive.addfile(info, io.BytesIO(tiny))
-    directories = audit.audit(crowded, set())
-    assert directories["passes"] is False
-    assert "unreadable tar" in directories["refused_opcodes"]
-
-    assert audit._MAX_TAR_BYTES == 512 * 1024 * 1024
-    payload = pickle.dumps({"w": 1}, protocol=2)
-    exact = tmp_path / "exact.tar"
-    _write_tar(exact, [("pickle", payload)])
-    monkeypatch.setattr(audit, "_MAX_TAR_BYTES", len(payload))
-    assert audit.audit(exact, set())["passes"] is True
-    monkeypatch.setattr(audit, "_MAX_TAR_BYTES", len(payload) - 1)
-    over = audit.audit(exact, set())
-    assert over["passes"] is False
-    assert "unreadable tar" in over["refused_opcodes"]
-
-
-def test_a_tar_leading_pickle_does_not_read_the_member_bodies(tmp_path, monkeypatch):
-    # The leading reading streams. A counted body is seeked past, and no read
-    # is larger than one argument cap, so the member is not copied again.
-    import io
-
-    path = tmp_path / "wide.tar"
-    _write_tar(path, [("pickle", pickle.dumps({"w": 1}, protocol=2))])
-    blob = path.read_bytes() + b"\x00" * (1024 * 1024)
-    path.write_bytes(blob)
-    reads: list[int] = []
-    original = Path.open
-
-    class _Spy(io.BytesIO):
-        def read(self, size=-1):
-            reads.append(size if isinstance(size, int) else -1)
-            return super().read(size)
-
-    def fake_open(self, mode="r", *args, **kwargs):
-        if self == path and "b" in mode:
-            return _Spy(blob)
-        return original(self, mode, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "open", fake_open)
-    result = audit.audit(path, set())
-    assert result["passes"] is True
-    assert reads
-    assert all(0 <= size <= audit._MAX_ARG_BYTES for size in reads)
-
-
-def test_a_tar_member_must_be_pickles_through_its_last_byte(tmp_path):
-    # Five finished pickles make a later parse error look like storage. The
-    # member is still refused: torch.load keeps unpickling after that tail.
-    body = b"".join(pickle.dumps(0, protocol=2) for _ in range(audit._LEGACY_PICKLES))
-    path = tmp_path / "covered.tar"
-    _write_tar(path, [("storages", body + b"\x00\x00")])
-    result = audit.audit(path, set())
-    assert result["passes"] is False
-    assert "unreadable pickle" in result["refused_opcodes"]
-
-
-def test_nested_gzip_and_zip_members_and_a_tar_shaped_pickle(tmp_path):
-    # These already fail closed. The tests hold that: a nested tar, a gzip tar,
-    # a data.pkl that is really a zip, and a pickle wearing a tar header.
-    torch = pytest.importorskip("torch")
-    import gzip
-    import io
-    import tarfile
-
-    nested = tmp_path / "nested.tar"
-    inner = tmp_path / "inner.tar"
-    _write_tar(inner, [("pickle", pickle.dumps({"w": 1}, protocol=2))])
-    _write_tar(nested, [("pickle", inner.read_bytes())])
-    assert audit.audit(nested, set())["passes"] is False
-
-    gzipped = tmp_path / "wrapped.tar.gz"
-    gzipped.write_bytes(gzip.compress(inner.read_bytes()))
-    assert tarfile.is_tarfile(gzipped)
-    assert audit.audit(gzipped, set())["passes"] is False
-
-    archive = io.BytesIO()
-    torch.save({"w": torch.zeros(1)}, archive)
-    zipped = tmp_path / "member.tar"
-    _write_tar(zipped, [("data.pkl", archive.getvalue())])
-    assert audit.audit(zipped, set())["passes"] is False
-
-    marker = Path("/tmp") / f"n{os.getpid()}"
-    if marker.exists():
-        marker.rmdir()
-    shaped = tmp_path / "shaped.tar"
-    body = pickle.dumps(0, protocol=2)
-    with tarfile.open(shaped, "w:", format=tarfile.PAX_FORMAT) as tar:
-        info = tarfile.TarInfo(_makedirs_name(str(marker)))
-        info.size = len(body)
-        tar.addfile(info, io.BytesIO(body))
-    assert tarfile.is_tarfile(shaped)
-    try:
-        assert audit.audit(shaped, set())["passes"] is False
-        assert not marker.exists()
-    finally:
-        if marker.exists():
-            marker.rmdir()
+    path = ROOT / "villa/ink-detection/timesformer_weights.ckpt"
+    if not path.is_file():
+        pytest.skip("the pinned Grand Prize checkpoint is not in this checkout")
+    # weights_only=False: that checkpoint carries collections.defaultdict.
+    # The zip gate still runs first.
+    loaded = load_checkpoint(path, map_location="cpu", weights_only=False)
+    assert isinstance(loaded, dict) and loaded
 
 
 # --- the segments, the prediction reader and the comparison's other branches ------------------------------------

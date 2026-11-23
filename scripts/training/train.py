@@ -287,7 +287,11 @@ def load_foundation_model(model, path):
     if not os.path.exists(path):
         raise FileNotFoundError(f"foundation_model_path {path} does not exist")
     print(f"Loading pretrained backbone from {path}...")
-    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+    checkpoint = load_checkpoint(
+        path, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+    )
     state_dict = extract_checkpoint_state(checkpoint)
     if not isinstance(state_dict, dict):
         raise TypeError(f"{path} holds a {type(state_dict).__name__}, not a state dict")
@@ -348,7 +352,11 @@ def load_required_starting_checkpoint(model, config, path="best_model.pt"):
     CPU deserialization avoids allocating a second full checkpoint on the GPU.
     This strict path is opt-in for repeatability trials; load failures propagate.
     """
-    saved = torch.load(path, map_location="cpu", weights_only=False)
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+    saved = load_checkpoint(
+        path, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+    )
     mismatch = warm_start_mismatch(saved["config"], config)
     if mismatch is not None:
         raise ValueError(f"starting checkpoint must record matching {mismatch}")
@@ -386,7 +394,11 @@ def warm_start(model, config, path="best_model.pt", strict=False):
         "from scratch"
     )
     try:
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+        checkpoint = load_checkpoint(
+            path, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+        )
     except Exception as exc:
         raise RuntimeError(
             f"{path} cannot be read ({type(exc).__name__}: {exc}); {remedy}"
