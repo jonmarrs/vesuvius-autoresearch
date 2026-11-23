@@ -15,7 +15,6 @@ import json
 import os
 import sys
 
-import numpy as np
 import pytest
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

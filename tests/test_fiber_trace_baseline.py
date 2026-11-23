@@ -7,7 +7,6 @@ remain unchanged in their reports and need a fresh run for current code.
 """
 
 import numpy as np
-import pytest
 
 from vesuvius_autoresearch.fibers.trace import TraceParams, trace_fibers
 

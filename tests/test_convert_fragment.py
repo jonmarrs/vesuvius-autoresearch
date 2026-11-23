@@ -1,5 +1,4 @@
 # tests/test_convert_fragment.py
-import os
 
 import cv2
 import numpy as np

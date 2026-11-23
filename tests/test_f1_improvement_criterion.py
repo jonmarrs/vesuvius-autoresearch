@@ -3,8 +3,6 @@ import math
 import sys
 from pathlib import Path
 
-import numpy as np
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "training"))
 
 from train import F1_NOISE_TOLERANCE, LIFT_MARGIN, is_f1_improvement

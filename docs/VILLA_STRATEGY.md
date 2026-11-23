@@ -91,9 +91,9 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *Tackling the remaining bottlenecks for full-scroll recovery.*
 
 ### [Priority K] Uncertainty-Aware Mean Teacher (STATUS: IMPLEMENTED)
-*   **Action**: Created `scripts/launch_uamt.py` to wrap the official `villa` Uncertainty-Aware Mean Teacher. It sets up the YAML configuration to train on labeled Fragment 1 data while teaching the model the raw unlabeled texture of Scrolls 2/3.
-*   **Strategy**: Train with labeled Fragment 1 data and unlabeled Scroll 2/3 volumes to solve the "Domain Gap" problem. Use autoresearch to optimize `ema_decay` and `consistency_weight`.
-*   **Impact**: The most direct path to the **$200,000 Grand Prize** (90% coverage) by learning Scroll 2's unique texture from raw data.
+*   **Action**: Created the UAMT launcher, now archived as `scripts/archive/launch_uamt.py`, to wrap the official `villa` Uncertainty-Aware Mean Teacher. It sets up the YAML configuration to train on labeled PHercParis2Fr47 data while teaching the model the raw unlabeled texture of two PHerc0125 divisions (`div_90` and `div_100`).
+*   **Strategy**: Train with labeled PHercParis2Fr47 data and unlabeled PHerc0125 division volumes to solve the "Domain Gap" problem. Use autoresearch to optimize `ema_decay` and `consistency_weight`.
+*   **Impact**: The most direct path to the **$200,000 Grand Prize** (90% coverage) by learning the unique texture of the unlabeled PHerc0125 division volumes (`div_90` and `div_100`) from raw data.
 
 ### [Priority L] Automated ARAP Parameterization (STATUS: UNSUPPORTED; LEGACY SELECTOR RETIRED 2026-10-11)
 *   **Scope correction**: `scripts/automate_arap_flattening.py` used an incompatible native CLI contract, substituted file size for failed quality scoring, and recorded deleted temporary outputs. It did not use `FastLocalVolume` or establish a validated automatic parameter selector.

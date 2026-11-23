@@ -10,8 +10,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "scripts" / "analyse_radial_displacement.py"
 BASE = 1_000_000
