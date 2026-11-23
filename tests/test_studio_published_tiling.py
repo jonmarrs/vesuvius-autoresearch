@@ -124,3 +124,61 @@ def test_the_seams_command_writes_its_own_record_once(tmp_path):
     assert rec["finding"] == 128 and rec["described_after_the_verdict"] is True
     assert set(rec["seam_profile"]) == {"period", "pixels", "columns", "rows"}
     assert st.main(seams) == 2
+
+
+# --- each position of the window, an empty edge, an unreadable mask or pickled map, and a run that did not happen ---
+
+
+def test_the_seam_profile_takes_both_window_edges_and_the_middle_third_exactly():
+    # per column position: first 0.1, last 0.3, 31 and 64 just outside the middle, 32 its first pixel, 33 to 63 0.2
+    offset = np.zeros(96)
+    offset[[0, 95, 31, 32, 64]] = [0.1, 0.3, 0.7, 0.6, 0.9]
+    offset[33:64] = 0.2
+    slow = np.zeros((4, 192), np.float32)
+    fast = slow + np.tile(offset, 2)[None, :].astype(np.float32)
+    columns = st.seam_profile(fast, slow, np.ones(slow.shape, bool))["columns"]
+    assert columns["edge"] == pytest.approx(0.2, abs=1e-6)
+    assert columns["middle"] == pytest.approx((0.6 + 31 * 0.2) / 32, abs=1e-6)
+
+
+def test_a_mask_with_no_window_edge_gives_no_edge_number():
+    mask = np.zeros((96, 96), bool)
+    mask[32:64, 32:64] = True
+    prof = st.seam_profile(
+        np.ones((96, 96), np.float32), np.zeros((96, 96), np.float32), mask
+    )
+    assert prof["columns"] == {"edge": None, "middle": 1.0}
+    assert prof["rows"] == {"edge": None, "middle": 1.0}
+
+
+def test_an_unreadable_mask_stops_both_commands(tmp_path):
+    argv = _write(tmp_path, 0.005)
+    (tmp_path / "mask.png").write_text("not an image")
+    with pytest.raises(SystemExit, match="cannot read"):
+        st.main(argv)
+    with pytest.raises(SystemExit, match="cannot read"):
+        st.main(["seams", str(tmp_path / "seams.json"), *argv[1:4]])
+
+
+def test_a_map_holding_python_objects_is_refused_by_both_commands(tmp_path):
+    argv = _write(tmp_path, 0.005)
+    fast = np.load(tmp_path / "fast.npy")
+    np.save(tmp_path / "fast.npy", fast.astype(object), allow_pickle=True)
+    with pytest.raises(ValueError, match="allow_pickle"):
+        st.main(argv)
+    with pytest.raises(ValueError, match="allow_pickle"):
+        st.main(["seams", str(tmp_path / "seams.json"), *argv[1:4]])
+
+
+@pytest.mark.parametrize("missing", ["gate.json", "fast.npy"])
+def test_without_the_gate_or_the_published_map_the_comparison_does_not_run(
+    tmp_path, missing
+):
+    argv = _write(tmp_path, 0.005)
+    (tmp_path / missing).unlink()
+    assert st.main(argv) == 0
+    out = json.loads((tmp_path / "out.json").read_text())
+    assert out["verdict"] == "DOES_NOT_RUN" and out["numbers"] is None
+    assert out["infer"] == (
+        {"exit": None} if missing == "gate.json" else {"exit": 0, "seconds": 33}
+    )
