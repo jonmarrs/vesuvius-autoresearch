@@ -50,7 +50,10 @@ refuses it anyway.
 
 ## Observations for the owner (not changed)
 
-None this round.
+- **The doc audit cannot resolve two commits that #524 cites.** The filing draft names `research/wrong-hand-read`
+  at dc232051 and `research/studio-band-triage` at 26d5c8a5. Both are on origin: the first is on its branch, and
+  the second is its branch's head. Neither branch is merged, and the audit reads main, so it lists both as found
+  nowhere. They resolve once the branches merge.
 
 ## Verification
 
@@ -64,7 +67,8 @@ None this round.
   - 3,358 passed: round #213's 3,350, #524's 3 new cases in the filing draft's module and this round's 5.
   - 4 xfailed, as in round #213.
   - One of the 24 failing ids is the free-disk case round #196 described.
-- **The doc audit**, run alone, lists the same unresolved references as on `19b11af`.
+- **The doc audit**, run alone, lists the same unresolved references as on `19b11af`. Those are round #213's and
+  the two commits on research branches that #524's filing draft cites, above.
 - **The smoke test** gives 8 passed, 3 skipped and none failed.
 
 Every other failing id is this container's: it has no villa checkout.
