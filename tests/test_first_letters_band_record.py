@@ -277,3 +277,106 @@ def test_a_chained_read_carries_its_chain_fit_table_and_gpu_window(tmp_path):
     assert (
         "chain" not in plain and "fit" not in plain
     )  # finding 125's record is unchanged
+
+
+# --- what never ran, the medians, the orders, what was not written, and the turns -----------------------------------
+
+
+def test_a_stage_or_step_that_never_ran_has_no_numbers(tmp_path):
+    r = _run(tmp_path)
+    gates = r / "work" / "gate_a"
+    (gates / "studio_snap.json").unlink()
+    for w in ("w010", "w011"):
+        (gates / f"studio_studio_{w}.json").unlink()
+    s = br.record(r, "a")["steps"]
+    assert s["snap"] is None and s["orient"] == {"exit": 0, "seconds": 3}
+    assert s["studio"] == {"attempted": 0, "exited_zero": 0, "failed": [], "seconds_total": 0,
+                           "seconds_median": None, "seconds_max": None}  # fmt: skip
+
+
+def test_times_and_spreads_are_medians_and_lists_are_in_name_order(tmp_path):
+    r = _run(tmp_path)
+    work = r / "work"
+    (work / "windings_a.txt").write_text("w012\nw011\nw010\n")
+    _write(work / "gate_a" / "studio_render_w011.json", {"exit": 2, "seconds": 200})
+    orient = work / "studio_a" / "orient.json"
+    _write(orient, {"windings": {
+        "w012": {"share_of_normals_pointing_inward": 0.05, "render": "keep"},
+        "w011": {"share_of_normals_pointing_inward": 0.9, "render": "flip"},
+        "w010": {"share_of_normals_pointing_inward": 0.49, "render": "keep"},
+    }})  # fmt: skip
+    rec = br.record(r, "a")
+    render = rec["steps"]["render"]
+    assert render["failed"] == ["w011", "w012"] and render["seconds_median"] == 190
+    assert rec["render_orientation"]["keep"] == ["w010", "w012"]
+    assert rec["render_orientation"]["share_of_normals_pointing_inward"] == {
+        "median": 0.49,
+        "min": 0.05,
+        "max": 0.9,
+    }
+
+
+def test_a_read_without_a_gpu_log_geometry_or_stacking_records_none(tmp_path):
+    r = _run(tmp_path)
+    (r / "logs" / "studio_a_gpu_mib.log").unlink()
+    (r / "work" / "studio_a" / "geometry.json").unlink()
+    (r / "work" / "studio_a" / "stacked.json").unlink()
+    rec = br.record(r, "a")
+    assert rec["gpu_peak_mib_all_processes"] is None and rec["gpu_samples"] is None
+    assert rec["geometry"] is None and rec["stacked"] is None
+    assert not any("geometry" in row for row in rec["by_winding"].values())
+
+
+def test_a_canvas_is_given_to_four_decimals(tmp_path):
+    r = _run(tmp_path)
+    _write(
+        r / "work" / "render_a" / "w010_66.zarr" / "0" / ".zarray",
+        {"shape": [66, 1234, 567]},
+    )
+    assert br.record(r, "a")["by_winding"]["w010"]["render_canvas_megapixels"] == 0.6997
+
+
+def test_a_winding_with_nothing_rendered_is_left_out_of_the_shares_and_the_order(
+    tmp_path,
+):
+    r = _run(tmp_path)
+    studio = r / "work" / "studio_a" / "summary"
+    summary = json.loads((studio / "summary.json").read_text())
+    summary["windings"]["w012"] = {"ink_share": None, "largest_tile_ink_share": None, "tiles_scored": 0,
+                                   "rendered_pixels": 0}  # fmt: skip
+    _write(studio / "summary.json", summary)
+    turns = json.loads((studio / "orientation.json").read_text())
+    turns["w012"] = {"flip_lr": False, "flip_ud": False}
+    _write(studio / "orientation.json", turns)
+    rec = br.record(r, "a")
+    assert rec["read"] == 3 and rec["ink_share"] == {
+        "median": 0.2,
+        "min": 0.1,
+        "max": 0.3,
+    }
+    assert rec["largest_tile_ink_share"] == {"median": 0.35, "min": 0.2, "max": 0.5}
+    assert rec["inspection_order_first_ten"] == ["w011", "w010"]
+
+
+def test_the_turns_are_counted_by_kind_and_the_order_stops_at_ten(tmp_path):
+    r = _run(tmp_path)
+    studio = r / "work" / "studio_a" / "summary"
+    names = [f"w{100 + k}" for k in range(12)]
+    _write(studio / "summary.json", {"windings": {
+        w: {"ink_share": 0.1, "largest_tile_ink_share": 0.01 * k, "tiles_scored": 1, "rendered_pixels": 10}
+        for k, w in enumerate(names)}})  # fmt: skip
+    kinds = [
+        (True, True),
+        (False, True),
+        (True, False),
+    ]  # both, upside down only, mirrored only
+    _write(studio / "orientation.json", {w: {"flip_lr": kinds[k % 3][0], "flip_ud": kinds[k % 3][1]}
+                                         for k, w in enumerate(names)})  # fmt: skip
+    rec = br.record(r, "a")
+    assert rec["reading_orientation"] == {
+        "unturned": 0,
+        "mirrored only": 4,
+        "upside down only": 4,
+        "both": 4,
+    }
+    assert rec["inspection_order_first_ten"] == names[::-1][:10]
