@@ -7,7 +7,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
-import numpy as np
 import pytest
 import torch
 from conftest import restore_cuda_env  # noqa: E402

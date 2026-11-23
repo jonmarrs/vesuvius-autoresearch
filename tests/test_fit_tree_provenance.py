@@ -7,7 +7,6 @@ version reached a published report. These tests pin the recovered answer so a
 later copy or upgrade cannot silently change what the arms ran on.
 """
 
-import os
 import shutil
 import subprocess
 import sys

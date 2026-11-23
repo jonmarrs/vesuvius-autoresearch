@@ -12,7 +12,6 @@ import subprocess
 import sys
 
 import numpy as np
-import pytest
 from PIL import Image
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

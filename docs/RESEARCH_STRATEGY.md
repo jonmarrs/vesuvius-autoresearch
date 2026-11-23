@@ -460,6 +460,17 @@ length, against 0.89 to 0.98. The script's own orientation rule holds only in PH
 turned the image by 180 degrees, so the flips now come from the catalog's flags, as on the band pages. PHerc. 0358
 shares PHerc. 211's flags.
 
+**PHerc. 0813's band fits on the sheets, and all 110 selected windings were read; the outermost lie past the
+papyrus, and the images wait for the owner (November 23).** The recipe's fit of z 9996 to 11496 at villa's defaults
+is `ON_SHEETS` by finding 112's table (median excess 0.091, 0.9167 of windings positive), one line better than
+predicted. The middle third fits best ([report](../reports/first_letters_0813_studio_band.md), finding 129). The 110
+windings with positive excess were subdivided twice, oriented against the axis (none flipped: the scroll is
+clockwise) and read by Studio with no failure, in 17 h 48 min. Described from the geometry alone: 2 of 102
+neighbouring pairs are stacked; the rendered share within 2 voxels of the predicted sheet is 0.6983 over w010 to w110
+but 0.3157 over w111 to w129; and at the band's middle slice the windings from w115 outward lie past the outermost
+predicted sheet. Villa's fit writes 130 windings whatever the scroll's size. No automatic verdict was registered: the
+images stay on this machine and the owner reads them.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 

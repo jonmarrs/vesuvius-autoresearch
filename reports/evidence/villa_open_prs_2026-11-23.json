@@ -1,0 +1,56 @@
+{
+  "checked_at_utc": "2026-11-23T19:35:22Z",
+  "how": "scripts/record_villa_open_prs.py: gh pr view / gh issue view (read-only)",
+  "prs": {
+    "2463": {
+      "title": "lasagna: put tifxyz-flow-gate-channels in args for only_flowsnap configs",
+      "state": "OPEN",
+      "merged_at": null,
+      "created_at": "2026-11-06T19:27:56Z",
+      "author": "jonmarrs",
+      "villa_review_recommends_merging_at": "2026-11-20T20:28:46Z"
+    },
+    "2465": {
+      "title": "docs: note uint8/uint16 mix in instance-labels-harmonized volumes",
+      "state": "OPEN",
+      "merged_at": null,
+      "created_at": "2026-11-06T19:28:33Z",
+      "author": "jonmarrs",
+      "villa_review_recommends_merging_at": "2026-11-20T20:29:19Z"
+    },
+    "2501": {
+      "title": "Refuse a pyramid level whose depth contradicts its Z scale (fixes #2107)",
+      "state": "OPEN",
+      "merged_at": null,
+      "created_at": "2026-11-10T18:28:04Z",
+      "author": "jonmarrs",
+      "villa_review_recommends_merging_at": "2026-11-22T05:12:19Z"
+    }
+  },
+  "pr_2501": {
+    "recomputed_level2_chunk_correlations": {
+      "Same-index 4×4 mean, median of the 17 slices": 0.999964,
+      "4-deep pool, median of the 17 slices": 0.18166
+    },
+    "reporter_auc_line": "The issue reporter reported an ink_9um AUC of 0.54 on the truncated level 2 and 0.91–0.93 when the input was rebuilt from level 0. Those figures are the reporter's. ink_9um was not rerun: level 0 of this volume is about 19 GB, and the checkpoint is not in this environment. The pixel comparison is the ink-signal evidence.",
+    "credit_line": "Thanks to @EhimenNathan and @AndreasHad04 for the pixel evidence.",
+    "review_port_and_renderer_line": "No commits on main after the merge base touch the three submitted files. Main's renderer preserves depth in new renders, while the shared ink opener accepts existing inconsistent levels. This PR ports Bryant Le's rule from the stale-closed #2256 with his agreement. The separate #2282 proposal addresses rebuilding the published arrays. The runtime guard gives the flat inference workflow demonstrated in #2107 protection that main lacks. [Main renderer](https://github.com/ScrollPrize/villa/blob/c8f3ba45304f0a317a49a155929e30d294f201eb/volume-cartographer/apps/src/vc_render_tifxyz.cpp#L641-L669), [main selector](https://github.com/ScrollPrize/villa/blob/c8f3ba45304f0a317a49a155929e30d294f201eb/vesuvius/src/vesuvius/ink_detection/volume_io.py#L46-L75), [prior guard](https://github.com/ScrollPrize/villa/pull/2256), [rebuild proposal](https://github.com/ScrollPrize/villa/pull/2282)."
+  },
+  "orientation_issue": {
+    "url": "https://github.com/Nieuwlaar/pherc343-first-letters/issues/2",
+    "comments": 0,
+    "createdAt": "2026-11-23T03:11:52Z",
+    "state": "OPEN"
+  },
+  "issue_2107": {
+    "title": "ink/ label bucket: in 18 of 33 surface volumes, pyramid level 2 holds only the first 17 of 65 depth slices while declaring z-scale 1",
+    "author": "EhimenNathan",
+    "state": "OPEN"
+  },
+  "pr_2256": {
+    "author": "bnleft",
+    "author_name": "Bryant Le",
+    "state": "CLOSED",
+    "closed_at": "2026-11-06T08:14:48Z"
+  }
+}

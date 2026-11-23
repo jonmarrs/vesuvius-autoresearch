@@ -240,3 +240,230 @@ def test_the_scripts_upload_nothing_and_run_the_recipes_call(script):
         assert "S=$(( N / 2 + d - 8 )); E=$(( S + 17 ))" in text
     else:
         assert "check_checkpoint.py" in text and "sha256sum -c" in text
+
+
+def test_the_verdict_table_at_its_other_edges():
+    ens = _reader(0.53, 0.30)
+    closer = _reader(0.72, 0.40)
+    # a cell share exactly at the line runs, and a reader exactly twice its controls clears them
+    assert cr.verdict(ens, closer, cr.f118.MIN_CELL_SHARE) == "V3_CLOSER"
+    assert cr.verdict(ens, _reader(0.72, 0.40, wrong=0.36), 1.0) == "V3_CLOSER"
+    assert cr.verdict(ens, _reader(0.72, 0.40, slid=-0.36), 1.0) == "V3_CLOSER"
+    # a missing control fails the controls; a missing number on either side does not run
+    assert cr.verdict(ens, _reader(0.72, 0.40, wrong=None), 1.0) == "V3_FAILS_CONTROLS"
+    assert cr.verdict(ens, _reader(0.72, 0.40, slid=None), 1.0) == "V3_FAILS_CONTROLS"
+    assert cr.verdict(_reader(None, 0.30), closer, 1.0) == "DOES_NOT_RUN"
+    assert cr.verdict(_reader(0.53, None), closer, 1.0) == "DOES_NOT_RUN"
+    assert cr.verdict(ens, _reader(0.72, None), 1.0) == "DOES_NOT_RUN"
+
+
+def test_a_constant_map_is_refused_rather_than_standardised():
+    with pytest.raises(ValueError, match="constant"):
+        cr.standardise(np.ones((3, 4)), np.ones((3, 4), bool))
+
+
+def test_the_strongest_cells_keep_their_order_among_many_ties():
+    compared = np.ones((1, 1000), bool)
+    chosen = cr.strongest(np.zeros((1, 1000)), compared, 10)
+    assert np.flatnonzero(chosen).tolist() == list(range(10))
+
+
+def test_overlap_counts_only_the_winners_ink_among_the_compared_cells():
+    compared = np.zeros((4, 5), bool)
+    compared[:, :3] = True
+    ink = np.zeros((4, 5), bool)
+    ink[0, 0] = ink[0, 4] = True  # the second lies outside the compared cells
+    ours = np.zeros((4, 5))
+    ours[0, 0] = 1.0
+    assert cr.overlap(ink, ours, compared) == 1.0
+
+
+def _wrapping_case():
+    """slid_overlap's up case from the test above: what wraps round would land on the winner's ink."""
+    rng = np.random.default_rng(0)
+    ink = np.zeros((40, 40), bool)
+    ink[5:9, :] = True
+    ink[24:28, :] = True
+    ours = 0.01 * rng.random((40, 40))
+    ours[:4, :] += 1.0
+    return ink, ours
+
+
+@pytest.mark.parametrize(
+    ("direction", "turn"),
+    [
+        ("down", np.flipud),
+        ("left", np.transpose),
+        ("right", lambda a: np.fliplr(a.T)),
+    ],
+)
+def test_each_slide_leaves_out_the_cells_that_wrapped_round(direction, turn):
+    ink, ours = (turn(a) for a in _wrapping_case())
+    slid = cr.slid_overlap(ink, ours, np.ones((40, 40), bool), 16)
+    assert slid[direction] is not None and slid[direction] < 0.3
+
+
+def test_the_largest_slid_overlap_passes_over_a_slide_with_no_ink():
+    ink = np.zeros((40, 40), bool)
+    ink[:4, :] = True  # sliding down by 16 leaves only rows 16-39 compared: no ink
+    ours = np.random.default_rng(1).random((40, 40))
+    slid = cr.slid_overlap(ink, ours, np.ones((40, 40), bool), 16)
+    assert slid["down"] is None
+    assert slid["largest"] == max(slid[k] for k in ("up", "right", "left"))
+
+
+def test_the_bootstrap_resamples_blocks_with_cells_and_measures_b_minus_a():
+    rng = np.random.default_rng(2)
+    cells = np.zeros((128, 128), bool)
+    cells[:64, :64] = cells[64:, :64] = cells[:64, 64:] = True
+    cells[100, 100] = True  # a block holding one cell is left out
+    theirs = rng.standard_normal(cells.shape)
+    unrelated = rng.standard_normal(cells.shape)
+    close = theirs + 0.5 * rng.standard_normal(cells.shape)
+    out = cr.block_bootstrap(theirs, unrelated, close, cells)
+    assert out["blocks"] == 3
+    assert 0 < out["low"] < out["high"]
+
+
+def _shifted_alignment(monkeypatch, shift, aligned):
+    monkeypatch.setattr(
+        cr.f118,
+        "alignment",
+        lambda layers, ct: {"shift_pixels": list(shift), "aligned": aligned},
+    )
+
+
+@pytest.mark.parametrize("shift", [(16, 0), (-16, 0), (0, 16)])
+def test_a_shift_at_the_edge_of_the_search_does_not_run(tmp_path, monkeypatch, shift):
+    v3_maps = _write_v3_maps_after_inputs(tmp_path)
+    _shifted_alignment(monkeypatch, shift, aligned=False)
+    out = tmp_path / "readers.json"
+    assert cr.main([str(out), *_args_without_image(tmp_path, v3_maps)]) == 0
+    record = json.loads(out.read_text())
+    assert record["verdict"] == "DOES_NOT_RUN" and "ensemble" not in record
+
+
+def _write_v3_maps_after_inputs(root: Path) -> Path:
+    f118_tests._write_inputs(root)
+    return _write_v3_maps(root, 1.0)
+
+
+def _args_without_image(root: Path, v3_maps: Path) -> list[str]:
+    args = [
+        "--mesh", str(root / "v9" / "normalized-tifxyz"), "--maps", str(root / "maps"),
+        "--render", str(root / "v9_66.zarr"), "--studio", str(root / "studio.tif"),
+        "--studio-mask", str(root / "mask.png"), "--winner-ct", str(root / "ct.tif"),
+    ]  # fmt: skip
+    return [*args, "--v3-maps", str(v3_maps)]
+
+
+@pytest.mark.parametrize(
+    ("shift", "aligned", "applied"),
+    [((0, -1), True, [0, 0]), ((0, -8), False, [0, -8])],
+)
+def test_the_shift_is_applied_only_when_out_of_tolerance_and_to_every_depth(
+    tmp_path, monkeypatch, shift, aligned, applied
+):
+    v3_maps = _write_v3_maps_after_inputs(tmp_path)
+    _shifted_alignment(monkeypatch, shift, aligned)
+    out = tmp_path / "readers.json"
+    assert cr.main([str(out), *_args_without_image(tmp_path, v3_maps)]) == 0
+    record = json.loads(out.read_text())
+    assert record["shift_applied_pixels"] == applied
+    # the registered depth, read again among the described ones, is moved by the same shift
+    at_depth = record["described"]["v3_by_depth"][f"{cr.DEPTH:+d}"]
+    for key in ("r", "control_wrong_side", "overlap"):
+        assert at_depth[key] == record["reader_v3"][key]
+
+
+def test_a_winners_cell_exactly_at_the_ink_line_is_ink(tmp_path):
+    import tifffile
+
+    v3_maps = _write_v3_maps_after_inputs(tmp_path)
+    studio = tmp_path / "studio.tif"
+    # the strokes at exactly 0.5 and nothing else: every 4-pixel block of the map is one cell's value
+    at_line = np.where(tifffile.imread(studio) >= 0.3, 0.5, 0.0).astype(np.float32)
+    tifffile.imwrite(studio, at_line)
+    out = tmp_path / "readers.json"
+    assert cr.main([str(out), *_args_without_image(tmp_path, v3_maps)]) == 0
+    record = json.loads(out.read_text())
+    assert 0 < record["winner_ink_cells"] < record["cells"]
+
+
+def test_a_cell_share_exactly_at_the_line_is_measured(tmp_path, monkeypatch):
+    v3_maps = _write_v3_maps_after_inputs(tmp_path)
+    first = tmp_path / "first.json"
+    assert cr.main([str(first), *_args_without_image(tmp_path, v3_maps)]) == 0
+    record = json.loads(first.read_text())
+    share = float(record["cells"]) / record["mask_cells"]
+    monkeypatch.setattr(cr.f118, "MIN_CELL_SHARE", share)
+    out = tmp_path / "readers.json"
+    assert cr.main([str(out), *_args_without_image(tmp_path, v3_maps)]) == 0
+    again = json.loads(out.read_text())
+    assert again["ensemble"] == record["ensemble"]
+    assert again["verdict"] == record["verdict"] != "DOES_NOT_RUN"
+
+
+ck = _load(
+    "check_checkpoint_under_test",
+    ROOT / "repro/first_letters/pherc0211_control/check_checkpoint.py",
+)
+
+
+class _MakesADirectory:
+    """Pickles as a call to os.makedirs: an unrestricted load would create the directory."""
+
+    def __init__(self, path):
+        self.path = path
+
+    def __reduce__(self):
+        import os
+
+        return (os.makedirs, (self.path,))
+
+
+def test_a_checkpoint_of_tensors_loads_and_its_configuration_is_described(
+    tmp_path, capsys
+):
+    torch = pytest.importorskip("torch")
+    path = tmp_path / "reader.pth"
+    config = {"model": {"model_type": "timesformer"}, "patch_size": 64}
+    torch.save({"state_dict": {"w": torch.zeros(2)}, "config": config}, path)
+    assert ck.main([str(path)]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "weights_only_load": "ok",
+        "top_level_keys": ["config", "state_dict"],
+        "model_type": "timesformer",
+        "patch_size": 64,
+    }
+
+
+def test_a_checkpoint_that_would_run_code_is_refused_and_the_code_never_runs(
+    tmp_path, capsys
+):
+    torch = pytest.importorskip("torch")
+    marker = tmp_path / "made_by_the_checkpoint"
+    path = tmp_path / "reader.pth"
+    torch.save({"w": torch.zeros(2), "x": _MakesADirectory(str(marker))}, path)
+    assert ck.main([str(path)]) == 1
+    assert "REFUSED" in capsys.readouterr().err
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("argv", [[], ["a.pth", "b.pth"]], ids=["none", "two"])
+def test_the_checker_takes_exactly_one_checkpoint(argv, capsys):
+    assert ck.main(argv) == 2
+    assert "usage: check_checkpoint.py" in capsys.readouterr().err
+
+
+def test_the_description_reads_flat_and_nested_configurations():
+    flat = {"config": {"model_type": "resnet3d", "crop_size": 32}}
+    assert ck.describe(flat) == {
+        "top_level_keys": ["config"],
+        "model_type": "resnet3d",
+        "patch_size": 32,
+    }
+    nested = {"config": {"model": {"depth": 4}, "model_type": "unet", "patch_size": 48}}
+    assert ck.describe(nested)["model_type"] == "unet"
+    assert ck.describe({"config": "unet"}) == {"top_level_keys": ["config"]}
+    assert ck.describe([1, 2]) == {"top_level_keys": None}

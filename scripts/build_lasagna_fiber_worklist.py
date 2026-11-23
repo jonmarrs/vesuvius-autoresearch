@@ -10,7 +10,6 @@ opportunity around compressed and highly curved regions.
 import argparse
 import csv
 import html
-import json
 import math
 import shlex
 import sys

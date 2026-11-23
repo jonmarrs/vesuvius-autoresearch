@@ -6,7 +6,6 @@ when n is too small to mean anything. A bare r of -0.12 read without its interva
 would overclaim in the direction we already believe.
 """
 
-import math
 import os
 import sys
 

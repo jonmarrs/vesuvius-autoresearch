@@ -22,7 +22,6 @@ Run:
 
 import json
 import os
-import sys
 
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 

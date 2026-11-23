@@ -362,3 +362,137 @@ def test_the_seam_changes_on_other_scrolls_are_finding_109s_record():
     assert all(x < 0 for x in cov)
     assert (f"coverage at tolerance 4 fell on every cube, a median {statistics.median(cov):.1f}%"
             .replace("median -", "median −")) in section  # fmt: skip
+
+
+def test_the_orientation_defect_s_counts_are_the_catalog_record():
+    """How often the recipe's orientation rule bites: the catalog volumes counted by their two flags."""
+    r = json.loads((ROOT / "reports/evidence/catalog_orientation_flags_2026-11-22.json").read_text())  # fmt: skip
+    c = r["volumes_by_case"]
+    mirrored = c["mirrored_left_right"] + c["mirrored_top_bottom"]
+    assert r["volumes_with_both_flags"] == r["volumes"] - c["unknown"]
+    assert (f"of the {r['volumes_with_both_flags']} volumes in the open-data catalog with both flags set, the rule "
+            f"holds on {c['rule_holds']}. {c['turned_180']} have z running top to bottom") in TEXT  # fmt: skip
+    assert (
+        f"On the {mirrored} volumes with left-handed coordinates it would come out mirrored"
+        in TEXT
+    )
+    assert f"The other {c['unknown']} volumes have a flag unset" in TEXT
+    assert (
+        "20261119T152337Z" in r["source"]
+        and "latest catalog snapshot, 2026-11-19" in TEXT
+    )
+
+
+def test_the_skip_s_figures_are_its_record():
+    r = json.loads((ROOT / "reports/studio_skip_empty_windows.json").read_text())
+    runs, ratio = r["runs"], r["time_ratio_skip_over_full"]
+    largest = max(
+        p["abs_difference"]["max"]
+        for name, p in r["pairs"].items()
+        if name.startswith("skip_")
+    )
+    assert r["verdict"] == "SKIP_ADOPTED"
+    assert f"largest difference {largest:g}, no pixel across 0.5" in TEXT
+    assert all(p["share_same_side_of_half"] == 1.0 for p in r["pairs"].values())
+    assert (
+        f"{ratio['w062']} and {ratio['w065']} of the full loop's time on two band windings"
+        in TEXT
+    )
+    empty = [
+        round(100 * (1 - runs[f"skip_{w}"]["run"] / runs[f"skip_{w}"]["windows"]))
+        for w in ("w062", "w065")
+    ]
+    assert f"where {empty[0]}% and {empty[1]}% of the windows hold no CT" in TEXT
+    own = round(
+        runs["skip_pherc0211"]["seconds"] / runs["full_pherc0211"]["seconds"], 4
+    )
+    assert f"nearly all CT, {own}." in TEXT
+
+
+OPEN_PRS = json.loads(
+    (ROOT / "reports/evidence/villa_open_prs_2026-11-23.json").read_text()
+)
+PACIFIC = ZoneInfo("America/Los_Angeles")
+
+
+def _open_list() -> str:
+    lead = "**Open, and recommended for merging by villa's review**"
+    return " ".join(DRAFT.split(lead, 1)[1].split("\n## ", 1)[0].split())
+
+
+def test_the_open_prs_are_the_record_s_and_none_has_merged():
+    """The open list's check stamp, each entry's recommendation date and the orientation issue's state are the
+    record's. A PR the record shows merged belongs in "Merged in November" instead."""
+    checked = _utc(OPEN_PRS["checked_at_utc"]).astimezone(PACIFIC)
+    section = _open_list()
+    assert f"(checked {checked:%Y-%m-%d %H:%M} Pacific: none has merged)" in section
+    listed = re.findall(
+        r"\[villa #(\d+)\]\(https://github\.com/ScrollPrize/villa/pull/(\d+)\), "
+        r"recommended (\d{4}-\d\d-\d\d) Pacific:",
+        section,
+    )
+    assert [n for n, _, _ in listed] == ["2501", "2463", "2465"]
+    for number, linked, day in listed:
+        pr = OPEN_PRS["prs"][number]
+        assert linked == number and pr["author"] == "jonmarrs"
+        assert pr["state"] == "OPEN" and pr["merged_at"] is None
+        recommended = _utc(pr["villa_review_recommends_merging_at"]).astimezone(PACIFIC)
+        assert recommended.date().isoformat() == day
+    issue = OPEN_PRS["orientation_issue"]
+    assert issue["state"] == "OPEN" and issue["comments"] == 0
+    assert f"]({issue['url']}), posted {_utc(issue['createdAt']).astimezone(PACIFIC):%Y-%m-%d}; open, with no reply at {checked:%Y-%m-%d %H:%M} Pacific)" in TEXT  # fmt: skip
+
+
+def test_2501_s_entry_quotes_its_record():
+    r = OPEN_PRS["pr_2501"]
+    corr = r["recomputed_level2_chunk_correlations"]
+    same = corr["Same-index 4×4 mean, median of the 17 slices"]
+    pool = corr["4-deep pool, median of the 17 slices"]
+    assert f"(median correlation {same}), not a 4-deep pool ({pool})" in TEXT
+    assert (
+        "AUC of 0.54 on the truncated level 2 and 0.91–0.93" in r["reporter_auc_line"]
+    )
+    assert "Those figures are the reporter's" in r["reporter_auc_line"]
+    assert ("measured `ink_9um` at AUC 0.54 on the shortened level and 0.91 to 0.93 rebuilt from level 0. Those "
+            "figures are the reporter's and were not rerun here.") in TEXT  # fmt: skip
+    issue = OPEN_PRS["issue_2107"]
+    assert ("in 18 of 33 surface volumes, pyramid level 2 holds only the first 17 of 65 depth slices while "
+            "declaring z-scale 1") in issue["title"]  # fmt: skip
+    assert ("in 18 of the 33 surface volumes of the `scrollprize/datasets` `ink/` bucket, level 2 holds only the "
+            "first 17 of 65 depth slices while declaring a Z scale of 1 (#2107)") in TEXT  # fmt: skip
+    prior = OPEN_PRS["pr_2256"]
+    closed = _utc(prior["closed_at"]).astimezone(PACIFIC)
+    assert prior["author_name"] == "Bryant Le" and prior["state"] == "CLOSED"
+    assert (
+        f"the rule is Bryant Le's, from his #2256, stale-closed on {closed:%Y-%m-%d}."
+        in TEXT
+    )
+    review = r["review_port_and_renderer_line"]
+    assert (
+        "ports Bryant Le's rule from the stale-closed #2256 with his agreement"
+        in review
+    )
+    assert "Main's renderer preserves depth in new renders" in review
+    assert "main's renderer keeps depth in new renders" in TEXT
+    assert issue["author"] == "EhimenNathan" and "#2107 is EhimenNathan's" in TEXT
+    assert "@EhimenNathan and @AndreasHad04 for the pixel evidence" in r["credit_line"]
+    assert "the PR thanks EhimenNathan and AndreasHad04 for the pixel evidence" in TEXT
+
+
+def test_the_runs_still_going_claim_no_result():
+    """Each run still going is named by its registration's branch and commit, and nothing of a result is written
+    before its report exists."""
+    section = " ".join(
+        _section(
+            "Still running: two tests at PHerc. 211 that may land before filing"
+        ).split()
+    )
+    assert "Neither has a result yet" in section
+    assert not re.search(r"\br = |\bAUC\b|[Vv]erdict|TRIAGE_|[Ff]inding \d", section)
+    assert re.findall(
+        r"registered on branch `(research/[\w-]+)` at `([0-9a-f]{8})`", section
+    ) == [
+        ("research/wrong-hand-read", "dc232051"),
+        ("research/studio-band-triage", "26d5c8a5"),
+    ]
+    assert "**The owner's decision (2026-11-23):**" in section

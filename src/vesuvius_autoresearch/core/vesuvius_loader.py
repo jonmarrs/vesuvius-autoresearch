@@ -604,6 +604,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     Validation supplies expected_image_sha256 for the (labels, mask) pair.
     The image bytes must match before decoding. None represents an absent image.
     A caller can set min_read_depth to require a minimum buffered read.
+    Supervised training sets require_input_images to open the selected label
+    image and any selected mask, even if a path disappears after selection.
 
     Coordinate caches identify the effective fitted selection pixels and sampler
     settings. Timestamp-only caches are ignored and preserved. Explicit JSON
@@ -636,9 +638,12 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         depth_margin=0,
         expected_image_sha256: tuple[str | None, str | None] | None = None,
         min_read_depth: int | None = None,
+        require_input_images: bool = False,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
+        if require_input_images and not labels_path:
+            raise ValueError("supervised training requires a label image path")
         self.volume = FastVesuviusVolume(
             volume_uri,
             cache_dir=cache_dir,
@@ -696,12 +701,12 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         else:
             self.labels = (
                 load_unit_image(labels_path)
-                if labels_path and os.path.exists(labels_path)
+                if labels_path and (require_input_images or os.path.exists(labels_path))
                 else None
             )
             self.mask = (
                 load_unit_image(mask_path)
-                if mask_path and os.path.exists(mask_path)
+                if mask_path and (require_input_images or os.path.exists(mask_path))
                 else None
             )
 

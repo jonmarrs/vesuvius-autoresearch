@@ -2087,6 +2087,14 @@ def test_a_process_that_exits_while_its_stat_is_read_is_not_alive(monkeypatch):
     assert _alive(12345) is False
 
 
+@pytest.mark.parametrize(("state", "alive"), [("S", True), ("Z", False), ("X", False)])
+def test_a_zombie_or_dead_process_is_not_alive(monkeypatch, state, alive):
+    """A killed hook can linger as a zombie until its parent reaps it; the hung-hook test's wait counts it as gone."""
+    line = f"12345 (sleep) {state} 1 12345 12345 0 -1 4194560"
+    monkeypatch.setattr(Path, "read_text", lambda self, *args, **kwargs: line)
+    assert _alive(12345) is alive
+
+
 def test_a_hung_hook_does_not_hold_up_the_loop(tmp_path, monkeypatch):
     """Signalling git alone left its hook running with the output pipes open,
     and the last wait for them had no end: the loop hung there, and a stop

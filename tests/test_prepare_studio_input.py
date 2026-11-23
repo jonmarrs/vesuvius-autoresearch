@@ -212,3 +212,53 @@ def test_object_input_is_never_unpickled(tmp_path):
     with pytest.raises(ValueError):
         export(path, tmp_path / "out")
     assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"first_plane": 0, "depth_step": 2}, "depth step must be -1 or 1"),
+        ({"max_block_bytes": 0}, "byte limits must be positive"),
+    ],
+    ids=["two_plane_step", "zero_block_limit"],
+)
+def test_each_plan_rule_refuses_with_its_own_reason(source, tmp_path, change, message):
+    path, _ = source
+    with pytest.raises(ValueError, match=message):
+        export(path, tmp_path / "out", **change)
+    assert not (tmp_path / "out").exists()
+
+
+def test_a_three_dimensional_non_uint8_source_is_refused_as_such(tmp_path):
+    path = tmp_path / "render.npy"
+    np.save(path, np.zeros((16, 4, 4), np.float32))
+    with pytest.raises(ValueError, match="expected a uint8"):
+        export(path, tmp_path / "out", first_plane=0, depth_step=1, crop=(0, 4, 0, 4))
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"max_output_bytes": 320}, {"max_block_bytes": 5}],
+    ids=["payload_at_limit", "row_at_limit"],
+)
+def test_a_plan_exactly_at_its_byte_limit_is_accepted(source, tmp_path, change):
+    path, array = source
+    export(path, tmp_path / "out", **change)
+    actual = np.load(tmp_path / "out" / "planes.npy", allow_pickle=False)
+    np.testing.assert_array_equal(actual, array[23:7:-1, 1:5, 2:7])
+
+
+def test_a_source_block_of_the_wrong_shape_is_refused(source, tmp_path, monkeypatch):
+    path, array = source
+
+    class Short:
+        ndim, dtype, shape = array.ndim, array.dtype, array.shape
+
+        def __getitem__(self, key):
+            return array[key][:-1]
+
+    monkeypatch.setattr(prep, "open_source", lambda *args: (Short(), path))
+    with pytest.raises(ValueError, match="unexpected block shape or dtype"):
+        export(path, tmp_path / "out")
+    assert not (tmp_path / "out").exists()

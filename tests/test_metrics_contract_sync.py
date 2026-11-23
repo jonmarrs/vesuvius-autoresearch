@@ -14,7 +14,6 @@ Skips when the sibling checkout is absent, so ScrollGT's own CI is unaffected.
 
 import ast
 import os
-import textwrap
 
 import pytest
 

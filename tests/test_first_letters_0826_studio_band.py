@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 BAND = ROOT / "repro/first_letters/eligible_band"
@@ -129,3 +130,200 @@ def test_the_driver_reads_every_winding_and_keeps_going_past_a_failure():
         "grep -E '^w[0-9]+$'" in text
     )  # raw windings only: villa's _spliced twins are skipped
     assert 'LIVE=("${kept[@]}")' in text
+
+
+# --- the scroll axis, the lines met exactly, the refusals, select and stacked -------------------------------------
+
+
+def _umbilicus(path: Path, points: list[dict]) -> Path:
+    path.write_text(json.dumps({"control_points": points}))
+    return path
+
+
+def test_the_scroll_axis_is_interpolated_in_z_from_points_in_any_order(tmp_path):
+    umbilicus = _umbilicus(
+        tmp_path / "u.json",
+        [{"z": 9000, "x": 400, "y": 700}, {"z": 7000, "x": 600, "y": 500}],
+    )
+    assert sb.axis_xy(umbilicus, np.array([8000.0])).tolist() == [[500.0, 600.0]]
+
+
+def _arc(path: Path, cx: float, cy: float) -> Path:
+    import tifffile
+
+    theta = np.linspace(0.1, np.pi - 0.1, 32)
+    tt, zz = np.meshgrid(theta, np.arange(6) * 20.0 + 8000)
+    path.mkdir()
+    for axis, values in (
+        ("x", cx + 100 * np.cos(tt)),
+        ("y", cy + 100 * np.sin(tt)),
+        ("z", zz),
+    ):
+        tifffile.imwrite(path / f"{axis}.tif", values.astype(np.float32))
+    return path
+
+
+def test_against_the_scroll_axis_a_winding_off_the_bands_centre_points_one_way(
+    tmp_path,
+):
+    # a second winding 2,000 voxels away pulls the band's centre outside the first one's curve
+    near = _arc(tmp_path / "w010.tifxyz", 500.0, 600.0)
+    far = _arc(tmp_path / "w011.tifxyz", 2500.0, 600.0)
+    umbilicus = _umbilicus(
+        tmp_path / "u.json",
+        [{"z": 7000, "x": 500, "y": 600}, {"z": 9000, "x": 500, "y": 600}],
+    )
+    centre = sb.orientation([near, far])["windings"]["w010"][
+        "share_of_normals_pointing_inward"
+    ]
+    axis = sb.orientation([near, far], umbilicus)
+    assert axis["reference"] == "scroll_axis"
+    assert axis["windings"]["w010"]["share_of_normals_pointing_inward"] in (0.0, 1.0)
+    assert 0.0 < centre < 1.0
+
+
+def _stub_normals(monkeypatch, inward_columns, axis=(500.0, 600.0)):
+    """Normals along the radius from the axis, pointing inward on the columns given and outward elsewhere."""
+
+    def grid_normals(xyz, valid):
+        radial = xyz[..., :2] - np.array(axis)
+        length = np.linalg.norm(radial, axis=-1, keepdims=True)
+        unit = np.divide(radial, length, out=np.zeros_like(radial), where=length > 0)
+        sign = np.where(np.isin(np.arange(xyz.shape[1]), inward_columns), -1.0, 1.0)[
+            None, :, None
+        ]
+        normals = np.concatenate([unit * sign, np.zeros(xyz.shape[:2] + (1,))], -1)
+        return normals, np.ones(xyz.shape[:2], bool)
+
+    monkeypatch.setattr(sb.analysis, "grid_normals", grid_normals)
+
+
+def test_a_winding_exactly_half_inward_is_undecided_and_stops_the_step(
+    tmp_path, monkeypatch, capsys
+):
+    ring = _ring(tmp_path / "w010.tifxyz", 100.0)
+    _stub_normals(monkeypatch, inward_columns=range(32))  # 32 of 64 columns
+    out = tmp_path / "orient.json"
+    assert sb.main(["orient", str(out), str(ring)]) == 1
+    record = json.loads(out.read_text())["windings"]["w010"]
+    assert record == {"share_of_normals_pointing_inward": 0.5, "render": None}
+    assert "w010 None" in capsys.readouterr().out
+    assert sb.main(["orient", str(out), str(ring)]) == 2  # written once
+
+
+def test_a_node_on_the_axis_has_no_direction_and_is_left_out(tmp_path, monkeypatch):
+    import tifffile
+
+    ring = _ring(tmp_path / "w010.tifxyz", 100.0)
+    x = tifffile.imread(ring / "x.tif")
+    y = tifffile.imread(ring / "y.tif")
+    x[0, 0], y[0, 0] = 500.0, 600.0  # one node on the axis
+    tifffile.imwrite(ring / "x.tif", x)
+    tifffile.imwrite(ring / "y.tif", y)
+    _stub_normals(
+        monkeypatch, inward_columns=range(64)
+    )  # every other node points inward
+    umbilicus = _umbilicus(
+        tmp_path / "u.json",
+        [{"z": 7000, "x": 500, "y": 600}, {"z": 9000, "x": 500, "y": 600}],
+    )
+    share = sb.orientation([ring], umbilicus)["windings"]["w010"][
+        "share_of_normals_pointing_inward"
+    ]
+    assert share == 1.0
+
+
+def test_a_tile_rendered_exactly_at_the_cover_line_is_scored_and_half_is_ink():
+    rendered = np.zeros((380, 380), bool)
+    rendered[:342] = True  # 342 of 380 rows: exactly 0.9 of the tile
+    prob = np.full((380, 380), 0.5, np.float32)
+    assert sb.tile_shares(prob, rendered) == [{"row": 0, "col": 0, "ink_share": 1.0}]
+
+
+def _summary_inputs(
+    root: Path, renders_for: dict[str, int], shape=(800, 800), rendered=True
+):
+    import zarr
+
+    maps, renders = root / "maps", root / "renders"
+    maps.mkdir(parents=True)
+    renders.mkdir()
+    for name, count in renders_for.items():
+        prob = np.zeros(shape, np.float32)
+        prob[:380, :380] = 0.9  # the first tile all ink, the others none
+        np.save(maps / f"{name}.npy", prob)
+        for k in range(count):
+            layer = np.zeros((66, 800, 800), np.uint8)
+            layer[33] = 100 if rendered else 0
+            zarr.open(str(renders / f"{name}_{k}.zarr"), mode="w").create_dataset(
+                "0", data=layer, chunks=(66, 800, 800)
+            )
+    return maps, renders
+
+
+@pytest.mark.parametrize(
+    ("renders_for", "shape", "message"),
+    [({"w020": 0}, (800, 800), "has 0 renders"), ({"w020": 2}, (800, 800), "has 2 renders"),
+     ({"w020": 1}, (800, 760), r"is \(800, 760\), its render \(800, 800\)")],
+    ids=["no_render", "two_renders", "another_size"],
+)  # fmt: skip
+def test_the_summary_refuses_a_map_without_exactly_one_render_of_its_size(
+    tmp_path, renders_for, shape, message
+):
+    maps, renders = _summary_inputs(tmp_path, renders_for, shape)
+    with pytest.raises(SystemExit, match=message):
+        sb.summarise(tmp_path / "out", maps, renders)
+
+
+def test_the_summary_takes_the_largest_tile_has_no_share_unrendered_and_is_written_once(
+    tmp_path,
+):
+    maps, renders = _summary_inputs(tmp_path, {"w020": 1})
+    summary = sb.summarise(tmp_path / "out", maps, renders)["windings"]["w020"]
+    assert summary["tiles_scored"] == 4 and summary["largest_tile_ink_share"] == 1.0
+    with pytest.raises(FileExistsError):
+        sb.summarise(tmp_path / "out", maps, renders)
+    dark_maps, dark_renders = _summary_inputs(
+        tmp_path / "dark", {"w021": 1}, rendered=False
+    )
+    dark = sb.summarise(tmp_path / "dark" / "out", dark_maps, dark_renders)["windings"][
+        "w021"
+    ]
+    assert (
+        dark["rendered_pixels"] == 0
+        and dark["ink_share"] is None
+        and dark["largest_tile_ink_share"] is None
+    )
+
+
+def test_select_keeps_positive_excess_in_index_order_and_exits_1_on_none(tmp_path):
+    quality = {"windings": {"w100": {"excess": 0.2}, "w99": {"excess": 0.1}, "w98": {"excess": 0.0},
+                            "w97": None, "w96": {"excess": None}}}  # fmt: skip
+    assert sb.select(quality) == ["w99", "w100"]
+    path = tmp_path / "q.json"
+    path.write_text(json.dumps({"windings": {"w010": {"excess": 0.0}}}))
+    out = tmp_path / "kept.txt"
+    assert sb.main(["select", str(path), str(out)]) == 1 and out.read_text() == ""
+
+
+def test_stacked_pairs_are_consecutive_windings_and_the_line_is_inclusive(
+    tmp_path, monkeypatch
+):
+    snap = tmp_path / "snap"
+    for name in ("w010", "w011", "w013"):
+        (snap / name).mkdir(parents=True)
+        (snap / name / "x.tif").write_bytes(b"")
+    shares = {("w010", "w011"): 0.30, ("w011", "w013"): 0.90}
+    monkeypatch.setattr(
+        sb.analysis, "load_tifxyz", lambda path: (Path(path).name, None)
+    )
+    monkeypatch.setattr(
+        sb.analysis,
+        "surface_distance",
+        lambda a, av, b, bv: {"fraction_within": {"2": shares[(a, b)]}},
+    )
+    assert sb.stacked(snap) == {
+        "line": 0.30,
+        "pairs": {"w010-w011": 0.30},
+        "stacked": ["w010-w011"],
+    }

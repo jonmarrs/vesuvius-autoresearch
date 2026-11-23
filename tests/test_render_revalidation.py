@@ -314,3 +314,148 @@ def test_plan_rewrite_after_capture_prevents_publication(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="plan changed"):
         study.run(path, out)
     assert not out.exists()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda value: value.update(extra=1),
+        lambda value: value.update(protocol=study.PROTOCOL + "-other"),
+        lambda value: value.update(baseline_commit="A" * 40),
+        lambda value: value.update(design={**value["design"], "ncc_gate": 0.5}),
+    ],
+    ids=["extra_key", "protocol", "upper_case_commit", "design"],
+)
+def test_each_plan_rule_refuses_its_own_edit(tmp_path, change):
+    path, value = plan(tmp_path)
+    change(value)
+    path.write_text(json.dumps(value))
+    with pytest.raises(ValueError, match="fixed design"):
+        study.read_plan(path)
+
+
+@pytest.mark.parametrize(
+    ("raw", "count", "status", "message"),
+    [
+        (b"", None, 200, "missing or oversized"),
+        (b"abcdefg", 6, 200, "length changed or is incomplete"),
+        (b"abcdef", None, 206, "missing or oversized"),
+    ],
+    ids=["empty", "longer_than_declared", "partial_status"],
+)
+def test_a_response_other_than_its_declared_whole_object_is_refused(
+    tmp_path, raw, count, status, message
+):
+    response = Response(raw, count=count)
+    response.status = status
+    src = source(tmp_path, response)
+    key = study.RAW + "/2/0/0/0"
+    with pytest.raises(ValueError, match=message):
+        src.cat(key)
+    assert src.records == {} and not src.path(key).exists()
+
+
+def test_an_exhausted_budget_refuses_before_asking_the_server(tmp_path):
+    src = source(tmp_path, Response(b"abcdef"), total=6)
+    src.cat(study.RAW + "/2/0/0/0")
+    with pytest.raises(ValueError, match="byte budget exhausted"):
+        src.cat(study.RAW + "/2/0/0/1")
+    assert len(src.opener.calls) == 1
+
+
+def test_a_failed_read_raises_unless_the_caller_asks_for_it_back(tmp_path):
+    missing = urllib.error.HTTPError("https://public.test", 404, "no", {}, None)
+    src = source(tmp_path, missing)
+    key = study.RAW + "/2/0/0/0"
+    with pytest.raises(OSError, match="source fetch failed"):
+        src.cat([key])
+    assert isinstance(src.cat([key], on_error="return")[key], OSError)
+
+
+def test_the_best_reference_depth_is_the_one_that_matches():
+    layers, supported, _ = arrays()
+    center = layers[-study.DESIGN["k0"]]
+    references = (
+        np.random.default_rng(5).uniform(20, 180, (5, *center.shape)).astype("f4")
+    )
+    references[2] = center
+    result = study.compare_center(layers, supported, references)
+    assert result["best_reference_depth"] == study.DESIGN["reference_depths"][2]
+    assert result["best_ncc"] == pytest.approx(1.0)
+    assert result["verdict"] == "PASS"
+
+
+def test_a_best_ncc_exactly_at_the_gate_passes(monkeypatch):
+    layers, supported, references = arrays()
+    best = study.compare_center(layers, supported, references)["best_ncc"]
+    monkeypatch.setitem(study.DESIGN, "ncc_gate", best)
+    assert study.compare_center(layers, supported, references)["verdict"] == "PASS"
+
+
+def test_a_real_redirect_is_refused_rather_than_followed(tmp_path, monkeypatch):
+    # The opener stubs above raise a 302 themselves; here urllib meets a real one.
+    import http.server
+    import threading
+
+    served = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            served.append(self.path)
+            moved = self.path == "/moved"
+            body = b"elsewhere" if moved else b""
+            self.send_response(200 if moved else 302)
+            if not moved:
+                self.send_header("Location", "/moved")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    for name in ("http_proxy", "HTTP_PROXY", "all_proxy", "ALL_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        port = server.server_port
+        monkeypatch.setattr(study, "BASE_URL", f"http://127.0.0.1:{port}/")
+        src = study.SnapshotSource(tmp_path, max_total_bytes=32, max_object_bytes=16)
+        key = study.RAW + "/2/0/0/0"
+        with pytest.raises(OSError, match="source fetch failed"):
+            src.cat([key])
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert served == ["/" + key.removeprefix(study.BUCKET + "/")]
+    assert src.records == {} and not src.path(key).exists()
+
+
+@pytest.mark.parametrize("warm", [True, False], ids=["warmed", "on_demand"])
+def test_a_missing_chunk_stops_the_render_instead_of_becoming_fill(tmp_path, warm):
+    # The renderer fills a chunk only for FileNotFoundError, so a 404 must not be one.
+    meta = {
+        "zarr_format": 2,
+        "shape": [2, 2, 2],
+        "chunks": [2, 2, 2],
+        "dtype": "|u1",
+        "compressor": None,
+        "fill_value": 0,
+        "filters": None,
+        "order": "C",
+    }
+
+    class Routes:
+        def open(self, url, timeout):
+            if url.endswith("/.zarray"):
+                return Response(json.dumps(meta).encode())
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+    src = study.SnapshotSource(tmp_path, max_total_bytes=1024, max_object_bytes=512)
+    src.opener = Routes()
+    reader = renderer.ChunkCachedZarrFetch(study.RAW, 2, fs=src)
+    with pytest.raises(OSError, match="source fetch failed.*404"):
+        if warm:
+            reader.warm([(0, 2, 0, 2, 0, 2)])
+        reader(0, 2, 0, 2, 0, 2)
