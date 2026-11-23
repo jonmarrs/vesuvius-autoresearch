@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 BAND = ROOT / "repro/first_letters/eligible_band"
@@ -233,3 +234,244 @@ def test_the_page_shows_the_trusted_share_and_the_mask_turned_like_the_image(tmp
     assert bi.main([str(out), "--finals", str(r / "work" / "final_a"), "--umbilicus", str(r / "dataset" / "umbilicus.json"),
                     "--top-to-bottom", "true", "--left-handed", "false", "--geometry", str(tmp_path / "geom.json"),
                     str(tmp_path / "masks")]) == 0  # fmt: skip
+
+
+# --- absolute senses, each region of a triangle, the lines, the field's edge, terciles and the snapped arm -----------
+
+
+def _run(tmp_path, finals, snaps=None, renders=None):
+    """A run directory for arm "a": each winding's final and snapped grid (-1 where a node is missing), its render,
+    and the vertical axis at AXIS_XY."""
+    import tifffile
+
+    r = tmp_path / "run"
+    work = r / "work"
+    (r / "dataset").mkdir(parents=True)
+    (r / "dataset" / "umbilicus.json").write_text(json.dumps({"control_points": [
+        {"x": AXIS_XY[0], "y": AXIS_XY[1], "z": 0}, {"x": AXIS_XY[0], "y": AXIS_XY[1], "z": 20000}]}))  # fmt: skip
+    (work / "studio_a").mkdir(parents=True)
+    (work / "windings_a.txt").write_text("\n".join(finals) + "\n")
+    for name, final in finals.items():
+        snap = (snaps or {}).get(name, final)
+        for folder, (xyz, valid) in (
+            (work / "final_a" / f"{name}.tifxyz", final),
+            (work / "snap_a" / name, snap),
+        ):
+            folder.mkdir(parents=True)
+            for i, c in enumerate("xyz"):
+                tifffile.imwrite(
+                    folder / f"{c}.tif",
+                    np.where(valid, xyz[..., i], -1.0).astype(np.float32),
+                )
+    orient = {n: {"render": (renders or {}).get(n, "keep")} for n in finals}
+    (work / "studio_a" / "orient.json").write_text(
+        json.dumps({"reference": "scroll_axis", "windings": orient})
+    )
+    return r
+
+
+class _Constant:
+    """The same signed distance everywhere (NaN: outside the field)."""
+
+    def __init__(self, d):
+        self.d = d
+
+    def at(self, xyz):
+        return np.full(len(xyz), self.d)
+
+
+def test_normals_point_away_from_the_axis_when_theta_rises_along_the_columns():
+    # (step along columns) x (step along rows): theta and z rising give the outward normal
+    assert bg.inward_share(*_ring(), _centre) == 0.0
+    assert bg.inward_share(*_ring(theta_up=False), _centre) == 1.0
+
+
+def test_the_axis_centre_is_interpolated_in_x_and_y_along_z():
+    centre = bg.axis_centre(np.array([[0.0, 20000.0], [500.0, 700.0], [600.0, 1000.0]]))
+    assert centre(np.array([10000.0, 0.0])).tolist() == [[600.0, 800.0], [500.0, 600.0]]
+
+
+@pytest.mark.parametrize(
+    ("point", "distance"),
+    [((-3.0, -4.0, 0.0), 5.0), ((13.0, -4.0, 0.0), 5.0), ((-3.0, 14.0, 0.0), 5.0), ((5.0, -3.0, 4.0), 5.0),
+     ((-3.0, 5.0, 4.0), 5.0), ((8.0, 8.0, 3.0), np.sqrt(27.0)), ((2.0, 3.0, 7.0), 7.0)],
+    ids=["beyond-a", "beyond-b", "beyond-c", "beyond-ab", "beyond-ac", "beyond-bc", "over-the-face"],
+)  # fmt: skip
+def test_the_distance_to_a_triangle_from_each_region_round_it(point, distance):
+    a, b, c = (np.array([v], float) for v in ((0, 0, 0), (10, 0, 0), (0, 10, 0)))
+    assert np.isclose(bg._closest_on_triangles(np.array([point]), a, b, c)[0], distance)
+
+
+def _plane(n=4):
+    ii, jj = np.meshgrid(np.arange(n) * 10.0, np.arange(n) * 10.0, indexing="ij")
+    return np.stack([ii, jj, np.zeros_like(ii)], -1), np.ones((n, n), bool)
+
+
+def test_a_candidate_that_gives_nan_does_not_hide_the_others():
+    # two corners of the first cell on one point: its first triangle has an edge of zero length, 0 / 0 beyond it
+    grid, valid = _plane()
+    grid[1, 0] = grid[0, 0]
+    d = bg.distance_to_triangles(np.array([[2.0, 3.0, 1.0]]), grid, valid)
+    assert np.allclose(d, [1.0])
+
+
+def test_a_cell_is_split_between_its_second_row_and_second_column_corners():
+    # a raised far corner bends the cell: the point lies on the triangle (p10, p11, p01), 2.4 voxels off the other split
+    grid, valid = _plane()
+    grid[1, 1, 2] = 10.0
+    centroid = (grid[1, 0] + grid[1, 1] + grid[0, 1]) / 3
+    assert bg.distance_to_triangles(centroid[None], grid, valid)[0] < 1e-9
+
+
+def test_a_cell_with_a_missing_corner_has_no_triangles():
+    grid, valid = _plane()
+    valid[1, 1] = False
+    grid[1, 1] = -1.0
+    assert (
+        bg.distance_to_triangles(np.array([[-1.0, -1.0, -1.0]]), grid, valid)[0] > 20.0
+    )
+
+
+def test_a_grid_of_no_whole_cell_or_of_one():
+    grid, valid = _plane(2)
+    point = np.array([[2.0, 3.0, 1.0]])
+    assert np.allclose(
+        bg.distance_to_triangles(point, grid, valid), [1.0]
+    )  # two triangles: fewer than k
+    valid[1, 1] = False
+    assert bg.distance_to_triangles(point, grid, valid).tolist() == [np.inf]
+
+
+def test_a_node_exactly_at_the_lines_counts(tmp_path):
+    rec = bg.geometry(
+        _run(tmp_path, {"w010": _ring()}), "a", None, field=_Constant(2.0)
+    )
+    w = rec["windings"]["w010"]
+    assert w["trusted"] + w["other_side"] == 1.0
+    assert w["predicted_sheet"]["final"]["within_2"] == 1.0
+    assert bg._sheet(_Constant(0.0), *_ring())["on_sheet"] == 1.0
+
+
+def test_nodes_outside_the_field_are_counted_apart():
+    assert bg._sheet(_Constant(np.nan), *_ring()) == {
+        "on_sheet": None,
+        "within_2": None,
+        "outside_field": 1.0,
+    }
+
+
+def test_the_masks_folder_is_made_with_its_parents(tmp_path):
+    masks = tmp_path / "out" / "masks"
+    bg.geometry(_run(tmp_path, {"w010": _ring()}), "a", masks, field=_Sheets(1000.0))
+    assert (masks / "w010.png").exists()
+
+
+def test_the_band_centre_is_the_mean_of_the_nodes_that_exist(tmp_path):
+    xyz, valid = _ring()
+    valid[:, 40:] = False
+    rec = bg.geometry(
+        _run(tmp_path, {"w010": (xyz, valid)}), "a", None, field=_Sheets(1000.0)
+    )
+    expected = xyz.astype(np.float32).astype(np.float64)[valid][:, :2].mean(0)
+    assert rec["band_centre_xy"] == [round(float(c), 1) for c in expected]
+
+
+def _strip():
+    """Six rows by 30 columns along one radius, 900 to 1100 voxels from the axis: ten columns to a tercile."""
+    radii = np.linspace(900.0, 1100.0, 30)
+    zz, rr = np.meshgrid(8000 + 20.0 * np.arange(6), radii, indexing="ij")
+    xyz = np.stack([AXIS_XY[0] + rr, np.full_like(rr, AXIS_XY[1]), zz], -1)
+    return xyz, np.ones(xyz.shape[:2], bool)
+
+
+class _ByRadius:
+    """Signed distance `inside` up to a radius from the axis, `beyond` past it (NaN: outside the field)."""
+
+    def __init__(self, edge, inside, beyond):
+        self.edge, self.inside, self.beyond = edge, inside, beyond
+
+    def at(self, xyz):
+        r = np.hypot(xyz[:, 0] - AXIS_XY[0], xyz[:, 1] - AXIS_XY[1])
+        return np.where(r < self.edge, self.inside, self.beyond)
+
+
+@pytest.mark.parametrize(
+    ("field", "terciles"),
+    [(_ByRadius(966.0, 0.0, 5.0), [1.0, 0.0, 0.0]), (_ByRadius(1068.0, 0.0, np.nan), [1.0, 1.0, 1.0]),
+     (_ByRadius(1035.0, 0.0, np.nan), [1.0, 1.0, None])],
+    ids=["inner-third-on", "half-the-outer-third-outside", "the-outer-third-outside"],
+)  # fmt: skip
+def test_each_radius_tercile_counts_its_own_nodes_within_the_field(
+    tmp_path, field, terciles
+):
+    rec = bg.geometry(_run(tmp_path, {"w010": _strip()}), "a", None, field=field)
+    assert (
+        rec["windings"]["w010"]["predicted_sheet"]["final"][
+            "within_2_by_radius_tercile"
+        ]
+        == terciles
+    )
+    assert rec["summary"]["final_within_2_by_radius_tercile_median"] == terciles
+
+
+def _off_centre_band():
+    """w010 a quarter turn 200 voxels from the axis; w011 400 nodes 3,000 voxels out, which pull the band's mean
+    beyond w010, so that w010's normals point away from the axis but toward the mean."""
+    w010, w011 = _ring(radius=200.0), _ring(radius=3000.0, columns=400)
+    return {"w010": w010, "w011": w011}, _Sheets(200.0, 3000.0)
+
+
+def test_the_band_centre_share_is_taken_against_the_mean_of_every_winding(tmp_path):
+    finals, field = _off_centre_band()
+    rec = bg.geometry(_run(tmp_path, finals), "a", None, field=field)
+    w010 = rec["windings"]["w010"]
+    assert (w010["inward_against_axis"], w010["inward_against_band_centre"]) == (
+        0.0,
+        1.0,
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="the list compares the axis's share with the band centre's, not with the render: a winding rendered by the "
+    "axis rule (--umbilicus) where the band centre disagrees is named as rendered against it",
+)
+def test_a_winding_rendered_by_the_axis_rule_is_not_named_against_it(tmp_path):
+    finals, field = _off_centre_band()
+    # both windings' normals point away from the axis, so the axis rule keeps them, and they are kept
+    rec = bg.geometry(
+        _run(tmp_path, finals, renders={"w010": "keep", "w011": "keep"}),
+        "a",
+        None,
+        field=field,
+    )
+    assert rec["summary"]["rendered_against_the_axis_rule"] == []
+
+
+def test_the_snapped_numbers_are_read_from_the_snapped_winding(tmp_path):
+    # the snapped winding lies 5 voxels outside the sheet with its columns the other way round
+    snap = _ring(radius=1005.0, theta_up=False)
+    rec = bg.geometry(
+        _run(tmp_path, {"w010": _ring()}, snaps={"w010": snap}),
+        "a",
+        None,
+        field=_Sheets(1000.0),
+    )
+    w = rec["windings"]["w010"]
+    assert (w["inward_against_axis"], w["snapped_inward_against_axis"]) == (0.0, 1.0)
+    assert (
+        w["predicted_sheet"]["final"]["within_2"],
+        w["predicted_sheet"]["snapped"]["within_2"],
+    ) == (1.0, 0.0)
+    assert rec["summary"]["predicted_sheet_within_2_median"] == {
+        "snapped": 0.0,
+        "final": 1.0,
+    }
+
+
+def test_the_record_is_written_once(tmp_path):
+    out = tmp_path / "geometry.json"
+    out.write_text("{}")
+    with pytest.raises(SystemExit, match="exists"):
+        bg.main([str(tmp_path), "a", str(out)])
