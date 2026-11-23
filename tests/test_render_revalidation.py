@@ -314,3 +314,79 @@ def test_plan_rewrite_after_capture_prevents_publication(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="plan changed"):
         study.run(path, out)
     assert not out.exists()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda value: value.update(extra=1),
+        lambda value: value.update(protocol=study.PROTOCOL + "-other"),
+        lambda value: value.update(baseline_commit="A" * 40),
+        lambda value: value.update(design={**value["design"], "ncc_gate": 0.5}),
+    ],
+    ids=["extra_key", "protocol", "upper_case_commit", "design"],
+)
+def test_each_plan_rule_refuses_its_own_edit(tmp_path, change):
+    path, value = plan(tmp_path)
+    change(value)
+    path.write_text(json.dumps(value))
+    with pytest.raises(ValueError, match="fixed design"):
+        study.read_plan(path)
+
+
+@pytest.mark.parametrize(
+    ("raw", "count", "status", "message"),
+    [
+        (b"", None, 200, "missing or oversized"),
+        (b"abcdefg", 6, 200, "length changed or is incomplete"),
+        (b"abcdef", None, 206, "missing or oversized"),
+    ],
+    ids=["empty", "longer_than_declared", "partial_status"],
+)
+def test_a_response_other_than_its_declared_whole_object_is_refused(
+    tmp_path, raw, count, status, message
+):
+    response = Response(raw, count=count)
+    response.status = status
+    src = source(tmp_path, response)
+    key = study.RAW + "/2/0/0/0"
+    with pytest.raises(ValueError, match=message):
+        src.cat(key)
+    assert src.records == {} and not src.path(key).exists()
+
+
+def test_an_exhausted_budget_refuses_before_asking_the_server(tmp_path):
+    src = source(tmp_path, Response(b"abcdef"), total=6)
+    src.cat(study.RAW + "/2/0/0/0")
+    with pytest.raises(ValueError, match="byte budget exhausted"):
+        src.cat(study.RAW + "/2/0/0/1")
+    assert len(src.opener.calls) == 1
+
+
+def test_a_failed_read_raises_unless_the_caller_asks_for_it_back(tmp_path):
+    missing = urllib.error.HTTPError("https://public.test", 404, "no", {}, None)
+    src = source(tmp_path, missing)
+    key = study.RAW + "/2/0/0/0"
+    with pytest.raises(OSError, match="source fetch failed"):
+        src.cat([key])
+    assert isinstance(src.cat([key], on_error="return")[key], OSError)
+
+
+def test_the_best_reference_depth_is_the_one_that_matches():
+    layers, supported, _ = arrays()
+    center = layers[-study.DESIGN["k0"]]
+    references = (
+        np.random.default_rng(5).uniform(20, 180, (5, *center.shape)).astype("f4")
+    )
+    references[2] = center
+    result = study.compare_center(layers, supported, references)
+    assert result["best_reference_depth"] == study.DESIGN["reference_depths"][2]
+    assert result["best_ncc"] == pytest.approx(1.0)
+    assert result["verdict"] == "PASS"
+
+
+def test_a_best_ncc_exactly_at_the_gate_passes(monkeypatch):
+    layers, supported, references = arrays()
+    best = study.compare_center(layers, supported, references)["best_ncc"]
+    monkeypatch.setitem(study.DESIGN, "ncc_gate", best)
+    assert study.compare_center(layers, supported, references)["verdict"] == "PASS"
