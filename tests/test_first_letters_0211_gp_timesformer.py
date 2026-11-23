@@ -427,3 +427,208 @@ def test_a_pickle_placed_before_a_zip_archive_is_audited(tmp_path):
     path = tmp_path / "joined.pt"
     path.write_bytes(pickle.dumps(payload, protocol=2) + archive.getvalue())
     assert not audit.audit(path, set())["passes"]
+
+
+# --- the segments, the prediction reader and the comparison's other branches ------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("layers", "dtype", "message"),
+    [(65, np.uint8, "65 layers, not 66"), (66, np.uint16, "uint16, not 8-bit")],
+)
+def test_segments_refuse_a_render_of_another_depth_or_type(
+    tmp_path, layers, dtype, message
+):
+    import zarr
+
+    render = zarr.open(str(tmp_path / "r.zarr"), mode="w")
+    render.create_dataset(
+        "0", data=np.zeros((layers, 8, 12), dtype), chunks=(layers, 8, 12)
+    )
+    with pytest.raises(SystemExit, match=message):
+        gp.segments_cmd(tmp_path / "r.zarr", tmp_path / "segs")
+
+
+def test_a_prediction_that_cannot_be_read_or_is_smaller_than_the_render_is_refused(
+    tmp_path,
+):
+    import cv2
+
+    unreadable = tmp_path / "unreadable.png"
+    unreadable.write_bytes(b"not an image")
+    with pytest.raises(SystemExit, match="cannot read"):
+        gp.read_gp(unreadable, (8, 8))
+    for shape in ((4, 16), (16, 4)):  # short in one dimension only
+        small = tmp_path / f"small_{shape[0]}.png"
+        cv2.imwrite(str(small), np.zeros(shape, np.uint8))
+        with pytest.raises(SystemExit, match="smaller than the render"):
+            gp.read_gp(small, (8, 8))
+
+
+def _gp_maps_copying_reader_v3(root: Path, v3_maps: Path) -> Path:
+    """The model's predictions holding Reader V3's own pixels: standardised, the two readers are then one map."""
+    import cv2
+
+    maps = root / "gp_maps"
+    maps.mkdir()
+    for order, tag in ((gp.READING, "_reverse"), (gp.OTHER, "")):
+        raw = cv2.imread(
+            str(v3_maps / f"v9_66__reader_v3__L66s26{tag}.tif"), cv2.IMREAD_UNCHANGED
+        )
+        padded = np.zeros(
+            (
+                raw.shape[0] + 256 - raw.shape[0] % 256,
+                raw.shape[1] + 256 - raw.shape[1] % 256,
+            )
+        )
+        padded[: raw.shape[0], : raw.shape[1]] = raw
+        cv2.imwrite(str(gp.gp_file(maps, order)), padded.astype(np.uint8))
+    return maps
+
+
+def _compare_with_alignment(tmp_path, monkeypatch, shift, aligned, name="gp.json"):
+    args = f118_tests._write_inputs(tmp_path)
+    v3_maps = f120_tests._write_v3_maps(tmp_path, 0.5)
+    gp_maps = _gp_maps_copying_reader_v3(tmp_path, v3_maps)
+    monkeypatch.setattr(
+        gp.f118,
+        "alignment",
+        lambda layers, ct: {"shift_pixels": list(shift), "aligned": aligned},
+    )
+    out = tmp_path / name
+    argv = [
+        *args[: args.index("--image")],
+        "--gp-maps",
+        str(gp_maps),
+        "--v3-maps",
+        str(v3_maps),
+    ]
+    assert gp.main(["compare", str(out), *argv]) == 0
+    return json.loads(out.read_text())
+
+
+@pytest.mark.parametrize("shift", [(16, 0), (-16, 0), (0, -16)])
+def test_a_shift_at_the_edge_of_the_search_does_not_run(tmp_path, monkeypatch, shift):
+    record = _compare_with_alignment(tmp_path, monkeypatch, shift, aligned=False)
+    assert record["verdict"] == "DOES_NOT_RUN" and "ensemble" not in record
+
+
+@pytest.mark.parametrize(
+    ("shift", "aligned", "applied"),
+    [((0, -1), True, [0, 0]), ((0, -8), False, [0, -8])],
+)
+def test_the_shift_moves_this_model_and_reader_v3_alike(
+    tmp_path, monkeypatch, shift, aligned, applied
+):
+    record = _compare_with_alignment(tmp_path, monkeypatch, shift, aligned)
+    assert record["shift_applied_pixels"] == applied
+    # the two maps hold the same pixels, so moved alike they give the same numbers
+    ours, v3 = record[gp.NAME], record["described"]["reader_v3"]
+    for key in ("r", "control_wrong_side", "overlap"):
+        assert ours[key] == pytest.approx(v3[key], abs=2e-4), key
+
+
+@pytest.mark.parametrize("order", [gp.READING, gp.OTHER])
+def test_a_constant_prediction_does_not_run_and_reader_v3_is_still_described(
+    tmp_path, order
+):
+    import cv2
+
+    args = f118_tests._write_inputs(tmp_path)
+    v3_maps = f120_tests._write_v3_maps(tmp_path, 0.5)
+    gp_maps = _write_gp_maps(tmp_path, 1.0)
+    flat = cv2.imread(str(gp.gp_file(gp_maps, order)), cv2.IMREAD_GRAYSCALE)
+    cv2.imwrite(str(gp.gp_file(gp_maps, order)), np.full_like(flat, 128))
+    out = tmp_path / "gp.json"
+    argv = [
+        *args[: args.index("--image")],
+        "--gp-maps",
+        str(gp_maps),
+        "--v3-maps",
+        str(v3_maps),
+    ]
+    assert gp.main(["compare", str(out), *argv]) == 0
+    record = json.loads(out.read_text())
+    assert record[gp.NAME] is None and record["verdict"] == "DOES_NOT_RUN"
+    assert set(record["described"]) == {"reader_v3"} and record["ensemble"] is not None
+
+
+def test_an_unreadable_mask_stops_the_comparison(tmp_path):
+    args = f118_tests._write_inputs(tmp_path)
+    v3_maps = f120_tests._write_v3_maps(tmp_path, 0.5)
+    gp_maps = _write_gp_maps(tmp_path, 1.0)
+    (tmp_path / "mask.png").write_bytes(b"not an image")
+    argv = [
+        *args[: args.index("--image")],
+        "--gp-maps",
+        str(gp_maps),
+        "--v3-maps",
+        str(v3_maps),
+    ]
+    with pytest.raises(SystemExit, match="cannot read"):
+        gp.main(["compare", str(tmp_path / "gp.json"), *argv])
+
+
+def test_a_winners_cell_exactly_at_the_ink_line_is_ink(tmp_path):
+    import tifffile
+
+    args = f118_tests._write_inputs(tmp_path)
+    v3_maps = f120_tests._write_v3_maps(tmp_path, 0.5)
+    gp_maps = _write_gp_maps(tmp_path, 1.0)
+    # the strokes at exactly 0.5 and nothing else: every 4-pixel block of the map is one cell's value
+    studio = tmp_path / "studio.tif"
+    tifffile.imwrite(
+        studio, np.where(tifffile.imread(studio) >= 0.3, 0.5, 0.0).astype(np.float32)
+    )
+    out = tmp_path / "gp.json"
+    argv = [
+        *args[: args.index("--image")],
+        "--gp-maps",
+        str(gp_maps),
+        "--v3-maps",
+        str(v3_maps),
+    ]
+    assert gp.main(["compare", str(out), *argv]) == 0
+    record = json.loads(out.read_text())
+    assert 0 < record["winner_ink_cells"] < record["cells"]
+    assert record[gp.NAME]["overlap"] is not None
+
+
+def test_a_cell_share_exactly_at_the_line_is_measured(tmp_path, monkeypatch):
+    args = f118_tests._write_inputs(tmp_path)
+    v3_maps = f120_tests._write_v3_maps(tmp_path, 0.5)
+    gp_maps = _write_gp_maps(tmp_path, 1.0)
+    argv = [
+        *args[: args.index("--image")],
+        "--gp-maps",
+        str(gp_maps),
+        "--v3-maps",
+        str(v3_maps),
+    ]
+    assert gp.main(["compare", str(tmp_path / "first.json"), *argv]) == 0
+    first = json.loads((tmp_path / "first.json").read_text())
+    monkeypatch.setattr(gp.f118, "MIN_CELL_SHARE", first["cells"] / first["mask_cells"])
+    assert gp.main(["compare", str(tmp_path / "again.json"), *argv]) == 0
+    again = json.loads((tmp_path / "again.json").read_text())
+    assert again["ensemble"] == first["ensemble"] and again[gp.NAME] == first[gp.NAME]
+
+
+def test_the_described_comparisons_point_the_right_way(tmp_path):
+    args = f118_tests._write_inputs(tmp_path)
+    f120_tests._weaken_the_ensemble(tmp_path)
+    v3_maps = f120_tests._write_v3_maps(tmp_path, 0.5)
+    gp_maps = _write_gp_maps(tmp_path, 1.0)
+    out = tmp_path / "gp.json"
+    argv = [
+        *args[: args.index("--image")],
+        "--gp-maps",
+        str(gp_maps),
+        "--v3-maps",
+        str(v3_maps),
+    ]
+    assert gp.main(["compare", str(out), *argv]) == 0
+    described = json.loads(out.read_text())["described"]
+    # this model draws the strokes far more clearly than the weakened ensemble: its r minus the ensemble's is positive
+    assert described["r_difference_bootstrap"]["low"] > 0
+    # Reader V3 carries the same strokes cleanly; the weakened ensemble carries them under noise
+    assert described["gp_r_with_reader_v3"] > described["gp_r_with_ensemble"]
