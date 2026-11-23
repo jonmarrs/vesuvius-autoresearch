@@ -167,3 +167,148 @@ def test_the_run_script_follows_the_registration_and_uploads_nothing():
     assert "at least +0.05" in reg and "at least 0.95" in reg
     assert (ds.GAIN, ds.ON_TRIANGLES) == (0.05, 0.95)
     assert "render" not in re.sub(r"#.*", "", text)  # no render step
+
+
+# --- each corner rule, the edges of the verdict, the arms and the radius terciles ----------------------------------
+
+
+@pytest.mark.parametrize("missing", [-1.0, np.nan], ids=["sentinel", "nan"])
+def test_a_missing_centre_removes_its_eight_neighbours_and_keeps_every_original_node(
+    missing,
+):
+    # the centre is each corner (r0c0, r0c1, r1c0, r1c1) of one of the new nodes round it
+    cols, rows = np.meshgrid(np.arange(3) * 20.0, np.arange(3) * 20.0)
+    xyz = np.stack([cols, rows, np.full((3, 3), 9e3)], -1)
+    xyz[1, 1] = missing
+    valid = np.isfinite(xyz).all(-1) & (xyz > -0.5).all(-1)
+    dense, ok = dw.densify(xyz, valid, 2)
+    expected = np.ones((5, 5), bool)
+    expected[1:4, 1:4] = False
+    assert (ok == expected).all()
+    assert np.isfinite(dense[ok]).all() and np.allclose(
+        dense[::2, ::2][valid], xyz[valid]
+    )
+
+
+def test_a_factor_below_one_is_refused():
+    with pytest.raises(ValueError, match="at least 1"):
+        dw.densify(np.zeros((2, 2, 3)), np.ones((2, 2), bool), 0)
+
+
+def test_a_winding_without_a_recorded_scale_takes_the_fits_default(tmp_path):
+    import tifffile
+
+    src = tmp_path / "w020"
+    src.mkdir()
+    for c in "xyz":
+        tifffile.imwrite(src / f"{c}.tif", np.full((2, 2), 100.0, np.float32))
+    (src / "meta.json").write_text(json.dumps({}))
+    assert dw.main([str(src), str(tmp_path / "out"), "--factor", "2"]) == 0
+    assert json.loads((tmp_path / "out" / "meta.json").read_text())["scale"] == [
+        0.1,
+        0.1,
+    ]
+
+
+def test_the_verdict_at_its_other_edges():
+    assert ds.verdict([], [], True) == "DOES_NOT_RUN"
+    assert (
+        ds.verdict([0.05, 0.05, 0.05], [0.95, 0.95, 0.99], True) == "DENSE_SNAP_HELPS"
+    )
+
+
+def _band(tmp_path, arms: dict, gates=({"exit": 0, "seconds": 1},)):
+    """A run directory: the axis, each arm's snapped and final winding, and the dense arm's gates."""
+    r = tmp_path / "band"
+    work = r / "work"
+    (r / "dataset").mkdir(parents=True)
+    (r / "dataset" / "umbilicus.json").write_text(json.dumps({"control_points": [
+        {"x": AXIS[0], "y": AXIS[1], "z": 0}, {"x": AXIS[0], "y": AXIS[1], "z": 20000}]}))  # fmt: skip
+    for arm, (snap, final) in arms.items():
+        _write(work / f"snap_{arm}" / "w020", snap)
+        _write(work / f"final_{arm}" / "w020.tifxyz", final)
+    (work / "gate_dense").mkdir()
+    for k, gate in enumerate(gates):
+        (work / "gate_dense" / f"step{k}.json").write_text(json.dumps(gate))
+    return r
+
+
+def _midpoints(snap):
+    return (snap[:-1, :-1] + snap[1:, :-1] + snap[:-1, 1:] + snap[1:, 1:]) / 4
+
+
+def test_without_any_gate_the_comparison_does_not_run(tmp_path):
+    snap = _ring(1000.0, 64)
+    r = _band(
+        tmp_path,
+        {"base": (snap, _midpoints(snap)), "dense": (snap, _midpoints(snap))},
+        gates=(),
+    )
+    assert (
+        ds.compare(r, ["w020"], "base", "dense", field=_Sheet(1000.0))["verdict"]
+        == "DOES_NOT_RUN"
+    )
+
+
+def test_the_verdict_reads_the_dense_arms_triangles(tmp_path):
+    # the dense arm's final lies on the predicted sheet but 5 voxels off its own snapped triangles
+    coarse, fine = _ring(1000.0, 8), _ring(1000.0, 64)
+    off = _midpoints(_ring(1005.0, 64))
+    r = _band(tmp_path, {"base": (coarse, _midpoints(coarse)), "dense": (fine, off)})
+    out = ds.compare(r, ["w020"], "base", "dense", field=_Sheet(1005.0))
+    row = out["windings"]["w020"]
+    assert row["gain"] >= 0.05 and row["base"]["on_snapped_triangles"] >= 0.95
+    assert row["dense"]["on_snapped_triangles"] < 0.95
+    assert out["verdict"] == "DENSE_SNAP_NO_GAIN"
+
+
+class _InnerThird:
+    """On the sheet within the inner third of the radii, 5 voxels off it beyond."""
+
+    def at(self, xyz):
+        radius = np.hypot(xyz[:, 0] - AXIS[0], xyz[:, 1] - AXIS[1])
+        return np.where(radius < 966.0, 0.0, 5.0)
+
+
+def test_the_radius_terciles_split_the_nodes_in_thirds(tmp_path):
+    radii = np.linspace(900.0, 1100.0, 30)  # ten columns to a tercile
+    zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
+    strip = np.stack([AXIS[0] + rr, np.full_like(rr, AXIS[1]), zz], -1)
+    r = _band(tmp_path, {"base": (strip, strip), "dense": (strip, strip)})
+    out = ds.compare(r, ["w020"], "base", "dense", field=_InnerThird())
+    assert out["windings"]["w020"]["dense"]["final_within_2_by_radius_tercile"] == [
+        1.0,
+        0.0,
+        0.0,
+    ]
+
+
+def test_the_comparison_is_measured_once(tmp_path):
+    out = tmp_path / "dense_snap.json"
+    out.write_text("{}")
+    assert ds.main(["compare", str(tmp_path), str(out), "--windings", "w020"]) == 2
+
+
+class _OuterThirdOutside:
+    """On the sheet inside, and outside the distance field (no value) for the outer third of the radii."""
+
+    def at(self, xyz):
+        radius = np.hypot(xyz[:, 0] - AXIS[0], xyz[:, 1] - AXIS[1])
+        return np.where(radius < 1033.0, 0.0, np.nan)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=TypeError,
+    reason="a tercile with no finite distance is None in its winding's row, and the summary's median of the "
+    "windings' values raises on it",
+)
+def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
+    radii = np.linspace(900.0, 1100.0, 30)
+    zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
+    strip = np.stack([AXIS[0] + rr, np.full_like(rr, AXIS[1]), zz], -1)
+    r = _band(tmp_path, {"base": (strip, strip), "dense": (strip, strip)})
+    out = ds.compare(r, ["w020"], "base", "dense", field=_OuterThirdOutside())
+    assert (
+        out["windings"]["w020"]["dense"]["final_within_2_by_radius_tercile"][2] is None
+    )
