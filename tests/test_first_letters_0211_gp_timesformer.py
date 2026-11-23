@@ -436,6 +436,82 @@ def test_a_pickle_placed_before_a_zip_archive_is_audited(tmp_path):
     assert not made.exists()
 
 
+def _write_tar(path: Path, members: list[tuple[str, bytes]]) -> None:
+    import io
+    import tarfile
+
+    with tarfile.open(path, "w:", format=tarfile.PAX_FORMAT) as archive:
+        for name, data in members:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+
+
+def test_a_malicious_tar_legacy_checkpoint_is_refused(tmp_path):
+    # torch.load tries a tar before the concatenated legacy pickles, and unpickles
+    # the member. A header that parses as a few harmless opcodes used to end the
+    # audit early (passes=True); a member named "pickle" used to raise.
+    payload = pickle.dumps(os.system, protocol=2)
+    for name in ("storages", "pickle"):
+        path = tmp_path / f"{name}.pt"
+        _write_tar(path, [(name, payload)])
+        result = audit.audit(path, set())
+        assert result["passes"] is False, name
+        assert "posix.system" in result["outside_allowlist"], name
+        assert audit.main([str(path)]) == 1
+
+
+def test_a_benign_tar_checkpoint_passes(tmp_path):
+    path = tmp_path / "benign.pt"
+    _write_tar(
+        path,
+        [
+            ("pickle", pickle.dumps({"w": 1}, protocol=2)),
+            ("storages", pickle.dumps(0, protocol=2)),
+        ],
+    )
+    result = audit.audit(path, set())
+    assert result["passes"] is True, result
+    assert result["outside_allowlist"] == [] and result["refused_opcodes"] == []
+    # Bytes after a tar pickle are not the legacy storage tail: torch.load reads
+    # another pickle there. A member that does not end on STOP is refused.
+    tail = tmp_path / "tail.pt"
+    _write_tar(
+        tail,
+        [("storages", pickle.dumps({"w": 1}, protocol=2) + b"\x00\x00")],
+    )
+    refused = audit.audit(tail, set())
+    assert refused["passes"] is False
+    assert "unreadable pickle" in refused["refused_opcodes"]
+
+
+def test_a_truncated_pickle_fails_closed(tmp_path):
+    # PROTO, then a string opcode whose length runs past the buffer. The opcodes
+    # already read name nothing; the unread tail must not be dropped as storage.
+    path = tmp_path / "cut.pkl"
+    path.write_bytes(b"\x80\x04\x8c\x05os" + pickle.dumps(os.system, protocol=2))
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert "unreadable pickle" in result["refused_opcodes"]
+    assert audit.main([str(path)]) == 1
+
+    # A failure on the first byte is the same refusal, not a traceback.
+    blank = tmp_path / "blank.pkl"
+    blank.write_bytes(b"\xff\xff")
+    refused = audit.audit(blank, set())
+    assert refused["passes"] is False
+    assert "unreadable pickle" in refused["refused_opcodes"]
+
+
+def test_an_empty_checkpoint_does_not_pass(tmp_path):
+    path = tmp_path / "empty.pt"
+    path.write_bytes(b"")
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert result["refused_opcodes"] == ["no pickle"]
+    assert audit.main([str(path)]) == 1
+
+
 # --- the segments, the prediction reader and the comparison's other branches ------------------------------------
 
 
