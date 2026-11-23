@@ -1,4 +1,4 @@
-# November 2026 Progress Prize — DRAFT (started 2026-11-05; not submitted)
+# November 2026 Progress Prize — DRAFT (started 2026-11-05; updated 2026-11-23; not submitted)
 
 **The November round opened 2026-11-05 03:54 UTC (2026-11-04 Pacific)** with villa
 [#2301](https://github.com/ScrollPrize/villa/pull/2301) (merge `9c343a164`):
@@ -48,15 +48,33 @@ What this means here:
   fiber volume, keep fractional seed planes on the global grid. It merged after October's deadline (2026-11-01 06:59
   UTC), so it is November's.
 
-**Open, and recommended for merging by villa's review on 2026-11-20** (checked 2026-11-20 22:05 Pacific). Each goes
+**Open, and recommended for merging by villa's review** (checked 2026-11-23 11:35 Pacific: none has merged). Each goes
 above only once it merges, with its date:
-* [villa #2463](https://github.com/ScrollPrize/villa/pull/2463): lasagna, put `tifxyz-flow-gate-channels` in `args`
-  in both FlowSnap presets. **Its case in practice:** as shipped, both presets fail before optimizing with an unknown
-  loss-term error (villa #2458). They are used by `fit.py` and offered in VC3D's config picker. The review reproduced
-  the error on main and loaded both presets at the PR's head.
-* [villa #2465](https://github.com/ScrollPrize/villa/pull/2465): docs, a note that the harmonized Scroll 1
-  instance-label volumes mix `uint8` and `uint16`. The review pushed a wording change to the branch and checked all 80
-  volume headers. It is documentation, weak under #2450 on its own, and belongs in a bundle.
+* [villa #2501](https://github.com/ScrollPrize/villa/pull/2501), recommended 2026-11-21 Pacific: ink detection,
+  refuse a coarse pyramid level whose depth contradicts its declared Z scale (fixes villa
+  [#2107](https://github.com/ScrollPrize/villa/issues/2107)). The review pushed two fixes to the branch first: the
+  downloader reports a bad level before it touches its output, and labelled discovery keeps its depth checks on the
+  planes it reads. This is the strongest of the three under #2450.
+  * **Its case in practice:** in 18 of the 33 surface volumes of the `scrollprize/datasets` `ink/` bucket, level 2
+    holds only the first 17 of 65 depth slices while declaring a Z scale of 1 (#2107). On main, flat inference, the
+    ink dataset and the 9 µm preparation open such a level as the whole sheet.
+  * **The measurement:** recomputed in the PR on one whole level-2 chunk of `841/w00`, its slices match a 4×4 mean of
+    the same level-0 slice (median correlation 0.999964), not a 4-deep pool (0.18166). #2107's reporter measured
+    `ink_9um` at AUC 0.54 on the shortened level and 0.91 to 0.93 rebuilt from level 0. Those figures are the
+    reporter's and were not rerun here.
+  * **Scope:** main's renderer keeps depth in new renders, so the guard protects reads of the volumes already
+    published, until they are rebuilt.
+  * **Credit:** the rule is Bryant Le's, from his #2256, stale-closed on 2026-11-06. The PR ports it to `vc_reader`
+    with his agreement. #2107 is EhimenNathan's, and the PR thanks EhimenNathan and AndreasHad04 for the pixel
+    evidence.
+* [villa #2463](https://github.com/ScrollPrize/villa/pull/2463), recommended 2026-11-20 Pacific: lasagna, put
+  `tifxyz-flow-gate-channels` in `args` in both FlowSnap presets. **Its case in practice:** as shipped, both presets
+  fail before optimizing with an unknown loss-term error (villa #2458). They are used by `fit.py` and offered in
+  VC3D's config picker. The review reproduced the error on main and loaded both presets at the PR's head.
+* [villa #2465](https://github.com/ScrollPrize/villa/pull/2465), recommended 2026-11-20 Pacific: docs, a note that the
+  harmonized Scroll 1 instance-label volumes mix `uint8` and `uint16`. The review pushed a wording change to the
+  branch and checked all 80 volume headers. It is documentation, weak under #2450 on its own, and belongs in a
+  bundle.
 
 ## Queued, not posted
 
@@ -221,7 +239,7 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     0.98 for the accepted meshes.
 * **A defect in that script, reported upstream**
   ([Nieuwlaar/pherc343-first-letters#2](https://github.com/Nieuwlaar/pherc343-first-letters/issues/2), posted
-  2026-11-22, open, no reply). The script takes the reading orientation from the mesh and the axis alone: it flips
+  2026-11-22; open, with no reply at 2026-11-23 11:35 Pacific). The script takes the reading orientation from the mesh and the axis alone: it flips
   left-right when θ grows along the columns and top-bottom when z grows down the rows. That holds in PHerc. 343's
   frame only.
   * **The case in practice:** on the PHerc. 211 winner's published surface and axis it flips both ways, and turns
@@ -243,8 +261,26 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     and no image, but the line below excludes anything made from a still-eligible scroll. Whether this item is
     filed, and whether to offer the change to the winner, is the owner's decision.
 
-Not for this filing: anything made from a still-eligible scroll. PHerc. 211's prize was announced on 2026-11-15,
-so its results may be described.
+Not for this filing: anything made from a still-eligible scroll. That includes our band reads of eligible scrolls,
+their costs and geometry among them, and any ranking of their windows. PHerc. 211's prize was announced on
+2026-11-15, so its results may be described.
+
+## Still running: two tests at PHerc. 211 that may land before filing
+
+Both are at the place where PHerc. 211's prize was won, so their results may be described. Neither has a result
+yet, and each goes into the section above only with its report.
+
+* **A fit declared to turn the wrong way** (registered on branch `research/wrong-hand-read` at `dc232051`; running
+  since 2026-11-23 09:08 Pacific, about 4 hours). It asks whether a fit of the same band, declared clockwise, still
+  puts windings on the winner's sheet, and whether Studio still reads the winner's text on them. If so, a band of a
+  scroll whose winding direction is not published can be read without it.
+* **Ranking a band's windows with the PHerc. 306B team's glyph network** (registered on branch
+  `research/studio-band-triage` at `26d5c8a5`; about 6 hours, expected around 11-25, after the band read queued
+  before it). It asks whether their CNN, run on our Studio band read of PHerc. 211, ranks the windows on the winner's
+  text among the band's first 10, or within its first 5%.
+  * **The owner's decision (2026-11-23):** if it does, the same ranking orders the owner's look at our eligible
+    bands. That use stays out of this filing (above); the PHerc. 211 test may go in.
+  * **Credit:** the network is Liam Warner's and Nicola Bodill's; its code is MIT and its weights CC BY-NC 4.0.
 
 ## Filing-day checklist
 
