@@ -2140,7 +2140,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 uri,
                 labels_path,
                 mask_path
-                if catalog_path is None and os.path.exists(mask_path)
+                if catalog_path is None and os.path.lexists(mask_path)
                 else None,
                 config.patch_size,
                 config.num_layers + 2 * DEPTH_MARGIN,

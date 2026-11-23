@@ -161,8 +161,9 @@ files retain their existing validation fingerprint and sampling behavior.
 The supervised trainer opens the selected training label file and any mask
 it selected during setup. If a selected file disappears before loading, both
 training read policies fail and report its path. Automatic patch discovery
-supports fragments with no mask. When an explicit catalog supplies the
-training coordinates, the trainer skips the unused mask.
+supports fragments with no mask and reports a broken `mask.png` symlink.
+When an explicit catalog supplies the training coordinates, the trainer
+skips the unused mask.
 
 ## Check depth for training and validation
 

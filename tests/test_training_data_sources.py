@@ -226,13 +226,24 @@ def test_selected_training_images_cannot_disappear_before_loading(
     assert not (tmp_path / "run_result.json").exists()
 
 
-def test_explicit_training_catalog_does_not_read_an_unused_mask(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("mask_kind", "catalog"),
+    [("unreadable", True), ("dangling", True), ("dangling", False)],
+)
+def test_training_checks_the_mask_only_when_it_guides_discovery(
+    tmp_path, monkeypatch, mask_kind, catalog
+):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv(train.LOADER_WORKERS_ENV, "0")
     root = tmp_path / "training"
     uri = _volume(root, depth=24)
-    (root / "mask.png").write_bytes(b"unreadable")
-    (root / "patches.json").write_text('{"patches":[{"y":0,"x":0}]}')
+    mask = root / "mask.png"
+    if mask_kind == "dangling":
+        mask.symlink_to(root / "missing-mask.png")
+    else:
+        mask.write_bytes(b"unreadable")
+    if catalog:
+        (root / "patches.json").write_text('{"patches":[{"y":0,"x":0}]}')
     config = ExperimentConfig(
         val_uri=_volume(tmp_path / "heldout", depth=24),
         uris=[uri],
@@ -243,6 +254,7 @@ def test_explicit_training_catalog_does_not_read_an_unused_mask(tmp_path, monkey
     )
 
     def probe_loader(dataset, *args, **kwargs):
+        assert catalog, "the trainer silently omitted the broken mask"
         assert dataset.mask is None
         assert dataset.valid_coords.tolist() == [[0, 0]]
         raise _ReachedTheLoader
@@ -253,8 +265,13 @@ def test_explicit_training_catalog_does_not_read_an_unused_mask(tmp_path, monkey
         "build_model",
         lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
     )
-    with pytest.raises(_ReachedTheLoader):
-        train.train(config)
+    if catalog:
+        with pytest.raises(_ReachedTheLoader):
+            train.train(config)
+    else:
+        with pytest.raises(FileNotFoundError) as caught:
+            train.train(config)
+        assert Path(caught.value.filename) == mask
 
 
 def test_validation_refuses_a_fragment_shorter_than_the_fixed_window(tmp_path):

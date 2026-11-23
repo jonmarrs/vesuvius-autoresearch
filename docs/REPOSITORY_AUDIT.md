@@ -1984,6 +1984,12 @@ readability during setup. Read-failure frequency on representative CT and the
 default CT read policy remain open.
 [Training input behavior](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy)
 
+PR review reproduced automatic patch discovery silently ignoring a dangling
+`mask.png` symlink. The trainer now treats that directory entry as a selected
+mask, so opening it reports the broken path. Explicit catalogs still reach
+the loader with their saved coordinates when the unused mask is unreadable
+or a dangling link.
+
 The twelve-module integration selection passed **666 tests**. Two skips
 require the local PHercParis2Fr143 volume and CuPy, respectively. The
 portable profile passed **613 tests** and repository guards passed
