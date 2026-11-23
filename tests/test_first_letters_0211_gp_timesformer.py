@@ -688,6 +688,140 @@ def test_a_magic_pickle_then_a_stopless_import_is_refused(tmp_path):
             named.unlink()
 
 
+def _bytestring_tar(path: Path, length: int, evil: bytes) -> None:
+    """A real tar whose first header is a BINBYTES8 of ``length`` bytes.
+
+    The declared string runs past the archive. ``evil`` begins where that
+    string ends, which is after the tar.
+    """
+    import struct
+    import tarfile
+
+    plain = path.with_name(path.name + ".plain")
+    _write_tar(plain, [("pickle", pickle.dumps(0, protocol=2))])
+    blob = bytearray(plain.read_bytes())
+    header = blob[:512]
+    header[:9] = b"\x8e" + struct.pack("<Q", length)
+    header[148:156] = b"        "
+    header[148:156] = f"{sum(header):06o}\0 ".encode()
+    blob[:512] = header
+    if len(blob) > 9 + length:
+        raise AssertionError("the tar is longer than the bytestring")
+    path.write_bytes(bytes(blob) + b"\x00" * (9 + length - len(blob)) + evil)
+    assert tarfile.is_tarfile(path)
+
+
+@pytest.mark.parametrize("length", [1024 * 1024 + 4096, 4 * 1024 * 1024])
+def test_a_long_bytestring_hides_an_import_past_the_tar(tmp_path, monkeypatch, length):
+    # A 1 MiB slice used to end inside the counted string, so the import after
+    # the tar was never read. torch.load of a BytesIO skips the string and runs it.
+    torch = pytest.importorskip("torch")
+    import io
+
+    marker = tmp_path / "ran"
+    path = tmp_path / "long.tar"
+    evil = _stopless("os", "system", f"touch {marker}")
+    _bytestring_tar(path, length, evil)
+    got: list[int] = []
+    original = Path.open
+
+    class _Spy(io.BytesIO):
+        def read(self, size=-1):
+            data = super().read(size)
+            got.append(len(data))
+            return data
+
+    blob = path.read_bytes()
+
+    def fake_open(self, mode="r", *args, **kwargs):
+        if self == path and "b" in mode:
+            return _Spy(blob)
+        return original(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fake_open)
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert "os.system" in result["outside_allowlist"]
+    assert sum(got) < length
+    assert not marker.exists()
+    try:
+        with pytest.raises(EOFError):
+            torch.load(io.BytesIO(blob), weights_only=False)
+        assert marker.exists()
+    finally:
+        if marker.exists():
+            marker.unlink()
+
+
+def test_a_frame_that_extends_past_its_stop_hides_the_next_pickle(tmp_path):
+    # pickle.load reads a FRAME up front, so the next load starts at the frame's
+    # end. Counting the pickles inside that span made the evil one look like storage.
+    torch = pytest.importorskip("torch")
+    import io
+    import struct
+
+    from torch.serialization import MAGIC_NUMBER
+
+    marker = tmp_path / "framed"
+    magic = pickle.dumps(MAGIC_NUMBER, protocol=0)
+    inner = magic + b"".join(pickle.dumps(0, protocol=0) for _ in range(4))
+    payload = (
+        b"\x80\x04\x95"
+        + struct.pack("<Q", len(inner))
+        + inner
+        + _stopless("os", "system", f"touch {marker}")
+    )
+    path = tmp_path / "framed.pkl"
+    path.write_bytes(payload)
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert "unreadable pickle" in result["refused_opcodes"]
+    assert not marker.exists()
+    try:
+        with pytest.raises(EOFError):
+            torch.load(io.BytesIO(payload), weights_only=False)
+        assert marker.exists()
+    finally:
+        if marker.exists():
+            marker.unlink()
+
+
+def test_a_stopless_import_in_the_fifth_pickle_is_refused(tmp_path):
+    # The storage tail starts after five finished pickles. The fifth itself still runs.
+    torch = pytest.importorskip("torch")
+    import io
+
+    from torch.serialization import MAGIC_NUMBER, PROTOCOL_VERSION
+
+    marker = tmp_path / "fifth"
+    payload = b"".join(
+        (
+            pickle.dumps(MAGIC_NUMBER, protocol=0),
+            pickle.dumps(PROTOCOL_VERSION, protocol=0),
+            pickle.dumps({"protocol_version": PROTOCOL_VERSION}, protocol=0),
+            pickle.dumps(0, protocol=0),
+            _stopless("os", "makedirs", str(marker)),
+        )
+    )
+    path = tmp_path / "fifth.pkl"
+    path.write_bytes(payload)
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert "os.makedirs" in result["outside_allowlist"]
+    assert not marker.exists()
+    try:
+        with pytest.raises(EOFError):
+            torch.load(path, weights_only=False)
+        assert marker.is_dir()
+        marker.rmdir()
+        with pytest.raises(EOFError):
+            torch.load(io.BytesIO(payload), weights_only=False)
+        assert marker.is_dir()
+    finally:
+        if marker.exists():
+            marker.rmdir()
+
+
 def test_a_legacy_header_then_a_stopless_makedirs_is_refused(tmp_path):
     # magic, protocol, sys_info, then the object. torch.load runs that fourth
     # pickle from a path and from a BytesIO, STOP or not.
@@ -776,20 +910,21 @@ def test_a_tar_at_the_member_and_byte_caps_is_allowed(tmp_path, monkeypatch):
 
 
 def test_a_tar_leading_pickle_does_not_read_the_member_bodies(tmp_path, monkeypatch):
+    # The leading reading streams. A counted body is seeked past, and no read
+    # is larger than one argument cap, so the member is not copied again.
     import io
 
     path = tmp_path / "wide.tar"
     _write_tar(path, [("pickle", pickle.dumps({"w": 1}, protocol=2))])
-    blob = path.read_bytes() + b"\0" * (audit._MAX_LEADING_BYTES + 32)
+    blob = path.read_bytes() + b"\x00" * (1024 * 1024)
     path.write_bytes(blob)
-    requests = []
+    reads: list[int] = []
+    original = Path.open
 
     class _Spy(io.BytesIO):
         def read(self, size=-1):
-            requests.append(size)
+            reads.append(size if isinstance(size, int) else -1)
             return super().read(size)
-
-    original = Path.open
 
     def fake_open(self, mode="r", *args, **kwargs):
         if self == path and "b" in mode:
@@ -799,11 +934,19 @@ def test_a_tar_leading_pickle_does_not_read_the_member_bodies(tmp_path, monkeypa
     monkeypatch.setattr(Path, "open", fake_open)
     result = audit.audit(path, set())
     assert result["passes"] is True
-    assert requests
-    assert all(
-        isinstance(size, int) and 0 <= size <= audit._MAX_LEADING_BYTES
-        for size in requests
-    )
+    assert reads
+    assert all(0 <= size <= audit._MAX_ARG_BYTES for size in reads)
+
+
+def test_a_tar_member_must_be_pickles_through_its_last_byte(tmp_path):
+    # Five finished pickles make a later parse error look like storage. The
+    # member is still refused: torch.load keeps unpickling after that tail.
+    body = b"".join(pickle.dumps(0, protocol=2) for _ in range(audit._LEGACY_PICKLES))
+    path = tmp_path / "covered.tar"
+    _write_tar(path, [("storages", body + b"\x00\x00")])
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert "unreadable pickle" in result["refused_opcodes"]
 
 
 def test_nested_gzip_and_zip_members_and_a_tar_shaped_pickle(tmp_path):
