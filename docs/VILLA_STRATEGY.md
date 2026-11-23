@@ -91,7 +91,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *Tackling the remaining bottlenecks for full-scroll recovery.*
 
 ### [Priority K] Uncertainty-Aware Mean Teacher (STATUS: IMPLEMENTED)
-*   **Action**: Created `scripts/launch_uamt.py` (since archived as `scripts/archive/launch_uamt.py`; its labeled data is PHercParis2Fr47) to wrap the official `villa` Uncertainty-Aware Mean Teacher. It sets up the YAML configuration to train on labeled PHercParis2Fr47 data while teaching the model the raw unlabeled texture of two PHerc0125 divisions (`div_90` and `div_100`).
+*   **Action**: Created the UAMT launcher, now archived as `scripts/archive/launch_uamt.py`, to wrap the official `villa` Uncertainty-Aware Mean Teacher. It sets up the YAML configuration to train on labeled PHercParis2Fr47 data while teaching the model the raw unlabeled texture of two PHerc0125 divisions (`div_90` and `div_100`).
 *   **Strategy**: Train with labeled PHercParis2Fr47 data and unlabeled PHerc0125 division volumes to solve the "Domain Gap" problem. Use autoresearch to optimize `ema_decay` and `consistency_weight`.
 *   **Impact**: The most direct path to the **$200,000 Grand Prize** (90% coverage) by learning Scroll 2's unique texture from raw data.
 
