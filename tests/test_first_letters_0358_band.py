@@ -535,3 +535,55 @@ def test_the_snap_refuses_to_start_on_a_bad_list_or_passes_or_an_earlier_output(
         parents=True
     )
     assert _snap(tmp_path / "pass", FL_SNAP_PASSES="2")[:3] == (2, [], None)
+
+
+# --- run_studio_band.sh's winding list: every raw winding, or only those named, and none refused --------------------
+
+
+def _read_list(tmp_path, named=None):
+    """Run the read's winding-list block on a mesh folder with w010, w0100, w011, w012, a spliced twin and a note."""
+    text = (BAND / "run_studio_band.sh").read_text()
+    start = text.index('if [ -n "${STUDIO_WINDINGS:-}" ]; then')
+    block = text[
+        start : text.index(
+            "\n", text.index('mapfile -t LIVE < "$R/work/windings_$ARM.txt"')
+        )
+        + 1
+    ]
+    meshes = tmp_path / "meshes"
+    for name in ("w010", "w0100", "w011", "w012", "w010_spliced"):
+        (meshes / name).mkdir(parents=True)
+    (meshes / "notes.txt").write_text("")
+    (tmp_path / "work").mkdir()
+    env = {
+        "PATH": "/usr/bin:/bin",
+        "LC_ALL": "C",
+        "MESHES": str(meshes),
+        "R": str(tmp_path),
+        "ARM": "a",
+    }
+    if named is not None:
+        (tmp_path / "named.txt").write_text("".join(f"{n}\n" for n in named))
+        env["STUDIO_WINDINGS"] = str(tmp_path / "named.txt")
+    run = subprocess.run(
+        ["bash", "-uc", block + 'printf "%s\\n" "${LIVE[@]}"'],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    return run.returncode, run.stdout.split(), run.stderr
+
+
+def test_the_read_takes_every_raw_winding_or_only_the_named_ones_whole(tmp_path):
+    assert _read_list(tmp_path / "all")[:2] == (0, ["w010", "w0100", "w011", "w012"])
+    # a named w010 is not w0100, and a named winding the fit did not write is not read
+    rc, live, _ = _read_list(tmp_path / "named", named=["w010", "w012", "w099"])
+    assert (rc, live) == (0, ["w010", "w012"])
+    assert (
+        tmp_path / "named" / "work" / "windings_a.txt"
+    ).read_text() == "w010\nw012\n"
+
+
+def test_a_read_with_no_winding_to_read_is_refused(tmp_path):
+    rc, live, err = _read_list(tmp_path, named=["w099"])
+    assert rc == 2 and live == [] and "no windings to read" in err
