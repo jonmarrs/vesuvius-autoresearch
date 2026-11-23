@@ -626,3 +626,89 @@ def test_validation_needs_an_integer_depth_before_reading(tmp_path, num_layers):
     config.num_layers = num_layers
     with pytest.raises(ValueError, match="num_layers must be a positive integer"):
         train.build_validation_dataset(config)
+
+
+def _catalogued(tmp_path, name, depth=24):
+    uri = _volume(tmp_path / name, depth=depth)
+    (tmp_path / name / "patches.json").write_text('{"patches":[{"y":0,"x":0}]}')
+    return uri
+
+
+def test_a_supervised_dataset_needs_a_label_path(tmp_path):
+    uri = _catalogued(tmp_path, "labeled")
+    with pytest.raises(ValueError, match="requires a label image path"):
+        train.VesuviusLabeledDataset(
+            uri,
+            "",
+            None,
+            16,
+            16,
+            patches_json=str(tmp_path / "labeled" / "patches.json"),
+            require_input_images=True,
+        )
+
+
+@pytest.mark.parametrize("kind", ["labels", "mask"])
+def test_a_selected_image_that_is_gone_is_an_error_only_when_required(tmp_path, kind):
+    # With an explicit catalog, so building the dataset needs no patch discovery.
+    uri = _catalogued(tmp_path, "labeled")
+    root = tmp_path / "labeled"
+    paths = {"labels": str(root / "inklabels.png"), "mask": None}
+    paths[kind] = str(root / "gone.png")
+    options = {"patches_json": str(root / "patches.json")}
+    loose = train.VesuviusLabeledDataset(
+        uri, paths["labels"], paths["mask"], 16, 16, **options
+    )
+    assert getattr(loose, kind) is None
+    with pytest.raises(FileNotFoundError, match="gone"):
+        train.VesuviusLabeledDataset(
+            uri,
+            paths["labels"],
+            paths["mask"],
+            16,
+            16,
+            require_input_images=True,
+            **options,
+        )
+
+
+@pytest.mark.parametrize("catalog", [True, False])
+def test_the_trainer_opens_a_dangling_mask_only_when_it_places_patches(
+    tmp_path, monkeypatch, catalog
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, "0")
+    source = (
+        _catalogued(tmp_path, "labeled")
+        if catalog
+        else _volume(tmp_path / "labeled", depth=24)
+    )
+    (tmp_path / "labeled" / "mask.png").symlink_to(tmp_path / "absent.png")
+
+    def reached(*args, **kwargs):
+        raise _ReachedTheLoader
+
+    config = ExperimentConfig(
+        val_uri=_catalogued(tmp_path, "heldout"),
+        uris=[source],
+        num_layers=16,
+        patch_size=16,
+        batch_size=1,
+        cache_dir=str(tmp_path / "cache"),
+        use_wandb=False,
+    )
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    monkeypatch.setattr(train, "shuffled_loader", reached)
+    if catalog:
+        # The catalog places the patches, so the mask is not opened.
+        with pytest.raises(_ReachedTheLoader):
+            train.train(config)
+    else:
+        # The mask would place them: its broken link is reported before any
+        # patch is discovered.
+        with pytest.raises(FileNotFoundError, match="mask.png"):
+            train.train(config)
