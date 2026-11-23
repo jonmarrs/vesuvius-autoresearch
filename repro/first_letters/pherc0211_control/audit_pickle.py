@@ -10,10 +10,18 @@ torch's own weights-only unpickler is the stronger check where it works; it cann
 collections.defaultdict, which training checkpoints with optimizer state carry.
 
 torch.load treats a file as a zip archive only when it starts with the zip local-file signature.
-Anything else — the legacy non-zip pickle format, a tar, a pickle placed in front of a zip — is
-refused outright. Convert that checkpoint offline to the zip format before loading it. A zip is
-then audited as before: each ``.pkl`` member is walked, and a member that holds several pickles
-is still read pickle by pickle, because that is the zip a current torch.save writes.
+Anything else — an old non-zip pickle, a tar, a pickle placed in front of a zip — is refused
+outright. Convert that checkpoint offline to the zip format before loading it. A zip is audited
+by reading every member ``torch._C.PyTorchFileReader`` would hand to the unpickler. A suffix of
+``.pkl`` matches in any case. Two members whose names match ignoring case are refused, and so is
+a file whose central-directory offset was shifted or which has bytes before or after the archive.
+Python's zipfile and torch's reader do not agree on those files.
+
+``villa/deprecated/ink-detection/inference_timesformer.py`` loads with ``weights_only=False`` and
+is not modified. That load is safe only through ``run_gp_timesformer.sh``: the wrapper copies the
+checkpoint, then checksums, audits, and infers that copy. The SHA-256 pin is
+``93f56e569e1f4c66b71112c41985b64445b5245ff1fb610e44f495c2a0aee36f`` on the exact ``$CK``
+(``villa/ink-detection/timesformer_weights.ckpt``).
 
 usage: audit_pickle.py CHECKPOINT [--allow MODULE.NAME]...
 """
@@ -29,6 +37,8 @@ import sys
 import zipfile
 from pathlib import Path
 
+from vesuvius_autoresearch.core.checkpoint_refusal import NON_ZIP_CHECKPOINT
+
 # what torch.save writes for tensors and state dicts
 BASE = {
     "torch._utils._rebuild_tensor_v2",
@@ -39,14 +49,18 @@ BASE = {
 }
 STORAGE = re.compile(r"^torch\.[A-Za-z]*Storage$")
 REFUSED_OPS = {"EXT1", "EXT2", "EXT4"}
-# torch.load's rule, not zipfile.is_zipfile's: an archive is the checkpoint only when the
-# file itself starts with a local-file header. is_zipfile also accepts an archive at the end.
+# A torch zip starts with a local-file header. A central directory that zipfile had to
+# slide into place, or any bytes before the first member or after the end record, is a
+# different archive than the one torch's reader opens. Those files are refused.
 _ZIP_LOCAL = b"PK\x03\x04"
-NON_ZIP_CHECKPOINT = (
-    "refusing a non-zip checkpoint; convert it offline to zip before loading"
+_EOCD = b"PK\x05\x06"
+SHIFTED_ZIP = (
+    "refusing a zip checkpoint whose offsets were shifted"
+    " or that has bytes before or after the archive"
 )
-# Inside one zip member, torch still writes several pickles before raw storage.
-_LEGACY_PICKLES = 5
+DUPLICATE_MEMBER = (
+    "refusing a zip checkpoint with more than one member of the same name"
+)
 # A global name is short. A longer counted string is skipped instead of copied.
 _MAX_ARG_BYTES = 64 * 1024
 # A counted payload this large is not a name. The scan seeks past it.
@@ -70,27 +84,115 @@ class _NotZip(Exception):
     """The file does not start with a zip local-file header."""
 
 
+class _AmbiguousZip(Exception):
+    """zipfile and torch's reader would not open the same bytes."""
+
+
+class _DuplicateNames(Exception):
+    """Two members compare equal when case is ignored."""
+
+
+class _BadZip(Exception):
+    """The leading bytes look like a zip, but the archive cannot be read."""
+
+
 class _UnreadablePickle(Exception):
     """A pickle started and did not reach STOP. The unread tail is not storage."""
 
 
-def pickles(path: Path) -> list[tuple[str, bytes]]:
-    """The ``.pkl`` members of a zip checkpoint.
+def _eocd(path: Path) -> tuple[int, int, int]:
+    """The last end-of-central-directory record: its offset, the recorded
+    central-directory offset, and the comment length."""
+    size = path.stat().st_size
+    span = min(size, 22 + 65535)
+    with path.open("rb") as handle:
+        handle.seek(size - span)
+        tail = handle.read(span)
+    index = tail.rfind(_EOCD)
+    if index < 0 or index + 22 > len(tail):
+        raise _AmbiguousZip(path.name)
+    cd_offset, comment_len = struct.unpack_from("<IH", tail, index + 16)
+    return size - span + index, cd_offset, comment_len
 
-    A file is a torch zip only when it starts with the local-file signature.
-    A legacy pickle, a tar, and a pickle placed in front of a zip are refused
-    before any opcode is read.
+
+def _refuse_shifted(path: Path, archive: zipfile.ZipFile) -> None:
+    """Refuse a zipfile that slid its offsets, or a file with extra bytes.
+
+    ``start_dir`` is where zipfile actually found the central directory. The
+    end record stores that offset before any such slide. A prepended or
+    appended archive makes the two differ; bytes after the end record do not,
+    so the file length is checked as well. The first member of a torch zip
+    starts at offset 0.
+    """
+    eocd, cd_offset, comment_len = _eocd(path)
+    if cd_offset == 0xFFFFFFFF or archive.start_dir != cd_offset:
+        raise _AmbiguousZip(path.name)
+    if eocd + 22 + comment_len != path.stat().st_size:
+        raise _AmbiguousZip(path.name)
+    infos = archive.infolist()
+    if infos and min(info.header_offset for info in infos) != 0:
+        raise _AmbiguousZip(path.name)
+
+
+def _refuse_duplicates(infos) -> None:
+    seen: set[str] = set()
+    for info in infos:
+        key = info.filename.casefold()
+        if key in seen:
+            raise _DuplicateNames(info.filename)
+        seen.add(key)
+
+
+def _torch_pickles(path: Path) -> list[tuple[str, bytes]]:
+    """The pickle bytes ``PyTorchFileReader.get_record`` returns.
+
+    Those are the bytes ``torch.load`` unpickles. The record list is also where
+    a repeated name is visible: ``get_all_records`` yields it once per entry.
+    """
+    import torch
+
+    try:
+        reader = torch._C.PyTorchFileReader(str(path))
+        records = list(reader.get_all_records())
+    except (OSError, RuntimeError) as exc:
+        raise _BadZip(path.name) from exc
+    by_key: dict[str, str] = {}
+    for record in records:
+        key = record.casefold()
+        if key in by_key:
+            raise _DuplicateNames(record)
+        by_key[key] = record
+    return [
+        (record, bytes(reader.get_record(record)))
+        for key, record in by_key.items()
+        if key.endswith(".pkl")
+    ]
+
+
+def pickles(path: Path) -> list[tuple[str, bytes]]:
+    """Every ``.pkl`` record, in any case, as torch's reader will execute it.
+
+    A file is a torch zip only when it starts with the local-file signature,
+    zipfile did not shift the central directory, and nothing is prepended or
+    appended. Duplicate names, compared without regard to case, are refused
+    from the central directory and again from the reader's record list. The
+    pickle bytes themselves come from ``get_record``, not from ``zipfile``.
     """
     with path.open("rb") as handle:
         signature = handle.read(len(_ZIP_LOCAL))
     if signature != _ZIP_LOCAL:
         raise _NotZip(path.name)
-    with zipfile.ZipFile(path) as archive:
-        return [
-            (name, archive.read(name))
-            for name in archive.namelist()
-            if name.endswith(".pkl")
-        ]
+    try:
+        with zipfile.ZipFile(path) as archive:
+            _refuse_shifted(path, archive)
+            _refuse_duplicates(archive.infolist())
+    except _AmbiguousZip:
+        raise
+    except _DuplicateNames:
+        raise
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, OSError) as exc:
+        raise _BadZip(path.name) from exc
+    return _torch_pickles(path)
 
 
 def _stream_of(data: bytes | io.BufferedIOBase) -> tuple[io.BufferedIOBase, int]:
@@ -204,33 +306,24 @@ def _read_pickle(stream: io.BufferedIOBase, limit: int) -> tuple[str, list]:
 
 
 def _pickle_streams(data: bytes | io.BufferedIOBase):
-    """Each complete pickle in ``data``, which may hold several back to back.
+    """Each pickle in ``data``.
 
-    pickletools stops at the first STOP. The legacy torch format writes five pickles before the
-    tensor storage, which is not a pickle: the magic number, the protocol, the system
-    information, the object, and the storage keys. torch.load does not unpickle that tail, so a
-    parse error after those five ends the scan. Storage bytes can look like an opcode; they are
-    not recorded and they do not refuse the file.
-
-    A parse error before the fifth STOP is not that tail. torch.load runs that next pickle
-    opcode by opcode, including one that never reaches STOP. Opcodes already read are yielded,
-    so a name already seen is not dropped, and the error is raised so the file is refused.
-    A frame whose declared end is past that STOP is refused too: the next load resumes there.
+    pickletools stops at the first STOP, so a member that holds another pickle
+    after that is walked too. A parse error refuses the member: opcodes already
+    read are yielded first, so a name already seen is not dropped. A frame whose
+    declared end is past its STOP is refused too, because the next load resumes
+    at the frame's end.
     """
     stream, limit = _stream_of(data)
-    finished = 0
     while stream.tell() < limit:
         kind, ops = _read_pickle(stream, limit)
         if kind == "end":
             return
         if kind == "error":
-            if finished >= _LEGACY_PICKLES:
-                return
             if ops:
                 yield ops
             raise _UnreadablePickle
         yield ops
-        finished += 1
         if kind == "overlong":
             raise _UnreadablePickle
 
@@ -305,9 +398,9 @@ def _imported_ops(ops) -> tuple[dict[str, int], list[str]]:
 def imported(data: bytes | io.BufferedIOBase) -> tuple[dict[str, int], list[str]]:
     """Every name imported by every pickle in ``data``, and the refused opcodes they use.
 
-    A legacy checkpoint is several pickles in a row. Each is a separate unpickle, so the memo
-    starts empty again at each STOP. Counts are added together. A buffer that never reaches
-    STOP, or that holds no pickle at all, is refused."""
+    Pickles one after another are separate unpickles, so the memo starts empty again at each
+    STOP. Counts are added together. A buffer that never reaches STOP, or that holds no pickle
+    at all, is refused."""
     names: dict[str, int] = {}
     refused: list[str] = []
     saw_stop = False
@@ -348,6 +441,21 @@ def audit(path: Path, allow: set[str]) -> dict:
     try:
         members = pickles(path)
     except _NotZip:
+        out["refused_opcodes"].append("not a zip checkpoint")
+        out["message"] = NON_ZIP_CHECKPOINT
+        out["passes"] = False
+        return out
+    except _AmbiguousZip:
+        out["refused_opcodes"].append("shifted zip")
+        out["message"] = SHIFTED_ZIP
+        out["passes"] = False
+        return out
+    except _DuplicateNames:
+        out["refused_opcodes"].append("duplicate member")
+        out["message"] = DUPLICATE_MEMBER
+        out["passes"] = False
+        return out
+    except _BadZip:
         out["refused_opcodes"].append("not a zip checkpoint")
         out["message"] = NON_ZIP_CHECKPOINT
         out["passes"] = False

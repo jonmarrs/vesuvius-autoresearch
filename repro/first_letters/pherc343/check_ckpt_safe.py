@@ -22,19 +22,13 @@ def main() -> int:
 
     import torch
 
+    from vesuvius_autoresearch.core.checkpoint_refusal import require_zip_checkpoint
+
     failed = False
     for path in paths:
         name = path.rsplit("/", 1)[-1]
         try:
-            try:
-                with open(path, "rb") as handle:
-                    signature = handle.read(4)
-            except OSError:
-                signature = None
-            if signature is not None and signature != b"PK\x03\x04":
-                raise ValueError(
-                    "refusing a non-zip checkpoint; convert it offline to zip before loading"
-                )
+            require_zip_checkpoint(path)
             payload = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
         except Exception as error:  # noqa: BLE001 - report every refusal in the batch
             print("NOT_WEIGHTS_ONLY", name, type(error).__name__, str(error)[:300])
