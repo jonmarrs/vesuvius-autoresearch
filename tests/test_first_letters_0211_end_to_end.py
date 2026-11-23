@@ -277,3 +277,131 @@ def test_the_band_render_refuses_any_other_third_argument(tmp_path, bad):
         env=env, capture_output=True, text=True,
     )  # fmt: skip
     assert done.returncode == 2 and "is 'flip' or nothing" in done.stderr
+
+
+def test_orient_leaves_a_zero_cosine_undecided_and_measures_only_the_band(
+    tmp_path, monkeypatch, capsys
+):
+    import tifffile
+
+    r, c = np.mgrid[0:12, 0:10].astype(float)
+    winner = tmp_path / "winner.tifxyz"  # rows at z 7550 to 7770: five below the band
+    winner.mkdir()
+    for name, values in (
+        ("x", 2000 + 20 * c),
+        ("y", np.full_like(r, 3000.0)),
+        ("z", 7550 + 20 * r),
+    ):
+        tifffile.imwrite(winner / f"{name}.tif", values.astype(np.float32))
+    finals = []
+    for name in ("w033", "w034"):
+        shutil.copytree(winner, tmp_path / f"{name}.tifxyz")
+        finals.append(str(tmp_path / f"{name}.tifxyz"))
+    measured, cosines = [], iter([0.0, 0.9])
+
+    def surface_distance(a, a_valid, b, b_valid):
+        measured.append(int(a_valid.sum()))
+        return {"normal_cosine_median": next(cosines), "covered_fraction": 1.0}
+
+    monkeypatch.setattr(e2e.analysis, "surface_distance", surface_distance)
+    out = tmp_path / "orient.json"
+    assert e2e.main(["orient", str(out), str(winner), *finals]) == 1
+    printed = capsys.readouterr().out.split("\n")
+    assert "w033.tifxyz None" in printed and "w034.tifxyz keep" in printed
+    assert json.loads(out.read_text())["w033.tifxyz"]["render"] is None
+    assert measured == [7 * 10, 7 * 10]  # the band's rows only
+
+
+def test_a_winding_with_a_zero_cosine_stops_the_comparison(tmp_path, monkeypatch):
+    w = _winner(tmp_path)
+    ours = _ours(tmp_path, w, "w035")
+    monkeypatch.setattr(e2e.analysis, "normals_agree", lambda *a: 0.0)
+    code, record = _compare(tmp_path, w, [("--ours", ours)])
+    assert code == 0 and record["verdict"] == "DOES_NOT_RUN"
+    assert "against the winner's normals" in record["why"]
+
+
+def test_an_unreadable_mask_or_a_map_on_another_lattice_stops_with_its_reason(tmp_path):
+    import tifffile
+
+    w = _winner(tmp_path)
+    ours = _ours(tmp_path, w, "w035")
+    studio = tifffile.imread(w["studio"])
+    tifffile.imwrite(w["studio"], np.pad(studio, ((0, 0), (0, 4))))  # one cell wider
+    with pytest.raises(SystemExit, match="lattices differ"):
+        _compare(tmp_path, w, [("--ours", ours)])
+    w["mask"].write_bytes(b"not an image")
+    with pytest.raises(SystemExit, match="cannot read"):
+        _compare(tmp_path, w, [("--ours", ours)])
+
+
+def test_compare_needs_at_least_one_winding_of_ours(tmp_path):
+    w = _winner(tmp_path)
+    with pytest.raises(SystemExit) as stopped:
+        _compare(tmp_path, w, [])
+    assert stopped.value.code == 2
+
+
+def test_the_record_hashes_its_inputs_and_describes_each_part_against_its_own_maps(
+    tmp_path,
+):
+    import hashlib
+
+    import cv2
+
+    w = _winner(tmp_path)
+    # our winding leans off the sheet across its width (0 to 3 voxels), and its maps carry their own noise
+    ours = _ours(tmp_path, w, "w035", dy=np.linspace(0.0, 3.0, 11))
+    rng = np.random.default_rng(11)
+    for path in Path(ours[1]).iterdir():
+        image = cv2.imread(str(path), cv2.IMREAD_UNCHANGED).astype(int)
+        noisy = np.clip(image + rng.integers(-40, 41, image.shape), 0, 255)
+        cv2.imwrite(str(path), noisy.astype(np.uint8))
+    mask = cv2.imread(str(w["mask"]), cv2.IMREAD_GRAYSCALE)
+    mask[:, :40] = 0  # the winner's mask leaves out the first ten cell columns
+    cv2.imwrite(str(w["mask"]), mask)
+    code, record = _compare(tmp_path, w, [("--ours", ours)])
+    assert code == 0
+    assert record["inputs_sha256"] == {
+        "studio": hashlib.sha256(w["studio"].read_bytes()).hexdigest(),
+        "studio_mask": hashlib.sha256(w["mask"].read_bytes()).hexdigest(),
+    }
+    (entry,) = record["ours"]
+    assert entry["cells_compared"] == record["cells"] < entry["cells_given"]
+    described = record["described"]
+    distance = described["transfer_distance_voxels"]
+    assert 0 < distance["p50"] < distance["p95"] <= 3.0
+    whole = described["by_part"]["columns_0_181"]  # wider than this lattice: every cell
+    assert whole["cells"] == record["cells"]
+    assert whole["r"] == record["registered"]["r"]
+    assert whole["r_finding_118_maps"] == described["finding_118_on_these_cells"]["r"]
+    assert whole["r"] != whole["r_finding_118_maps"]
+
+
+def test_a_share_and_a_windings_cells_exactly_at_their_lines_are_measured(
+    tmp_path, monkeypatch
+):
+    w = _winner(tmp_path)
+    ours = _ours(tmp_path, w, "w035")
+    code, first = _compare(tmp_path, w, [("--ours", ours)])
+    assert code == 0
+    (tmp_path / "e2e.json").unlink()
+    monkeypatch.setattr(e2e, "MIN_CELL_SHARE", first["cells"] / first["mask_cells"])
+    winding = first["described"]["by_winding"]["w035.tifxyz"]
+    monkeypatch.setattr(e2e, "MIN_WINDING_CELLS", winding["cells"])
+    code, again = _compare(tmp_path, w, [("--ours", ours)])
+    assert code == 0 and again["registered"] == first["registered"]
+    assert again["described"]["by_winding"]["w035.tifxyz"]["r"] is not None
+
+
+def test_a_winners_cell_exactly_at_the_ink_line_is_ink(tmp_path):
+    import tifffile
+
+    w = _winner(tmp_path)
+    ours = _ours(tmp_path, w, "w035")
+    # the strokes at exactly 0.5 and nothing else: every 4-pixel block of the map is one cell's value
+    at_line = np.where(tifffile.imread(w["studio"]) >= 0.3, 0.5, 0.0).astype(np.float32)
+    tifffile.imwrite(w["studio"], at_line)
+    code, record = _compare(tmp_path, w, [("--ours", ours)])
+    assert code == 0
+    assert record["described"]["ensemble_overlap"]["overlap"] is not None
