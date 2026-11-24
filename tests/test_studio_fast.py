@@ -214,8 +214,9 @@ def test_the_run_keeps_the_winners_command_and_uploads_nothing():
 @pytest.mark.parametrize(
     ("y", "x", "has"),
     [(260, 200, True), (275, 200, True), (276, 200, False),  # CT only in the 16 rows of context above the window
-     (40, 200, True), (35, 200, False),  # only in the last 16 rows of the crop, below the window
-     (200, 330, True), (200, 70, True), (200, 65, False)],  # the same, left and right
+     (39, 200, True), (38, 200, False),  # only in the last 16 rows of the crop, below the window
+     (200, 330, True), (200, 345, True), (200, 346, False),  # the same, left
+     (200, 69, True), (200, 68, False)],  # and right
 )  # fmt: skip
 def test_a_windows_crop_reaches_16_pixels_each_side_of_it(y, x, has):
     # the CT block is rows 150 to 259 and columns 180 to 329
@@ -318,7 +319,10 @@ def test_run_checks_its_code_its_output_and_its_tiling_first(tmp_path, monkeypat
     code.mkdir()
     (code / "inference.py").write_text("")
     monkeypatch.setattr(sys, "path", list(sys.path))
-    monkeypatch.delitem(sys.modules, "inference", raising=False)
+    # Record a restore of a missing key, then delete it, so teardown cannot
+    # leave the tmp inference module that sf.run imports.
+    monkeypatch.setitem(sys.modules, "inference", None)
+    monkeypatch.delitem(sys.modules, "inference")
 
     def args(**kw):
         base = {"code": code, "input": tmp_path / "in.npy", "output": tmp_path / "out.npy",
@@ -336,3 +340,9 @@ def test_run_checks_its_code_its_output_and_its_tiling_first(tmp_path, monkeypat
     monkeypatch.setitem(sys.modules, "inference", other)
     with pytest.raises(SystemExit, match="imported"):
         sf.run(args(output=tmp_path / "new.npy"))
+
+
+def test_the_run_test_does_not_leak_inference():
+    # follow-on probe: the run test must not leave its stand-in inference module in sys.modules
+    leaked = sys.modules.get("inference")
+    assert leaked is None, f"leaked: {leaked}"
