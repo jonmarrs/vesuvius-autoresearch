@@ -2310,3 +2310,8 @@ Single-model prediction now checks the opened reader against the output plan
 and reuses the ensemble's CT selection checks before model setup and before
 publication. Both cases preserve the existing Zarr tree and metadata. The
 checks are filesystem snapshots. Representative GPU measurements remain open.
+
+PR review found that automatic Z could accept a changed group link when both
+groups pointed to the same array. The fixture overwrote the original group's
+`.zattrs`. The command now binds the group as well as the array before opening
+the reader, so this case stops before model setup and preserves the attributes.

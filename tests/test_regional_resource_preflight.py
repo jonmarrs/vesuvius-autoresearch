@@ -57,7 +57,7 @@ def test_auto_z_uses_one_reader_and_requires_a_stable_array(
 
     monkeypatch.setattr(single, "FastVesuviusVolume", track_open)
     if retarget:
-        with pytest.raises(RuntimeError, match="selected CT array changed"):
+        with pytest.raises(RuntimeError, match="CT source selection changed"):
             run()
         assert not models
         assert not (tmp_path / "out").exists()
@@ -65,6 +65,40 @@ def test_auto_z_uses_one_reader_and_requires_a_stable_array(
         run()
         assert models
     assert opened == [volume]
+
+
+def test_auto_z_protects_the_original_group_when_two_groups_share_an_array(
+    tmp_path, monkeypatch
+):
+    run, argv, models, volume, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    first, second = tmp_path / "first.zarr", tmp_path / "second.zarr"
+    for group in (first, second):
+        zarr.open_group(str(group), mode="w").attrs["group_name"] = group.name
+        (group / "0").symlink_to(volume, target_is_directory=True)
+    link = tmp_path / "current.zarr"
+    link.symlink_to(first, target_is_directory=True)
+    argv[argv.index("--uri") + 1] = link.as_uri()
+    start = argv.index("--z")
+    del argv[start : start + 2]
+    metadata = first / ".zattrs"
+    before = metadata.read_bytes()
+    argv.extend(["--metadata_out", str(metadata)])
+    original = single.FastVesuviusVolume
+
+    def retarget_after_open(*args, **kwargs):
+        reader = original(*args, **kwargs)
+        link.unlink()
+        link.symlink_to(second, target_is_directory=True)
+        return reader
+
+    monkeypatch.setattr(single, "FastVesuviusVolume", retarget_after_open)
+    with pytest.raises(RuntimeError, match="CT source selection changed"):
+        run()
+
+    assert link.resolve() == second
+    assert not models
+    assert not (tmp_path / "out").exists()
+    assert metadata.read_bytes() == before
 
 
 @pytest.mark.parametrize(
