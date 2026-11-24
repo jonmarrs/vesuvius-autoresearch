@@ -6,8 +6,8 @@ Reviewer: Claude (Anthropic), at the owner's request.
 This round covers the 09:12 UTC firing on 2026-11-24. Main had not moved since round #224's merge.
 
 It finishes **#485**, finding 135, with `repro/first_letters/pherc0211_control/run_depth_sweep.sh`, which round #224
-left. The script reads nothing new into being: every map comes from a render on disk. Its steps, each run only if
-the one before exited 0:
+left. Nothing is fitted, snapped, flattened or rendered: every map comes from a render on disk. Its steps, each run
+only if the one before exited 0:
 - **check** the weights and the winner's `inference.py` against their SHA-256 values;
 - **sweep211**: for each arm, winding and shift D other than 0, `depth_sweep.py planes`, then Studio with the
   winner's command;
