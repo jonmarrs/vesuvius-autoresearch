@@ -89,6 +89,28 @@ class EnsembleArgs(Tap):
         )
 
 
+def _plan_region(args, patch_size, layers, checkpoint_paths):
+    args.resource_plan = plan_regional_accumulators(
+        patch_size if args.width is None else args.width,
+        patch_size if args.height is None else args.height,
+        args.max_accumulator_bytes,
+    )
+    validate_region(args, patch_size, layers)
+    base = prediction_stem(
+        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
+        args.artifact_stem,
+    )
+    if args.num_parts > 1:
+        base += f"_part{args.part_id}of{args.num_parts}"
+    return RegionalArtifactPlan.create(
+        base,
+        args.output_img or f"predictions/{base}.png",
+        args.metadata_out,
+        args.uri,
+        [*checkpoint_paths, *args.checkpoints],
+    )
+
+
 def ensemble_predict():
     args = EnsembleArgs().parse_args()
     prediction_stem("unused", getattr(args, "artifact_stem", None))
@@ -147,11 +169,8 @@ def ensemble_predict():
                 raise ValueError("ensemble checkpoint voxel_size_um must match")
         else:
             patch_size, voxel_size_um = member_patch_size, scale
-            args.resource_plan = plan_regional_accumulators(
-                patch_size if args.width is None else args.width,
-                patch_size if args.height is None else args.height,
-                args.max_accumulator_bytes,
-            )
+            artifacts = _plan_region(args, patch_size, layers, checkpoint_paths)
+            tiles = region_tiles(args, patch_size)
         max_layers = max(max_layers, layers)
         if use_ridges:
             if ridge_settings is not None and ridge_sigma != ridge_settings[0]:
@@ -194,20 +213,8 @@ def ensemble_predict():
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges_any)
     args.patch_size = patch_size
     args.voxel_size_um = voxel_size_um
-    validate_region(args, patch_size, max_layers)
-    base = prediction_stem(
-        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
-        getattr(args, "artifact_stem", None),
-    )
-    if args.num_parts > 1:
-        base += f"_part{args.part_id}of{args.num_parts}"
-    artifacts = RegionalArtifactPlan.create(
-        base,
-        args.output_img or f"predictions/{base}.png",
-        args.metadata_out,
-        args.uri,
-        [*checkpoint_paths, *args.checkpoints],
-    )
+    artifacts.validate_source_selection(args.uri)
+    base = artifacts.stem
     output_img, output_dir = str(artifacts.image), str(artifacts.directory)
     dataset = FastVesuviusVolume(
         str(artifacts.source_array),
@@ -215,8 +222,9 @@ def ensemble_predict():
         ridge_sigma=ridge_settings[0] if ridge_settings is not None else 2.0,
         strict_reads=True,
     )
+    if dataset.vol.path != artifacts.source_array:
+        raise RuntimeError("CT source selection changed while opening the ensemble volume")
     validate_region(args, patch_size, max_layers, dataset.shape)
-    tiles = region_tiles(args, patch_size)
     full_ink = torch.zeros(
         (args.height, args.width), device=device, dtype=torch.float32
     )
@@ -260,6 +268,7 @@ def ensemble_predict():
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
+    artifacts.validate_source_selection(args.uri)
     artifacts.validate(checkpoint_aliases=args.checkpoints)
     os.makedirs(output_dir, exist_ok=True)
     metadata_path = invalidate_prediction_metadata(
