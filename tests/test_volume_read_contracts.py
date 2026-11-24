@@ -143,12 +143,14 @@ def test_invalid_strict_requests_never_reach_the_backend(
 
 @pytest.mark.parametrize("method", ["read_ct", "get_raw_patch"])
 def test_incomplete_backend_reads_are_not_accepted(tmp_path, monkeypatch, method):
-    volume = _volume(tmp_path)
+    counts = loader.CTReadCounts()
+    volume = _volume(tmp_path, read_counts=counts)
     monkeypatch.setattr(
         volume.vol, "get_chunk", lambda *args: np.zeros((3, 8, 8), np.uint8)
     )
     with pytest.raises(ValueError, match="CT read returned shape"):
         getattr(volume, method)(0, 0, 0, 4, 8, 8)
+    assert counts.snapshot() == {"returned": 1, "raised": 0}
 
 
 @pytest.mark.parametrize(
@@ -258,6 +260,7 @@ def test_strict_policy_survives_pickling_and_legacy_states_remain_permissive(
     strict = pickle.loads(pickle.dumps(volume))
     legacy_state = volume.__getstate__()
     legacy_state.pop("strict_reads")
+    legacy_state.pop("_read_counts")
     legacy = loader.FastVesuviusVolume.__new__(loader.FastVesuviusVolume)
     legacy.__setstate__(legacy_state)
 

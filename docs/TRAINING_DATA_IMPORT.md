@@ -150,7 +150,14 @@ chosen `data_read_policy` is recorded in successful checkpoints and run results.
 In `run_result.json`, `loader_warnings` and `augmentation_fallbacks` count
 events from that run. Loader warnings include validation and worker prefetch.
 Training loader workers stop before final validation.
-A failure rate also needs a count of attempted reads. An aborted run may
+
+`training_ct_reads` records `returned` and `raised` counts separately for
+labeled and UA-MT training. The fraction of finished backend calls that
+raised an exception is `raised / (returned + raised)` when the denominator
+is positive. This includes worker prefetch and excludes validation and
+interrupted calls. A return may contain fill values from missing chunks or
+data rejected during later validation or preprocessing. Use
+`loader_warnings` for the separately counted fallbacks. An aborted run may
 leave earlier artifacts.
 
 Inspect an experiment configuration without reading arrays or starting training:

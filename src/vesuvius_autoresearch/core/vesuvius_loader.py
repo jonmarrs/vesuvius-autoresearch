@@ -205,6 +205,32 @@ def _warn_limited(key, message, limit=5):
         print(f"Warning: suppressing further {key} warnings")
 
 
+class CTReadCounts:
+    """Completed backend calls for one training loader.
+
+    Each worker writes its own pair of counters. Take the snapshot after
+    stopping the loader, so the hot path needs neither locks nor Manager RPCs.
+    """
+
+    def __init__(self, workers: int = 0):
+        self._slots = [0, 0]
+        if workers:
+            from multiprocessing import get_context
+
+            self._slots = get_context("spawn").RawArray("Q", 2 * (workers + 1))
+
+    def record(self, *, raised: bool):
+        worker = torch.utils.data.get_worker_info()
+        offset = 2 * (worker.id + 1) if worker is not None else 0
+        self._slots[offset + int(raised)] += 1
+
+    def snapshot(self) -> dict[str, int]:
+        return {
+            "returned": sum(self._slots[::2]),
+            "raised": sum(self._slots[1::2]),
+        }
+
+
 def _mismatch_hint(label_hw, volume_shape):
     """Why a 2D label might not fit a ``(depth, H, W)`` volume, for the error."""
     tol = LABEL_SHAPE_TOLERANCE_PX
@@ -318,6 +344,7 @@ class FastVesuviusVolume:
         use_ridges=False,
         ridge_sigma=2.0,
         strict_reads=False,
+        read_counts: CTReadCounts | None = None,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
@@ -326,6 +353,7 @@ class FastVesuviusVolume:
         self.use_ridges = use_ridges
         self.ridge_sigma = ridge_sigma
         self.strict_reads = strict_reads
+        self._read_counts = read_counts
 
         self._init_vol()
         self.shape = self.vol.shape
@@ -365,7 +393,14 @@ class FastVesuviusVolume:
                 raise ValueError(
                     f"{self.uri}: CT request must be nonempty and within volume shape {self.shape}"
                 )
-        ct = self.vol.get_chunk(z, y, x, d, h, w)
+        try:
+            ct = self.vol.get_chunk(z, y, x, d, h, w)
+        except Exception:
+            if self._read_counts is not None:
+                self._read_counts.record(raised=True)
+            raise
+        if self._read_counts is not None:
+            self._read_counts.record(raised=False)
         if self.strict_reads:
             ct = np.asarray(ct)
             if ct.shape != (d, h, w):
@@ -409,6 +444,7 @@ class FastVesuviusVolume:
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.__dict__.setdefault("strict_reads", False)
+        self.__dict__.setdefault("_read_counts", None)
         self._init_vol()
         if self.strict_reads:
             self.shape = self.vol.shape
@@ -639,6 +675,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         expected_image_sha256: tuple[str | None, str | None] | None = None,
         min_read_depth: int | None = None,
         require_input_images: bool = False,
+        read_counts: CTReadCounts | None = None,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
@@ -650,6 +687,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             use_ridges=use_ridges,
             ridge_sigma=ridge_sigma,
             strict_reads=strict_reads,
+            read_counts=read_counts,
         )
         self.patch_size = patch_size
         self.shape = self.volume.shape
@@ -1172,6 +1210,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         depth_margin=0,
         strict_reads=False,
         min_read_depth: int | None = None,
+        read_counts: CTReadCounts | None = None,
     ):
         if not isinstance(strict_reads, bool):
             raise ValueError("strict_reads must be a boolean")
@@ -1200,6 +1239,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
             use_ridges=use_ridges,
             ridge_sigma=ridge_sigma,
             strict_reads=strict_reads,
+            read_counts=read_counts,
         )
         self.shape = self.volume.shape
         self.num_layers = _read_depth(self.shape[0], num_layers, min_read_depth, uri)
