@@ -2,10 +2,12 @@
 branches."""
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -85,3 +87,270 @@ def test_the_failure_branch_gives_no_read_even_when_r_is_high():
         own.verdict(_numbers(0.95, slid=None), 0.9, True, [0.997, 0.998])
         == "DOES_NOT_RUN"
     )
+
+
+# --- compare run, with finding 110's side, transfer and normals stood in for: our windings' lattice is the published
+# surface's, cell for cell, so the real carry moves each value to its own place; reading_frame and main ------------
+
+LH, LW = 40, 50  # the published surface's lattice: a 160 x 200-pixel render
+AREA = {
+    "row0": 2,
+    "row1": 158,
+    "col0": 2,
+    "col1": 198,
+}  # lattice rows 1 to 38 and columns 1 to 48 lie wholly inside
+
+
+def test_the_verdict_runs_at_exactly_half_the_cells():
+    assert (
+        own.verdict(_numbers(0.8), 0.5, True, [0.997, 0.998]) == "STUDIO_343_OWN_CLOSE"
+    )
+
+
+def _world(tmp_path, monkeypatch, cosines=(0.997, 0.998)):
+    """The published surface (its row 2 not rendered, its Studio map NaN at cell (3, 5) and exactly 0.5 over cells
+    10 to 13 x 20 to 23), our two windings (w048 holds exactly 1,000 cells: rows 10 to 34, columns 8 to 47; row 4
+    has no winding; w047's reversed map is NaN on row 6), a 66-layer render whose layer 10 is empty over 4 reading
+    cells, the sidecar and u."""
+    import argparse
+
+    import cv2
+    import zarr
+
+    rng = np.random.default_rng(13)
+    published = rng.random((LH * 4, LW * 4))
+    published[40:56, 80:96] = 0.5
+    np.save(tmp_path / "pub.npy", published)
+    np.save(tmp_path / "pub_rev.npy", rng.random((LH * 4, LW * 4)))
+    studios = {}
+    for k, w in enumerate(("w047", "w048")):
+        studios[w] = published + rng.normal(0, 0.05 * (k + 1), published.shape)
+        np.save(tmp_path / f"{w}.npy", studios[w])
+        reversed_ = rng.random(published.shape)
+        if w == "w047":
+            reversed_[24:28] = np.nan
+        np.save(tmp_path / f"{w}_rev.npy", reversed_)
+    render = np.full((66, LH * 4, LW * 4), 50, np.uint8)
+    render[10, 100:106, 100:106] = 0
+    zarr.open(str(tmp_path / "pub_66.zarr"), mode="w").create_dataset(
+        "0", data=render, chunks=render.shape
+    )
+    (tmp_path / "sidecar.json").write_text(json.dumps({"area": {"raw_render_px": AREA},
+                                                       "orientation": {"flip_ud": False, "flip_lr": False}}))  # fmt: skip
+    cv2.imwrite(
+        str(tmp_path / "u.png"), rng.integers(0, 256, (156, 196)).astype(np.uint8)
+    )
+    ok = np.ones((LH, LW), bool)
+    ok[2] = False
+    design = np.zeros((LH, LW), int)
+    design[10:35, 8:48] = 1
+    design[4] = -1
+
+    def side(mesh, render_):
+        return {
+            "points": Path(mesh).name,
+            "ok": ok,
+            "canvas": (LH * 4, LW * 4),
+            "mesh": str(mesh),
+        }
+
+    def transfer(points, target, sides):
+        which = np.where(target, design, -1)
+        return (
+            which,
+            np.arange(LH * LW).reshape(LH, LW),
+            np.repeat(np.arange(LH, dtype=float)[:, None], LW, 1),
+        )
+
+    real_read = own.f124.read_studio
+
+    def read_studio(path, canvas):
+        values = real_read(path, canvas)
+        if Path(path) == tmp_path / "pub.npy":
+            values[3, 5] = (
+                np.nan
+            )  # the published map has no value in one cell of the area
+        return values
+
+    monkeypatch.setattr(own.f131, "side", side)
+    monkeypatch.setattr(own.analysis, "transfer", transfer)
+    monkeypatch.setattr(
+        own.analysis, "normals_agree", lambda pp, sp, which, cell, k: cosines[k]
+    )
+    monkeypatch.setattr(own.f124, "read_studio", read_studio)
+    ours = [[tmp_path / f"{w}.tifxyz", tmp_path / f"{w}_66.zarr", tmp_path / f"{w}.npy", tmp_path / f"{w}_rev.npy"]
+            for w in ("w047", "w048")]  # fmt: skip
+    return argparse.Namespace(published_mesh=tmp_path / "pub.tifxyz", published_render=tmp_path / "pub_66.zarr",
+                              published_studio=tmp_path / "pub.npy", published_studio_reversed=tmp_path / "pub_rev.npy",
+                              sidecar=tmp_path / "sidecar.json", ink_png=tmp_path / "u.png", ours=ours,
+                              image=None)  # fmt: skip
+
+
+def _cells():
+    cells = np.zeros((LH, LW), bool)
+    cells[1:39, 1:49] = True  # the area
+    target = cells.copy()
+    target[2] = False  # not rendered
+    target[3, 5] = False  # no published value
+    cells = target.copy()
+    cells[4] = False  # no winding
+    cells[6] = False  # no reversed map
+    return target, cells
+
+
+def test_finding_127_must_come_out_again_before_anything_is_scored(
+    tmp_path, monkeypatch
+):
+    result = own.compare(_world(tmp_path, monkeypatch))
+    target, cells = _cells()
+    assert (
+        result["area_cells_covered_by_the_published_render"]
+        == int(target.sum())
+        == 1775
+    )
+    assert (result["cells"], result["cell_share"]) == (
+        int(cells.sum()),
+        round(cells.sum() / target.sum(), 4),
+    )
+    assert [o["cells_given"] for o in result["ours"]] == [1775 - 1000 - 48, 1000]
+    assert [o["normal_cosine_median"] for o in result["ours"]] == [0.997, 0.998]
+    assert result["f127_r_again"] is not None and result["f127_reproduced"] is False
+    assert (result["registered"], result["verdict"]) == (None, "DOES_NOT_RUN")
+    assert "described" not in result
+
+
+def _reproduced(tmp_path, monkeypatch, **kw):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    first = own.compare(_world(tmp_path / "a", monkeypatch, **kw))
+    monkeypatch.setattr(own, "F127_R", first["f127_r_again"])
+    args = _world(tmp_path / "b", monkeypatch, **kw)
+    return own.compare(args), args
+
+
+def test_the_carried_map_is_scored_against_the_published_one_on_the_cells_both_reach(
+    tmp_path, monkeypatch
+):
+    result, args = _reproduced(tmp_path, monkeypatch)
+    a, f124 = own.analysis, own.f124
+    target, cells = _cells()
+    canvas = (LH * 4, LW * 4)
+    theirs_raw = a.block_mean(np.load(args.published_studio))
+    theirs_raw[3, 5] = np.nan
+    which = np.zeros((LH, LW), int)
+    which[10:35, 8:48] = 1
+    which[4] = -1
+    which = np.where(target, which, -1)  # the transfer gives the target's cells only
+    index = np.arange(LH * LW).reshape(LH, LW)
+    maps = [{"s": a.block_mean(np.load(args.ours[k][2]))} for k in range(2)]
+    other_maps = [{"s": a.block_mean(np.load(args.ours[k][3]))} for k in range(2)]
+    carried = own.f121.carry(maps, which, index)["s"]
+    other = own.f121.carry(other_maps, which, index)["s"]
+    theirs = a.highpass(theirs_raw, cells)
+    numbers = f124.score(theirs, (theirs_raw >= 0.5) & cells, carried, cells, other)
+    assert result["f127_reproduced"] is True
+    assert result["registered"] == {
+        k: numbers[k] for k in ("r", "control_wrong_side", "control_slid")
+    }
+    assert result["verdict"] == own.verdict(
+        result["registered"], result["cell_share"], True, [0.997, 0.998]
+    )
+    d = result["described"]
+    assert d["carried"] == numbers
+    assert {w: v["cells"] for w, v in d["by_winding"].items()} == {
+        "w047": int(cells.sum()) - 1000,
+        "w048": 1000,
+    }
+    assert d["by_winding"]["w048"]["r"] is not None  # exactly 1,000 cells are enough
+    p50, p95 = np.percentile(
+        np.repeat(np.arange(LH, dtype=float)[:, None], LW, 1)[cells], [50, 95]
+    )
+    assert d["transfer_distance_voxels"] == {"p50": round(p50, 2), "p95": round(p95, 2)}
+    rev = a.highpass(
+        own.f120.standardise(
+            a.block_mean(np.load(args.published_studio_reversed)), cells
+        ),
+        cells,
+    )
+    assert d[
+        "published_surface_reversed_planes_against_its_forward"
+    ] == own.f118._rounded(a.pearson(theirs[cells], rev[cells]))
+    assert (
+        d["f127_numbers_again"]["control_wrong_side"] is not None
+    )  # the published reversed planes, as finding 127
+    # against u: the reading frame's cells (4 lost to layer 10) where both carried maps have values
+    sidecar = json.loads(args.sidecar.read_text())
+    valid = np.ones((156, 196), bool)
+    valid[98:104, 98:104] = False
+    frame = a.block_mean(valid.astype(float)) == 1.0
+    carried_px = own.f127.to_reading(own.lattice_to_raw(carried, canvas), sidecar)
+    other_px = own.f127.to_reading(own.lattice_to_raw(other, canvas), sidecar)
+    u_cells = (
+        frame
+        & np.isfinite(a.block_mean(carried_px))
+        & np.isfinite(a.block_mean(other_px))
+    )
+    assert d["against_u"]["cells"] == int(u_cells.sum())
+    published_u = d["against_u"]["published_surface"]
+    assert (
+        published_u["control_wrong_side"] != published_u["r"]
+    )  # the published surface's own reversed planes
+
+
+@pytest.mark.parametrize(
+    ("cosines", "share_line"),
+    [((0.997, 0.0), 0.5), ((None, 0.998), 0.5), ((0.997, 0.998), 0.95)],
+    ids=["a-cosine-of-0", "a-winding-with-no-cells", "under-the-share"],
+)
+def test_the_failure_branch_scores_nothing(tmp_path, monkeypatch, cosines, share_line):
+    monkeypatch.setattr(own, "MIN_CELL_SHARE", share_line)  # the share here is 0.9459
+    result, _ = _reproduced(tmp_path, monkeypatch, cosines=cosines)
+    assert result["f127_reproduced"] is True
+    assert (result["registered"], result["verdict"]) == (None, "DOES_NOT_RUN")
+    assert "described" not in result
+
+
+@pytest.mark.parametrize(
+    ("arrange", "message"),
+    [
+        ("layers", "not 66 layers"),
+        ("unreadable", "cannot read"),
+        ("u_shape", "the area"),
+    ],
+)
+def test_a_render_or_ink_image_that_does_not_fit_is_refused(
+    tmp_path, monkeypatch, arrange, message
+):
+    import cv2
+    import zarr
+
+    args = _world(tmp_path, monkeypatch)
+    if arrange == "layers":
+        zarr.open(str(args.published_render), mode="w").create_dataset(
+            "0", data=np.full((65, 160, 200), 50, np.uint8)
+        )
+    elif arrange == "unreadable":
+        args.ink_png.write_text("not an image")
+    else:
+        cv2.imwrite(str(args.ink_png), np.zeros((156, 192), np.uint8))
+    with pytest.raises(SystemExit, match=message):
+        own.compare(args)
+
+
+@pytest.mark.parametrize(
+    ("verdict", "code"), [("STUDIO_343_OWN_CLOSE", 0), ("DOES_NOT_RUN", 1)]
+)
+def test_the_command_writes_once_prints_without_the_described_part_and_exits_1_when_it_does_not_run(
+    tmp_path, monkeypatch, capsys, verdict, code
+):
+    record = {"finding": 136, "verdict": verdict, "described": {"x": 1}}
+    monkeypatch.setattr(own, "compare", lambda args: record)
+    argv = ["compare", str(tmp_path / "o.json")]
+    for flag in ("--published-mesh", "--published-render", "--published-studio", "--published-studio-reversed",
+                 "--sidecar", "--ink-png"):  # fmt: skip
+        argv += [flag, str(tmp_path)]
+    argv += ["--ours", *[str(tmp_path)] * 4]
+    assert own.main(argv) == code
+    assert json.loads(capsys.readouterr().out) == {"finding": 136, "verdict": verdict}
+    assert json.loads((tmp_path / "o.json").read_text()) == record
+    assert own.main(argv) == 2  # written once
