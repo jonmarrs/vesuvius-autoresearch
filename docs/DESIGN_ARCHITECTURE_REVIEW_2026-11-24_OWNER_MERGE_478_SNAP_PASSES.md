@@ -65,16 +65,25 @@ No code changed. No defect was found.
 - **A failed step leaves no record.** `step` stops the run before `compare`, so finding 133's wrapper finds no record
   and takes one pass: the consequence the registration gives a run whose step failed.
 
-### A correction to round #220's record
+### Two corrections to round #220's record
 
-Round #220's record says finding 134's record is not in the repository. It is: #478 added it as
-`reports/first_letters_0211_snap_passes.json`, with the consequence `three_passes`. Finding 131's verdict
+**Finding 134's record.** Round #220's record says finding 134's record is not in the repository. It is: #478 added
+it as `reports/first_letters_0211_snap_passes.json`, with the consequence `three_passes`. Finding 131's verdict
 `DENSE_READS_SAME` leaves `FL_DENSIFY=2`, so `run_after_controls.sh` will set `FL_SNAP_PASSES=3` for finding 133's
 read, with the skip and the denser snap. #534's description repeats the error; this record corrects both.
 
+**The two `SIGHUP` failures of its first suite run** were not from load, as that record says. That run was started
+under `nohup`, so its processes ignore `SIGHUP`, and `scripts/process_supervisor.py` leaves an ignored signal
+ignored, as its docstring says. Under `nohup` the two cases fail every time, and without it they pass. This
+round's first suite run was started the same way and failed them too. The run reported below was not.
+
 ## Observations for the owner (not changed)
 
-None this round.
+- **Two cases of `tests/test_supervisor_startup.py` need `SIGHUP` handled when pytest starts.**
+  `test_interrupt_between_spawn_and_registration_cleans_child[SIGHUP]` and
+  `test_stop_is_not_lost_when_spawn_also_fails[SIGHUP]` fail when pytest runs under `nohup`. The supervisor is
+  right to leave nohup's `SIGHUP` ignored; the two cases could set it to its default first. Not changed: it is
+  outside this round's slice.
 
 ## Verification
 
@@ -83,8 +92,8 @@ None this round.
   - Ruff 0.9.10 `check` is clean over the repository, as the CPU workflow runs it, and `format` is clean on the
     touched module.
   - Mypy is clean over the whole repository, 1,110 files, with `--python-executable ./.venv/bin/python`.
-- **The standard suite**, 235 modules, gives the same 278 failing ids as round #220's run. It does not run the
-  touched module.
+- **The standard suite**, 235 modules, gives the same 278 failing ids as round #220's second run, started without
+  `nohup`. It does not run the touched module.
 - **The 310 test modules outside the suite** give the same 24 failing ids as round #220's run.
   - 3,437 passed: round #220's 3,417 and the 20 new cases.
   - 4 xfailed, as in round #220.
