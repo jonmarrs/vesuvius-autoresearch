@@ -226,6 +226,16 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
       a net 1.78 to 1.89 sheets a turn.
     - **What it changes:** a band of a scroll whose winding direction is not published can be read with either
       direction declared. Each page then carries a sheet's text in pieces, broken where its winding changes sheet.
+  * **The PHerc. 306B team's glyph network, ranking a band read of the known place**
+    ([report](../reports/first_letters_0211_band_triage.md)). The same band was read whole, the way we read eligible
+    bands: 80 windings, and every window scored by the network the PHerc. 306B team used to find their line. A window
+    on the winner's text ranks 2nd of 467; counting only the windows on their own grid, 9th of 400.
+    - **How:** their network and weights, re-implemented from their commit. The text's best window is one our version
+      adds at each winding's end; without those windows the text ranks 9th.
+    - **What it changes:** it orders where to look first in a band read. It does not separate text from texture: the
+      window ranked above the text and the windows just below it show no letters, and the scores are within a
+      fraction of a logit of each other.
+    - **Credit:** the network is Liam Warner's and Nicola Bodill's; its code is MIT and its weights CC BY-NC 4.0.
   * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
     with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
     reader was the missing piece, not the geometry.
@@ -275,20 +285,6 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
 Not for this filing: anything made from a still-eligible scroll. That includes our band reads of eligible scrolls,
 their costs and geometry among them, and any ranking of their windows. PHerc. 211's prize was announced on
 2026-11-15, so its results may be described.
-
-## Still running: a test at PHerc. 211 that may land before filing
-
-It is at the place where PHerc. 211's prize was won, so its result may be described. It has no result yet, and goes
-into the section above only with its report. The other test listed here on 2026-11-23, the fit declared to turn the
-wrong way, has reported and is above.
-
-* **Ranking a band's windows with the PHerc. 306B team's glyph network** (registered on branch
-  `research/studio-band-triage` at `26d5c8a5`; about 6 hours, expected around 11-25, after the band read queued
-  before it). It asks whether their CNN, run on our Studio band read of PHerc. 211, ranks the windows on the winner's
-  text among the band's first 10, or within its first 5%.
-  * **The owner's decision (2026-11-23):** if it does, the same ranking orders the owner's look at our eligible
-    bands. That use stays out of this filing (above); the PHerc. 211 test may go in.
-  * **Credit:** the network is Liam Warner's and Nicola Bodill's; its code is MIT and its weights CC BY-NC 4.0.
 
 ## Filing-day checklist
 
