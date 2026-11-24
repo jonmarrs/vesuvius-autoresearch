@@ -1231,6 +1231,15 @@ def test_approved_labels_equal_to_the_edited_zarr_crops_are_reported(tmp_path):
     }  # fmt: skip
 
 
+def test_invalid_edited_separator_cannot_hide_stored_labels(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path, ct, label=np.zeros((EDGE,) * 3, dtype=np.uint8))
+    path = _edited_store(tmp_path, ct, value=42, dimension_separator="_")
+    with pytest.raises(ValueError, match="invalid Zarr chunk separator") as error:
+        _verify_edited(tmp_path, progress, ct, path)
+    assert str(path) in str(error.value)
+
+
 @pytest.mark.parametrize(
     ("crops", "flip", "where"),
     [

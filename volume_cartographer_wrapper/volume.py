@@ -67,6 +67,15 @@ def local_volume_array_path(path_or_url: str | Path) -> Path:
     return path
 
 
+def zarr_chunk_separator(array: zarr.Array, path: Path) -> str:
+    """Check the separator the opened array uses to look up its chunks."""
+    # Zarr 2 resolves an omitted separator against the store when it opens.
+    separator = getattr(array, "_dimension_separator", ".")
+    if separator not in (".", "/"):
+        raise ValueError(f"invalid Zarr chunk separator for {path}: {separator!r}")
+    return separator
+
+
 class FastLocalVolume:
     """Read local OME-Zarr volumes with the chunk API Autoresearch expects.
 
@@ -102,12 +111,7 @@ class FastLocalVolume:
         if self._zarr.dtype.kind not in "uifb":
             raise ValueError("local volume must contain real numeric or boolean voxels")
         self.dtype = self._zarr.dtype
-        # Zarr 2 uses the resolved separator from this array to look up chunks.
-        self.sep = getattr(self._zarr, "_dimension_separator", ".")
-        if self.sep not in (".", "/"):
-            raise ValueError(
-                f"invalid Zarr chunk separator for {self.path}: {self.sep!r}"
-            )
+        self.sep = zarr_chunk_separator(self._zarr, self.path)
         self.backend = "volume-cartographer-zarr"
 
     def _axis_sizes(self, sizes, name):

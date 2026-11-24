@@ -2134,3 +2134,8 @@ This checks geometry and layout. A standard Zarr read can still substitute
 fill values for absent chunks. Use the separate receipt check for prepared
 training stores.
 [Prepared fragment verification](TRAINING_DATA_IMPORT.md#verify-a-prepared-fragment)
+
+PR review reproduced a separate path in the edited-label verifier. An invalid
+separator made the reader return zero fill for stored nonzero edits, and the
+comparison accepted two all-zero TIFFs. The edited-label verifier now uses the
+same separator check before reading the approved crops.

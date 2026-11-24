@@ -440,6 +440,8 @@ def _open_edited_labels(path, shape, budget):
     import numpy as np
     import zarr
 
+    from volume_cartographer_wrapper.volume import zarr_chunk_separator
+
     try:
         info = path.lstat()
     except FileNotFoundError as exc:
@@ -473,6 +475,7 @@ def _open_edited_labels(path, shape, budget):
     chunks = array.chunks
     if len(chunks) != len(shape) or any(type(n) is not int or n < 1 for n in chunks):
         raise ValueError(f"invalid edited-label Zarr chunk geometry: {path}")
+    zarr_chunk_separator(array, path)
     if math.prod(chunks) > budget["max_file_bytes"]:
         raise ValueError(
             f"decoded edited-label Zarr chunk exceeds max_file_bytes: {path}"
