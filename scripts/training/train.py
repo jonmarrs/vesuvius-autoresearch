@@ -2648,6 +2648,11 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         if total_training_time >= config.time_budget:
             break
 
+    # Release the training loaders and their workers before final validation.
+    del data_iter, data_loader
+    if unlabeled_data_iter is not None:
+        del unlabeled_data_iter, unlabeled_data_loader
+
     print(
         f"Evaluating metrics on validation protocol {protocol} "
         "(a fixed sample; searching for best threshold)..."
@@ -2912,10 +2917,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         f"centerline_errors={validation_diag['centerline_errors']}, "
         f"mean_ap_errors={validation_diag['mean_ap_errors']}"
     )
-    # Join the loader workers before taking their final warning snapshot.
-    del data_iter, data_loader
-    if unlabeled_data_iter is not None:
-        del unlabeled_data_iter, unlabeled_data_loader
     run_warnings = Counter(warning_counts()) - loader_warnings_before
     if shared_warnings is not None:
         run_warnings.update(dict(shared_warnings))

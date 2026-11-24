@@ -149,6 +149,7 @@ Validation always uses strict reads, including the underlying CT reader. The
 chosen `data_read_policy` is recorded in successful checkpoints and run results.
 In `run_result.json`, `loader_warnings` and `augmentation_fallbacks` count
 events from that run. Loader warnings include validation and worker prefetch.
+Training loader workers stop before final validation.
 A failure rate also needs a count of attempted reads. An aborted run may
 leave earlier artifacts.
 

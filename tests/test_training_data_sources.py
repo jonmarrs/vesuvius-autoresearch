@@ -181,9 +181,28 @@ def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, wo
         def device(self, name):
             return torch.device("cpu")
 
+    training_workers = []
+
+    class TrackedLoader(torch.utils.data.DataLoader):
+        def __iter__(self):
+            iterator = super().__iter__()
+            training_workers[:] = getattr(iterator, "_workers", ())
+            return iterator
+
+    collect_validation = train.collect_validation_predictions
+
+    def validate_after_worker_exit(*args, **kwargs):
+        assert len(training_workers) == workers
+        assert all(not worker.is_alive() for worker in training_workers)
+        return collect_validation(*args, **kwargs)
+
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv(train.LOADER_WORKERS_ENV, str(workers))
     monkeypatch.setattr(train, "torch", CpuTorch())
+    monkeypatch.setattr(train, "DataLoader", TrackedLoader)
+    monkeypatch.setattr(
+        train, "collect_validation_predictions", validate_after_worker_exit
+    )
     monkeypatch.setattr(
         vesuvius_loader, "_WARNING_COUNTS", vesuvius_loader.defaultdict(int)
     )
