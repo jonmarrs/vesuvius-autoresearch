@@ -35,7 +35,7 @@ What this means here:
 * **ScrollGT, inkdelta and inkagree are standalone evaluation tools,** the kind now discouraged. Cite one only where it
   changed what an unwrapping or ink-detection tool produces.
 * **Each fix needs a case where it bites in practice:** a real workflow it broke or degraded, and how often.
-* **villa #2258, the only November merge so far, is weak under the new sentence.** By its own description the default
+* **villa #2258, the first of November's two merges so far, is weak under the new sentence.** By its own description the default
   64-voxel seed spacing is unchanged, and it “does not establish a quality improvement”. At a fractional spacing of
   52.73 voxels the seed counts change 1589 → 1590, 11213 → 11175 and 1154 → 1151 on masks from Scrolls 1, 3 and 5,
   at most 0.34% ([record](../reports/villa_fractional_plane_spacing_2026-10-20.json)). It belongs in a bundle, not at
@@ -47,8 +47,15 @@ What this means here:
   by @bruniss, [merge commit](https://github.com/ScrollPrize/villa/commit/bf4392a328f293b8e11d0c95083bae731ef7fd08)):
   fiber volume, keep fractional seed planes on the global grid. It merged after October's deadline (2026-11-01 06:59
   UTC), so it is November's.
+* [villa #2463](https://github.com/ScrollPrize/villa/pull/2463) (merged 2026-11-24 Pacific; `2026-11-24T14:10:01Z`,
+  by @hendrikschilling, [merge commit](https://github.com/ScrollPrize/villa/commit/bcbb7e4c2a127496690db72cf8fbdd21452652a6)):
+  lasagna, put `tifxyz-flow-gate-channels` in `args` in both FlowSnap presets. **Its case in practice:** as shipped,
+  both presets fail before optimizing with an unknown loss-term error (villa #2458). They are used by `fit.py` and
+  offered in VC3D's config picker. The review reproduced the error on main and loaded both presets at the PR's head.
+  It had been recommended for merging by villa's review on 2026-11-20 Pacific.
 
-**Open, and recommended for merging by villa's review** (checked 2026-11-23 11:35 Pacific: none has merged). Each goes
+**Open, and recommended for merging by villa's review** (checked 2026-11-24 12:36 Pacific: #2463 has merged, above;
+these two have not). Each goes
 above only once it merges, with its date:
 * [villa #2501](https://github.com/ScrollPrize/villa/pull/2501), recommended 2026-11-21 Pacific: ink detection,
   refuse a coarse pyramid level whose depth contradicts its declared Z scale (fixes villa
@@ -67,10 +74,6 @@ above only once it merges, with its date:
   * **Credit:** the rule is Bryant Le's, from his #2256, stale-closed on 2026-11-06. The PR ports it to `vc_reader`
     with his agreement. #2107 is EhimenNathan's, and the PR thanks EhimenNathan and AndreasHad04 for the pixel
     evidence.
-* [villa #2463](https://github.com/ScrollPrize/villa/pull/2463), recommended 2026-11-20 Pacific: lasagna, put
-  `tifxyz-flow-gate-channels` in `args` in both FlowSnap presets. **Its case in practice:** as shipped, both presets
-  fail before optimizing with an unknown loss-term error (villa #2458). They are used by `fit.py` and offered in
-  VC3D's config picker. The review reproduced the error on main and loaded both presets at the PR's head.
 * [villa #2465](https://github.com/ScrollPrize/villa/pull/2465), recommended 2026-11-20 Pacific: docs, a note that the
   harmonized Scroll 1 instance-label volumes mix `uint8` and `uint16`. The review pushed a wording change to the
   branch and checked all 80 volume headers. It is documentation, weak under #2450 on its own, and belongs in a
@@ -247,7 +250,7 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     0.98 for the accepted meshes.
 * **A defect in that script, reported upstream**
   ([Nieuwlaar/pherc343-first-letters#2](https://github.com/Nieuwlaar/pherc343-first-letters/issues/2), posted
-  2026-11-22; open, with no reply at 2026-11-23 11:35 Pacific). The script takes the reading orientation from the mesh and the axis alone: it flips
+  2026-11-22; open, with no reply at 2026-11-24 12:36 Pacific). The script takes the reading orientation from the mesh and the axis alone: it flips
   left-right when θ grows along the columns and top-bottom when z grows down the rows. That holds in PHerc. 343's
   frame only.
   * **The case in practice:** on the PHerc. 211 winner's published surface and axis it flips both ways, and turns
@@ -307,4 +310,5 @@ wrong way, has reported and is above.
 
 ```text
 https://github.com/ScrollPrize/villa/pull/2258
+https://github.com/ScrollPrize/villa/pull/2463
 ```
