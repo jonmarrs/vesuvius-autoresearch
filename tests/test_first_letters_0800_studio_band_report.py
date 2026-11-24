@@ -491,3 +491,64 @@ def test_the_strategy_carries_the_finding():
     at = FLAT_STRATEGY.index("first_letters_0800_studio_band.md")
     assert FLAT_STRATEGY.index("first_letters_0813_studio_band.md") < at
     assert at < FLAT_STRATEGY.index("**Kill criterion.**")
+
+
+def test_the_coverage_check_is_quoted_from_its_numbers():
+    cov = DESCRIBED["sheet_coverage"]
+    assert (ROOT / cov["script"]).exists()
+    here = cov["pherc0800"]
+    assert (
+        here["z_working"] == DESCRIBED["z_working"] and here["range_from"] == "raw_all"
+    )
+    s = here["sets"]
+    counted = {v["runs_counted"] for v in s.values()}
+    assert (
+        counted == {28877}
+        and "share of the 28,877 runs with a winding on them" in REPORT
+    )
+    labels = {
+        "raw_all": "the raw fit, all 120",
+        "raw_read": "the raw fit, the 90 read",
+        "raw_dropped": "the raw fit, the 30 left out",
+        "final_read": "the 90 read, snapped and flattened, as rendered",
+    }
+    for key, label in labels.items():
+        row = s[key]
+        assert (
+            f"| {label} | {row['covered_share']} | {row['covered_by_two_or_more_share']} |"
+            in REPORT
+        ), key
+    assert (
+        s["raw_all"]["windings"],
+        s["raw_read"]["windings"],
+        s["raw_dropped"]["windings"],
+    ) == (120, N, 30)
+    lost = round(s["raw_all"]["covered_share"] - s["raw_read"]["covered_share"], 3)
+    assert f"Leaving the 30 out lost {lost} of the runs at this slice" in FLAT
+    assert (
+        f"leaving out the 30 windings cost {lost} of the predicted-sheet runs" in FLAT
+    )
+    assert s["final_read"]["covered_share"] > s["raw_all"]["covered_share"]
+    assert (
+        0.35 < 1 - s["final_read"]["covered_share"] < 0.45
+    )  # "about two runs in five"
+    f129 = cov["pherc0813"]["sets"]["final_read"]["covered_share"]
+    assert 0.35 < 1 - f129 < 0.45 and f"whose read windings cover {f129}" in FLAT
+    ctl = cov["pherc0211_control"]
+    assert ctl["z_working"] == (7650 + 9150) / 2
+    assert ctl["sets"]["raw_all"]["covered_share"] < s["raw_all"]["covered_share"]
+    assert (
+        f"covers {ctl['sets']['raw_all']['covered_share']}, less than this band's raw fit"
+        in FLAT
+    )
+    thirds = s["final_read"]["covered_share_by_third_of_range"]
+    assert thirds[0] == min(thirds)
+    assert f"({thirds[0]}, against {thirds[1]} and {thirds[2]} further out)" in FLAT
+    assert (
+        f"too ({cov['pherc0813']['sets']['final_read']['covered_share_by_third_of_range'][0]})"
+        in FLAT
+    )
+    assert (
+        "(not registered)" in FLAT
+        and "Checked after this report was first written" in FLAT
+    )

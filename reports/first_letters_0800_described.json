@@ -1,6 +1,6 @@
 {
  "finding": 133,
- "described": "after the read, geometry only: predicted-sheet crossings beyond fitted raw windings at the band's middle slice, the fit's windings by the sign of their excess, and the snap's own report of each of its three passes, and the memory pressure sampled beside the second start",
+ "described": "after the read, geometry only: predicted-sheet crossings beyond fitted raw windings at the band's middle slice, the fit's windings by the sign of their excess, and the snap's own report of each of its three passes, and the memory pressure sampled beside the second start; checked after the report was first written: how many predicted-sheet runs at the middle slice have a winding on them (sheet_coverage.py), here and at PHerc. 0813 and PHerc. 211's control band",
  "script": "repro/first_letters/eligible_band/outer_sheets.py",
  "arm": "full (raw fitted windings)",
  "z_working": 11000.0,
@@ -214,5 +214,123 @@
   },
   "between_user_psi10_max": 22.88,
   "first_start_killed": "systemd-oomd 2026-11-23T09:08:20-08:00 during fit_smoke (user@1000.service memory pressure 71.55% > 50% for > 20 s)"
+ },
+ "sheet_coverage": {
+  "script": "repro/first_letters/eligible_band/sheet_coverage.py",
+  "sets": {
+   "raw_all": "the 30,000-step fit's raw windings w010 to w129",
+   "raw_read": "the raw windings selected for the read",
+   "raw_dropped": "the raw windings left out (excess not positive)",
+   "final_read": "the read windings after densify, snap and flatten (final_fulldense), as rendered"
+  },
+  "pherc0800": {
+   "z_working": 11000.0,
+   "degrees_with_range": 360,
+   "range_from": "raw_all",
+   "sets": {
+    "raw_all": {
+     "windings": 120,
+     "runs_counted": 28877,
+     "covered_share": 0.5078,
+     "covered_by_two_or_more_share": 0.0595,
+     "covered_share_by_third_of_range": [
+      0.3452,
+      0.5262,
+      0.646
+     ]
+    },
+    "raw_read": {
+     "windings": 90,
+     "runs_counted": 28877,
+     "covered_share": 0.4638,
+     "covered_by_two_or_more_share": 0.0437,
+     "covered_share_by_third_of_range": [
+      0.2954,
+      0.452,
+      0.6342
+     ]
+    },
+    "raw_dropped": {
+     "windings": 30,
+     "runs_counted": 28877,
+     "covered_share": 0.06,
+     "covered_by_two_or_more_share": 0.0033,
+     "covered_share_by_third_of_range": [
+      0.0597,
+      0.1041,
+      0.0212
+     ]
+    },
+    "final_read": {
+     "windings": 90,
+     "runs_counted": 28877,
+     "covered_share": 0.5942,
+     "covered_by_two_or_more_share": 0.124,
+     "covered_share_by_third_of_range": [
+      0.4085,
+      0.5917,
+      0.7729
+     ]
+    }
+   }
+  },
+  "pherc0813": {
+   "z_working": 10746.0,
+   "degrees_with_range": 360,
+   "range_from": "raw_all",
+   "sets": {
+    "raw_all": {
+     "windings": 120,
+     "runs_counted": 28563,
+     "covered_share": 0.3778,
+     "covered_by_two_or_more_share": 0.0382,
+     "covered_share_by_third_of_range": [
+      0.2368,
+      0.3919,
+      0.5188
+     ]
+    },
+    "raw_read": {
+     "windings": 110,
+     "runs_counted": 28563,
+     "covered_share": 0.369,
+     "covered_by_two_or_more_share": 0.0366,
+     "covered_share_by_third_of_range": [
+      0.2153,
+      0.3875,
+      0.5188
+     ]
+    },
+    "final_read": {
+     "windings": 110,
+     "runs_counted": 28563,
+     "covered_share": 0.5643,
+     "covered_by_two_or_more_share": 0.127,
+     "covered_share_by_third_of_range": [
+      0.3632,
+      0.6123,
+      0.729
+     ]
+    }
+   }
+  },
+  "pherc0211_control": {
+   "z_working": 8400.0,
+   "degrees_with_range": 360,
+   "range_from": "raw_all",
+   "sets": {
+    "raw_all": {
+     "windings": 120,
+     "runs_counted": 24618,
+     "covered_share": 0.3887,
+     "covered_by_two_or_more_share": 0.0232,
+     "covered_share_by_third_of_range": [
+      0.3387,
+      0.4228,
+      0.4415
+     ]
+    }
+   }
+  }
  }
 }

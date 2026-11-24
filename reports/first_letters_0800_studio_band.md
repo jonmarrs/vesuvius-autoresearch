@@ -182,6 +182,27 @@ So at that slice, the outermost fitted winding still has a median of 19 predicte
 0813 the papyrus ended near w110, and villa's fit, which writes 130 windings whatever the scroll, ran past it. Here
 it is the other way. Other slices of this band were not checked.
 
+**Checked after this report was first written (not registered): leaving out the 30 cost few sheet crossings.** At
+the same slice, each winding was cut by the plane z 11000, and along 360 rays from the axis each predicted-sheet run
+inside the band's radial range was marked covered when a cut lay on it
+(`repro/first_letters/eligible_band/sheet_coverage.py`; numbers in `reports/first_letters_0800_described.json`):
+
+| windings | share of the 28,877 runs with a winding on them | with two or more |
+|---|---|---|
+| the raw fit, all 120 | 0.5078 | 0.0595 |
+| the raw fit, the 90 read | 0.4638 | 0.0437 |
+| the raw fit, the 30 left out | 0.06 | 0.0033 |
+| the 90 read, snapped and flattened, as rendered | 0.5942 | 0.124 |
+
+- **Leaving the 30 out lost 0.044 of the runs at this slice**, and the snap more than made it up: the read windings
+  as rendered sit on more runs than the whole raw fit does.
+- **About two runs in five carry no read winding, as at PHerc. 0813**, whose read windings cover 0.5643 measured the
+  same way. The raw fit of PHerc. 211's control band, where Studio read the winner's text, covers 0.3887, less than
+  this band's raw fit. A run is not a sheet: the prediction can break one sheet into pieces along a ray or mark both
+  of its faces, so these shares compare bands and do not count missed sheets.
+- **The inner third of the range is covered least** (0.4085, against 0.5917 and 0.7729 further out), at PHerc. 0813
+  too (0.3632).
+
 ## What it cost
 
 | step | wall time | registered |
@@ -247,8 +268,9 @@ these four.
 1. **Anything about letters, yet.** That rests on the owner's reading of the images.
 2. **A strong negative, if none are seen.** One band of 1,500 slices was read; the fit is unrefined; a quarter of its
    windings lie between sheets and were not read; and the papyrus outside w129 was not fitted.
-3. **That the sheets near the 30 windings left out were read.** A sheet between two of them may be covered by a
-   neighbouring winding or by none. Not checked.
+3. **How many sheets the read misses.** At the middle slice, leaving out the 30 windings cost 0.044 of the
+   predicted-sheet runs, and about two runs in five carry no read winding, as at PHerc. 0813. Runs are not sheets,
+   and one slice is not the band.
 4. **That the predicted sheet is the text-bearing one.** The geometry is measured against the surface prediction,
    not against the papyrus the text is on. Finding 116 found the fit's score blind to a wrong-handed spiral, and
    finding 137 found a wrong-handed fit still reads PHerc. 211's text.
