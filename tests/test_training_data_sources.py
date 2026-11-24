@@ -10,6 +10,7 @@ docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-14_TRAINING_DATA_SOURCES.md.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -140,7 +141,7 @@ def test_periodic_checkpoint_checks_the_active_config_before_evaluation(tmp_path
     assert active.read_bytes() == b"active configuration"
 
 
-def _volume(root, depth=33, labels=True):
+def _volume(root, depth=33, labels=True, **array_options):
     """A fragment whose slice z holds the value z, so a read shows its depth."""
     root.mkdir()
     volume = zarr.open(
@@ -149,6 +150,7 @@ def _volume(root, depth=33, labels=True):
         shape=(depth, 32, 32),
         chunks=(depth, 32, 32),
         dtype="u1",
+        **array_options,
     )
     volume[:] = np.broadcast_to(
         np.arange(depth, dtype=np.uint8)[:, None, None], (depth, 32, 32)
@@ -166,6 +168,181 @@ def _config(uri, **kwargs):
     return ExperimentConfig(
         num_layers=16, patch_size=16, depth_band=[1, 27], uris=[uri], **kwargs
     )
+
+
+@pytest.mark.parametrize("workers", [0, 1])
+def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, workers):
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    class CpuTorch:
+        def __getattr__(self, name):
+            return getattr(torch, name)
+
+        def device(self, name):
+            return torch.device("cpu")
+
+    training_workers = []
+
+    class TrackedLoader(torch.utils.data.DataLoader):
+        def __iter__(self):
+            iterator = super().__iter__()
+            training_workers[:] = getattr(iterator, "_workers", ())
+            return iterator
+
+    collect_validation = train.collect_validation_predictions
+
+    def validate_after_worker_exit(*args, **kwargs):
+        assert len(training_workers) == workers
+        assert all(not worker.is_alive() for worker in training_workers)
+        return collect_validation(*args, **kwargs)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, str(workers))
+    monkeypatch.setattr(train, "torch", CpuTorch())
+    monkeypatch.setattr(train, "DataLoader", TrackedLoader)
+    monkeypatch.setattr(
+        train, "collect_validation_predictions", validate_after_worker_exit
+    )
+    monkeypatch.setattr(
+        vesuvius_loader, "_WARNING_COUNTS", vesuvius_loader.defaultdict(int)
+    )
+    monkeypatch.setattr(train, "AUGMENTATION_FALLBACKS", {"batchgeneratorsv2": 4})
+    vesuvius_loader._warn_limited("labeled_zero_patch", "failure from a prior run")
+    vesuvius_loader._warn_limited("ridge_fallback", "another warning from a prior run")
+    uri = _volume(tmp_path / "train", depth=16, compressor=None)
+    chunk = Path(uri) / "0.0.0"
+    raw = chunk.read_bytes()
+    chunk.write_bytes(raw[:-1])
+    config = ExperimentConfig(
+        uris=[uri],
+        val_uri=_volume(tmp_path / "val", depth=16),
+        num_layers=8,
+        patch_size=16,
+        batch_size=1,
+        time_budget=0,
+        checkpoint_out=str(tmp_path / "trial.pt"),
+        cache_dir=str(tmp_path / "cache"),
+        disable_augmentation=True,
+        use_wandb=False,
+    )
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    result_path = tmp_path / "run_result.json"
+    train.train(config)
+    failed_read = json.loads(result_path.read_text())
+    assert failed_read["steps"] == 1
+    assert set(failed_read["loader_warnings"]) == {"labeled_zero_patch"}
+    # A worker may also read prefetched patches from the four-position grid.
+    assert (
+        1
+        <= failed_read["loader_warnings"]["labeled_zero_patch"]
+        <= (4 if workers else 1)
+    )
+    assert failed_read["augmentation_fallbacks"] == {"batchgeneratorsv2": 0}
+
+    chunk.write_bytes(raw)
+    train.train(config)
+    clean = json.loads(result_path.read_text())
+    assert clean["steps"] == 1
+    assert clean["loader_warnings"] == {}
+    assert clean["augmentation_fallbacks"] == {"batchgeneratorsv2": 0}
+    assert vesuvius_loader.warning_counts() == {
+        "labeled_zero_patch": 1 if workers else 2,
+        "ridge_fallback": 1,
+    }
+
+
+@pytest.mark.parametrize("catalog", [False, True])
+def test_validation_file_uri_reads_the_same_catalog_and_tensors(tmp_path, catalog):
+    from scripts.training.promotion import validation_inputs_fingerprint
+
+    root = tmp_path / "heldout #1"
+    uri = _volume(root, depth=24)
+    positive = np.zeros((32, 32), dtype=np.uint8)
+    positive[:16, :16] = 255
+    Image.fromarray(positive).save(root / "inklabels_refined.png")
+    Image.fromarray(positive).save(root / "mask.png")
+    if catalog:
+        (root / "patches.json").write_text('{"patches":[{"y":16,"x":16}]}')
+    config = ExperimentConfig(
+        val_uri=uri, num_layers=16, patch_size=16, cache_dir=str(tmp_path / "cache")
+    )
+    plain = train.build_validation_dataset(config)
+    config.val_uri = Path(uri).as_uri().replace("file://", "file://localhost", 1)
+    linked = train.build_validation_dataset(config)
+    assert linked.validation_inputs == plain.validation_inputs
+    assert validation_inputs_fingerprint(config.val_uri) == plain.validation_inputs
+    np.testing.assert_array_equal(linked.valid_coords, plain.valid_coords)
+    assert len(plain) == 1
+    assert all(torch.equal(a, b) for a, b in zip(linked[0], plain[0], strict=True))
+
+
+def test_trainer_reads_sidecars_beside_a_file_uri_volume_alias(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, "0")
+    stored = _volume(tmp_path / "stored", depth=24)
+    visible = tmp_path / "visible #1"
+    visible.mkdir()
+    alias = visible / "surface_volume.zarr"
+    alias.symlink_to(stored, target_is_directory=True)
+    (visible / "patches.json").write_text('{"patches":[{"y":16,"x":16}]}')
+    pseudo = tmp_path / "pseudo"
+    pseudo.mkdir()
+    Image.fromarray(np.full((32, 32), 255, np.uint8)).save(
+        pseudo / "visible #1_pseudo.png"
+    )
+    config = ExperimentConfig(
+        val_uri=_volume(tmp_path / "heldout", depth=24),
+        uris=[alias.as_uri()],
+        num_layers=16,
+        patch_size=16,
+        cache_dir=str(tmp_path / "cache"),
+        use_wandb=False,
+        pseudo_label_dir=str(pseudo),
+        use_confidence_weight=True,
+    )
+
+    def check(dataset, *args, **kwargs):
+        assert dataset.valid_coords.tolist() == [[16, 16]]
+        assert torch.all(dataset[0][1] == 1)
+        raise _ReachedTheLoader
+
+    monkeypatch.setattr(train, "shuffled_loader", check)
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    with pytest.raises(_ReachedTheLoader):
+        train.train(config)
+
+
+def test_file_uri_pseudo_label_is_protected_before_the_trainer_can_write(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "training #1"
+    uri = _volume(root)
+    pseudo = tmp_path / "pseudo"
+    pseudo.mkdir()
+    label = pseudo / "training #1_pseudo.png"
+    label.write_bytes(b"existing pseudo label")
+    config = _config(
+        Path(uri).as_uri(),
+        checkpoint_out=str(label),
+        pseudo_label_dir=str(pseudo),
+        use_confidence_weight=True,
+    )
+    monkeypatch.setattr(
+        train.torch,
+        "set_float32_matmul_precision",
+        lambda *args: pytest.fail("reached model setup"),
+    )
+    with pytest.raises(ValueError, match="artifact collision"):
+        train.train(config)
+    assert label.read_bytes() == b"existing pseudo label"
 
 
 @pytest.mark.parametrize("kind", ["refined", "pseudo", "mask"])
@@ -342,8 +519,8 @@ def test_a_training_volume_read_by_uamt_is_read_inside_the_band(tmp_path):
     """The production layout: unlabeled_uris is the training volume, 33 slices,
     band [1, 27), 24-slice reads. The band widened by the 4-slice margin is
     [0, 31), so reads start at 0-7; over the whole depth they started at 0-9."""
-    uri = _volume(tmp_path / "Fr47")
-    for spelling in (uri, uri + "/"):  # one volume, matched as inference matches
+    uri = _volume(tmp_path / "Fr47 #1")
+    for spelling in (uri, uri + "/", Path(uri).as_uri()):
         dataset = train.unlabeled_dataset(spelling, _config(uri), seed=0)
         assert dataset.depth_range == (0, 31)
     starts = _read_starts(dataset)

@@ -141,6 +141,26 @@ def test_relative_checkout_base_protects_the_actual_annotation_path(
     assert not (root / "trials").exists()
 
 
+def test_file_uri_protects_the_decoded_pseudo_label_from_another_directory(
+    tmp_path, monkeypatch
+):
+    repo = tmp_path / "repo"
+    volume = repo / "train #1" / "volume.zarr"
+    volume.mkdir(parents=True)
+    label = repo / "pseudo" / "train #1_pseudo.png"
+    label.parent.mkdir()
+    label.write_bytes(b"selected pseudo label")
+    uri = volume.as_uri()
+    caller = tmp_path / "outside"
+    (caller / uri).mkdir(parents=True)
+    monkeypatch.chdir(caller)
+    with pytest.raises(ValueError, match="artifact collision"):
+        validate_training_checkpoint_writes(
+            config(str(label), uris=[uri]), base_dir=repo
+        )
+    assert label.read_bytes() == b"selected pseudo label"
+
+
 @pytest.mark.parametrize(
     "name",
     [

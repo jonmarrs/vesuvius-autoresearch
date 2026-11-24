@@ -1076,3 +1076,310 @@ def test_a_tiled_page_is_refused_even_when_one_tile_is_the_whole_page(tmp_path):
         sessions._verify_exports(
             tmp_path, progress, ct, {"patch_size": edge}, sessions.limits()
         )
+
+
+# --- the edited-label Zarr check without Villa: _verify_exports directly, and verify_record on a session written here
+# with a stand-in proofreader file. The tests above that run the pinned writer need Villa's source.
+
+
+def _edited_store(
+    root, ct, crops=((0, 0, 0), (8, 8, 0)), value=1, chunk_shape=(8, 8, 8), **header
+):
+    """An edited-label Zarr holding `value` in each approved crop, then `header` written into its .zarray."""
+    path = root / "edited_labels.zarr"
+    array = zarr.open_array(
+        str(path),
+        mode="w",
+        shape=ct.shape,
+        chunks=chunk_shape,
+        dtype="u1",
+        fill_value=0,
+    )
+    for z, y, x in crops:
+        array[z : z + EDGE, y : y + EDGE, x : x + EDGE] = value
+    if header:
+        meta = json.loads((path / ".zarray").read_text())
+        for key, new in header.items():
+            if new is None:
+                del meta[key]
+            else:
+                meta[key] = new
+        (path / ".zarray").write_text(json.dumps(meta))
+    return path
+
+
+def _verify_edited(root, progress, ct, path, **budget):
+    return sessions._verify_exports(
+        root,
+        progress,
+        ct,
+        {"patch_size": EDGE},
+        sessions.limits(**budget),
+        edited_label_path=path,
+    )
+
+
+def test_approved_labels_equal_to_the_edited_zarr_crops_are_reported(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    report = _verify_edited(tmp_path, progress, ct, _edited_store(tmp_path, ct))
+    assert report["pairs_verified"] == 2
+    assert report["edited_labels"] == {
+        "path": "edited_labels.zarr", "shape_zyx": [16, 16, 16], "dtype": "uint8", "approved_crops_verified": 2,
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("crops", "flip", "where"),
+    [
+        (
+            ((0, 0, 0), (8, 8, 0)),
+            (15, 15, 7),
+            "[8, 8, 0]",
+        ),  # one voxel of the second crop differs
+        (
+            ((0, 0, 0), (0, 8, 8)),
+            None,
+            "[8, 8, 0]",
+        ),  # the store holds the crop at Z and X swapped
+    ],
+)
+def test_an_approved_label_that_differs_from_the_edited_zarr_at_its_logged_coordinates_is_refused(
+    tmp_path, crops, flip, where
+):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    path = _edited_store(tmp_path, ct, crops=crops)
+    if flip:
+        zarr.open_array(str(path), mode="r+")[flip] = 2
+    with pytest.raises(ValueError) as refused:
+        _verify_edited(tmp_path, progress, ct, path)
+    assert (
+        str(refused.value)
+        == f"approved label TIFF differs from edited-label Zarr at {where}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("arrange", "budget", "message"),
+    [
+        ("missing", {}, "missing edited-label Zarr"),
+        ("linked", {}, "edited-label Zarr must be a nonsymlink directory"),
+        ("group", {}, "edited-label Zarr must be a bare Zarr v2 array"),
+        ("no_chunks", {}, "invalid edited-label Zarr metadata"),
+        ("shape", {}, "must match the CT shape"),
+        ("dtype", {}, "with uint8 labels"),
+        ("fill_value", {}, "and zero fill"),
+        ("chunk_rank", {}, "invalid edited-label Zarr chunk geometry"),
+        ("zero_chunk", {}, "invalid edited-label Zarr chunk geometry"),
+        (
+            "big_chunks",
+            {"max_file_bytes": 16**3 - 1},
+            "decoded edited-label Zarr chunk exceeds max_file_bytes",
+        ),
+        (
+            "many_files",
+            {"max_entries": 6},
+            "proofreader source exceeds max_entries",
+        ),  # the exports need just 6
+    ],
+)
+def test_an_edited_zarr_that_is_not_a_bounded_bare_uint8_array_of_the_ct_shape_is_refused_before_any_crop(
+    tmp_path, monkeypatch, arrange, budget, message
+):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    path = tmp_path / "edited_labels.zarr"
+    if arrange == "linked":
+        _edited_store(tmp_path / "elsewhere", ct)
+        path.symlink_to(
+            tmp_path / "elsewhere" / "edited_labels.zarr", target_is_directory=True
+        )
+    elif arrange == "group":
+        zarr.open_group(str(path), mode="w").create_dataset(
+            "0", shape=ct.shape, chunks=(8, 8, 8), dtype="u1"
+        )
+    elif arrange != "missing":
+        header = {"no_chunks": {"chunks": None}, "shape": {"shape": [16, 16, 17]}, "dtype": {"dtype": "<u2"},
+                  "fill_value": {"fill_value": 1}, "chunk_rank": {"chunks": [8, 8]},
+                  "zero_chunk": {"chunks": [0, 8, 8]}}.get(arrange, {})  # fmt: skip
+        every = [
+            (z, y, x) for z in (0, 8) for y in (0, 8) for x in (0, 8)
+        ]  # a chunk file for each crop
+        _edited_store(tmp_path, ct, crops=every if arrange == "many_files" else ((0, 0, 0), (8, 8, 0)),
+                      chunk_shape=(16, 16, 16) if arrange == "big_chunks" else (8, 8, 8), **header)  # fmt: skip
+    monkeypatch.setattr(
+        sessions, "_capture_tiff", lambda *a: pytest.fail("a crop was read")
+    )
+    with pytest.raises(ValueError, match=message):
+        _verify_edited(tmp_path, progress, ct, path, **budget)
+
+
+def test_an_edited_chunk_exactly_at_the_file_limit_is_read(tmp_path):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    path = _edited_store(tmp_path, ct, chunk_shape=(16, 16, 16))
+    assert (
+        _verify_edited(tmp_path, progress, ct, path, max_file_bytes=16**3)[
+            "pairs_verified"
+        ]
+        == 2
+    )
+
+
+def test_a_log_with_no_approvals_still_needs_a_compatible_edited_zarr(tmp_path):
+    ct = _ct()
+    progress = {
+        "progress_log": [],
+        "metadata": {"total_approved": 0},
+        "approved_patches": [],
+    }
+    with pytest.raises(ValueError, match="missing edited-label Zarr"):
+        _verify_edited(tmp_path, progress, ct, tmp_path / "edited_labels.zarr")
+    path = _edited_store(tmp_path, ct, crops=())
+    assert (
+        _verify_edited(tmp_path, progress, ct, path)["edited_labels"][
+            "approved_crops_verified"
+        ]
+        == 0
+    )
+
+
+def test_an_edited_zarr_that_changes_while_its_crops_are_read_is_refused(
+    tmp_path, monkeypatch
+):
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    path = _edited_store(tmp_path, ct)
+    capture = sessions._capture_tiff
+
+    def capture_then_edit(file, edge, limit, role):
+        result = capture(file, edge, limit, role)
+        if role == "label":
+            (path / ".zattrs").write_text('{"edited": true}')
+        return result
+
+    monkeypatch.setattr(sessions, "_capture_tiff", capture_then_edit)
+    with pytest.raises(
+        ValueError, match="edited-label Zarr changed during export verification"
+    ):
+        _verify_edited(tmp_path, progress, ct, path)
+
+
+def _session_without_villa(tmp_path):
+    """A receipt bound to a stand-in proofreader file, one approved pair at (0, 8, 0) and the edited store."""
+    ct, labels = tmp_path / "ct.zarr", tmp_path / "labels.zarr"
+    for path, dtype, value in ((ct, "u2", 7), (labels, "u1", 1)):
+        zarr.open(
+            str(path), mode="w", shape=(8, 16, 16), chunks=(4, 8, 8), dtype=dtype
+        )[:] = value
+    proofreader = tmp_path / "pinned_proofreader.txt"
+    proofreader.write_text("a stand-in for the pinned source")
+    root = (tmp_path / "session").resolve()
+    root.mkdir()
+    config = sessions.recorded_config(ct, labels, root, EDGE)
+    sessions.create_record(config, proofreader, sessions.DEFAULT_LIMITS)
+    (root / "imagesTr").mkdir()
+    (root / "labelsTr").mkdir()
+    tifffile.imwrite(
+        root / "imagesTr" / "z0_y8_x0_0000.tif", np.full((EDGE,) * 3, 7, np.uint16)
+    )
+    tifffile.imwrite(
+        root / "labelsTr" / "z0_y8_x0.tif", np.full((EDGE,) * 3, 42, np.uint8)
+    )
+    edited = zarr.open_array(
+        config["output_label_zarr"],
+        mode="w",
+        shape=(8, 16, 16),
+        chunks=(8, 8, 8),
+        dtype="u1",
+    )
+    edited[0:8, 8:16, 0:8] = 42
+    entry = {
+        "index": 2,
+        "coords": [0, 8, 0],
+        "percentage": 100.0,
+        "status": "approved",
+        "date_processed": "d",
+    }
+    selected = config["volumes"]["Autoresearch_Prediction"]
+    progress = {
+        "metadata": {"patch_size": EDGE, "volume_selection": "Autoresearch_Prediction",
+                     "image_zarr": selected["volume_path"], "label_zarr": selected["label_path"],
+                     "volume_shape": [8, 16, 16], "coordinate_system": "highest_resolution",
+                     "dataset_out_path": str(root), "images_out_dir": str(root / "imagesTr"),
+                     "labels_out_dir": str(root / "labelsTr"), "total_approved": 1},
+        "progress_log": [entry],
+        "approved_patches": [{"volume_index": 0, "coords": [0, 8, 0], "percentage": 100.0, "index": 2,
+                              "date_processed": "d", "image_filename": "z0_y8_x0_0000.tif",
+                              "label_filename": "z0_y8_x0.tif", "patch_size": EDGE}],
+    }  # fmt: skip
+    (root / "progress.json").write_text(json.dumps(progress))
+    return root, proofreader, labels
+
+
+@pytest.mark.parametrize(("patches", "edited"), [(False, True), (True, False)])
+def test_the_edited_label_check_alone_also_checks_the_pairs_and_says_so_in_its_scope(
+    tmp_path, patches, edited
+):
+    root, proofreader, _ = _session_without_villa(tmp_path)
+    report = sessions.verify_record(root, proofreader, sessions.DEFAULT_LIMITS, verify_approved_patches=patches,
+                                    verify_edited_labels=edited)  # fmt: skip
+    exports = report["progress"]["approved_exports"]
+    assert (
+        report["approved_patch_files_verified"] is True
+        and exports["pairs_verified"] == 1
+    )
+    assert ("edited_labels" in exports) is edited
+    assert (
+        report["scope"].endswith(
+            " Edited-label Zarr values match within approved crops."
+        )
+        is edited
+    )
+    if edited:
+        assert exports["edited_labels"]["approved_crops_verified"] == 1
+
+
+@pytest.mark.parametrize("role", ["ct", "labels"])
+def test_a_source_that_changes_while_the_edited_crops_are_read_is_named(
+    tmp_path, monkeypatch, role
+):
+    root, proofreader, labels = _session_without_villa(tmp_path)
+    source = tmp_path / ("ct.zarr" if role == "ct" else "labels.zarr")
+    capture = sessions._capture_tiff
+
+    def capture_then_touch(file, edge, limit, kind):
+        result = capture(file, edge, limit, kind)
+        if kind == "label":
+            (source / ".zattrs").write_text('{"touched": true}')
+        return result
+
+    monkeypatch.setattr(sessions, "_capture_tiff", capture_then_touch)
+    name = "CT" if role == "ct" else "labels"
+    with pytest.raises(
+        ValueError, match=f"recorded {name} changed during export verification"
+    ):
+        sessions.verify_record(
+            root, proofreader, sessions.DEFAULT_LIMITS, verify_edited_labels=True
+        )
+
+
+@pytest.mark.parametrize(
+    "text", ["{not json", "[]", "null", '{"zarr_format": 2, "shape": "x"}']
+)
+def test_unreadable_edited_zarr_metadata_is_refused_with_the_checkers_own_error(
+    tmp_path, monkeypatch, text
+):
+    """A .zarray that is not JSON, or not a JSON object, is refused as invalid metadata with its path: never an
+    AttributeError, which the checker's command line does not catch, nor a parser message without the path."""
+    ct = _ct()
+    progress = _exports(tmp_path, ct)
+    path = _edited_store(tmp_path, ct)
+    (path / ".zarray").write_text(text)
+    monkeypatch.setattr(
+        sessions, "_capture_tiff", lambda *a: pytest.fail("a crop was read")
+    )
+    with pytest.raises(ValueError) as refused:
+        _verify_edited(tmp_path, progress, ct, path)
+    assert str(refused.value) == f"invalid edited-label Zarr metadata: {path}"

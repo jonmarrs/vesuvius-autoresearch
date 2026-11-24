@@ -20,6 +20,7 @@ import functools
 import json
 import math
 import time
+from collections import Counter
 from dataclasses import asdict
 
 import kimimaro
@@ -74,7 +75,7 @@ from scripts.training.ink_losses import (
     confidence_weight,
     confidence_weighted_ink_losses,
 )
-from scripts.training.input_paths import training_label_path
+from scripts.training.input_paths import training_label_path, training_volume_path
 from scripts.training.promotion import (
     RESCORE_COMMAND,
     VALIDATION_LABEL_FILES,
@@ -829,7 +830,7 @@ def build_validation_dataset(config: ExperimentConfig):
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
     dataset = VesuviusLabeledDataset(
-        config.val_uri,
+        training_volume_path(config.val_uri),
         labels_path,
         mask_path if inputs["mask"] is not None or os.path.exists(mask_path) else None,
         config.patch_size,
@@ -902,7 +903,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         uri,
     )
     return VesuviusS3Dataset(
-        uri,
+        training_volume_path(uri),
         config.patch_size,
         num_layers + 2 * DEPTH_MARGIN,
         seed=seed,
@@ -2101,6 +2102,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
     read_policy = data_read_policy(config)
     validate_training_split(config)
     validate_training_checkpoint_writes(config, config_path=config_path)
+    loader_warnings_before = Counter(warning_counts())
+    augmentation_fallbacks_before = dict(AUGMENTATION_FALLBACKS)
     print("STARTING TRAINING")
     # What this run's score is comparable with; the depth band is part of it.
     protocol = validation_protocol(getattr(config, "depth_band", None))
@@ -2129,7 +2132,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 datasets.append(unlabeled_dataset(uri, config, seed))
                 continue
 
-            parent_dir = os.path.dirname(uri.rstrip("/"))
+            volume = training_volume_path(uri)
+            parent_dir = os.path.dirname(volume.rstrip("/"))
             labels_path = training_labels[uri]
             mask_path = os.path.join(parent_dir, "mask.png")
             patches_json_path = os.path.join(parent_dir, "patches.json")
@@ -2137,7 +2141,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 patches_json_path if os.path.lexists(patches_json_path) else None
             )
             ds = VesuviusLabeledDataset(
-                uri,
+                volume,
                 labels_path,
                 mask_path
                 if catalog_path is None and os.path.lexists(mask_path)
@@ -2644,6 +2648,11 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         if total_training_time >= config.time_budget:
             break
 
+    # Release the training loaders and their workers before final validation.
+    del data_iter, data_loader
+    if unlabeled_data_iter is not None:
+        del unlabeled_data_iter, unlabeled_data_loader
+
     print(
         f"Evaluating metrics on validation protocol {protocol} "
         "(a fixed sample; searching for best threshold)..."
@@ -2908,9 +2917,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         f"centerline_errors={validation_diag['centerline_errors']}, "
         f"mean_ap_errors={validation_diag['mean_ap_errors']}"
     )
-    loader_warnings = warning_counts()
-    for key, count in dict(shared_warnings or {}).items():  # the loader workers'
-        loader_warnings[key] = loader_warnings.get(key, 0) + count
+    run_warnings = Counter(warning_counts()) - loader_warnings_before
+    if shared_warnings is not None:
+        run_warnings.update(dict(shared_warnings))
+    loader_warnings = dict(run_warnings)
     if loader_warnings:
         print(f"loader_warnings:       {loader_warnings}")
     if skipped_updates:
@@ -3058,10 +3068,11 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         "villa_metrics_ok": bool(villa_metrics_ok),
         "prize_gate_failures": prize_gate_failures,
         "validation_diag": validation_diag,
-        "augmentation_fallbacks": dict(AUGMENTATION_FALLBACKS),
-        # Loader fallbacks this run hit (zero ridges, unwarped lasagna patches,
-        # zero patches on read errors), counted past the few messages, the
-        # loader workers' included (share_warning_counts).
+        "augmentation_fallbacks": {
+            key: count - augmentation_fallbacks_before.get(key, 0)
+            for key, count in AUGMENTATION_FALLBACKS.items()
+        },
+        # Includes validation and worker prefetch during this run.
         "loader_warnings": loader_warnings,
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).
@@ -3076,13 +3087,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         "warm_start": warm_started,
         "is_success": bool(is_improvement),
     }
-
-    # Cleanup multiprocessing iterators to avoid leaked semaphores
-    del data_iter
-    del data_loader
-    if unlabeled_data_iter is not None:
-        del unlabeled_data_iter
-        del unlabeled_data_loader
 
     # Write run_result.json as the VERY LAST step
     with open("run_result.json", "w") as f:

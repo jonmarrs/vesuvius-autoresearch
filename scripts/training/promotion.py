@@ -37,6 +37,7 @@ import numpy as np
 
 from scripts.training.input_paths import (
     VALIDATION_LABEL_FILES,
+    training_volume_path,
     validation_input_paths,
     validation_label_path,
 )
@@ -111,8 +112,8 @@ def validation_inputs_record(
     """
     if not isinstance(val_uri, str) or not val_uri:
         raise ValueError("the validation inputs need a val_uri")
-    paths = validation_input_paths(val_uri)
-    volume = val_uri.rstrip("/")
+    volume = training_volume_path(val_uri).rstrip("/")
+    paths = validation_input_paths(volume)
     catalog_path = paths["patches_json"]
     catalog_sha256 = (
         hashlib.sha256(capture_patch_catalog(catalog_path)).hexdigest()

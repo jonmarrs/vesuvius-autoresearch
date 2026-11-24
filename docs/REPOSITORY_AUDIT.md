@@ -1994,3 +1994,52 @@ The twelve-module integration selection passed **666 tests**. Two skips
 require the local PHercParis2Fr143 volume and CuPy, respectively. The
 portable profile passed **613 tests** and repository guards passed
 **46 tests**. Ruff, formatting and Mypy passed.
+
+## File URI training inputs (2026-11-24 UTC)
+
+This pass starts from main `edf8fc37`. The CT reader accepted local file URIs,
+but the trainer and validator searched for annotations beside the literal URI.
+A path containing spaces and `#` reproduced missing labels and patch catalogs.
+The checkpoint guard also missed a pseudo-label whose decoded segment name
+matched the configured checkpoint output. The regression stops before model
+setup and checks that the label bytes are intact.
+
+Training, validation, checkpoint protection and workspace status now use the
+decoded local path. Sidecar lookup keeps a volume symlink's visible parent.
+The same held-out data supplied as a path or a `file://localhost` URI produced
+identical validation fingerprints, coordinates and patch tensors with both
+automatic and explicit patch selection. The real trainer fixture loaded a
+pseudo-label and catalog beside a visible alias whose CT lives elsewhere.
+Remote source identity and registration remain open review items.
+[Local volume identifiers](TRAINING_DATA_IMPORT.md#local-volume-identifiers)
+
+PR review found a second lookup of URI-shaped local paths using the process's
+working directory. A literal matching path there made workspace setup status
+unknown and let the checkpoint guard miss the decoded pseudo-label. Both
+lookups now use the inspected checkout. The two regressions simulate another
+caller directory and preserve the selected pseudo-label.
+
+The twelve-module CPU integration selection passed **732 tests**. Two skips
+require CuPy and the local PHercParis2Fr143 volume. The final focused URI
+selection passed **10 tests**, including the URI form of the UA-MT band
+fixture. The portable profile passed **623 tests** and repository guards
+passed **46 tests**. Workspace status ran under `python -S` from a separate
+working directory and preserved the fixture files. Ruff, formatting and
+Mypy passed.
+
+## Per-run training fallback counts (2026-11-24 UTC)
+
+This pass starts from main `fe6c25ba`. Two calls to the trainer in one Python
+process shared cumulative warnings and augmentation fallback counts. A CPU
+fixture with one previous loader warning and one new CT read failure
+reported two fallbacks for the new run.
+
+`run_result.json` now records the difference from the counters at the start
+of each run, plus warnings from the run's workers. Review reproduced a
+training worker still running during final validation. The trainer now
+releases the training loaders and workers before final validation, then
+reports the counts after validation. Console throttling still uses the
+process counters. The report includes validation and any worker prefetch.
+A CT read-failure rate still requires an attempted-read count and a
+representative workload.
+[Training read policy](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy)

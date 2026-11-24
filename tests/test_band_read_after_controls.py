@@ -117,3 +117,65 @@ def test_three_snap_passes_only_on_finding_134s_consequence_with_the_denser_snap
         f"finding_134={shown.get(c134, c134)}" in first
         and f"FL_SNAP_PASSES={expected_passes}" in first
     )
+
+
+def _wrapped(env, *command):
+    return subprocess.run(
+        ["bash", str(WRAPPER), *command],
+        env={"PATH": "/usr/bin:/bin", **env},
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_without_a_command_the_wrapper_stops_before_it_reads_a_record(tmp_path):
+    run = _wrapped({"FL_CONTROL_DIR": str(tmp_path / "ctrl")})
+    assert run.returncode == 2
+    assert "usage: run_after_controls.sh COMMAND..." in run.stderr
+    assert run.stdout == ""
+
+
+def test_the_records_are_read_under_fl_root_unless_fl_control_dir_is_given(tmp_path):
+    root = tmp_path / "root"
+    work = root / "pherc0211_control" / "work"
+    work.mkdir(parents=True)
+    (work / "studio_fast.json").write_text(json.dumps({"verdict": "SKIP_ADOPTED"}))
+    command = ("bash", "-c", 'echo "GOT ${STUDIO_SKIP_EMPTY}"')
+    run = _wrapped({"FL_ROOT": str(root)}, *command)
+    assert run.returncode == 0
+    assert "finding_132=SKIP_ADOPTED" in run.stdout and "GOT 1" in run.stdout.split(
+        "\n"
+    )
+    run = _wrapped(
+        {"FL_ROOT": str(root), "FL_CONTROL_DIR": str(tmp_path / "elsewhere")}, *command
+    )
+    assert run.returncode == 0
+    assert "finding_132=missing" in run.stdout and "GOT 0" in run.stdout.split("\n")
+
+
+@pytest.mark.parametrize(
+    ("name", "record", "shown"),
+    [
+        ("studio_fast.json", {"consequence": "SKIP_ADOPTED"}, "finding_132=missing"),
+        ("dense_read.json", {"verdicts": "DENSE_READS_WORSE"}, "finding_131=missing"),
+        (
+            "snap_passes.json",
+            {"verdict": "three_passes"},
+            "finding_134=missing",
+        ),  # the consequence is read
+    ],
+)
+def test_a_record_without_its_key_counts_as_missing(tmp_path, name, record, shown):
+    work = tmp_path / "ctrl" / "work"
+    work.mkdir(parents=True)
+    (work / name).write_text(json.dumps(record))
+    command = (
+        "bash",
+        "-c",
+        'echo "GOT ${STUDIO_SKIP_EMPTY} ${FL_DENSIFY-unset} ${FL_SNAP_PASSES}"',
+    )
+    run = _wrapped({"FL_CONTROL_DIR": str(tmp_path / "ctrl")}, *command)
+    assert run.returncode == 0
+    first, got = run.stdout.strip().split("\n")
+    assert shown in first
+    assert got.split()[1:] == ["0", "2", "1"]
