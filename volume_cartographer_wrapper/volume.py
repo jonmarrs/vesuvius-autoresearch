@@ -21,6 +21,8 @@ from urllib.parse import unquote, urlparse
 import numpy as np
 import zarr
 
+from vesuvius_autoresearch.core.volume_paths import select_local_zarr_array
+
 
 class VolumeCartographerUnavailable(RuntimeError):
     """Raised when a requested Volume Cartographer path cannot be opened."""
@@ -58,13 +60,7 @@ def local_volume_path(path_or_url: str | Path | None) -> Path:
 
 def local_volume_array_path(path_or_url: str | Path) -> Path:
     """Resolve the actual array selected from a local array or OME level-0 group."""
-    path = local_volume_path(path_or_url).resolve()
-    if (path / ".zarray").exists():
-        return path
-    level0 = path / "0"
-    if (level0 / ".zarray").exists():
-        return level0.resolve()
-    return path
+    return select_local_zarr_array(local_volume_path(path_or_url))
 
 
 def zarr_chunk_separator(array: zarr.Array, path: Path) -> str:

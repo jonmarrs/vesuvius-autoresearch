@@ -27,8 +27,10 @@ priority and the confidence-weight requirement for pseudo-labels.
 The `training_split` check rejects observable overlap between the validation
 volume and labeled or active UA-MT inputs. It recognizes local path aliases,
 symlinks, directory ancestry, existing inode aliases and matching remote resource
-identifiers, without opening arrays or making network requests. Different remote
-URLs, copied volumes and physically overlapping crops remain unverified.
+identifiers, without opening arrays or making network requests. It compares both
+the configured root and the resolved Zarr array, including a linked OME level 0.
+Different remote URLs, copied volumes and physically overlapping crops remain
+unverified.
 Existing local paths take precedence over URI parsing, matching the CT reader,
 including local names containing colons. For symlinked volumes, annotation paths
 stay beside the configured volume path, as they do in training.

@@ -29,15 +29,22 @@ from scripts.training.config import ExperimentConfig  # noqa: E402
 
 
 @pytest.mark.parametrize("kind", ["labeled", "uamt"])
+@pytest.mark.parametrize("linked_level", [False, True])
 def test_heldout_overlap_stops_the_real_trainer_before_labels_or_gpu(
-    tmp_path, monkeypatch, kind
+    tmp_path, monkeypatch, kind, linked_level
 ):
     validation = _volume(tmp_path / "heldout")
+    candidate = validation
+    if linked_level:
+        group = tmp_path / "other volume.zarr"
+        zarr.open_group(str(group), mode="w")
+        (group / "0").symlink_to(validation, target_is_directory=True)
+        candidate = group.as_uri()
     selected = _config(
-        validation if kind == "labeled" else _volume(tmp_path / "training"),
+        candidate if kind == "labeled" else _volume(tmp_path / "training"),
         val_uri=validation,
         use_uamt=kind == "uamt",
-        unlabeled_uris=[validation + "/"],
+        unlabeled_uris=[candidate + "/"],
     )
 
     def too_early(*args, **kwargs):

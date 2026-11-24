@@ -1,6 +1,7 @@
 """Stat-only checks for observable overlap with the held-out CT volume.
 
-A local path compares directory ancestry and inode identity. A remote address
+A local path compares directory ancestry and inode identity for the configured
+root and the selected Zarr array, including an OME level-0 link. A remote address
 is compared after normalization. Scheme and host case, a trailing dot on the
 host, an ``http``/``https`` pair, a default port, backslashes, path parameters,
 and repeated percent-encoding do not make the same volume look different.
@@ -29,7 +30,10 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from vesuvius_autoresearch.core.volume_paths import volume_location
+from vesuvius_autoresearch.core.volume_paths import (
+    select_local_zarr_array,
+    volume_location,
+)
 
 # Schemes whose explicit default port is the same endpoint as no port.
 _DEFAULT_PORTS = {"http": 80, "https": 443}
@@ -194,6 +198,16 @@ def _remote_overlap(left, right):
     )
 
 
+def _local_overlap(left, right):
+    if left == right or left in right.parents or right in left.parents:
+        return True
+    try:
+        return left.samefile(right)
+    except FileNotFoundError:
+        # Missing inputs are checked by the caller; this is overlap preflight.
+        return False
+
+
 def _overlap(first, second):
     left, remote_left = first
     right, remote_right = second
@@ -203,13 +217,9 @@ def _overlap(first, second):
             and remote_right is not None
             and _remote_overlap(remote_left, remote_right)
         )
-    if left == right or left in right.parents or right in left.parents:
-        return True
-    try:
-        return left.samefile(right)
-    except FileNotFoundError:
-        # Missing inputs are checked by the caller; this is overlap preflight.
-        return False
+    left_paths = {left, select_local_zarr_array(left)}
+    right_paths = {right, select_local_zarr_array(right)}
+    return any(_local_overlap(a, b) for a in left_paths for b in right_paths)
 
 
 def local_volume_path(uri, *, base_dir=None, resolve=True):
