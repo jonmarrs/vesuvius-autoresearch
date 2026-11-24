@@ -895,7 +895,13 @@ def resolve_training_labels(config: ExperimentConfig) -> dict[str, str]:
     return labels
 
 
-def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
+def unlabeled_dataset(
+    uri: str,
+    config: ExperimentConfig,
+    seed=None,
+    *,
+    read_counts: "CTReadCounts | None" = None,
+):
     """UA-MT's reader for one unlabeled_uris volume.
 
     The band names slices of the volumes it was set for, so it applies to an
@@ -928,6 +934,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         depth_margin=DEPTH_MARGIN,
         strict_reads=getattr(config, "strict_training_reads", False),
         min_read_depth=num_layers,
+        read_counts=read_counts,
     )
 
 
@@ -1487,6 +1494,7 @@ sys.stdout.flush()
 
 import vesuvius_model
 from vesuvius_autoresearch.core.vesuvius_loader import (
+    CTReadCounts,
     VesuviusLabeledDataset,
     VesuviusS3Dataset,
     share_warning_counts,
@@ -2141,7 +2149,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         datasets = []
         for uri in uris:
             if is_unlabeled:
-                datasets.append(unlabeled_dataset(uri, config, seed))
+                datasets.append(
+                    unlabeled_dataset(uri, config, seed, read_counts=unlabeled_reads)
+                )
                 continue
 
             volume = training_volume_path(uri)
@@ -2175,6 +2185,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 depth_margin=DEPTH_MARGIN,
                 min_read_depth=config.num_layers,
                 require_input_images=True,
+                read_counts=labeled_reads,
             )
             datasets.append(ds)
 
@@ -2228,6 +2239,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
     print(f"Trained auxiliary heads: {', '.join(sorted(heads)) or 'none'}")
     fiber_target_source = fiber_source(heads, config)
     workers = loader_workers()
+    labeled_reads = CTReadCounts(workers)
+    unlabeled_reads = CTReadCounts()
     shared_warnings = share_counts = None
     if workers:
         import multiprocessing
@@ -3086,6 +3099,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
         },
         # Includes validation and worker prefetch during this run.
         "loader_warnings": loader_warnings,
+        "training_ct_reads": {
+            "labeled": labeled_reads.snapshot(),
+            "unlabeled": unlabeled_reads.snapshot(),
+        },
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).
         "skipped_updates": skipped_updates,

@@ -163,7 +163,7 @@ def test_each_run_draws_its_training_crops_from_its_own_seed(
         labeled.append(kwargs.get("seed"))
         return Unread()
 
-    def unlabeled_dataset(uri, config, seed=None):
+    def unlabeled_dataset(uri, config, seed=None, **kwargs):
         unlabeled.append(seed)
         return Unread()
 

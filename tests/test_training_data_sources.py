@@ -170,7 +170,7 @@ def _config(uri, **kwargs):
     )
 
 
-@pytest.mark.parametrize("workers", [0, 1])
+@pytest.mark.parametrize("workers", [0, 2])
 def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, workers):
     from vesuvius_autoresearch.core import vesuvius_loader
 
@@ -186,7 +186,7 @@ def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, wo
     class TrackedLoader(torch.utils.data.DataLoader):
         def __iter__(self):
             iterator = super().__iter__()
-            training_workers[:] = getattr(iterator, "_workers", ())
+            training_workers.extend(getattr(iterator, "_workers", ()))
             return iterator
 
     collect_validation = train.collect_validation_predictions
@@ -220,6 +220,8 @@ def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, wo
         patch_size=16,
         batch_size=1,
         time_budget=0,
+        use_uamt=True,
+        unlabeled_uris=[_volume(tmp_path / "unlabeled", depth=16, labels=False)],
         checkpoint_out=str(tmp_path / "trial.pt"),
         cache_dir=str(tmp_path / "cache"),
         disable_augmentation=True,
@@ -242,6 +244,13 @@ def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, wo
         <= (4 if workers else 1)
     )
     assert failed_read["augmentation_fallbacks"] == {"batchgeneratorsv2": 0}
+    assert failed_read["training_ct_reads"] == {
+        "labeled": {
+            "returned": 0,
+            "raised": failed_read["loader_warnings"]["labeled_zero_patch"],
+        },
+        "unlabeled": {"returned": 1, "raised": 0},
+    }
 
     chunk.write_bytes(raw)
     train.train(config)
@@ -249,6 +258,10 @@ def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, wo
     assert clean["steps"] == 1
     assert clean["loader_warnings"] == {}
     assert clean["augmentation_fallbacks"] == {"batchgeneratorsv2": 0}
+    labeled = clean["training_ct_reads"]["labeled"]
+    assert 1 <= labeled["returned"] <= (4 if workers else 1)
+    assert labeled["raised"] == 0
+    assert clean["training_ct_reads"]["unlabeled"] == {"returned": 1, "raised": 0}
     assert vesuvius_loader.warning_counts() == {
         "labeled_zero_patch": 1 if workers else 2,
         "ridge_fallback": 1,

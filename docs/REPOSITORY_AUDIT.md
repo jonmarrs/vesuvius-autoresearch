@@ -2043,3 +2043,20 @@ process counters. The report includes validation and any worker prefetch.
 A CT read-failure rate still requires an attempted-read count and a
 representative workload.
 [Training read policy](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy)
+
+## Finished training CT backend reads (2026-11-24 UTC)
+
+This pass starts from main `9fbab54a`. The training result reported zero-patch
+fallbacks without a read denominator. The same warning could come from the CT
+backend, normalization, or downstream patch construction. The report now
+counts returned and raised backend calls separately for labeled and UA-MT
+training. Each spawned worker writes to its own counters, and the trainer
+reads them after worker shutdown. The counts include finished prefetches.
+
+The CPU trainer fixture truncates a stored CT chunk, restores it, and repeats
+the run. It checks that labeled reads move from raised exceptions to returned
+results, that the UA-MT read is counted separately, and that validation reads
+are excluded. The incomplete-return fixture confirms that returned values
+can still fail the strict CT checks. A representative real-data failure-rate
+measurement and a default read policy decision remain open.
+[Training read counts](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy)
