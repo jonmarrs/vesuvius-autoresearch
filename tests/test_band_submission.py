@@ -376,3 +376,224 @@ def test_the_command_passes_the_catalog_flags_in_their_places_and_writes_its_out
         False,
         False,
     )  # the table above: top to bottom, right-handed
+
+
+# --- the wrapper run end to end: git reports the recipe's commit, a stand-in for the recipe's image script records its
+# arguments and writes the reading image's sidecar, and our own submission_inputs.py runs as written ----------------
+
+RECIPE_COMMIT = "e8370f1f88a211166056df62ea6fcfffe4a1063e"
+SIDECAR = {"ink": {"maps": [{"side": "reading"}],
+                   "normalisation": {"mode": "single model", "models": ["studio"],
+                                     "per_model": {"studio": {"p1": 0.1, "p99_5": 0.9, "mean": 0.3, "sd": 0.2}}}},
+           "ct": {"shape": [66, 160, 200], "file": "w035_66.zarr", "stretch": {"lo": 20.0, "hi": 160.0}}}  # fmt: skip
+
+
+def _stub(path, body):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/usr/bin/env bash\n" + body)
+    path.chmod(0o755)
+
+
+def _wrapper(
+    tmp_path,
+    ttb,
+    lh,
+    flipped,
+    *,
+    area="20,100,0,120",
+    rows=True,
+    letters=True,
+    extra=(),
+    env=None,
+    remove=None,
+):
+    """Inputs for winding w035 (an 8 x 10-node mesh, a 160 x 200 render), the stand-ins, and the wrapper's run."""
+    inp = tmp_path / "in"
+    mesh = write_mesh(inp / "w035.tifxyz", cylinder_patch(theta_step=1.0, z_step=20.0))
+    tifffile.imwrite(mesh / "mask.tif", np.ones((8, 10), np.uint8))
+    (inp / "w035_66.zarr").mkdir()
+    rng = np.random.default_rng(3)
+    for name in ("r", "c"):
+        np.save(inp / f"{name}.npy", rng.random((160, 200), dtype=np.float32))
+    axis = {"control_points": [{"x": 1000, "y": 1000, "z": z} for z in (0, 10000)]}
+    (inp / "u.json").write_text(json.dumps(axis))
+    for name in ("rows", "letters"):
+        (inp / f"{name}.json").write_text("{}")
+    recipe = tmp_path / "recipe"
+    (recipe / "ink/scripts").mkdir(parents=True)
+    (recipe / "ink/scripts/make_submission_image.py").write_text(
+        "# the recipe's script, stood in for\n"
+    )
+    _stub(
+        tmp_path / "bin/git",
+        f'case "$*" in *rev-parse*) echo {RECIPE_COMMIT} ;; *diff*) exit "${{DIFF_RC:-0}}" ;; esac\n',
+    )
+    (tmp_path / "sidecar.json").write_text(json.dumps(SIDECAR))
+    _stub(
+        tmp_path / "py343",
+        f"""[ "$2" = -c ] && {{ echo "160 200"; exit 0; }}
+out=; prev=; for a in "$@"; do [ "$prev" = --out-dir ] && out=$a; prev=$a; done
+printf '%s\\n' "$@" > {tmp_path}/$(basename "$out").args
+[ "$(basename "$out")" = "${{FAIL:-none}}" ] && exit 1
+cp {tmp_path}/sidecar.json "$out/w035.json"
+""",
+    )
+    if isinstance(area, dict):
+        (inp / "area.json").write_text(json.dumps(area))
+        area = str(inp / "area.json")
+    if remove:
+        (tmp_path / remove).unlink()
+    args = [str(mesh), str(inp / "w035_66.zarr"), str(inp / "r.npy"), str(inp / "c.npy"), str(inp / "u.json"), area,
+            str(inp / "rows.json") if rows else "-", str(inp / "letters.json") if letters else "-", str(tmp_path / "out"),
+            "--scroll", "PHerc. 0826", "--volume-id", "1", "--voxel-um", "9.362", "--top-to-bottom", ttb,
+            "--left-handed", lh, "--render-flipped", flipped, *extra]  # fmt: skip
+    run = subprocess.run(
+        ["bash", str(HERE / "make_band_submission.sh"), *args],
+        capture_output=True, text=True, timeout=120,
+        env={"PATH": f"{tmp_path}/bin:/usr/bin:/bin", "RECIPE": str(recipe), "PY343": str(tmp_path / "py343"),
+             "PYW": sys.executable, **(env or {})},
+    )  # fmt: skip
+    calls = {
+        name: (tmp_path / f"{name}.args").read_text().splitlines()
+        for name in ("image", "control")
+        if (tmp_path / f"{name}.args").exists()
+    }
+    return run, tmp_path / "out", calls
+
+
+def _value(argv, flag):
+    return argv[argv.index(flag) + 1]
+
+
+def test_the_wrapper_draws_the_image_and_its_control_with_the_orientation_area_and_annotations(
+    tmp_path,
+):
+    area = {
+        "raw_render_px": {"row0": 20, "row1": 100, "col0": 0, "col1": 120}
+    }  # a JSON without its "area" key
+    (tmp_path / "forbid.txt").write_text("word\n")
+    run, out, calls = _wrapper(tmp_path, "true", "true", "true", area=area,
+                               extra=("--max-cm2", "6", "--forbid-words", str(tmp_path / "forbid.txt")))  # fmt: skip
+    assert run.returncode == 0, run.stderr
+    image, control = calls["image"], calls["control"]
+    orientation = json.loads((out / "orientation.json").read_text())
+    assert (orientation["flip_lr"], orientation["flip_ud"]) == (
+        True,
+        False,
+    )  # top to bottom, left-handed
+    for argv in (image, control):
+        assert (_value(argv, "--flip-lr"), _value(argv, "--flip-ud")) == ("1", "0")
+        assert (
+            _value(argv, "--area") == "0,20,120,100"
+        )  # col0,row0,col1,row1, as the recipe's script takes it
+        assert (_value(argv, "--max-cm2"), _value(argv, "--forbid-words")) == (
+            "6",
+            str(tmp_path / "forbid.txt"),
+        )
+        assert "--umbilicus" not in argv  # not the script's own frame
+        assert _value(argv, "--note").startswith("Rendered with flipped normals")
+    assert _value(image, "--ink") == f"{out}/maps/w035__studio__L66zc33.50_reverse.tif"
+    assert (_value(image, "--rows"), _value(image, "--letters")) == (f"{tmp_path}/in/rows.json",
+                                                                    f"{tmp_path}/in/letters.json")  # fmt: skip
+    assert _value(image, "--sizes-csv") == f"{out}/image/w035_letter_sizes.csv"
+    assert _value(control, "--ink") == f"{out}/maps/w035__studio__L66zc33.50.tif"
+    assert (
+        _value(control, "--ink-stats") == f"{out}/control_ink_stats.json"
+        and "--allow-blind" in control
+    )
+    assert "--rows" not in control and "--letters" not in control
+    sums = (out / "mesh_geometry.sha256").read_text().split()[1::2]
+    assert sums == [
+        "w035.tifxyz/x.tif",
+        "w035.tifxyz/y.tif",
+        "w035.tifxyz/z.tif",
+        "w035.tifxyz/mask.tif",
+    ]
+    assert (
+        json.loads((out / "isometry.json").read_text())["area_raw_render_px"]
+        == area["raw_render_px"]
+    )
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["recipe_commit"] == RECIPE_COMMIT
+    assert {n: v["sha256"] is None for n, v in manifest["inputs"].items()} == {
+        "mesh": True, "render": True, "reading_map": False, "control_map": False, "umbilicus": False, "rows": False,
+        "letters": False,
+    }  # fmt: skip
+    assert (
+        "manifest.json" not in manifest["outputs"]
+        and "isometry.json" in manifest["outputs"]
+    )
+    assert set(manifest["commands"]) == {
+        "ink",
+        "orient",
+        "image",
+        "stats",
+        "control",
+        "isometry",
+        "manifest",
+    }
+
+
+@pytest.mark.parametrize(
+    ("ttb", "lh", "flipped", "umbilicus", "note"),
+    [("false", "true", "true", False, True), ("false", "false", "false", True, False)],
+    ids=["left-handed-only", "the-scripts-own-frame"],
+)
+def test_the_umbilicus_goes_to_the_script_only_in_its_own_frame_and_the_note_only_for_a_flipped_render(
+    tmp_path, ttb, lh, flipped, umbilicus, note
+):
+    run, out, calls = _wrapper(tmp_path, ttb, lh, flipped, rows=False, letters=False)
+    assert run.returncode == 0, run.stderr
+    image = calls["image"]
+    assert ("--umbilicus" in image) is umbilicus and ("--note" in image) is note
+    assert (
+        "--rows" not in image
+        and "--letters" not in image
+        and "--sizes-csv" not in image
+    )
+    assert _value(image, "--max-cm2") == "4"
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["inputs"]["rows"] == {"path": "-", "sha256": None}
+
+
+def test_a_failed_step_stops_the_wrapper(tmp_path):
+    run, out, calls = _wrapper(
+        tmp_path, "true", "false", "false", env={"FAIL": "image"}
+    )
+    assert (
+        run.returncode == 1 and f"step image failed: {out}/logs/image.log" in run.stderr
+    )
+    assert "control" not in calls and not (out / "manifest.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("arrange", "message"),
+    [
+        ("diff", "differs from the recipe's commit"),
+        ("in/u.json", "missing"),
+        ("in/rows.json", "missing"),
+    ],
+)
+def test_the_wrapper_refuses_a_changed_recipe_script_or_a_missing_input_before_it_writes_anything(
+    tmp_path, arrange, message
+):
+    if arrange == "diff":
+        run, out, calls = _wrapper(
+            tmp_path, "true", "false", "false", env={"DIFF_RC": "1"}
+        )
+    else:
+        run, out, calls = _wrapper(tmp_path, "true", "false", "false", remove=arrange)
+    assert run.returncode == 2 and message in run.stderr
+    assert not out.exists() and calls == {}
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [(["a"] * 8, "A First Letters submission image"),
+     (["a"] * 9 + ["--scroll", "S", "--volume-id", "1"], "--scroll, --volume-id and --voxel-um are required")],
+    ids=["eight-paths", "no-voxel-size"],
+)  # fmt: skip
+def test_the_wrapper_needs_nine_paths_and_the_scrolls_three_names(argv, message):
+    run = subprocess.run(["bash", str(HERE / "make_band_submission.sh"), *argv], capture_output=True, text=True,
+                         env={"PATH": "/usr/bin:/bin"})  # fmt: skip
+    assert run.returncode == 2 and message in run.stderr
