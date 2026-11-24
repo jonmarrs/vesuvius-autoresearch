@@ -398,7 +398,15 @@ def _open_edited_labels(path, shape, budget):
         raise ValueError(f"edited-label Zarr must be a bare Zarr v2 array: {path}")
     try:
         array = zarr.open_array(str(path), mode="r")
-    except zarr.errors.MetadataError as exc:
+    # A .zarray that is not JSON, or not a JSON object, raises the parser's or an attribute error: name the store
+    # either way, and never let an AttributeError past the checker's command line.
+    except (
+        zarr.errors.MetadataError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+    ) as exc:
         raise ValueError(f"invalid edited-label Zarr metadata: {path}") from exc
     if (
         array.shape != shape
