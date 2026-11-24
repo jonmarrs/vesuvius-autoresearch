@@ -194,6 +194,7 @@ def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, wo
     def validate_after_worker_exit(*args, **kwargs):
         assert len(training_workers) == workers
         assert all(not worker.is_alive() for worker in training_workers)
+        training_workers.clear()
         return collect_validation(*args, **kwargs)
 
     monkeypatch.chdir(tmp_path)
