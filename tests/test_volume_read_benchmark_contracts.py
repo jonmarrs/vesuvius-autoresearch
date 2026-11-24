@@ -70,6 +70,43 @@ def test_nonvolume_arrays_are_rejected_at_open(tmp_path, shape):
         FastLocalVolume(path)
 
 
+@pytest.mark.parametrize(
+    ("key", "value", "diagnostic"),
+    [
+        ("shape", [4.25, 6, 8], "invalid Zarr shape"),
+        ("shape", [True, 6, 8], "invalid Zarr shape"),
+        ("chunks", [0, 3, 4], "invalid Zarr chunk geometry"),
+        ("chunks", [2, 3], "invalid Zarr chunk geometry"),
+        ("chunks", [2.5, 3, 4], "invalid Zarr chunk geometry"),
+        ("chunks", [True, 3, 4], "invalid Zarr chunk geometry"),
+        ("dimension_separator", "_", "invalid Zarr chunk separator"),
+    ],
+)
+def test_invalid_array_metadata_is_refused_before_reading_voxels(
+    tmp_path, key, value, diagnostic
+):
+    path, _ = volume(tmp_path)
+    metadata_path = path / ".zarray"
+    metadata = json.loads(metadata_path.read_bytes())
+    metadata[key] = value
+    metadata_path.write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match=diagnostic) as error:
+        FastLocalVolume(path)
+    assert str(path) in str(error.value)
+
+
+@pytest.mark.parametrize("raw", ["null", "{}", "{not JSON", "[]"])
+def test_malformed_zarr_metadata_names_the_selected_array(tmp_path, raw):
+    path = tmp_path / "multiscale.zarr"
+    group = zarr.open_group(str(path), mode="w")
+    group.create_dataset("0", shape=(4, 6, 8), dtype="uint16")
+    array_path = path / "0"
+    (array_path / ".zarray").write_text(raw)
+    with pytest.raises(ValueError, match="cannot open local Zarr volume") as error:
+        FastLocalVolume(path)
+    assert str(array_path) in str(error.value)
+
+
 def test_compact_metadata_preserves_actual_chunk_separator(tmp_path):
     path = tmp_path / "nested.zarr"
     zarr.open(

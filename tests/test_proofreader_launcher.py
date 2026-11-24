@@ -106,6 +106,25 @@ def test_help_does_not_load_scientific_or_gui_dependencies(tmp_path):
     assert "categorical" in result.stdout
 
 
+@pytest.mark.parametrize("record", [False, True])
+def test_malformed_source_metadata_is_reported_before_gui(
+    tmp_path, monkeypatch, capsys, record
+):
+    ct, labels = _volumes(tmp_path)
+    (ct / ".zarray").write_text("null")
+    output = tmp_path / "session"
+    argv = [*_arguments(ct, labels), "--out-dir", str(output)]
+    if record:
+        argv.append("--record-session")
+    monkeypatch.setattr(
+        launcher.subprocess, "run", lambda *a, **k: pytest.fail("GUI launched")
+    )
+    assert launcher.main(argv) == 1
+    diagnostic = capsys.readouterr().err
+    assert "cannot open local Zarr volume" in diagnostic and str(ct) in diagnostic
+    assert not output.exists()
+
+
 @pytest.mark.parametrize(
     ("dtype", "values", "accepted"),
     [
