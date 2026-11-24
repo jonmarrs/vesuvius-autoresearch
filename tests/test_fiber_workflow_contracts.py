@@ -3,6 +3,7 @@
 import argparse
 import inspect
 import json
+import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -337,6 +338,91 @@ def test_semantic_loads_recorded_contract_and_unused_deep_heads(model_bundle):
     assert model.label_names == semantic.LABELS
     with pytest.raises(ValueError, match="divisible"):
         semantic.predict_volume(model, np.ones((4, 4, 4)), patch_size=(3, 4, 4))
+
+
+def _nnunet_shaped(ck):
+    """Fields a published nnUNet checkpoint_final.pth records beside its weights.
+
+    scrollprize/fiber_hz_vt's pickle imports NumPy float64 scalars and their dtype
+    (the `logging` history), a torch.device (`init_args`), and _codecs.encode (how
+    a NumPy scalar pickles its bytes). It pickles no trainer class.
+    """
+    ck.update(
+        {
+            "optimizer_state": {"state": {}, "param_groups": [{"lr": 0.01}]},
+            "grad_scaler_state": None,
+            "logging": {
+                "mean_fg_dice": [np.float64(0.5), np.float64(0.6)],
+                "ema_fg_dice": [np.float64(0.55)],
+                "train_losses": [np.float64(-0.4)],
+                "dtype": np.dtype("float32"),
+            },
+            "_best_ema": np.float64(0.55),
+            "current_epoch": 1000,
+            "init_args": {
+                "plans": {},
+                "configuration": "3d_fullres",
+                "fold": 0,
+                "dataset_json": {},
+                "device": torch.device("cpu"),
+            },
+            "trainer_name": "nnUNetTrainer",
+            "inference_allowed_mirroring_axes": (0, 1, 2),
+        }
+    )
+
+
+def _pickle_globals(path):
+    import pickletools
+    import zipfile
+
+    with zipfile.ZipFile(path) as z:
+        name = next(n for n in z.namelist() if n.lower().endswith("data.pkl"))
+        data = z.read(name)
+    found, strings = set(), []
+    for op, arg, _ in pickletools.genops(data):
+        if op.name in ("SHORT_BINUNICODE", "BINUNICODE", "UNICODE"):
+            strings.append(arg)
+        elif op.name == "STACK_GLOBAL":
+            found.add(f"{strings[-2]}.{strings[-1]}")
+        elif op.name == "GLOBAL":
+            found.add(arg.replace(" ", "."))
+    return found
+
+
+def test_semantic_loads_a_checkpoint_shaped_like_published_nnunet(model_bundle):
+    """Regression for #519: the empty weights_only=False allowlist refused fiber_hz_vt."""
+    from vesuvius_autoresearch.core import checkpoint_tools
+
+    path, cfg, dataset, ck, save = model_bundle
+    _nnunet_shaped(ck)
+    save()
+    weights = path / "fold_0/checkpoint_final.pth"
+    imported = _pickle_globals(weights)
+    assert {"numpy.dtype", "torch.device", "_codecs.encode"} <= imported
+    assert any(name.endswith("multiarray.scalar") for name in imported)
+    # The gate #519 shipped: tensors and containers only. It refuses this shape.
+    with pytest.raises(ValueError, match="torch.device"):
+        checkpoint_tools.require_audited_checkpoint(weights, allow=())
+
+    model = semantic.load_model(path, device="cpu")
+    assert model.mirror_axes == (0, 1, 2)
+    assert not model.network.training
+
+
+def test_semantic_still_refuses_a_malicious_bundle(model_bundle, tmp_path):
+    path, cfg, dataset, ck, save = model_bundle
+    marker = tmp_path / "ran"
+
+    class Touch:
+        def __reduce__(self):
+            return (os.system, (f"touch {marker}",))
+
+    save()
+    torch.save(Touch(), path / "fold_0/checkpoint_final.pth")
+    with pytest.raises(Exception, match="posix.system"):
+        semantic.load_model(path, device="cpu")
+    assert not marker.exists()
 
 
 @pytest.mark.parametrize(

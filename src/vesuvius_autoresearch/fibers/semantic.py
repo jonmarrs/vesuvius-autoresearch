@@ -166,12 +166,16 @@ def load_model(
         **kwargs,
     )
 
-    # weights_only=False: a published nnUNet checkpoint is a trainer dump, and
-    # the trainer class is a villa type the weights-only unpickler will not rebuild.
-    # load_checkpoint audits the pickle first and refuses one that imports
-    # anything beyond tensors and plain containers.
+    # A published nnUNet checkpoint (e.g. scrollprize/fiber_hz_vt) is a dict of
+    # tensors, plain containers, NumPy float64 scalars and their dtype (the
+    # `logging` history) and a torch.device (`init_args`). It pickles no trainer
+    # class, so the weights-only unpickler rebuilds it: torch.device and
+    # _codecs.encode are in its default allowlist, and allow_numpy_scalars adds
+    # only the NumPy scalar and dtype types. Anything else, e.g. os.system, is refused.
     weights_path = model_dir / fold / checkpoint
-    ck = load_checkpoint(weights_path, map_location="cpu", weights_only=False)
+    ck = load_checkpoint(
+        weights_path, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+    )
     weights = ck["network_weights"]
     # The checkpoint was saved with deep supervision on, so it carries extra
     # decoder.seg_layers.{1..n}. Those heads are unused at inference; dropping
