@@ -93,6 +93,18 @@ def test_validation_rejects_an_invalid_model_depth_before_scoring():
         )
 
 
+@pytest.mark.parametrize("batch_size", [0, -1, True, 1.5])
+def test_validation_refuses_an_invalid_batch_size_before_reading(batch_size):
+    data = Catalogue(4)
+    with pytest.raises(
+        ValueError, match="validation batch size must be a positive integer"
+    ):
+        train.collect_validation_predictions(
+            MeanInk(), data, 8, torch.device("cpu"), batch_size=batch_size
+        )
+    assert data.reads == []
+
+
 # --- validation sample --------------------------------------------------------
 
 
@@ -222,22 +234,35 @@ def test_validation_refuses_malformed_targets(target):
     assert not probs and not targets
 
 
-def test_periodic_auc_refuses_infinite_logits(tmp_path, capsys):
-    class InfiniteInk(torch.nn.Module):
+@pytest.mark.parametrize(
+    "magnitude,sample_size,auc,diagnostic",
+    [
+        (12.0, 1, "1.0000", None),
+        (float("inf"), 1, "nan", "ink logits"),
+        (12.0, -1, "nan", "eval_sample_patches must be a positive integer"),
+    ],
+)
+def test_periodic_auc_checks_predictions_and_sample_size(
+    tmp_path, capsys, magnitude, sample_size, auc, diagnostic
+):
+    class SignedInk(torch.nn.Module):
         def forward(self, x):
-            return torch.where(x[:, :, 0] > 0.5, float("inf"), -float("inf"))
+            return torch.where(x[:, :, 0] > 0.5, magnitude, -magnitude)
 
     target = torch.eye(4)
     ct = target.expand(1, 12, 4, 4)
     config = ExperimentConfig(
-        num_layers=8, checkpoint_out=str(tmp_path / "model.pt"), eval_sample_patches=1
+        num_layers=8,
+        checkpoint_out=str(tmp_path / "model.pt"),
+        eval_sample_patches=sample_size,
     )
-    model = InfiniteInk()
-    dataset = [(ct, target, torch.zeros(1, 1, 4, 4))]
+    model = SignedInk()
+    dataset = [(ct, target, torch.zeros(1, 1, 4, 4))] * 2
     train.periodic_pixel_auc_eval(model, dataset, config, "cpu", 3, 1.5)
     rows = (tmp_path / "model.pt.curve.csv").read_text().splitlines()
-    assert rows[-1] == "3,1.5,nan"
-    assert "ink logits" in capsys.readouterr().out
+    assert rows[-1] == f"3,1.5,{auc}"
+    if diagnostic:
+        assert diagnostic in capsys.readouterr().out
     assert model.training and (tmp_path / "model.pt.step3.pt").is_file()
 
 

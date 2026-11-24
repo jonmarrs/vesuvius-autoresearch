@@ -636,7 +636,7 @@ def promotion_decision(
         return (
             False,
             incumbent,
-            "the validation sample is incomplete (failed reads or predictions)",
+            "the validation sample is incomplete (failed batches)",
         )
     if incumbent_inputs is not None and inputs != incumbent_inputs:
         reason = (
@@ -1111,14 +1111,15 @@ def collect_validation_predictions(
     patches and ``empty_target_patches`` the ink-free ones either way;
     ``scored_patches`` counts those returned. ``batch_size`` only groups the
     forward passes: which patches count is decided per patch, so it does not change
-    the result. ``complete`` is False when any read or forward pass failed; such a
-    sample is not the protocol's sample and cannot support a promotion.
+    the result. A failed read, forward pass or tensor check sets ``complete``
+    to False and blocks promotion.
     ``probabilities(model, x)`` maps an input batch to ink probabilities. The
     default checks logits before sigmoid. All paths check probabilities and
     targets before scoring. ``protocol`` is recorded in the diagnostics
     (validation_protocol(config.depth_band) for the dataset's depth range).
     """
     num_layers = positive_integer(num_layers, "num_layers")
+    batch_size = positive_integer(batch_size, "validation batch size")
     keep_ink_free = scores_ink_free_patches(protocol)
     indices = validation_indices(len(dataset))
     diag = {
@@ -1583,7 +1584,8 @@ def periodic_pixel_auc_eval(
     prefix = config.checkpoint_out or "long_model.pt"
     curve_path = f"{prefix}.curve.csv"
     try:
-        n = min(config.eval_sample_patches, len(val_dataset))
+        limit = positive_integer(config.eval_sample_patches, "eval_sample_patches")
+        n = min(limit, len(val_dataset))
         idxs = np.random.RandomState(12345).permutation(len(val_dataset))[:n]
         model.eval()
         probs, labels = [], []

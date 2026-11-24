@@ -2074,3 +2074,8 @@ Both final validation and periodic AUC check the shape and range of
 probabilities and their targets before scoring. A failed final batch marks
 the sample incomplete and blocks promotion. A failed periodic measurement
 records a missing AUC and lets training continue.
+
+PR review reproduced a negative validation batch size yielding an empty
+sample marked complete. A negative periodic sample limit also read nearly
+the full catalog and reported AUC. Both settings now require positive
+integers at the evaluation boundary.
