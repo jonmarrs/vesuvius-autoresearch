@@ -10,7 +10,6 @@ import json
 import os
 import subprocess
 import sys
-from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -52,56 +51,34 @@ def generate_config(
     return config_out_path
 
 
-def _inputs(volume_path, predictions_path, output, patch_size):
+def _inputs(volume_path, predictions_path, output, patch_size, *, record_session=False):
     from vesuvius_autoresearch.core.prediction_artifacts import validate_plan_paths
-    from volume_cartographer_wrapper.volume import FastLocalVolume
+    from vesuvius_autoresearch.core.proofreader_session import validate_input_arrays
+    from volume_cartographer_wrapper.volume import (
+        FastLocalVolume,
+        local_volume_array_path,
+        local_volume_path,
+    )
 
-    volume, labels = FastLocalVolume(volume_path), FastLocalVolume(predictions_path)
-    if volume.shape != labels.shape:
-        raise ValueError("CT and categorical labels must have the same 3D shape/grid")
-    if labels.dtype.kind not in "bui":
-        raise ValueError(
-            "proofreader requires categorical integer labels; probability/entropy maps need conversion"
-        )
-    if any(size < patch_size for size in volume.shape):
-        raise ValueError(
-            "patch_size must fit every CT axis; select a smaller cubic patch"
-        )
-    if volume.path == labels.path:
-        raise ValueError("CT and categorical labels must be distinct inputs")
+    volume_source = local_volume_path(volume_path).resolve()
+    label_source = local_volume_path(predictions_path).resolve()
+    volume = local_volume_array_path(volume_source)
+    labels = local_volume_array_path(label_source)
     validate_plan_paths(
         [(output, "proofreader dataset")],
         [
-            (volume.source_path, "CT source"),
-            (volume.path, "CT array"),
-            (labels.source_path, "label source"),
-            (labels.path, "label array"),
+            (volume_source, "CT source"),
+            (volume, "CT array"),
+            (label_source, "label source"),
+            (labels, "label array"),
         ],
     )
-    _validate_label_range(labels)
-    return volume.path, labels.path
-
-
-def _validate_label_range(labels):
-    """Pinned Villa saves uint8 labels; reject values that its cast would lose."""
-    if labels.dtype.kind == "b" or (
-        labels.dtype.kind == "u" and labels.dtype.itemsize == 1
-    ):
-        return
-    # Signed/wide labels can still be lossless. Check all values without loading
-    # a full label volume; each requested block is at most 64**3 voxels.
-    block_shape = tuple(min(64, size) for size in labels.chunks)
-    for origin in product(
-        *(
-            range(0, size, step)
-            for size, step in zip(labels.shape, block_shape, strict=True)
+    # Recorded launches validate these arrays between hashing and the final inventory.
+    if not record_session:
+        validate_input_arrays(
+            FastLocalVolume(volume), FastLocalVolume(labels), patch_size
         )
-    ):
-        block = labels.get_chunk(*origin, *block_shape)
-        if int(block.min()) < 0 or int(block.max()) > 255:
-            raise ValueError(
-                "proofreader labels must be in 0..255; pinned Villa saves labels as uint8"
-            )
+    return volume, labels
 
 
 def main(argv=None):
@@ -143,7 +120,13 @@ def main(argv=None):
             raise ValueError(
                 "--out-dir must be new or empty; existing sessions need a verified resume configuration"
             )
-        volume, labels = _inputs(args.volume, args.predictions, output, args.patch_size)
+        volume, labels = _inputs(
+            args.volume,
+            args.predictions,
+            output,
+            args.patch_size,
+            record_session=args.record_session,
+        )
         with TemporaryDirectory(prefix="vesuvius-proofreader-") as temporary:
             config = Path(temporary) / "config.json"
             generate_config(

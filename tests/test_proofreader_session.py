@@ -700,6 +700,86 @@ def test_source_change_during_capture_refuses_publication(inputs, monkeypatch):
     assert result == 1 and not configs and not inputs[2].exists()
 
 
+def test_recorded_launch_rejects_ct_changed_during_label_capture(
+    inputs, monkeypatch, capsys
+):
+    ct, labels, output = inputs
+    original = sessions.capture_bytes
+
+    def capture(path, limit):
+        result = original(path, limit)
+        if Path(path) == labels / ".zarray":
+            zarr.open(str(ct), mode="r+")[0, 0, 0] = 19
+        return result
+
+    monkeypatch.setattr(sessions, "capture_bytes", capture)
+    result, configs = _launch(inputs, monkeypatch)
+    assert result == 1 and not configs and not output.exists()
+    assert "recorded CT changed during receipt creation" in capsys.readouterr().err
+
+
+def test_recorded_launch_rejects_out_of_range_labels_in_captured_source(
+    inputs, monkeypatch, capsys
+):
+    _, labels, output = inputs
+    array = zarr.open(
+        str(labels), mode="w", shape=(8, 16, 16), chunks=(4, 8, 8), dtype="u2"
+    )
+    array[:] = 1
+    original = sessions.capture_bytes
+
+    def capture(path, limit):
+        result = original(path, limit)
+        if Path(path) == PROOFREADER:
+            array[0, 0, 0] = 300
+        return result
+
+    monkeypatch.setattr(sessions, "capture_bytes", capture)
+    result, configs = _launch(inputs, monkeypatch)
+    assert result == 1 and not configs and not output.exists()
+    assert "labels must be in 0..255" in capsys.readouterr().err
+
+
+def test_recorded_launch_bounds_metadata_before_opening_arrays(
+    inputs, monkeypatch, capsys
+):
+    from volume_cartographer_wrapper import volume
+
+    metadata_cap = 64
+    assert (inputs[0] / ".zarray").stat().st_size > metadata_cap
+    original = volume.FastLocalVolume
+    opened = []
+
+    def open_volume(path):
+        opened.append(path)
+        return original(path)
+
+    monkeypatch.setattr(volume, "FastLocalVolume", open_volume)
+    result, configs = _launch(
+        inputs, monkeypatch, extra=("--max-file-bytes", str(metadata_cap))
+    )
+    assert result == 1 and not configs and not inputs[2].exists()
+    assert "proofreader source exceeds max_file_bytes" in capsys.readouterr().err
+    assert not opened
+
+
+def test_recorded_launch_keeps_the_selected_ome_level_zero(tmp_path, monkeypatch):
+    ct, labels = tmp_path / "ct.zarr", tmp_path / "labels.zarr"
+    for path, dtype in ((ct, "u2"), (labels, "u1")):
+        group = zarr.open_group(str(path), mode="w")
+        group.create_dataset("0", shape=(8, 16, 16), dtype=dtype)
+        group.create_dataset("1", shape=(4, 8, 8), dtype=dtype)
+    root = tmp_path / "session"
+    result, configs = _launch((ct, labels, root), monkeypatch)
+    assert result == 0
+    selected = configs[0]["volumes"]["Autoresearch_Prediction"]
+    assert selected["volume_path"] == str(ct / "0")
+    assert selected["label_path"] == str(labels / "0")
+    assert sessions.verify_record(root, PROOFREADER, sessions.DEFAULT_LIMITS)[
+        "input_record_matches"
+    ]
+
+
 def test_record_cannot_raise_checker_limits_or_change_pinned_code(
     inputs, monkeypatch, tmp_path
 ):

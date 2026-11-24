@@ -12,6 +12,7 @@ import json
 import math
 import os
 import stat
+from itertools import product
 from pathlib import Path
 
 from .file_capture import capture_bytes
@@ -112,6 +113,46 @@ def _fingerprint_source(path, budget):
     )
 
 
+def _recheck_source_states(source_states, budget, stage):
+    for role, (path, snapshot) in source_states.items():
+        if _inventory(path, budget)[1] != snapshot:
+            name = "CT" if role == "ct" else role
+            raise ValueError(f"recorded {name} changed during {stage}")
+
+
+def validate_input_arrays(volume, labels, patch_size):
+    """Check the pinned proofreader's grid and lossless categorical label contract."""
+    if volume.shape != labels.shape:
+        raise ValueError("CT and categorical labels must have the same 3D shape/grid")
+    if labels.dtype.kind not in "bui":
+        raise ValueError(
+            "proofreader requires categorical integer labels; probability/entropy maps need conversion"
+        )
+    if any(size < patch_size for size in volume.shape):
+        raise ValueError(
+            "patch_size must fit every CT axis; select a smaller cubic patch"
+        )
+    if volume.path == labels.path:
+        raise ValueError("CT and categorical labels must be distinct inputs")
+    if labels.dtype.kind == "b" or (
+        labels.dtype.kind == "u" and labels.dtype.itemsize == 1
+    ):
+        return
+    # Villa saves uint8 labels. Check wide/signed labels using bounded reads.
+    block_shape = tuple(min(64, size) for size in labels.chunks)
+    for origin in product(
+        *(
+            range(0, size, step)
+            for size, step in zip(labels.shape, block_shape, strict=True)
+        )
+    ):
+        block = labels.get_chunk(*origin, *block_shape)
+        if int(block.min()) < 0 or int(block.max()) > 255:
+            raise ValueError(
+                "proofreader labels must be in 0..255; pinned Villa saves labels as uint8"
+            )
+
+
 def recorded_config(volume, labels, output, patch_size):
     """Explicit destinations prevent Villa's filename-based output discovery."""
     if type(patch_size) is not int or patch_size < 1:
@@ -143,22 +184,34 @@ def _file_hash(path):
 
 
 def create_record(config, proofreader, budget):
-    """Publish an immutable initial-input receipt after launcher input preflight."""
+    """Capture and validate the same inputs before publishing the receipt."""
     from volume_cartographer_wrapper.volume import FastLocalVolume
 
     budget = limits(**budget)
     selected = config["volumes"]["Autoresearch_Prediction"]
+    proofreader_sha256 = _file_hash(proofreader)
+    sources, source_states = {}, {}
+    for role, key in (("ct", "volume_path"), ("labels", "label_path")):
+        path = Path(selected[key])
+        fingerprint, snapshot = _fingerprint_source(path, budget)
+        sources[role] = fingerprint
+        source_states[role] = (path, snapshot)
+
+    volume = FastLocalVolume(selected["volume_path"])
+    labels = FastLocalVolume(selected["label_path"])
+    validate_input_arrays(volume, labels, config["patch_size"])
+    _recheck_source_states(source_states, budget, "receipt creation")
+    if _file_hash(proofreader) != proofreader_sha256:
+        raise ValueError("pinned proofreader source changed during receipt creation")
+
     record = {
         "schema_version": 1,
         "kind": "autoresearch_proofreader_input_record",
         "config": config,
-        "shape_zyx": list(FastLocalVolume(selected["volume_path"]).shape),
-        "proofreader_sha256": _file_hash(proofreader),
+        "shape_zyx": list(volume.shape),
+        "proofreader_sha256": proofreader_sha256,
         "limits": budget,
-        "sources": {
-            role: fingerprint_source(selected[key], budget)
-            for role, key in (("ct", "volume_path"), ("labels", "label_path"))
-        },
+        "sources": sources,
     }
     path = Path(config["dataset_out_path"]) / RECORD_NAME
     with publish_new_file(
@@ -578,10 +631,7 @@ def verify_record(
         else None,
     )
     stage = "export verification" if check_exports else "session verification"
-    for role, (path, snapshot) in source_states.items():
-        if _inventory(path, effective)[1] != snapshot:
-            name = "CT" if role == "ct" else role
-            raise ValueError(f"recorded {name} changed during {stage}")
+    _recheck_source_states(source_states, effective, stage)
     if _file_hash(record_path) != record_sha256:
         raise ValueError(f"proofreader input record changed during {stage}")
     if _file_hash(proofreader) != record["proofreader_sha256"]:
