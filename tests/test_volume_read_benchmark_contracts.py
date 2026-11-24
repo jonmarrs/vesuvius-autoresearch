@@ -416,6 +416,33 @@ def test_report_is_refused_inside_linked_level_zero(tmp_path, capsys):
     assert set(selected.iterdir()) == files_before
 
 
+def test_report_cannot_land_in_array_selected_after_preflight(
+    tmp_path, monkeypatch, capsys
+):
+    first, _ = volume(tmp_path, name="first.zarr")
+    second, _ = volume(tmp_path, name="second.zarr")
+    group = tmp_path / "group.zarr"
+    zarr.open_group(str(group), mode="w")
+    level = group / "0"
+    level.symlink_to(first, target_is_directory=True)
+    output = second / "timings.json"
+    benchmark = bench.benchmark
+
+    def retarget_then_measure(*args, **kwargs):
+        level.unlink()
+        level.symlink_to(second, target_is_directory=True)
+        measured = benchmark(*args, **kwargs)
+        assert measured["source"] == str(second)
+        return measured
+
+    monkeypatch.setattr(bench, "benchmark", retarget_then_measure)
+    assert bench.main(cli_args(group, output)) == 1
+    stdout, stderr = capsys.readouterr()
+    assert not stdout
+    assert "source and output paths must not overlap" in stderr
+    assert not output.exists()
+
+
 @pytest.mark.parametrize(
     "where", ["source_array", "source_group", "existing", "broken_link", "wrong_suffix"]
 )

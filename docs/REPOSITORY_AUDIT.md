@@ -2152,3 +2152,7 @@ in either directory. Path planning uses the same selector as the reader and
 avoids opening the array an extra time before timing. The fixture now exits
 with an overlap diagnostic and leaves the input directory intact.
 [Volume-read benchmark](LOCAL_VOLUME_READS.md#comparable-repeated-read-timings)
+
+PR review retargeted the level-0 link between planning and the benchmark
+open. The first fix still wrote into the array actually read. The publisher
+now also checks the resolved root and array recorded by the measurement.

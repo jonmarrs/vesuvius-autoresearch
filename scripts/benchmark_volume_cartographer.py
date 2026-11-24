@@ -203,7 +203,8 @@ def main(argv=None) -> int:
         )
         serialized = json.dumps(record, indent=2, allow_nan=False) + "\n"
         if output is not None:
-            with publish_new_file(output, *sources) as staging:
+            measured_sources = (record["source_input"], record["source"])
+            with publish_new_file(output, *sources, *measured_sources) as staging:
                 staging.write_text(serialized)
     except (
         OSError,
