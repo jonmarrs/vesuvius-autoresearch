@@ -2219,3 +2219,17 @@ choice with a different array's voxels. The command now uses one strict
 reader and checks that its selected array agrees with the artifact plan.
 The stable-link fixture opens once, and the retargeted fixture stops before
 model construction.
+
+## Ensemble member preflight (2026-11-24 UTC)
+
+This pass starts from main `1a542772`. The ensemble previously constructed
+and transferred members before checking compatibility. CPU fixtures reached
+construction for rejected patch-size, voxel-scale, ridge-sigma and ridge-depth
+combinations. A missing later checkpoint also allowed earlier construction.
+
+The command checks every checkpoint path first. It then loads checkpoints one
+at a time on CPU and compares each configuration with the preceding members
+before constructing that model. Earlier compatible members can already be on
+the inference device when a later configuration fails. Representative memory
+and ensemble residency measurements remain open.
+[Regional memory observations](VOLUME_INFERENCE.md#regional-memory-observations)

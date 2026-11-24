@@ -429,9 +429,18 @@ def test_ensemble_handles_ct_and_ridge_models_with_different_depths(
     assert metadata["ensemble_model_configs"] == configs
 
 
-@pytest.mark.parametrize("mismatch", ["patch_size", "voxel_size_um", "ridge_sigma"])
-def test_ensemble_rejects_incompatible_context_before_opening_volume(
-    tmp_path, monkeypatch, mismatch
+@pytest.mark.parametrize(
+    ("mismatch", "change"),
+    [
+        ("patch_size", {"patch_size": 4}),
+        ("voxel_size_um", {"voxel_size_um": 3.0}),
+        ("ridge_sigma", {"ridge_sigma": 3.0}),
+        ("num_layers", {"num_layers": 2}),
+        ("num_layers", {"num_layers": 6, "use_ridges": False}),
+    ],
+)
+def test_ensemble_rejects_an_incompatible_member_before_building_it(
+    tmp_path, monkeypatch, mismatch, change
 ):
     config = {
         "patch_size": 8,
@@ -441,15 +450,8 @@ def test_ensemble_rejects_incompatible_context_before_opening_volume(
         "use_ridges": True,
         "ridge_sigma": 2.0,
     }
-    other = dict(
-        config,
-        **{
-            mismatch: {"patch_size": 4, "voxel_size_um": 3.0, "ridge_sigma": 3.0}[
-                mismatch
-            ]
-        },
-    )
-    runner, _, _, _, _ = setup_prediction(
+    other = config | change
+    runner, _, models, _, _ = setup_prediction(
         tmp_path, monkeypatch, "ensemble", [config, other]
     )
     monkeypatch.setattr(
@@ -459,13 +461,16 @@ def test_ensemble_rejects_incompatible_context_before_opening_volume(
     )
     with pytest.raises(ValueError, match=mismatch):
         runner()
+    assert len(models) == 1
+    assert not (tmp_path / "out").exists()
 
 
 def test_missing_requested_ensemble_member_fails(tmp_path, monkeypatch):
-    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "ensemble")
+    runner, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, "ensemble")
     argv += [str(tmp_path / "missing.pt")]
     with pytest.raises(FileNotFoundError):
         runner()
+    assert not models
     assert not (tmp_path / "out").exists()
 
 
