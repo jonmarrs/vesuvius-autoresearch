@@ -499,7 +499,8 @@ def verify_record(
     from volume_cartographer_wrapper.volume import FastLocalVolume
 
     root = Path(output).resolve()
-    record, record_sha256 = _json_file(root / RECORD_NAME)
+    record_path = root / RECORD_NAME
+    record, record_sha256 = _json_file(record_path)
     if (
         not isinstance(record, dict)
         or type(record.get("schema_version")) is not int
@@ -581,11 +582,10 @@ def verify_record(
         if _inventory(path, effective)[1] != snapshot:
             name = "CT" if role == "ct" else role
             raise ValueError(f"recorded {name} changed during {stage}")
-    if check_exports:
-        if _file_hash(root / RECORD_NAME) != record_sha256:
-            raise ValueError(
-                "proofreader input record changed during export verification"
-            )
+    if _file_hash(record_path) != record_sha256:
+        raise ValueError(f"proofreader input record changed during {stage}")
+    if _file_hash(proofreader) != record["proofreader_sha256"]:
+        raise ValueError(f"pinned proofreader source changed during {stage}")
     report = {
         "input_record_matches": True,
         "input_record_sha256": record_sha256,

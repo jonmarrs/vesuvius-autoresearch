@@ -53,6 +53,8 @@ the stricter of its own and the recorded resource limits. Source changes, missin
 files, malformed records and mismatched progress context fail with exit 1.
 The checker repeats both source inventories after checking progress, including
 in the default mode, to detect ordinary changes after either source was hashed.
+It also rechecks the input receipt and pinned proofreader source before
+reporting success.
 
 When `progress.json` exists, the checker validates its CT/label paths, shape,
 patch size, output directories and coordinate system against the receipt. It

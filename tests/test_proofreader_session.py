@@ -1340,6 +1340,34 @@ def _session_without_villa(tmp_path):
     return root, proofreader, labels
 
 
+@pytest.mark.parametrize("verify_exports", [False, True])
+@pytest.mark.parametrize("file", ["receipt", "proofreader"])
+def test_late_receipt_or_proofreader_change_refuses_verification(
+    tmp_path, monkeypatch, verify_exports, file
+):
+    root, proofreader, _ = _session_without_villa(tmp_path)
+    changed = root / sessions.RECORD_NAME if file == "receipt" else proofreader
+    original = sessions.capture_bytes
+
+    def capture(path, limit):
+        result = original(path, limit)
+        if Path(path) == root / sessions.PROGRESS_NAME:
+            changed.write_bytes(changed.read_bytes() + b"\n")
+        return result
+
+    monkeypatch.setattr(sessions, "capture_bytes", capture)
+    diagnostic = (
+        "proofreader input record" if file == "receipt" else "pinned proofreader source"
+    )
+    with pytest.raises(ValueError, match=f"{diagnostic} changed during"):
+        sessions.verify_record(
+            root,
+            proofreader,
+            sessions.DEFAULT_LIMITS,
+            verify_approved_patches=verify_exports,
+        )
+
+
 @pytest.mark.parametrize(("patches", "edited"), [(False, True), (True, False)])
 def test_the_edited_label_check_alone_also_checks_the_pairs_and_says_so_in_its_scope(
     tmp_path, patches, edited

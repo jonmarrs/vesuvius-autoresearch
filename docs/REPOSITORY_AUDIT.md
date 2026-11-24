@@ -2093,3 +2093,7 @@ The fixtures report the changed source and exit 1. These inventory checks
 detect ordinary file changes during verification. The broader decisions on
 coordinate alignment, resuming sessions and training ingestion remain open.
 [Proofreader session verification](PROOFREADER_SESSION_RECORDS.md#what-verification-establishes)
+
+PR review reproduced late changes to the receipt in the default mode and to
+the pinned proofreader source in both default and export verification. These
+files are now rechecked before either mode reports success.
