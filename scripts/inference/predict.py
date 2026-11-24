@@ -464,6 +464,9 @@ def predict():
 
     if dataset is None:
         dataset = FastVesuviusVolume(str(artifacts.source_array), **volume_options)
+    if dataset.vol.path != artifacts.source_array:
+        raise RuntimeError("CT source selection changed while opening the regional volume")
+    artifacts.validate_source_selection(args.uri)
     validate_region(args, patch_size, num_layers, dataset.shape)
 
     memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
@@ -550,7 +553,8 @@ def predict():
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
-    # Protect the current link target as well as the file we read.
+    artifacts.validate_source_selection(args.uri)
+    # Protect the current checkpoint link target as well as the file we read.
     artifacts.validate(checkpoint_aliases=(args.checkpoint,))
     if args.uncertainty_export["status"] == "PLANNED":
         validate_destination(
