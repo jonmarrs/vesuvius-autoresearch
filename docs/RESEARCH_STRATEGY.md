@@ -481,6 +481,19 @@ them a turn. So a PHerc. 0125 band read may be registered with either direction 
 each sheet's text in pieces, broken where a winding changes sheet. The read waits for disk after findings 133 and
 138.
 
+**PHerc. 0800's band fits partly on the sheets, a quarter of its windings run between them, and the images wait for
+the owner (November 23).** The recipe's fit of z 10250 to 11750 at villa's defaults is `PARTLY_ON_SHEETS` by finding
+112's table (median excess 0.1802, 0.75 of windings positive), at the registered line
+([report](../reports/first_letters_0800_studio_band.md), finding 133). The 30 windings left out lie between the
+sheets: moved half a sheet spacing, they lie more on the sheet. The 90 with positive excess were subdivided twice,
+snapped three times, kept unflipped by the axis rule and read by Studio with no failure, in 8 h 19 min, the renders
+and Studio overlapped (the read took 0.68 of its steps' time). Described from the geometry alone: 4 of 66
+neighbouring pairs are stacked; a median 0.907 of the rendered nodes lie within 2 voxels of the predicted sheet and
+no winding's trusted share is under 0.8; and at the band's middle slice the outermost winding still has a median of 19
+predicted-sheet runs outside it, so the papyrus outside it was not read. The first start was killed by systemd-oomd
+and the chain ran again from the start; the second crossed oomd's 50% line twice, for about 6 s and 18 s, under its
+20 s. No automatic verdict was registered: the images stay on this machine and the owner reads them.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 

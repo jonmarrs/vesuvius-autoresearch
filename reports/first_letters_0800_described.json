@@ -1,0 +1,336 @@
+{
+ "finding": 133,
+ "described": "after the read, geometry only: predicted-sheet crossings beyond fitted raw windings at the band's middle slice, the fit's windings by the sign of their excess, and the snap's own report of each of its three passes, and the memory pressure sampled beside the second start; checked after the report was first written: how many predicted-sheet runs at the middle slice have a winding on them (sheet_coverage.py), here and at PHerc. 0813 and PHerc. 211's control band",
+ "script": "repro/first_letters/eligible_band/outer_sheets.py",
+ "arm": "full (raw fitted windings)",
+ "z_working": 11000.0,
+ "axis_xy_working": [
+  4268.7,
+  5251.3
+ ],
+ "sheet_share_of_data": 0.2012,
+ "outermost_sheet_radius_working_median": 2448.0,
+ "outermost_data_radius_working_median": 2728.0,
+ "windings": {
+  "w050": {
+   "angles": 75,
+   "radius_working_median": 676.8,
+   "sheet_runs_beyond_median": 79.0,
+   "sheet_runs_beyond_p10_p90": [
+    55.6,
+    89.60000000000001
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 1993.2
+  },
+  "w090": {
+   "angles": 93,
+   "radius_working_median": 1307.7,
+   "sheet_runs_beyond_median": 52.0,
+   "sheet_runs_beyond_p10_p90": [
+    38.0,
+    62.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 1210.4
+  },
+  "w100": {
+   "angles": 124,
+   "radius_working_median": 1637.4,
+   "sheet_runs_beyond_median": 42.0,
+   "sheet_runs_beyond_p10_p90": [
+    26.0,
+    53.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 1018.3
+  },
+  "w105": {
+   "angles": 124,
+   "radius_working_median": 1744.9,
+   "sheet_runs_beyond_median": 40.5,
+   "sheet_runs_beyond_p10_p90": [
+    21.0,
+    50.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 957.9
+  },
+  "w110": {
+   "angles": 100,
+   "radius_working_median": 2030.5,
+   "sheet_runs_beyond_median": 35.0,
+   "sheet_runs_beyond_p10_p90": [
+    20.0,
+    45.10000000000001
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 893.1
+  },
+  "w115": {
+   "angles": 111,
+   "radius_working_median": 1959.6,
+   "sheet_runs_beyond_median": 32.0,
+   "sheet_runs_beyond_p10_p90": [
+    19.0,
+    39.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 698.0
+  },
+  "w120": {
+   "angles": 115,
+   "radius_working_median": 2212.5,
+   "sheet_runs_beyond_median": 27.0,
+   "sheet_runs_beyond_p10_p90": [
+    19.0,
+    36.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 599.6
+  },
+  "w125": {
+   "angles": 126,
+   "radius_working_median": 1874.0,
+   "sheet_runs_beyond_median": 23.5,
+   "sheet_runs_beyond_p10_p90": [
+    17.0,
+    31.0
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 524.9
+  },
+  "w129": {
+   "angles": 146,
+   "radius_working_median": 2212.2,
+   "sheet_runs_beyond_median": 19.0,
+   "sheet_runs_beyond_p10_p90": [
+    11.0,
+    26.5
+   ],
+   "outermost_sheet_minus_winding_radius_working_median": 448.2
+  }
+ },
+ "fit_windings_by_excess_sign": {
+  "source": "work/quality_full.json (run_quality.sh full, band_fit_quality.py): on_sheet is the share of a winding's nodes inside the predicted sheet; displaced is the same share for the nodes moved 6 voxels each way along the winding's own normal, averaged (about half the sheet spacing on PHerc. 343, scanned at the same 8.64 um); excess = on_sheet - displaced",
+  "displace_voxels": 6.0,
+  "positive": {
+   "windings": 90,
+   "on_sheet_median": 0.3958,
+   "displaced_median": 0.1657,
+   "excess_median": 0.2125,
+   "abs_distance_median_voxels_median": 2.0
+  },
+  "not_positive": {
+   "windings": 30,
+   "on_sheet_median": 0.1096,
+   "displaced_median": 0.2375,
+   "excess_median": -0.1386,
+   "abs_distance_median_voxels_median": 5.0
+  },
+  "not_positive_windings": [
+   "w013",
+   "w014",
+   "w017",
+   "w018",
+   "w019",
+   "w021",
+   "w025",
+   "w027",
+   "w032",
+   "w036",
+   "w039",
+   "w046",
+   "w047",
+   "w051",
+   "w053",
+   "w054",
+   "w055",
+   "w058",
+   "w060",
+   "w062",
+   "w064",
+   "w066",
+   "w069",
+   "w071",
+   "w080",
+   "w086",
+   "w087",
+   "w089",
+   "w092",
+   "w104"
+  ],
+  "not_positive_between_w050_and_w129": 17
+ },
+ "snap_passes": {
+  "source": "work/snap_fulldense.pass1, .pass2 and snap_fulldense/snap_report.tsv (the recipe's snap_meshes.py; each row is measured BEFORE that pass moves the nodes)",
+  "already_on": "share of nodes within 2 voxels of the predicted sheet run's centre along the normal (snap_meshes.py)",
+  "before_pass_1": {
+   "windings": 90,
+   "already_on_median": 0.427,
+   "median_abs_off_median": 2.055,
+   "with_sheet_median": 0.984,
+   "rejected_median": 0.074
+  },
+  "before_pass_2": {
+   "windings": 90,
+   "already_on_median": 0.819,
+   "median_abs_off_median": 0.25,
+   "with_sheet_median": 0.986,
+   "rejected_median": 0.051
+  },
+  "before_pass_3": {
+   "windings": 90,
+   "already_on_median": 0.861,
+   "median_abs_off_median": 0.12,
+   "with_sheet_median": 0.986,
+   "rejected_median": 0.048
+  },
+  "pherc0813_before_its_one_pass": {
+   "windings": 110,
+   "already_on_median": 0.309,
+   "median_abs_off_median": 2.135,
+   "with_sheet_median": 0.956,
+   "rejected_median": 0.164
+  }
+ },
+ "memory_pressure": {
+  "source": "logs/restart_memory.tsv (the scratch sampler memsample.sh beside unit f133-0800, every 2 s; user_psi10 is user@1000.service's memory.pressure some avg10, the value systemd-oomd watches against its 50% line)",
+  "fit_loading": {
+   "from": "12:27:30",
+   "to": "12:28:00",
+   "samples": 15,
+   "samples_over_50": 3,
+   "first_over": "12:27:41",
+   "last_over": "12:27:45",
+   "user_psi10_max": 58.89,
+   "unit_anon_mib_max": 6041,
+   "unit_file_mib_max": 17466,
+   "avail_mib_min": 22776
+  },
+  "summarise": {
+   "from": "20:36:50",
+   "to": "20:38:30",
+   "samples": 50,
+   "samples_over_50": 14,
+   "first_over": "20:37:13",
+   "last_over": "20:38:14",
+   "user_psi10_max": 58.57,
+   "unit_anon_mib_max": 790,
+   "unit_file_mib_max": 20829,
+   "avail_mib_min": 28222
+  },
+  "between_user_psi10_max": 22.88,
+  "first_start_killed": "systemd-oomd 2026-11-23T09:08:20-08:00 during fit_smoke (user@1000.service memory pressure 71.55% > 50% for > 20 s)"
+ },
+ "sheet_coverage": {
+  "script": "repro/first_letters/eligible_band/sheet_coverage.py",
+  "sets": {
+   "raw_all": "the 30,000-step fit's raw windings w010 to w129",
+   "raw_read": "the raw windings selected for the read",
+   "raw_dropped": "the raw windings left out (excess not positive)",
+   "final_read": "the read windings after densify, snap and flatten (final_fulldense), as rendered"
+  },
+  "pherc0800": {
+   "z_working": 11000.0,
+   "degrees_with_range": 360,
+   "range_from": "raw_all",
+   "sets": {
+    "raw_all": {
+     "windings": 120,
+     "runs_counted": 28877,
+     "covered_share": 0.5078,
+     "covered_by_two_or_more_share": 0.0595,
+     "covered_share_by_third_of_range": [
+      0.3452,
+      0.5262,
+      0.646
+     ]
+    },
+    "raw_read": {
+     "windings": 90,
+     "runs_counted": 28877,
+     "covered_share": 0.4638,
+     "covered_by_two_or_more_share": 0.0437,
+     "covered_share_by_third_of_range": [
+      0.2954,
+      0.452,
+      0.6342
+     ]
+    },
+    "raw_dropped": {
+     "windings": 30,
+     "runs_counted": 28877,
+     "covered_share": 0.06,
+     "covered_by_two_or_more_share": 0.0033,
+     "covered_share_by_third_of_range": [
+      0.0597,
+      0.1041,
+      0.0212
+     ]
+    },
+    "final_read": {
+     "windings": 90,
+     "runs_counted": 28877,
+     "covered_share": 0.5942,
+     "covered_by_two_or_more_share": 0.124,
+     "covered_share_by_third_of_range": [
+      0.4085,
+      0.5917,
+      0.7729
+     ]
+    }
+   }
+  },
+  "pherc0813": {
+   "z_working": 10746.0,
+   "degrees_with_range": 360,
+   "range_from": "raw_all",
+   "sets": {
+    "raw_all": {
+     "windings": 120,
+     "runs_counted": 28563,
+     "covered_share": 0.3778,
+     "covered_by_two_or_more_share": 0.0382,
+     "covered_share_by_third_of_range": [
+      0.2368,
+      0.3919,
+      0.5188
+     ]
+    },
+    "raw_read": {
+     "windings": 110,
+     "runs_counted": 28563,
+     "covered_share": 0.369,
+     "covered_by_two_or_more_share": 0.0366,
+     "covered_share_by_third_of_range": [
+      0.2153,
+      0.3875,
+      0.5188
+     ]
+    },
+    "final_read": {
+     "windings": 110,
+     "runs_counted": 28563,
+     "covered_share": 0.5643,
+     "covered_by_two_or_more_share": 0.127,
+     "covered_share_by_third_of_range": [
+      0.3632,
+      0.6123,
+      0.729
+     ]
+    }
+   }
+  },
+  "pherc0211_control": {
+   "z_working": 8400.0,
+   "degrees_with_range": 360,
+   "range_from": "raw_all",
+   "sets": {
+    "raw_all": {
+     "windings": 120,
+     "runs_counted": 24618,
+     "covered_share": 0.3887,
+     "covered_by_two_or_more_share": 0.0232,
+     "covered_share_by_third_of_range": [
+      0.3387,
+      0.4228,
+      0.4415
+     ]
+    }
+   }
+  }
+ }
+}
