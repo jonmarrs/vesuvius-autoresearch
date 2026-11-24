@@ -136,3 +136,59 @@ def test_both_reads_log_and_gate_each_winding_under_the_same_names():
         assert f'gate "$ARM" "studio_{step}_$w"' in overlap
     assert 'echo "$step: ${#LIVE[@]} windings go on $(date -Is)"' in serial
     assert "windings go on $(date -Is)" in overlap
+
+
+# --- the done list starts empty, a winding is matched by its whole name, the last look, and the wait for the renderer
+
+
+def _overlap(tmp_path, live=("w1", "w2", "w3", "w4"), before=""):
+    """render_and_read with the same stand-ins as _read, on the windings `live`, after the shell lines `before`."""
+    fn = _block(SCRIPT.read_text(), "render_and_read() {")
+    script = f"""
+R="{tmp_path}"; ARM=a; OUT="{tmp_path}/out"; mkdir -p "$OUT" "$R/logs"
+LIVE=({" ".join(live)})
+FL_OVERLAP_POLL=0.02
+gate() {{ echo "$2 $3" >> "{tmp_path}/gates"; }}
+render_one() {{ sleep 0.2; touch "$R/rendered_$1"; }}
+studio() {{ [ -e "$R/rendered_$1" ] || return 9; }}
+{before}
+{fn}
+render_and_read
+echo "LIVE=${{LIVE[*]}}"
+"""
+    run = subprocess.run(
+        ["bash", "-uc", script], capture_output=True, text=True, timeout=60
+    )
+    assert run.returncode == 0, run.stderr
+    return run.stdout, run.stdout.strip().split("\n")[-1].removeprefix("LIVE=").split()
+
+
+def test_a_done_list_left_from_before_is_emptied_first(tmp_path):
+    (tmp_path / "out").mkdir()
+    (tmp_path / "out" / "rendered.txt").write_text(
+        "w1 0\n"
+    )  # as if w1 were already rendered
+    assert _overlap(tmp_path)[1] == ["w1", "w2", "w3", "w4"]
+
+
+def test_a_winding_waits_for_its_own_name_not_one_it_begins(tmp_path):
+    # w10 is rendered first; w1 must wait for its own line, not take w10's
+    assert _overlap(tmp_path, live=("w10", "w1"))[1] == ["w10", "w1"]
+
+
+def test_a_render_recorded_as_the_renderer_stops_is_still_read(tmp_path):
+    # the reader's check of the renderer waits until the renderer has rendered everything and gone, so only the last
+    # look at the done list can find w1
+    before = """kill() {
+  if [ "$1" = -0 ]; then while command kill -0 "$2" 2>/dev/null; do command sleep 0.01; done; return 1; fi
+  command kill "$@"
+}"""
+    assert _overlap(tmp_path, before=before)[1] == ["w1", "w2", "w3", "w4"]
+
+
+def test_the_read_waits_for_the_renderer_to_finish(tmp_path):
+    # the renderer's count of what it rendered is slowed: it must still come before the read's own last line
+    before = """awk() { if [ "$1" = '$2 == 0' ]; then command sleep 0.5; fi; command awk "$@"; }"""
+    out, live = _overlap(tmp_path, before=before)
+    assert out.index("render: 4 windings go on") < out.index("studio: 4 windings go on")
+    assert live == ["w1", "w2", "w3", "w4"]
