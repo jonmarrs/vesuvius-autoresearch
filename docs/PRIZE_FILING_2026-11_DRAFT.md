@@ -215,6 +215,14 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
       layers inward.
     - **What it changes:** the band reads keep their window. A uniform depth offset of a layer or more is not what
       keeps r at 0.82 there.
+  * **A fit declared to turn the wrong way, tested at the known place**
+    ([report](../reports/first_letters_0211_wrong_hand.md)). The same band was fitted again with the spiral declared
+    clockwise, against the catalog's anticlockwise. Read by Studio, it matches the winner's map as well as the
+    published direction does: r 0.841 on 0.8337 of the winner's cells, against 0.8247 on 0.8309.
+    - **How:** the fit did turn the other way in the scan. Its windings still lie on the sheets and step across them,
+      a net 1.78 to 1.89 sheets a turn.
+    - **What it changes:** a band of a scroll whose winding direction is not published can be read with either
+      direction declared. Each page then carries a sheet's text in pieces, broken where its winding changes sheet.
   * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
     with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
     reader was the missing piece, not the geometry.
@@ -265,15 +273,12 @@ Not for this filing: anything made from a still-eligible scroll. That includes o
 their costs and geometry among them, and any ranking of their windows. PHerc. 211's prize was announced on
 2026-11-15, so its results may be described.
 
-## Still running: two tests at PHerc. 211 that may land before filing
+## Still running: a test at PHerc. 211 that may land before filing
 
-Both are at the place where PHerc. 211's prize was won, so their results may be described. Neither has a result
-yet, and each goes into the section above only with its report.
+It is at the place where PHerc. 211's prize was won, so its result may be described. It has no result yet, and goes
+into the section above only with its report. The other test listed here on 2026-11-23, the fit declared to turn the
+wrong way, has reported and is above.
 
-* **A fit declared to turn the wrong way** (registered on branch `research/wrong-hand-read` at `dc232051`; running
-  since 2026-11-23 09:08 Pacific, about 4 hours). It asks whether a fit of the same band, declared clockwise, still
-  puts windings on the winner's sheet, and whether Studio still reads the winner's text on them. If so, a band of a
-  scroll whose winding direction is not published can be read without it.
 * **Ranking a band's windows with the PHerc. 306B team's glyph network** (registered on branch
   `research/studio-band-triage` at `26d5c8a5`; about 6 hours, expected around 11-25, after the band read queued
   before it). It asks whether their CNN, run on our Studio band read of PHerc. 211, ranks the windows on the winner's

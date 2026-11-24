@@ -1,0 +1,547 @@
+{
+ "finding": 137,
+ "registration": "docs/preregistration/2026-11-22_first_letters_0211_wrong_hand_read.md",
+ "registration_commit": "e51b57e3",
+ "amendment_1_commit": "dc232051",
+ "band": [
+  7650,
+  9150
+ ],
+ "declared": {
+  "right": "ACW (the catalog's)",
+  "wrong": "CW"
+ },
+ "arms": {
+  "right": {
+   "windings": [
+    "w033",
+    "w034",
+    "w035",
+    "w036"
+   ],
+   "flipped": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "normal_cosine_median": [
+    -0.9983,
+    -0.9967,
+    -0.9979,
+    -0.9962
+   ],
+   "sampled_along_the_winner": true
+  },
+  "wrong": {
+   "windings": [
+    "w035",
+    "w033",
+    "w036",
+    "w034"
+   ],
+   "flipped": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "normal_cosine_median": [
+    0.9977,
+    0.9983,
+    0.9972,
+    0.9975
+   ],
+   "sampled_along_the_winner": true
+  }
+ },
+ "mask_cells": 550482,
+ "f124_reproduced": true,
+ "registered": {
+  "right": {
+   "r": 0.8247,
+   "control_wrong_side": -0.0471,
+   "control_slid": {
+    "down": 0.1015,
+    "up": 0.1141,
+    "right": 0.0131,
+    "left": 0.0475,
+    "largest_absolute": 0.1141
+   },
+   "cell_share": 0.8309
+  },
+  "wrong": {
+   "r": 0.841,
+   "control_wrong_side": -0.0442,
+   "control_slid": {
+    "down": 0.1032,
+    "up": 0.1049,
+    "right": 0.054,
+    "left": 0.0501,
+    "largest_absolute": 0.1049
+   },
+   "cell_share": 0.8337
+  }
+ },
+ "verdict": "WRONG_HAND_READS_ALIKE",
+ "described": {
+  "each_arm_on_its_own_cells": {
+   "right": {
+    "cells": 457405,
+    "r": 0.8247,
+    "control_wrong_side": -0.0471,
+    "r_with_background": 0.7383,
+    "control_slid": {
+     "down": 0.1015,
+     "up": 0.1141,
+     "right": 0.0131,
+     "left": 0.0475,
+     "largest_absolute": 0.1141
+    },
+    "overlap": 0.7574,
+    "control_overlap_slid": {
+     "down": 0.4082,
+     "up": 0.4071,
+     "right": 0.3832,
+     "left": 0.4154,
+     "largest": 0.4154
+    },
+    "cell_share": 0.8309
+   },
+   "wrong": {
+    "cells": 458920,
+    "r": 0.841,
+    "control_wrong_side": -0.0442,
+    "r_with_background": 0.7445,
+    "control_slid": {
+     "down": 0.1032,
+     "up": 0.1049,
+     "right": 0.054,
+     "left": 0.0501,
+     "largest_absolute": 0.1049
+    },
+    "overlap": 0.7718,
+    "control_overlap_slid": {
+     "down": 0.4246,
+     "up": 0.4154,
+     "right": 0.4137,
+     "left": 0.4209,
+     "largest": 0.4246
+    },
+    "cell_share": 0.8337
+   }
+  },
+  "both_arms_on_their_common_cells": {
+   "cells": 437732,
+   "cell_share": 0.7952,
+   "right": {
+    "cells": 437732,
+    "r": 0.8291,
+    "control_wrong_side": -0.0495,
+    "r_with_background": 0.7394,
+    "control_slid": {
+     "down": 0.0974,
+     "up": 0.1123,
+     "right": 0.0129,
+     "left": 0.0468,
+     "largest_absolute": 0.1123
+    },
+    "overlap": 0.7613,
+    "control_overlap_slid": {
+     "down": 0.4093,
+     "up": 0.4111,
+     "right": 0.3842,
+     "left": 0.4171,
+     "largest": 0.4171
+    }
+   },
+   "wrong": {
+    "cells": 437732,
+    "r": 0.8451,
+    "control_wrong_side": -0.0543,
+    "r_with_background": 0.7506,
+    "control_slid": {
+     "down": 0.1005,
+     "up": 0.1027,
+     "right": 0.0444,
+     "left": 0.0407,
+     "largest_absolute": 0.1027
+    },
+    "overlap": 0.7718,
+    "control_overlap_slid": {
+     "down": 0.4155,
+     "up": 0.4082,
+     "right": 0.4021,
+     "left": 0.4107,
+     "largest": 0.4155
+    }
+   }
+  },
+  "only_the_wrong_arm_reaches": 0.0385,
+  "by_winding": {
+   "right": {
+    "w033": {
+     "cells": 164315,
+     "r": 0.8737
+    },
+    "w034": {
+     "cells": 95215,
+     "r": 0.7776
+    },
+    "w035": {
+     "cells": 133557,
+     "r": 0.8238
+    },
+    "w036": {
+     "cells": 64318,
+     "r": 0.7527
+    }
+   },
+   "wrong": {
+    "w035": {
+     "cells": 118364,
+     "r": 0.8232
+    },
+    "w033": {
+     "cells": 137695,
+     "r": 0.8922
+    },
+    "w036": {
+     "cells": 98370,
+     "r": 0.7823
+    },
+    "w034": {
+     "cells": 104491,
+     "r": 0.8078
+    }
+   }
+  },
+  "transfer_distance_voxels": {
+   "right": {
+    "p50": 1.94,
+    "p95": 3.45
+   },
+   "wrong": {
+    "p50": 1.95,
+    "p95": 3.45
+   }
+  }
+ },
+ "choice": {
+  "wrong": {
+   "winner_points_in_band": 539518,
+   "windings": 120,
+   "chosen": [
+    "w035",
+    "w033",
+    "w036",
+    "w034"
+   ],
+   "points_within_accept": {
+    "w035": 188049,
+    "w033": 130244,
+    "w036": 83396,
+    "w034": 67189,
+    "w037": 8061,
+    "w032": 1338,
+    "w031": 219,
+    "w038": 47
+   },
+   "described": {
+    "winner_points_within_2_of_any_winding": 0.2492,
+    "winner_points_within_accept_of_any_winding": 0.8089
+   },
+   "rule": "the 4 raw windings with the most winner lattice points within 4.0 voxels"
+  },
+  "right_as_registered": {
+   "chosen": [
+    "w035",
+    "w033",
+    "w036",
+    "w034"
+   ],
+   "points_within_accept": {
+    "w035": 220362,
+    "w033": 152314,
+    "w036": 59464,
+    "w034": 48445,
+    "w037": 6231
+   },
+   "winner_points_within_2_of_any_winding": 0.2616,
+   "winner_points_within_accept_of_any_winding": 0.8189
+  }
+ },
+ "snap_report": {
+  "right": {
+   "w033": {
+    "n_valid": 11701,
+    "frac_with_sheet": 0.996,
+    "frac_snapped": 1.0,
+    "median_abs_off": 1.18,
+    "p90_abs_off": 3.04,
+    "frac_rejected": 0.038,
+    "frac_already_on": 0.68
+   },
+   "w034": {
+    "n_valid": 12054,
+    "frac_with_sheet": 0.99,
+    "frac_snapped": 1.0,
+    "median_abs_off": 5.53,
+    "p90_abs_off": 8.47,
+    "frac_rejected": 0.208,
+    "frac_already_on": 0.055
+   },
+   "w035": {
+    "n_valid": 12354,
+    "frac_with_sheet": 0.994,
+    "frac_snapped": 1.0,
+    "median_abs_off": 0.68,
+    "p90_abs_off": 2.16,
+    "frac_rejected": 0.036,
+    "frac_already_on": 0.792
+   },
+   "w036": {
+    "n_valid": 12729,
+    "frac_with_sheet": 0.984,
+    "frac_snapped": 1.0,
+    "median_abs_off": 5.19,
+    "p90_abs_off": 8.5,
+    "frac_rejected": 0.186,
+    "frac_already_on": 0.065
+   }
+  },
+  "wrong": {
+   "w035": {
+    "n_valid": 11891,
+    "frac_with_sheet": 0.993,
+    "frac_snapped": 1.0,
+    "median_abs_off": 0.77,
+    "p90_abs_off": 3.36,
+    "frac_rejected": 0.051,
+    "frac_already_on": 0.727
+   },
+   "w033": {
+    "n_valid": 11214,
+    "frac_with_sheet": 0.996,
+    "frac_snapped": 1.0,
+    "median_abs_off": 1.12,
+    "p90_abs_off": 2.93,
+    "frac_rejected": 0.046,
+    "frac_already_on": 0.676
+   },
+   "w036": {
+    "n_valid": 12278,
+    "frac_with_sheet": 0.984,
+    "frac_snapped": 1.0,
+    "median_abs_off": 5.09,
+    "p90_abs_off": 8.49,
+    "frac_rejected": 0.178,
+    "frac_already_on": 0.119
+   },
+   "w034": {
+    "n_valid": 11589,
+    "frac_with_sheet": 0.988,
+    "frac_snapped": 0.999,
+    "median_abs_off": 5.11,
+    "p90_abs_off": 8.31,
+    "frac_rejected": 0.196,
+    "frac_already_on": 0.113
+   }
+  }
+ },
+ "audit_after_the_result": {
+  "finding": 137,
+  "registered": false,
+  "written": "after the result, to check it",
+  "turn_degrees": {
+   "right": {
+    "w033": [
+     -358.8,
+     -358.8,
+     -358.9,
+     -359.3,
+     -359.5,
+     -359.0,
+     -359.2
+    ],
+    "w034": [
+     -360.0,
+     -359.3,
+     -359.4,
+     -359.9,
+     -360.5,
+     -359.8,
+     -359.8
+    ],
+    "w035": [
+     -358.0,
+     -358.2,
+     -358.8,
+     -359.0,
+     -358.8,
+     -359.2,
+     -359.2
+    ],
+    "w036": [
+     -359.1,
+     -358.2,
+     -358.3,
+     -359.2,
+     -359.3,
+     -359.4,
+     -359.6
+    ]
+   },
+   "wrong": {
+    "w033": [
+     360.4,
+     362.6,
+     361.9,
+     357.2,
+     361.9,
+     361.0,
+     362.0
+    ],
+    "w034": [
+     360.2,
+     360.0,
+     360.3,
+     361.0,
+     361.2,
+     360.9,
+     359.2
+    ],
+    "w035": [
+     358.4,
+     357.0,
+     357.0,
+     359.3,
+     358.7,
+     356.3,
+     357.3
+    ],
+    "w036": [
+     359.6,
+     357.3,
+     358.9,
+     360.0,
+     358.1,
+     358.7,
+     362.6
+    ]
+   }
+  },
+  "seams": {
+   "stands_in_for_the_sheets": "the published fit's raw windings w020 to w050",
+   "accept_voxels": 4.0,
+   "by_winding": {
+    "w033": {
+     "rows": 9,
+     "lattice_points": 6395,
+     "share_within_accept": 0.8932,
+     "published_seams_passed": 8,
+     "crossings": 64,
+     "crossing_dk_counts": {
+      "-1": 24,
+      "1": 39,
+      "2": 1
+     },
+     "net_dk_per_row": 1.89
+    },
+    "w034": {
+     "rows": 9,
+     "lattice_points": 6570,
+     "share_within_accept": 0.9104,
+     "published_seams_passed": 9,
+     "crossings": 124,
+     "crossing_dk_counts": {
+      "-1": 55,
+      "1": 67,
+      "2": 2
+     },
+     "net_dk_per_row": 1.78
+    },
+    "w035": {
+     "rows": 9,
+     "lattice_points": 6725,
+     "share_within_accept": 0.9167,
+     "published_seams_passed": 7,
+     "crossings": 184,
+     "crossing_dk_counts": {
+      "-3": 1,
+      "-2": 3,
+      "-1": 81,
+      "1": 91,
+      "2": 8
+     },
+     "net_dk_per_row": 1.89
+    },
+    "w036": {
+     "rows": 9,
+     "lattice_points": 6925,
+     "share_within_accept": 0.8963,
+     "published_seams_passed": 8,
+     "crossings": 157,
+     "crossing_dk_counts": {
+      "-3": 1,
+      "-2": 3,
+      "-1": 65,
+      "1": 85,
+      "2": 3
+     },
+     "net_dk_per_row": 1.89
+    }
+   }
+  }
+ },
+ "steps": {
+  "check": {
+   "exit": 0,
+   "seconds": 2
+  },
+  "fit": {
+   "exit": 0,
+   "seconds": 10317
+  },
+  "choose": {
+   "exit": 0,
+   "seconds": 53
+  },
+  "snap": {
+   "exit": 0,
+   "seconds": 12
+  },
+  "flatten": {
+   "exit": 0,
+   "seconds": 179
+  },
+  "orient": {
+   "exit": 0,
+   "seconds": 1
+  },
+  "render": {
+   "exit": 0,
+   "seconds": 201
+  },
+  "planes": {
+   "exit": 0,
+   "seconds": 42
+  },
+  "infer": {
+   "exit": 0,
+   "seconds": 564
+  },
+  "compare": {
+   "exit": 0,
+   "seconds": 15
+  }
+ },
+ "seconds": 11386,
+ "fit": {
+  "steps": 30000,
+  "seconds": 10317,
+  "gpu_peak_mib_all_processes": 10613
+ },
+ "gpu_peak_mib_all_processes": 14483,
+ "sources": "the run's compare.json, choose.json, audit.json (repro/first_letters/pherc0211_control/wrong_hand_audit.py), gate/*.json, gpu_peak.json; the band's snap_report.tsv of arms e2e and e2e_otherhand and gate_full-otherhand/fit.json"
+}
