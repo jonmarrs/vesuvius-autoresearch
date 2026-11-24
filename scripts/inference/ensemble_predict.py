@@ -170,10 +170,10 @@ def ensemble_predict():
             dropout=config.get("dropout", 0.0),
             use_ridges=use_ridges,
             multi_task_heads=config.get("multi_task_heads", False),
-        ).to(device)
+        )
         model.load_state_dict(checkpoint["model_state_dict"], strict=True)
         del checkpoint
-        models.append((model.eval(), use_ridges, layers))
+        models.append((model.to(device).eval(), use_ridges, layers))
         configs.append(config)
 
     # A member without a fiber head returns its ink logits as "fiber"; the

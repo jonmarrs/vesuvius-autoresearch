@@ -2233,3 +2233,8 @@ before constructing that model. Earlier compatible members can already be on
 the inference device when a later configuration fails. Representative memory
 and ensemble residency measurements remain open.
 [Regional memory observations](VOLUME_INFERENCE.md#regional-memory-observations)
+
+Review reproduced a device transfer before strict weight loading reported
+a tensor shape mismatch. Each ensemble member's state is now loaded
+strictly on CPU before transfer. The mismatch fixture tracks the transfer
+calls, and the successful mixed-depth fixture covers both member orders.
