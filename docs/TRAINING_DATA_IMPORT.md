@@ -103,7 +103,8 @@ same spelling determines the segment name for pseudo-label selection.
 
 A URI and its decoded absolute path produce the same validation input
 fingerprint. Checkpoint output protection and the read-only workspace status
-command use the decoded paths as well.
+command use the decoded paths as well. Workspace checks use the inspected
+checkout as their base directory.
 
 ## Verify a prepared fragment
 

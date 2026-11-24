@@ -125,13 +125,21 @@ def test_symlinked_volume_keeps_its_visible_annotation_parent(workspace):
     assert label.read_bytes() == b"visible annotation"
 
 
-def test_checks_local_file_uris_and_their_decoded_label_paths(workspace):
+@pytest.mark.parametrize("shadow_path", [False, True])
+def test_checks_local_file_uris_and_their_decoded_label_paths(
+    workspace, monkeypatch, shadow_path
+):
     repo, _ = workspace
     visible = repo / "train #1"
     (repo / "train").rename(visible)
+    uri = (visible / "surface_volume.zarr").as_uri()
+    if shadow_path:
+        caller = repo / "outside"
+        (caller / uri).mkdir(parents=True)
+        monkeypatch.chdir(caller)
     save_config(
         workspace,
-        uris=[(visible / "surface_volume.zarr").as_uri()],
+        uris=[uri],
         val_uri=(repo / "val/surface_volume.zarr").as_uri(),
     )
     report = status.inspect_workspace(repo)

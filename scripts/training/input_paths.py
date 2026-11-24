@@ -26,7 +26,7 @@ def training_volume_path(uri: str, *, base_dir: str | Path = ".") -> str:
     """Decode a local file URI without following the visible volume's links."""
     if not uri.lower().startswith("file:") or (Path(base_dir) / uri).exists():
         return uri
-    path, _ = volume_location(uri, ".", resolve_local=False)
+    path, _ = volume_location(uri, base_dir, resolve_local=False)
     if path is None or not urlsplit(uri).path.startswith("/"):
         raise ValueError("file URI must identify an absolute local path")
     return os.fspath(path)

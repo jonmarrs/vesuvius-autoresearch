@@ -2013,6 +2013,12 @@ pseudo-label and catalog beside a visible alias whose CT lives elsewhere.
 Remote source identity and registration remain open review items.
 [Local volume identifiers](TRAINING_DATA_IMPORT.md#local-volume-identifiers)
 
+PR review found a second lookup of URI-shaped local paths using the process's
+working directory. A literal matching path there made workspace setup status
+unknown and let the checkpoint guard miss the decoded pseudo-label. Both
+lookups now use the inspected checkout. The two regressions simulate another
+caller directory and preserve the selected pseudo-label.
+
 The twelve-module CPU integration selection passed **732 tests**. Two skips
 require CuPy and the local PHercParis2Fr143 volume. The final focused URI
 selection passed **10 tests**, including the URI form of the UA-MT band
