@@ -241,3 +241,151 @@ def test_the_run_script_runs_the_registered_steps_in_order_and_uploads_nothing()
         "--stride 64" in text and "--blend hann" in text and "--batch-size 32" in text
     )
     assert "--write-components" in text and "--reverse" in text
+
+
+# --- the verdict's other edges, the recipe's map reader, the letter boxes' edges, and what stops the comparison -----
+
+
+@pytest.mark.parametrize(
+    ("r", "wrong", "slid", "share", "expected"),
+    [
+        (
+            0.9,
+            0.0,
+            0.0,
+            0.5,
+            "STUDIO_343_AGREES",
+        ),  # a cell share exactly at the line runs
+        (0.9, None, 0.0, 0.6, "DOES_NOT_RUN"),  # no other side
+        (0.9, 0.0, None, 0.6, "DOES_NOT_RUN"),  # no slid control
+        (
+            0.5,
+            0.1,
+            -0.3,
+            0.6,
+            "STUDIO_343_FAR",
+        ),  # the slid control's size counts, not its sign
+        (
+            0.5,
+            0.25,
+            0.1,
+            0.6,
+            "STUDIO_343_AGREES",
+        ),  # exactly twice the other side clears it
+        (0.2, 0.0, 0.0, 0.6, "STUDIO_343_PARTLY"),  # exactly at the lower line
+    ],
+)
+def test_the_verdict_at_its_other_edges(r, wrong, slid, share, expected):
+    numbers = {
+        "r": r,
+        "control_wrong_side": wrong,
+        "control_slid": {"largest_absolute": slid},
+    }
+    assert s3.verdict(numbers, share) == expected
+
+
+def test_a_recipe_map_is_read_as_the_recipes_image_script_reads_it(tmp_path):
+    import cv2
+    import tifffile
+
+    tif = tmp_path / "m.tif"
+    tifffile.imwrite(tif, np.array([[0, 64, 128, 192, 255]], np.uint8))
+    assert s3.read_model(tif, (1, 5)).tolist() == [
+        [0.0, 0.0, 0.5, 1.0, 1.0]
+    ]  # clip((v - 64) / 128, 0, 1)
+    with pytest.raises(SystemExit, match="the render"):
+        s3.read_model(tif, (2, 5))
+    png = tmp_path / "m.png"
+    cv2.imwrite(str(png), np.full((2, 3), 255, np.uint8))
+    assert (s3.read_model(png, (4, 6)) == 1.0).all()  # resized to the render, v / 255
+    (tmp_path / "bad.png").write_text("not an image")
+    with pytest.raises(SystemExit, match="cannot read"):
+        s3.read_model(tmp_path / "bad.png", (4, 6))
+
+
+def test_letter_boxes_round_their_edges_and_leave_out_a_box_with_no_valid_pixel():
+    studio = np.zeros((40, 60))
+    studio[5:15, 5:15] = 0.9
+    u = np.zeros((40, 60))
+    u[5:15, 5:15] = s3.DRAWN  # exactly at the overlay's line: drawn
+    valid = np.ones((40, 60), bool)
+    valid[30:] = False
+    out = s3.letter_boxes({"letters_area_px": [
+        {"id": 1, "box": [4.6, 4.6, 15.4, 15.4]},  # rounds to 5..15 each way
+        {"id": 2, "box": [20, 32, 30, 38]},  # wholly invalid
+    ]}, studio, u, valid)  # fmt: skip
+    assert (
+        out["boxes"][0]["studio_ink_share"] == 1.0
+        and out["boxes"][0]["u_drawn_share"] == 1.0
+    )
+    assert out["boxes"][1] == {"id": 2, "valid_pixels": 0} and out["boxes_scored"] == 1
+
+
+def test_a_box_at_studios_share_over_the_area_is_not_above_it():
+    studio = np.full((20, 20), 0.9)
+    out = s3.letter_boxes({"letters_area_px": [{"id": 1, "box": [0, 0, 10, 10]}]}, studio, np.zeros((20, 20)),
+                          np.ones((20, 20), bool))  # fmt: skip
+    assert out["boxes"][0]["studio_above_its_area_share"] is False
+    assert out["boxes_where_studio_is_above_its_area_share"] == 0
+
+
+@pytest.mark.parametrize(("broken", "match"), [("layers", "not 66"), ("ink-unreadable", "cannot read"),
+                                               ("ink-shape", "the area")])  # fmt: skip
+def test_the_comparison_stops_on_a_render_or_ink_image_it_cannot_use(
+    tmp_path, broken, match
+):
+    import cv2
+    import zarr
+
+    args = _synthetic(tmp_path)
+    if broken == "layers":
+        zarr.open(str(args.render), mode="w").create_dataset(
+            "0", data=np.full((18, 240, 400), 100, np.uint8)
+        )
+    elif broken == "ink-unreadable":
+        args.ink_png.write_text("not an image")
+    else:
+        cv2.imwrite(str(args.ink_png), np.zeros((10, 10), np.uint8))
+    with pytest.raises(SystemExit, match=match):
+        s3.compare(args)
+
+
+@pytest.mark.parametrize(("empty_rows", "share"), [(112, 0.5), (116, 0.4821)])
+def test_a_pixel_any_layer_leaves_empty_is_invalid_and_too_few_cells_do_not_run(
+    tmp_path, empty_rows, share
+):
+    import zarr
+
+    args = _synthetic(tmp_path)
+    data = np.asarray(zarr.open(str(args.render), mode="r")["0"][:])
+    data[40, 8 : 8 + empty_rows, :] = (
+        0  # one layer empty over the first rows of the area (224 rows)
+    )
+    zarr.open(str(args.render), mode="w").create_dataset(
+        "0", data=data, chunks=(66, 240, 400)
+    )
+    result = s3.compare(args)
+    assert result["cell_share"] == share
+    if share >= s3.MIN_CELL_SHARE:
+        assert result["verdict"] != "DOES_NOT_RUN" and result["registered"] is not None
+    else:
+        assert (result["verdict"], result["registered"], result["why"]) == (
+            "DOES_NOT_RUN",
+            None,
+            "too few valid cells",
+        )
+
+
+def test_the_reversed_image_shows_the_reversed_planes_map(tmp_path):
+    import cv2
+
+    args = _synthetic(tmp_path)
+    s3.compare(args)
+    reversed_ = s3.to_reading(
+        np.load(args.studio_reversed).astype(np.float64),
+        json.loads(args.sidecar.read_text()),
+    )
+    top = cv2.imread(str(tmp_path / "img_reversed.png"), cv2.IMREAD_GRAYSCALE)[:224]
+    assert np.array_equal(
+        top, np.clip(np.round(reversed_ * 255), 0, 255).astype(np.uint8)
+    )
