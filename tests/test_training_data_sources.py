@@ -10,6 +10,7 @@ docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-14_TRAINING_DATA_SOURCES.md.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -140,7 +141,7 @@ def test_periodic_checkpoint_checks_the_active_config_before_evaluation(tmp_path
     assert active.read_bytes() == b"active configuration"
 
 
-def _volume(root, depth=33, labels=True):
+def _volume(root, depth=33, labels=True, **array_options):
     """A fragment whose slice z holds the value z, so a read shows its depth."""
     root.mkdir()
     volume = zarr.open(
@@ -149,6 +150,7 @@ def _volume(root, depth=33, labels=True):
         shape=(depth, 32, 32),
         chunks=(depth, 32, 32),
         dtype="u1",
+        **array_options,
     )
     volume[:] = np.broadcast_to(
         np.arange(depth, dtype=np.uint8)[:, None, None], (depth, 32, 32)
@@ -166,6 +168,91 @@ def _config(uri, **kwargs):
     return ExperimentConfig(
         num_layers=16, patch_size=16, depth_band=[1, 27], uris=[uri], **kwargs
     )
+
+
+@pytest.mark.parametrize("workers", [0, 1])
+def test_fallback_reports_only_count_this_training_run(tmp_path, monkeypatch, workers):
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    class CpuTorch:
+        def __getattr__(self, name):
+            return getattr(torch, name)
+
+        def device(self, name):
+            return torch.device("cpu")
+
+    training_workers = []
+
+    class TrackedLoader(torch.utils.data.DataLoader):
+        def __iter__(self):
+            iterator = super().__iter__()
+            training_workers[:] = getattr(iterator, "_workers", ())
+            return iterator
+
+    collect_validation = train.collect_validation_predictions
+
+    def validate_after_worker_exit(*args, **kwargs):
+        assert len(training_workers) == workers
+        assert all(not worker.is_alive() for worker in training_workers)
+        return collect_validation(*args, **kwargs)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, str(workers))
+    monkeypatch.setattr(train, "torch", CpuTorch())
+    monkeypatch.setattr(train, "DataLoader", TrackedLoader)
+    monkeypatch.setattr(
+        train, "collect_validation_predictions", validate_after_worker_exit
+    )
+    monkeypatch.setattr(
+        vesuvius_loader, "_WARNING_COUNTS", vesuvius_loader.defaultdict(int)
+    )
+    monkeypatch.setattr(train, "AUGMENTATION_FALLBACKS", {"batchgeneratorsv2": 4})
+    vesuvius_loader._warn_limited("labeled_zero_patch", "failure from a prior run")
+    vesuvius_loader._warn_limited("ridge_fallback", "another warning from a prior run")
+    uri = _volume(tmp_path / "train", depth=16, compressor=None)
+    chunk = Path(uri) / "0.0.0"
+    raw = chunk.read_bytes()
+    chunk.write_bytes(raw[:-1])
+    config = ExperimentConfig(
+        uris=[uri],
+        val_uri=_volume(tmp_path / "val", depth=16),
+        num_layers=8,
+        patch_size=16,
+        batch_size=1,
+        time_budget=0,
+        checkpoint_out=str(tmp_path / "trial.pt"),
+        cache_dir=str(tmp_path / "cache"),
+        disable_augmentation=True,
+        use_wandb=False,
+    )
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    result_path = tmp_path / "run_result.json"
+    train.train(config)
+    failed_read = json.loads(result_path.read_text())
+    assert failed_read["steps"] == 1
+    assert set(failed_read["loader_warnings"]) == {"labeled_zero_patch"}
+    # A worker may also read prefetched patches from the four-position grid.
+    assert (
+        1
+        <= failed_read["loader_warnings"]["labeled_zero_patch"]
+        <= (4 if workers else 1)
+    )
+    assert failed_read["augmentation_fallbacks"] == {"batchgeneratorsv2": 0}
+
+    chunk.write_bytes(raw)
+    train.train(config)
+    clean = json.loads(result_path.read_text())
+    assert clean["steps"] == 1
+    assert clean["loader_warnings"] == {}
+    assert clean["augmentation_fallbacks"] == {"batchgeneratorsv2": 0}
+    assert vesuvius_loader.warning_counts() == {
+        "labeled_zero_patch": 1 if workers else 2,
+        "ridge_fallback": 1,
+    }
 
 
 @pytest.mark.parametrize("catalog", [False, True])
