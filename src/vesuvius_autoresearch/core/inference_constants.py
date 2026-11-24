@@ -19,7 +19,7 @@ import os
 import sys
 from numbers import Integral
 
-from .volume_paths import volume_location
+from .volume_paths import select_local_zarr_array, volume_location
 
 DEPTH_MARGIN = 4
 INK_PROBABILITY = "sigmoid(ink)"
@@ -59,16 +59,16 @@ _REPO = os.path.dirname(
 
 
 def _volume_keys(uri, bases):
-    """Comparable spellings of one volume: resolved against each base directory,
-    file:// as its path, and an OME-Zarr group the same as its level 0 array
-    (FastVesuviusVolume opens either)."""
+    """Resolve each spelling to the selected array or the remote identity."""
     local_keys, remote_keys = set(), set()
     for base in bases:
         local, remote = volume_location(uri, base)
         if local is not None:
-            if local.name == "0":
+            # Preserve lexical root/level-0 matching for unavailable stores.
+            # For existing paths, use the reader's actual selection.
+            if local.name == "0" and not local.parent.exists():
                 local = local.parent
-            local_keys.add(str(local))
+            local_keys.add(str(select_local_zarr_array(local)))
         else:
             remote_keys.add(remote)
     # A URI-like path may exist under only one candidate checkout base. Do not

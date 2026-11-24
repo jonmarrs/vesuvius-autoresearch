@@ -860,8 +860,9 @@ def test_without_z_the_window_is_centred_in_the_volume_depth(tmp_path, monkeypat
     assert metadata["position_xyz"] == [3, 2, (6 - 2) // 2]
 
 
+@pytest.mark.parametrize("linked_level", [False, True])
 def test_without_z_the_window_is_centred_in_the_checkpoint_depth_band(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, linked_level
 ):
     config = {
         "patch_size": 8,
@@ -873,7 +874,14 @@ def test_without_z_the_window_is_centred_in_the_checkpoint_depth_band(
         # Relative, as config.json records it; the test runs in tmp_path.
         "val_uri": "ct.zarr",
     }
-    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single", [config])
+    runner, argv, _, volume, _ = setup_prediction(
+        tmp_path, monkeypatch, "single", [config]
+    )
+    if linked_level:
+        group = tmp_path / "linked view.zarr"
+        zarr.open_group(str(group), mode="w")
+        (group / "0").symlink_to(volume, target_is_directory=True)
+        argv[argv.index("--uri") + 1] = group.as_uri()
     index = argv.index("--z")
     del argv[index : index + 2]
     argv.append("--disable_tta")
@@ -950,6 +958,23 @@ def test_depth_band_identity_agrees_with_local_volume_aliases(
     saved = {"depth_band": [1, 27], "uris": [recorded]}
     assert depth_band_for(saved, target) == [1, 27]
     assert depth_band_for(saved, str(tmp_path / "different.zarr")) is None
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_independent_bare_arrays_do_not_share_a_band_via_a_directory_name(
+    tmp_path, reverse
+):
+    from vesuvius_autoresearch.core.inference import depth_band_for
+
+    root = tmp_path / "bare.zarr"
+    child = root / "0"
+    child.mkdir(parents=True)
+    for array in (root, child):
+        (array / ".zarray").write_bytes(b"stat only")
+    recorded, target = (child, root) if reverse else (root, child)
+    assert (
+        depth_band_for({"depth_band": [1, 27], "uris": [str(recorded)]}, target) is None
+    )
 
 
 @pytest.mark.parametrize("reverse", [False, True])

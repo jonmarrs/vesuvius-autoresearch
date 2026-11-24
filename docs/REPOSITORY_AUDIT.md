@@ -2176,3 +2176,19 @@ destination could name a chunk in an external level-0 array while the guard
 protected only the configured group. The guard now also protects the selected
 array for training, validation and active UA-MT inputs. The real-trainer
 fixture confirms refusal before Torch setup and preserves the chunk bytes.
+
+## Depth bands for linked Zarr arrays (2026-11-24 UTC)
+
+This pass starts from main `8fe5d55c`. The depth-band matcher inferred local
+array identity by removing a trailing `0`. A linked level 0 could read the
+same array while losing the recorded band. In a CPU prediction fixture the
+linked view started at Z=2 instead of the band's Z=1. A UA-MT fixture read the
+same CT over its whole depth. The old matcher also conflated separate bare
+arrays when one was stored in a directory named `0` under the other.
+
+The matcher now uses the same local array selector as the volume reader.
+The inference and UA-MT fixtures recover the band, and distinct bare arrays
+keep separate depth decisions. Remote version identity and the offline
+spelling fallback remain supported. Copied volumes and physically overlapping
+crops still need independent alignment and split review.
+[Regional inference depth selection](VOLUME_INFERENCE.md)
