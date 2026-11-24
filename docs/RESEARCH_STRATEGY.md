@@ -56,8 +56,10 @@ or a comparable award does not establish scientific validation, reviewer endorse
 prize qualification or a future payment for our work.
 
 For November, keep Villa #2258 in the filing as supporting CPU seed-placement evidence;
-it establishes neither tracing nor reading gain. At the November 22 upstream check,
-[#2463](https://github.com/ScrollPrize/villa/pull/2463),
+it establishes neither tracing nor reading gain.
+[#2463](https://github.com/ScrollPrize/villa/pull/2463) merged on November 24
+(06:10 Pacific, merge commit `bcbb7e4c`): both FlowSnap presets had failed before
+optimizing (villa #2458). At the November 24 upstream check (12:36 Pacific),
 [#2465](https://github.com/ScrollPrize/villa/pull/2465) and
 [#2501](https://github.com/ScrollPrize/villa/pull/2501) were open and unmerged.
 Record an exact merge commit and date before changing their credit to merged; review

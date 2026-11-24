@@ -410,7 +410,7 @@ def test_the_skip_s_figures_are_its_record():
 
 
 OPEN_PRS = json.loads(
-    (ROOT / "reports/evidence/villa_open_prs_2026-11-23.json").read_text()
+    (ROOT / "reports/evidence/villa_open_prs_2026-11-24.json").read_text()
 )
 PACIFIC = ZoneInfo("America/Los_Angeles")
 
@@ -420,24 +420,38 @@ def _open_list() -> str:
     return " ".join(DRAFT.split(lead, 1)[1].split("\n## ", 1)[0].split())
 
 
-def test_the_open_prs_are_the_record_s_and_none_has_merged():
+def test_the_open_prs_are_the_record_s_and_the_merged_one_moved_up():
     """The open list's check stamp, each entry's recommendation date and the orientation issue's state are the
-    record's. A PR the record shows merged belongs in "Merged in November" instead."""
+    record's. A PR the record shows merged is in "Merged in November" with its date, and not in the open list."""
     checked = _utc(OPEN_PRS["checked_at_utc"]).astimezone(PACIFIC)
     section = _open_list()
-    assert f"(checked {checked:%Y-%m-%d %H:%M} Pacific: none has merged)" in section
+    merged = sorted(n for n, pr in OPEN_PRS["prs"].items() if pr["state"] == "MERGED")
+    assert merged == ["2463"]
+    assert (
+        f"(checked {checked:%Y-%m-%d %H:%M} Pacific: #2463 has merged, above; these two have not)"
+        in " ".join(section.split())
+    )
     listed = re.findall(
         r"\[villa #(\d+)\]\(https://github\.com/ScrollPrize/villa/pull/(\d+)\), "
         r"recommended (\d{4}-\d\d-\d\d) Pacific:",
         section,
     )
-    assert [n for n, _, _ in listed] == ["2501", "2463", "2465"]
+    assert [n for n, _, _ in listed] == ["2501", "2465"]
     for number, linked, day in listed:
         pr = OPEN_PRS["prs"][number]
         assert linked == number and pr["author"] == "jonmarrs"
         assert pr["state"] == "OPEN" and pr["merged_at"] is None
         recommended = _utc(pr["villa_review_recommends_merging_at"]).astimezone(PACIFIC)
         assert recommended.date().isoformat() == day
+    above = " ".join(_section("Merged in November").split())
+    for number in merged:
+        pr = OPEN_PRS["prs"][number]
+        day = _utc(pr["merged_at"]).astimezone(PACIFIC).date().isoformat()
+        assert (
+            f"[villa #{number}](https://github.com/ScrollPrize/villa/pull/{number}) (merged {day} Pacific; `{pr['merged_at']}`"
+            in above
+        )
+        assert f"villa/pull/{number})," not in section
     issue = OPEN_PRS["orientation_issue"]
     assert issue["state"] == "OPEN" and issue["comments"] == 0
     assert f"]({issue['url']}), posted {_utc(issue['createdAt']).astimezone(PACIFIC):%Y-%m-%d}; open, with no reply at {checked:%Y-%m-%d %H:%M} Pacific)" in TEXT  # fmt: skip
