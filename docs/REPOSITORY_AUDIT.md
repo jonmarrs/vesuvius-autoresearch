@@ -2261,3 +2261,7 @@ and the metadata path to that selected file. Both fixture variants now preserve
 the loaded checkpoint and the new link target. Path checks remain snapshots.
 The ensemble's checkpoint identity and representative GPU peak measurements
 remain open.
+
+PR review reproduced a second collision when the link moved during inference.
+The final publication check also resolves the requested checkpoint path again,
+so it protects the new target and preserves the prior metadata in that case.

@@ -550,7 +550,8 @@ def predict():
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
-    artifacts.validate()
+    # Protect the current link target as well as the file we read.
+    artifacts.validate(checkpoint_aliases=(args.checkpoint,))
     if args.uncertainty_export["status"] == "PLANNED":
         validate_destination(
             uncertainty_path, overwrite=True, sources=uncertainty_sources
