@@ -146,9 +146,11 @@ reader does not implement it; the configuration fails before training starts.
 
 The default is `false`, preserving the existing counted permissive fallbacks.
 Validation always uses strict reads, including the underlying CT reader. The
-chosen `data_read_policy` is recorded in successful checkpoints and run results;
-`loader_warnings` still reports fallbacks used in permissive mode. An aborted
-run may leave earlier artifacts; this setting adds no rollback or cleanup.
+chosen `data_read_policy` is recorded in successful checkpoints and run results.
+In `run_result.json`, `loader_warnings` and `augmentation_fallbacks` count
+events from that run. Loader warnings include validation and worker prefetch.
+A failure rate also needs a count of attempted reads. An aborted run may
+leave earlier artifacts.
 
 Inspect an experiment configuration without reading arrays or starting training:
 

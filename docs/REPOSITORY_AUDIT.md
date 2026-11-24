@@ -2026,3 +2026,18 @@ fixture. The portable profile passed **623 tests** and repository guards
 passed **46 tests**. Workspace status ran under `python -S` from a separate
 working directory and preserved the fixture files. Ruff, formatting and
 Mypy passed.
+
+## Per-run training fallback counts (2026-11-24 UTC)
+
+This pass starts from main `fe6c25ba`. Two calls to the trainer in one Python
+process shared cumulative warnings and augmentation fallback counts. A CPU
+fixture with one previous loader warning and one new CT read failure
+reported two fallbacks for the new run.
+
+`run_result.json` now records the difference from the counters at the start
+of each run. The loader workers finish before the trainer reads their shared
+counts. Console throttling still uses the process counters. The report
+includes validation and any worker prefetch, so the counts describe recorded
+events. A CT read-failure rate still requires an attempted-read count and a
+representative workload.
+[Training read policy](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy)
