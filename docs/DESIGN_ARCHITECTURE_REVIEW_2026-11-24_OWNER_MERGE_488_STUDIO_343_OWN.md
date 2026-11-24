@@ -55,8 +55,8 @@ No code changed. No defect was found.
 - **The verdict is the registered table's.**
   - Every step exited 0, and finding 127's r came out again: 0.6238, with the reversed planes at 0.1015.
   - 518,648 of the 556,134 target cells were scored (0.9326).
-  - Both windings' normal cosines are positive (0.9974 and 0.9977), as the registration requires at PHerc. 343,
-    where the recipe's normals point outward.
+  - Both windings' normal cosines are positive (0.9974 and 0.9977). The registration stops the comparison at a
+    median cosine of 0 or below: at PHerc. 343 our windings must face the way the published surface does.
   - r is 0.8999, above 0.70 and more than twice each control: 0.1765 for our reversed planes and 0.3092 for the
     largest slide. So `STUDIO_343_OWN_CLOSE`.
 - **The described lines match the record.**
