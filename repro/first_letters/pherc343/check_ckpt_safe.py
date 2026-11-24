@@ -3,6 +3,7 @@
 A successful check is not a general safety certification or a persisted receipt.
 """
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -24,9 +25,20 @@ def main() -> int:
     import torch
 
     # python -I drops PYTHONPATH, and the portable CI venv does not install this
-    # package. The checkout's src is what pytest's pythonpath would have added.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
-    from vesuvius_autoresearch.core.checkpoint_refusal import require_zip_checkpoint
+    # package. The gate is this checkout's file, loaded by path: a regular
+    # vesuvius_autoresearch package elsewhere on sys.path would otherwise win
+    # over a namespace portion inserted into sys.path.
+    gate = (
+        Path(__file__).resolve().parents[3]
+        / "src/vesuvius_autoresearch/core/checkpoint_refusal.py"
+    )
+    spec = importlib.util.spec_from_file_location("vesuvius_checkpoint_refusal", gate)
+    if spec is None or spec.loader is None:
+        print(f"cannot load {gate}", file=sys.stderr)
+        return 2
+    refusal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(refusal)
+    require_zip_checkpoint = refusal.require_zip_checkpoint
 
     failed = False
     for path in paths:

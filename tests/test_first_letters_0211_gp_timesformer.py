@@ -269,7 +269,7 @@ def test_the_driver_checks_and_audits_before_any_load_and_sends_nothing():
     assert "--stride 32 --batch_size 64" in text
     # The loader is handed the copy that was checksummed and audited, not $CK.
     assert 'cp -- "$CK" "$CK_COPY"' in text
-    assert "echo '$CK_SHA256  $CK_COPY'" in text
+    assert '"$CK_SHA256" "$CK_COPY"' in text.split("step checksum", 1)[1]
     assert '"$CK_COPY"' in text.split("step audit", 1)[1]
     assert '--model_path "$CK_COPY"' in text
     assert text.index('cp -- "$CK" "$CK_COPY"') < text.index("step checksum")

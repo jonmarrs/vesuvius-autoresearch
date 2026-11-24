@@ -59,8 +59,8 @@ from scripts.training.promotion import (  # noqa: E402
 )
 from vesuvius_autoresearch.core.checkpoint_tools import (  # noqa: E402
     ink_probabilities,
+    load_lightning_checkpoint,
     load_tool_checkpoint,
-    require_zip_checkpoint,
     validate_batch,
 )
 from vesuvius_autoresearch.detector.config import DetectorConfig  # noqa: E402
@@ -239,9 +239,9 @@ def main(out_path, detector):
 
     cfg = DetectorConfig()
     # weights_only=False: this Lightning checkpoint embeds CosineAnnealingLR.
-    require_zip_checkpoint(detector)
-    model = DetectorModel.load_from_checkpoint(
-        detector, cfg=cfg, pred_shape=(1, 1), weights_only=False, map_location="cpu"
+    # The pickle is audited against CHECKPOINT_CLASS_ALLOW before it is loaded.
+    model = load_lightning_checkpoint(
+        DetectorModel, detector, cfg=cfg, pred_shape=(1, 1), map_location="cpu"
     ).eval()
     start = cfg.start_idx - ZARR_SLICE_0_LAYER
     layers = slice(start, start + cfg.in_chans)  # zarr slices 1-26 = layers 17-42
