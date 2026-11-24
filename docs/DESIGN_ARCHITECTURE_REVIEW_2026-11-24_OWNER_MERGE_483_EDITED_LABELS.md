@@ -37,8 +37,8 @@ unreadable `.zarray` files fails on the old code for three of them, and passes n
 
 ### The edited-label check is tested without Villa (`tests/test_proofreader_session.py`)
 
-#483's edited-label tests all run Villa's pinned writer, `villa/segmentation/vc_proofreader/main.py`. Without a
-Villa checkout, as in this container and in CI's `portable` job, none of them runs, and nothing tested the new code.
+#483's edited-label tests all run the pinned writer from Villa's proofreader source. Without a Villa checkout, as in
+this container and in CI's `portable` job, none of them runs, and nothing tested the new code.
 This round made 23 mutants of it, and the 39 tests of the module that run here killed none.
 
 Nine new test functions, 25 cases with the four above, kill 22. The last is equivalent, below. They call
