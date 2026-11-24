@@ -97,7 +97,9 @@ decoder storage may require more memory; this is not a total-memory limit.
 JSON is printed to stdout. Optional --output publishes a new .json file by an
 adjacent temporary-file rename after all measurements and serialization succeed.
 Destinations must be new and outside both the declared source root and selected
-array. Existing reports, broken symlinks and source overlaps are refused.
+array. This includes the resolved array directory when level 0 links outside
+the root. Publication also checks the actual paths recorded by the benchmark.
+Existing reports, broken symlinks and source overlaps are refused.
 Ordinary benchmark/read/write failures exit nonzero and publish no partial
 report. Help exits zero. Serialize report writers.
 
