@@ -484,15 +484,40 @@ def test_the_runs_still_going_claim_no_result():
     before its report exists."""
     section = " ".join(
         _section(
-            "Still running: two tests at PHerc. 211 that may land before filing"
+            "Still running: a test at PHerc. 211 that may land before filing"
         ).split()
     )
-    assert "Neither has a result yet" in section
+    assert "It has no result yet" in section
     assert not re.search(r"\br = |\bAUC\b|[Vv]erdict|TRIAGE_|[Ff]inding \d", section)
     assert re.findall(
         r"registered on branch `(research/[\w-]+)` at `([0-9a-f]{8})`", section
-    ) == [
-        ("research/wrong-hand-read", "dc232051"),
-        ("research/studio-band-triage", "26d5c8a5"),
-    ]
+    ) == [("research/studio-band-triage", "26d5c8a5")]
+    assert (
+        "the fit declared to turn the wrong way, has reported and is above" in section
+    )
     assert "**The owner's decision (2026-11-23):**" in section
+
+
+def test_the_wrong_hand_entry_quotes_its_record():
+    """Finding 137's entry: the registered numbers of both arms and the net sheet steps of the checks after it."""
+    record = json.loads(
+        (ROOT / "reports/first_letters_0211_wrong_hand.json").read_text()
+    )
+    reg = record["registered"]
+    assert record["verdict"] == "WRONG_HAND_READS_ALIKE"
+    entry = TEXT.split(
+        "**A fit declared to turn the wrong way, tested at the known place**", 1
+    )[1]
+    entry = entry.split("**Failures and fixes on the way:**", 1)[0]
+    assert "(../reports/first_letters_0211_wrong_hand.md)" in entry
+    w, r = reg["wrong"], reg["right"]
+    assert (
+        f"r {w['r']} on {w['cell_share']} of the winner's cells, against {r['r']} on {r['cell_share']}"
+        in entry
+    )
+    net = sorted(
+        v["net_dk_per_row"]
+        for v in record["audit_after_the_result"]["seams"]["by_winding"].values()
+    )
+    assert f"a net {net[0]} to {net[-1]} sheets a turn" in entry
+    assert "PHerc. 0125" not in DRAFT  # an eligible scroll: not named in this filing

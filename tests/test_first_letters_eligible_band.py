@@ -755,6 +755,10 @@ def _arm(*argv):
         (("outer80-smoke", "300"), "smoke|80||300"),
         (("outer80-otherhand",), "full|80|1|30000"),
         (("outer80-otherhand-smoke", "300"), "smoke|80|1|300"),
+        (
+            ("full-otherhand",),
+            "full||1|30000",
+        ),  # finding 137: the full fit, the direction alone flipped
     ],
 )
 def test_the_fit_launcher_reads_each_arm(argv, parsed):
@@ -771,6 +775,7 @@ def test_the_fit_launcher_reads_each_arm(argv, parsed):
         (("other",), "unknown arm"),
         (("full", "300"), "takes no step count"),
         (("outer80-otherhand", "300"), "takes no step count"),
+        (("full-otherhand", "300"), "takes no step count"),
         (("smoke",), "a smoke arm needs a step count"),
     ],
 )

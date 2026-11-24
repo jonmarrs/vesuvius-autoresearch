@@ -471,6 +471,16 @@ but 0.3157 over w111 to w129; and at the band's middle slice the windings from w
 predicted sheet. Villa's fit writes 130 windings whatever the scroll's size. No automatic verdict was registered: the
 images stay on this machine and the owner reads them.
 
+**A fit declared to turn the wrong way reads the known text as well as the published direction (November 23).**
+Finding 119's fit of PHerc. 211's band was run again declared clockwise. Studio's read of its windings matches the
+winner's map at r 0.841 on 0.8337 of the mask cells, against 0.8247 on 0.8309 for the published direction
+(`WRONG_HAND_READS_ALIKE`; `WRONG_HAND_READS_PARTLY` was predicted;
+[report](../reports/first_letters_0211_wrong_hand.md), finding 137). Checks written after the result show the fit
+did turn the other way in the scan. Its windings still lie on the sheets, stepping across a net 1.78 to 1.89 of
+them a turn. So a PHerc. 0125 band read may be registered with either direction declared. Its pages would carry
+each sheet's text in pieces, broken where a winding changes sheet. The read waits for disk after findings 133 and
+138.
+
 **PHerc. 0800's band fits partly on the sheets, a quarter of its windings run between them, and the images wait for
 the owner (November 23).** The recipe's fit of z 10250 to 11750 at villa's defaults is `PARTLY_ON_SHEETS` by finding
 112's table (median excess 0.1802, 0.75 of windings positive), at the registered line
@@ -482,8 +492,7 @@ neighbouring pairs are stacked; a median 0.907 of the rendered nodes lie within 
 no winding's trusted share is under 0.8; and at the band's middle slice the outermost winding still has a median of 19
 predicted-sheet runs outside it, so the papyrus outside it was not read. The first start was killed by systemd-oomd
 and the chain ran again from the start; the second crossed oomd's 50% line twice, for about 6 s and 18 s, under its
-20 s. No automatic
-verdict was registered: the images stay on this machine and the owner reads them.
+20 s. No automatic verdict was registered: the images stay on this machine and the owner reads them.
 
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
