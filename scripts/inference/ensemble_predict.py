@@ -33,6 +33,7 @@ from scripts.regional_prediction_artifacts import (
     RegionalArtifactPlan,
     validate_checkpoint_metadata,
 )
+from vesuvius_autoresearch.core.checkpoint_refusal import require_zip_checkpoint
 from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 from vesuvius_autoresearch.core.inference import (
     multitask_inference_recipe,
@@ -98,24 +99,30 @@ def ensemble_predict():
     if not args.checkpoints:
         raise ValueError("at least one checkpoint is required")
 
-    for checkpoint_path in args.checkpoints:
-        if not os.path.isfile(checkpoint_path):
+    checkpoint_paths = []
+    for requested_path in args.checkpoints:
+        if not os.path.isfile(requested_path):
             raise FileNotFoundError(
-                f"requested ensemble checkpoint not found: {checkpoint_path}"
+                f"requested ensemble checkpoint not found: {requested_path}"
             )
+        # Check the original path spelling before resolving aliases.
+        require_zip_checkpoint(requested_path)
+        checkpoint_paths.append(Path(requested_path).resolve())
 
     models, configs = [], []
     memory_profile = None
     patch_size, voxel_size_um = args.patch_size, args.voxel_size_um
     ridge_settings: tuple[float, int] | None = None
     max_layers = 0
-    for checkpoint_path in args.checkpoints:
-        checkpoint = load_checkpoint(
-            checkpoint_path,
-            map_location="cpu",
-            weights_only=True,
-            allow_numpy_scalars=True,
-        )
+    for checkpoint_path in checkpoint_paths:
+        # The loader checks the signature and reads weights on this same handle.
+        with checkpoint_path.open("rb") as handle:
+            checkpoint = load_checkpoint(
+                handle,
+                map_location="cpu",
+                weights_only=True,
+                allow_numpy_scalars=True,
+            )
         if not isinstance(checkpoint, dict) or not isinstance(
             checkpoint.get("config", {}), dict
         ):
@@ -199,7 +206,7 @@ def ensemble_predict():
         args.output_img or f"predictions/{base}.png",
         args.metadata_out,
         args.uri,
-        args.checkpoints,
+        [*checkpoint_paths, *args.checkpoints],
     )
     output_img, output_dir = str(artifacts.image), str(artifacts.directory)
     dataset = FastVesuviusVolume(
@@ -253,7 +260,7 @@ def ensemble_predict():
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
-    artifacts.validate()
+    artifacts.validate(checkpoint_aliases=args.checkpoints)
     os.makedirs(output_dir, exist_ok=True)
     metadata_path = invalidate_prediction_metadata(
         output_dir, base, str(artifacts.metadata)
@@ -333,9 +340,7 @@ def ensemble_predict():
         if has_fiber
         else None,
         extra_metadata={
-            "ensemble_checkpoints": [
-                str(Path(path).resolve()) for path in args.checkpoints
-            ],
+            "ensemble_checkpoints": [str(path) for path in checkpoint_paths],
             "ensemble_model_configs": configs,
             "ensemble_max_layers": max_layers,
             "model_config_scope": "first_ensemble_member",
