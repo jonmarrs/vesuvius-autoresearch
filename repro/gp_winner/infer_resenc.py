@@ -13,6 +13,7 @@ import segmentation_models_pytorch as smp
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from albumentations.pytorch import ToTensorV2
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import (
@@ -25,8 +26,6 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 from warmup_scheduler import GradualWarmupScheduler
-
-import wandb
 
 # Lightning and GradualWarmupScheduler are not in the weights-only allowlist, so
 # this script's loads stay weights_only=False. A legacy pickle or a tar is still
@@ -285,7 +284,7 @@ def worker_function(fragment_id, CFG):
 
 
 def get_train_valid_dataset(
-    fragment_ids=[
+    fragment_ids=[  # noqa: B006 - the GP winner's own default, read and never changed here
         "PHercParis2Fr47",
         "PHercParis2Fr143",
     ],
