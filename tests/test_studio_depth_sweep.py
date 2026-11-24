@@ -177,17 +177,18 @@ def test_an_arms_cells_need_a_winding_a_reversed_map_and_every_shifts_map():
 def test_an_arm_is_carried_once_and_reads_each_shifts_maps_from_its_own_folder(
     tmp_path, monkeypatch
 ):
-    transfers, reads = [], []
+    transfers = []
+
+    def transfer(points, ok, sides):
+        transfers.append(sides)
+        return 1, 2, 3
+
     monkeypatch.setattr(ds.f131, "side", lambda final, render: {"points": final.name, "ok": render.name,
                                                                  "canvas": (8, 8), "mesh": str(final)})  # fmt: skip
+    monkeypatch.setattr(ds.analysis, "transfer", transfer)
     monkeypatch.setattr(
-        ds.analysis,
-        "transfer",
-        lambda points, ok, sides: transfers.append(sides) or (1, 2, 3),
-    )
-    monkeypatch.setattr(
-        ds.f124, "read_studio", lambda path, canvas: reads.append(path) or str(path)
-    )
+        ds.f124, "read_studio", lambda path, canvas: str(path)
+    )  # each map is named by its file
     monkeypatch.setattr(
         ds.f121, "carry", lambda maps, which, cell: {"s": [m["s"] for m in maps]}
     )
