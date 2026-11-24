@@ -86,7 +86,7 @@ class RegionalArtifactPlan:
             paths.append(self.metadata)
         return paths
 
-    def validate(self):
+    def validate(self, *, checkpoint_aliases=()):
         if os.path.lexists(self.directory) and not stat.S_ISDIR(
             self.directory.lstat().st_mode
         ):
@@ -99,6 +99,7 @@ class RegionalArtifactPlan:
                 (self.source, "CT source"),
                 (self.source_array, "selected CT array"),
                 *((path, "checkpoint") for path in self.checkpoints),
+                *((path, "current checkpoint target") for path in checkpoint_aliases),
             ],
         )
         trees = {

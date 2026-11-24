@@ -223,6 +223,9 @@ def write_prediction_metadata(
         )
     )
     patch_size = int(config_dict.get("patch_size", args.patch_size))
+    checkpoint_path = getattr(args, "resolved_checkpoint_path", None)
+    if checkpoint_path is None and getattr(args, "checkpoint", None):
+        checkpoint_path = str(Path(args.checkpoint).resolve())
     metadata = {
         "scroll_id": config_dict.get("scroll_id", "unknown"),
         "source_uri": args.uri,
@@ -245,9 +248,7 @@ def write_prediction_metadata(
         else None,
         "output_image_path": str(Path(output_img).resolve()) if output_img else None,
         "model_config": config_dict,
-        "checkpoint_path": str(Path(args.checkpoint).resolve())
-        if getattr(args, "checkpoint", None)
-        else None,
+        "checkpoint_path": checkpoint_path,
         "checkpoint_sha256": getattr(args, "checkpoint_sha256", None),
         "inference_recipe": getattr(args, "inference_recipe", None),
         "resource_plan": getattr(args, "resource_plan", None),
@@ -292,6 +293,7 @@ def _uncertainty_sources(args, base, directory, image):
     target = Path(directory) / f"{base}_uncertain"
     sources = [
         args.checkpoint,
+        args.resolved_checkpoint_path,
         image,
         *(p for p in prediction_paths(directory, base) if p != target),
     ]
@@ -359,13 +361,15 @@ def predict():
     print(f"Loading volume from {args.uri}...")
 
     # Load trained model first to get the correct hyperparameters
-    checkpoint_path = args.checkpoint
-    if not os.path.exists(checkpoint_path):
+    if not os.path.exists(args.checkpoint):
         raise FileNotFoundError(
-            f"Trained model not found at {checkpoint_path}. Please run training first."
+            f"Trained model not found at {args.checkpoint}. Please run training first."
         )
 
-    checkpoint_bytes = Path(checkpoint_path).read_bytes()
+    # Bind the read, artifact protection and provenance to the same target.
+    checkpoint_path = Path(args.checkpoint).resolve()
+    checkpoint_bytes = checkpoint_path.read_bytes()
+    args.resolved_checkpoint_path = str(checkpoint_path)
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
     checkpoint = load_checkpoint(
         io.BytesIO(checkpoint_bytes),
@@ -427,7 +431,11 @@ def predict():
     validate_region(args, patch_size, num_layers)
     base_name, out_path, output_dir = _prediction_output(args)
     artifacts = RegionalArtifactPlan.create(
-        base_name, out_path, args.metadata_out, args.uri, [checkpoint_path]
+        base_name,
+        out_path,
+        args.metadata_out,
+        args.uri,
+        [checkpoint_path, args.checkpoint],
     )
     if auto_source_array is not None and auto_source_array != artifacts.source_array:
         raise RuntimeError("selected CT array changed during automatic depth selection")
@@ -542,7 +550,8 @@ def predict():
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
-    artifacts.validate()
+    # Protect the current link target as well as the file we read.
+    artifacts.validate(checkpoint_aliases=(args.checkpoint,))
     if args.uncertainty_export["status"] == "PLANNED":
         validate_destination(
             uncertainty_path, overwrite=True, sources=uncertainty_sources

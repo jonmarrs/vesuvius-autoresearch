@@ -40,6 +40,81 @@ def test_custom_metadata_cannot_replace_an_input_or_prediction(
     assert _tree(tmp_path) == before
 
 
+@pytest.mark.parametrize("metadata_overlaps_checkpoint", [False, True])
+def test_single_prediction_binds_a_retargeted_checkpoint_link_to_loaded_weights(
+    tmp_path, monkeypatch, metadata_overlaps_checkpoint
+):
+    import hashlib
+
+    from scripts.inference import predict
+
+    run, argv, models, _, checkpoints = setup_prediction(tmp_path, monkeypatch, "single")
+    checkpoint = Path(checkpoints[0])
+    original_bytes = checkpoint.read_bytes()
+    replacement = tmp_path / "replacement.pt"
+    replacement.write_bytes(b"a different checkpoint target")
+    link = tmp_path / "current.pt"
+    link.symlink_to(checkpoint)
+    argv[argv.index("--checkpoint") + 1] = str(link)
+    metadata = checkpoint if metadata_overlaps_checkpoint else tmp_path / "meta.json"
+    argv.extend(["--metadata_out", str(metadata)])
+    load_checkpoint = predict.load_checkpoint
+
+    def retarget_after_loading(*args, **kwargs):
+        loaded = load_checkpoint(*args, **kwargs)
+        link.unlink()
+        link.symlink_to(replacement)
+        return loaded
+
+    monkeypatch.setattr(predict, "load_checkpoint", retarget_after_loading)
+    if metadata_overlaps_checkpoint:
+        with pytest.raises(ValueError, match="artifact collision"):
+            run()
+        assert not models
+        assert not (tmp_path / "out").exists()
+    else:
+        run()
+        record = json.loads(metadata.read_text())
+        assert record["checkpoint_path"] == str(checkpoint)
+        assert record["checkpoint_sha256"] == hashlib.sha256(original_bytes).hexdigest()
+    assert link.resolve() == replacement
+    assert checkpoint.read_bytes() == original_bytes
+    assert replacement.read_bytes() == b"a different checkpoint target"
+
+
+def test_single_prediction_rechecks_the_requested_checkpoint_link_before_writes(
+    tmp_path, monkeypatch
+):
+    from test_volume_inference_contracts import ConstantHeads
+
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, "single")
+    checkpoint = Path(checkpoints[0])
+    link = tmp_path / "current.pt"
+    link.symlink_to(checkpoint)
+    argv[argv.index("--checkpoint") + 1] = str(link)
+    out = tmp_path / "out"
+    out.mkdir()
+    canonical = out / "region_meta.json"
+    canonical.write_text("previous completed metadata")
+    replacement = tmp_path / "replacement.pt"
+    replacement.write_bytes(checkpoint.read_bytes())
+    argv.extend(["--artifact_stem", "region", "--metadata_out", str(replacement)])
+    before = _tree(tmp_path)
+    forward = ConstantHeads.forward
+
+    def retarget_during_inference(self, *args, **kwargs):
+        if link.resolve() != replacement:
+            link.unlink()
+            link.symlink_to(replacement)
+        return forward(self, *args, **kwargs)
+
+    monkeypatch.setattr(ConstantHeads, "forward", retarget_during_inference)
+    with pytest.raises(ValueError, match="artifact collision"):
+        run()
+    assert link.resolve() == replacement
+    assert _tree(tmp_path) == before
+
+
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("option", ["--metadata_out", "--output_img"])
 def test_outputs_cannot_be_written_inside_the_source_volume(
