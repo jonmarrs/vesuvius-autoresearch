@@ -2247,3 +2247,17 @@ loading rejected the checkpoint. The single-model command now checks the
 complete weights on CPU and releases the checkpoint before transferring the
 model. The regression covers both regional commands. Representative GPU
 memory and ensemble residency measurements remain open.
+
+## Checkpoint symlinks during regional prediction (2026-11-24 UTC)
+
+This pass starts from main `86aec0f6`. When a checkpoint symlink moved after
+single-model prediction loaded its weights, artifact planning protected the
+new destination alone. A CPU fixture overwrote the loaded checkpoint with
+`--metadata_out`. With a separate metadata destination, the recorded path
+described the replacement while the hash described the loaded file.
+
+The command resolves the input before reading it and binds artifact protection
+and the metadata path to that selected file. Both fixture variants now preserve
+the loaded checkpoint and the new link target. Path checks remain snapshots.
+The ensemble's checkpoint identity and representative GPU peak measurements
+remain open.
