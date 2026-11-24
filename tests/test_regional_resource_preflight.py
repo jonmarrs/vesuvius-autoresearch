@@ -5,6 +5,7 @@ import json
 import numpy as np
 import pytest
 import torch
+import zarr
 from test_volume_inference_contracts import setup_prediction
 
 from scripts.inference import ensemble_predict as ensemble, predict as single
@@ -27,6 +28,43 @@ def test_single_refuses_out_of_bounds_regions_before_building_model(
 
     assert not models
     assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("retarget", [False, True])
+def test_auto_z_uses_one_reader_and_requires_a_stable_array(
+    tmp_path, monkeypatch, retarget
+):
+    run, argv, models, volume, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    group = tmp_path / "linked.zarr"
+    zarr.open_group(str(group), mode="w")
+    level = group / "0"
+    level.symlink_to(volume, target_is_directory=True)
+    replacement = tmp_path / "replacement.zarr"
+    zarr.open_array(str(replacement), mode="w", shape=(8, 24, 24), dtype="u1")[:] = 128
+    argv[argv.index("--uri") + 1] = group.as_uri()
+    start = argv.index("--z")
+    del argv[start : start + 2]
+    original = single.FastVesuviusVolume
+    opened = []
+
+    def track_open(*args, **kwargs):
+        reader = original(*args, **kwargs)
+        opened.append(reader.vol.path)
+        if retarget and len(opened) == 1:
+            level.unlink()
+            level.symlink_to(replacement, target_is_directory=True)
+        return reader
+
+    monkeypatch.setattr(single, "FastVesuviusVolume", track_open)
+    if retarget:
+        with pytest.raises(RuntimeError, match="selected CT array changed"):
+            run()
+        assert not models
+        assert not (tmp_path / "out").exists()
+    else:
+        run()
+        assert models
+    assert opened == [volume]
 
 
 @pytest.mark.parametrize(

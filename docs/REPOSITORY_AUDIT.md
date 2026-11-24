@@ -2212,3 +2212,10 @@ before building the model. The fixtures stop before model setup or output
 publication. Representative GPU peak memory and ensemble residency
 measurements remain open.
 [Regional inference](VOLUME_INFERENCE.md)
+
+Review found that automatic depth selection opened a second CT reader. A
+retargeted level-0 link could therefore combine the first array's depth
+choice with a different array's voxels. The command now uses one strict
+reader and checks that its selected array agrees with the artifact plan.
+The stable-link fixture opens once, and the retargeted fixture stops before
+model construction.

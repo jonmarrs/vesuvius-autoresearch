@@ -32,6 +32,10 @@ surface-volume layer 16, so `[1, 27)` is layers 17–42 there and other layers a
 (finding 87). On other volumes, and without a recorded band, it centres the
 window in the volume's depth (surface volumes put the segment surface at their
 middle layer). Pass `--z` to choose.
+The single-model command checks the region against the selected CT dimensions
+before constructing the model. Automatic depth selection and inference reuse
+one CT reader. If a linked array changes during planning, the command stops
+before constructing the model.
 
 ```bash
 uv run python -m scripts.inference.predict \
