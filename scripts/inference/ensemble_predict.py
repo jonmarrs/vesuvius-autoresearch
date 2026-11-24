@@ -98,13 +98,18 @@ def ensemble_predict():
     if not args.checkpoints:
         raise ValueError("at least one checkpoint is required")
 
-    models, configs, scales, ridge_sigmas = [], [], [], []
-    memory_profile = None
     for checkpoint_path in args.checkpoints:
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
                 f"requested ensemble checkpoint not found: {checkpoint_path}"
             )
+
+    models, configs = [], []
+    memory_profile = None
+    patch_size, voxel_size_um = args.patch_size, args.voxel_size_um
+    ridge_settings: tuple[float, int] | None = None
+    max_layers = 0
+    for checkpoint_path in args.checkpoints:
         checkpoint = load_checkpoint(
             checkpoint_path,
             map_location="cpu",
@@ -117,20 +122,42 @@ def ensemble_predict():
             raise ValueError("checkpoint config must be an object")
         config = checkpoint.get("config", {})
         validate_checkpoint_metadata(config)
-        patch_size = config.get("patch_size", args.patch_size)
+        member_patch_size = config.get("patch_size", args.patch_size)
         layers = config.get("num_layers", 16)
         base_feat = config.get("base_feat", 64)
-        ridge_sigma = validate_model_settings(config, patch_size, layers, base_feat)
+        ridge_sigma = validate_model_settings(
+            config, member_patch_size, layers, base_feat
+        )
         scale = positive_number(
             config.get("voxel_size_um", config.get("voxelsize", args.voxel_size_um)),
             "voxel_size_um",
         )
         use_ridges = config.get("use_ridges", False)
-        args.resource_plan = plan_regional_accumulators(
-            patch_size if args.width is None else args.width,
-            patch_size if args.height is None else args.height,
-            args.max_accumulator_bytes,
-        )
+        if models:
+            if member_patch_size != patch_size:
+                raise ValueError("ensemble checkpoint patch_size must match")
+            if scale != voxel_size_um:
+                raise ValueError("ensemble checkpoint voxel_size_um must match")
+        else:
+            patch_size, voxel_size_um = member_patch_size, scale
+            args.resource_plan = plan_regional_accumulators(
+                patch_size if args.width is None else args.width,
+                patch_size if args.height is None else args.height,
+                args.max_accumulator_bytes,
+            )
+        max_layers = max(max_layers, layers)
+        if use_ridges:
+            if ridge_settings is not None and ridge_sigma != ridge_settings[0]:
+                raise ValueError(
+                    "ensemble ridge_sigma must match for ridge-enabled models"
+                )
+            ridge_settings = ridge_settings or (ridge_sigma, layers)
+        if ridge_settings is not None and (
+            ridge_settings[1] != max_layers or (use_ridges and layers != max_layers)
+        ):
+            raise ValueError(
+                "ridge-enabled ensemble num_layers must match the maximum depth; ridge filtering depends on the full depth context"
+            )
         if args.profile_memory and memory_profile is None:
             memory_profile = RegionalMemoryProfile(device)
         model = build_inference_model(
@@ -143,40 +170,23 @@ def ensemble_predict():
             dropout=config.get("dropout", 0.0),
             use_ridges=use_ridges,
             multi_task_heads=config.get("multi_task_heads", False),
-        ).to(device)
+        )
         model.load_state_dict(checkpoint["model_state_dict"], strict=True)
         del checkpoint
-        models.append((model.eval(), use_ridges, layers, patch_size))
+        models.append((model.to(device).eval(), use_ridges, layers))
         configs.append(config)
-        scales.append(scale)
-        if use_ridges:
-            ridge_sigmas.append(ridge_sigma)
 
     # A member without a fiber head returns its ink logits as "fiber"; the
     # ensemble's fiber is exported only when every member has one. Asked before
     # inference, so a member that declares no heads fails before the volume is read.
     member_heads = [sorted(task_heads(member[0])) for member in models]
     has_fiber = all("fiber" in heads for heads in member_heads)
-    # Spatial pixels from different contexts cannot be combined by slicing the
-    # upper-left corner or by resizing without changing their coordinate frame.
-    patch_size = models[0][3]
-    if any(member[3] != patch_size for member in models):
-        raise ValueError("ensemble checkpoint patch_size must match")
-    if any(scale != scales[0] for scale in scales):
-        raise ValueError("ensemble checkpoint voxel_size_um must match")
-    if ridge_sigmas and any(sigma != ridge_sigmas[0] for sigma in ridge_sigmas):
-        raise ValueError("ensemble ridge_sigma must match for ridge-enabled models")
-    max_layers = max(member[2] for member in models)
-    if any(ridges and layers != max_layers for _, ridges, layers, _ in models):
-        raise ValueError(
-            "ridge-enabled ensemble num_layers must match the maximum depth; ridge filtering depends on the full depth context"
-        )
-    use_ridges_any = any(member[1] for member in models)
+    use_ridges_any = ridge_settings is not None
     if memory_profile is not None:
         memory_profile.sample("models_loaded")
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges_any)
     args.patch_size = patch_size
-    args.voxel_size_um = scales[0]
+    args.voxel_size_um = voxel_size_um
     validate_region(args, patch_size, max_layers)
     base = prediction_stem(
         f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}",
@@ -195,7 +205,7 @@ def ensemble_predict():
     dataset = FastVesuviusVolume(
         str(artifacts.source_array),
         use_ridges=use_ridges_any,
-        ridge_sigma=ridge_sigmas[0] if ridge_sigmas else 2.0,
+        ridge_sigma=ridge_settings[0] if ridge_settings is not None else 2.0,
         strict_reads=True,
     )
     validate_region(args, patch_size, max_layers, dataset.shape)
@@ -223,7 +233,7 @@ def ensemble_predict():
                 dataset.normalize(block), use_ridges_any, max_layers, patch_size, device
             )
             ink_sum, fiber_sum = torch.zeros_like(window), torch.zeros_like(window)
-            for model, use_ridges, layers, _ in models:
+            for model, use_ridges, layers in models:
                 model_input = batch[:, : 2 if use_ridges else 1, :layers]
                 ink, fiber = multitask_probabilities(
                     model, model_input, args.disable_tta

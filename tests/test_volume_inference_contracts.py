@@ -404,9 +404,13 @@ def test_bad_head_outputs_cannot_be_exported(tmp_path, monkeypatch, mode, bad):
     assert not (tmp_path / "predictions").exists()
 
 
+@pytest.mark.parametrize("ridge_first", [False, True])
 def test_ensemble_handles_ct_and_ridge_models_with_different_depths(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, ridge_first
 ):
+    members = [(2, False), (4, True)]
+    if ridge_first:
+        members.reverse()
     configs = [
         {
             "patch_size": 8,
@@ -416,22 +420,33 @@ def test_ensemble_handles_ct_and_ridge_models_with_different_depths(
             "ridge_sigma": 3.0,
             "voxel_size_um": 2.0,
         }
-        for layers, ridges in ((2, False), (4, True))
+        for layers, ridges in members
     ]
     runner, argv, models, _, checkpoints = setup_prediction(
         tmp_path, monkeypatch, "ensemble", configs
     )
     argv.append("--disable_tta")
     runner()
-    assert [m.inputs[0].shape[1:3] for m in models] == [(1, 2), (2, 4)]
+    assert [m.inputs[0].shape[1:3] for m in models] == [
+        (2 if ridges else 1, layers) for layers, ridges in members
+    ]
     metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
     assert metadata["ensemble_checkpoints"] == checkpoints
     assert metadata["ensemble_model_configs"] == configs
 
 
-@pytest.mark.parametrize("mismatch", ["patch_size", "voxel_size_um", "ridge_sigma"])
-def test_ensemble_rejects_incompatible_context_before_opening_volume(
-    tmp_path, monkeypatch, mismatch
+@pytest.mark.parametrize(
+    ("mismatch", "change"),
+    [
+        ("patch_size", {"patch_size": 4}),
+        ("voxel_size_um", {"voxel_size_um": 3.0}),
+        ("ridge_sigma", {"ridge_sigma": 3.0}),
+        ("num_layers", {"num_layers": 2}),
+        ("num_layers", {"num_layers": 6, "use_ridges": False}),
+    ],
+)
+def test_ensemble_rejects_an_incompatible_member_before_building_it(
+    tmp_path, monkeypatch, mismatch, change
 ):
     config = {
         "patch_size": 8,
@@ -441,15 +456,8 @@ def test_ensemble_rejects_incompatible_context_before_opening_volume(
         "use_ridges": True,
         "ridge_sigma": 2.0,
     }
-    other = dict(
-        config,
-        **{
-            mismatch: {"patch_size": 4, "voxel_size_um": 3.0, "ridge_sigma": 3.0}[
-                mismatch
-            ]
-        },
-    )
-    runner, _, _, _, _ = setup_prediction(
+    other = config | change
+    runner, _, models, _, _ = setup_prediction(
         tmp_path, monkeypatch, "ensemble", [config, other]
     )
     monkeypatch.setattr(
@@ -459,13 +467,42 @@ def test_ensemble_rejects_incompatible_context_before_opening_volume(
     )
     with pytest.raises(ValueError, match=mismatch):
         runner()
+    assert len(models) == 1
+    assert not (tmp_path / "out").exists()
 
 
 def test_missing_requested_ensemble_member_fails(tmp_path, monkeypatch):
-    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "ensemble")
+    runner, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, "ensemble")
     argv += [str(tmp_path / "missing.pt")]
     with pytest.raises(FileNotFoundError):
         runner()
+    assert not models
+    assert not (tmp_path / "out").exists()
+
+
+def test_ensemble_checks_model_state_before_transferring_the_member(
+    tmp_path, monkeypatch
+):
+    config = {"patch_size": 8, "num_layers": 2, "base_feat": 4}
+    runner, _, models, _, checkpoints = setup_prediction(
+        tmp_path, monkeypatch, "ensemble", [config, config]
+    )
+    torch.save(
+        {"config": config, "model_state_dict": {"bias": torch.zeros(2)}},
+        checkpoints[1],
+    )
+    original = ConstantHeads.to
+    transfers = []
+
+    def track_transfer(self, *args, **kwargs):
+        transfers.append(self)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(ConstantHeads, "to", track_transfer)
+    with pytest.raises(RuntimeError, match="size mismatch for bias"):
+        runner()
+    assert len(models) == 2
+    assert transfers == models[:1]
     assert not (tmp_path / "out").exists()
 
 
