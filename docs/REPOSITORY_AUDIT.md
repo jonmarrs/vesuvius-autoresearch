@@ -2156,3 +2156,23 @@ with an overlap diagnostic and leaves the input directory intact.
 PR review retargeted the level-0 link between planning and the benchmark
 open. The first fix still wrote into the array actually read. The publisher
 now also checks the resolved root and array recorded by the measurement.
+
+## Linked Zarr arrays in training split checks (2026-11-24 UTC)
+
+This pass starts from main `9c62e57e`. Two configured Zarr groups could point
+their level-0 links at one array while passing the holdout split check. Real
+trainer fixtures using a linked group as labeled or active UA-MT input reached
+Torch setup even though the reader would use the holdout array.
+
+The split check and volume wrapper now use the same stat-only array selection.
+Setup compares both the configured roots and the resolved arrays before the
+trainer opens labels or initializes the device. A bare array still takes
+precedence over any unused level-0 link. Copied or physically overlapping crops
+still require split review.
+[Workspace split diagnostics](WORKSPACE_STATUS.md)
+
+PR review reproduced the same path gap in checkpoint preflight. A checkpoint
+destination could name a chunk in an external level-0 array while the guard
+protected only the configured group. The guard now also protects the selected
+array for training, validation and active UA-MT inputs. The real-trainer
+fixture confirms refusal before Torch setup and preserves the chunk bytes.

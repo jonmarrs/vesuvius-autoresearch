@@ -5,6 +5,15 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 
+def select_local_zarr_array(path: Path) -> Path:
+    """Select a bare local Zarr array or its OME level 0 using filesystem metadata."""
+    path = path.resolve()
+    level_zero = path / "0"
+    if not (path / ".zarray").exists() and (level_zero / ".zarray").exists():
+        return level_zero.resolve()
+    return path
+
+
 def volume_location(uri, base, *, resolve_local=True):
     """Classify one identifier without opening arrays or contacting a server.
 

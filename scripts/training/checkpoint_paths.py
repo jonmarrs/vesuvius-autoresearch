@@ -13,6 +13,7 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
     validate_output_file,
     validate_plan_paths,
 )
+from vesuvius_autoresearch.core.volume_paths import select_local_zarr_array
 
 # A colon starts a URL as "://", "scheme:/", or a known scheme with no slash
 # (s3:bucket/x.pt). urlsplit treats the text before any colon as a scheme, so a
@@ -94,9 +95,10 @@ def validate_training_checkpoint_writes(
 ):
     """Check configured experiment output, curve CSV and an optional step snapshot.
 
-    Protect named local CT trees, labels (including pseudo-labels), masks,
-    catalogues, foundation weights and the active config. Remote inputs are not
-    opened. Default loop promotion paths remain managed by the promotion code.
+    Protect named local CT trees and their selected arrays, labels (including
+    pseudo-labels), masks, catalogues, foundation weights and the active config.
+    Remote inputs are not opened. Default loop promotion paths remain managed
+    by the promotion code.
     """
     prefix = getattr(config, "checkpoint_out", None)
     paths = [prefix] if prefix else []
@@ -115,7 +117,7 @@ def validate_training_checkpoint_writes(
     for uri in uris:
         local = local_volume_path(uri, base_dir=base, resolve=False)
         if local is not None:
-            inputs.append(local)
+            inputs.extend((local, select_local_zarr_array(local)))
             inputs.extend(
                 local.parent / name
                 for name in (*VALIDATION_LABEL_FILES, "mask.png", "patches.json")

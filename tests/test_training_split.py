@@ -81,6 +81,32 @@ def test_hard_linked_file_identifiers_are_observable_aliases(tmp_path):
         validate_training_split(config(), base_dir=tmp_path)
 
 
+def test_separate_groups_with_one_level_zero_are_a_holdout_overlap(tmp_path):
+    array = tmp_path / "shared array.zarr"
+    array.mkdir()
+    (array / ".zarray").write_bytes(b"metadata is never decoded by setup checks")
+    for name in ("train.zarr", "val.zarr"):
+        group = tmp_path / name
+        group.mkdir()
+        (group / "0").symlink_to(array, target_is_directory=True)
+
+    with pytest.raises(ValueError, match=r"training\[0\] overlaps val_uri"):
+        validate_training_split(
+            config(val_uri=(tmp_path / "val.zarr").as_uri()), base_dir=tmp_path
+        )
+
+
+def test_a_bare_array_takes_precedence_over_an_unused_level_zero(tmp_path):
+    for name in ("train.zarr", "val.zarr"):
+        array = tmp_path / name
+        array.mkdir()
+        (array / ".zarray").write_bytes(b"stat only")
+    (tmp_path / "train.zarr" / "0").symlink_to(
+        tmp_path / "val.zarr", target_is_directory=True
+    )
+    validate_training_split(config(), base_dir=tmp_path)
+
+
 @pytest.mark.parametrize(
     "training", ["s3://bucket/val", "s3://bucket/val/", "s3://bucket/val/0/"]
 )

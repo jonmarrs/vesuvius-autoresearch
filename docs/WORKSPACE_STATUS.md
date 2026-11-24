@@ -27,13 +27,16 @@ priority and the confidence-weight requirement for pseudo-labels.
 The `training_split` check rejects observable overlap between the validation
 volume and labeled or active UA-MT inputs. It recognizes local path aliases,
 symlinks, directory ancestry, existing inode aliases and matching remote resource
-identifiers, without opening arrays or making network requests. Different remote
-URLs, copied volumes and physically overlapping crops remain unverified.
+identifiers, without opening arrays or making network requests. It compares both
+the configured root and the resolved Zarr array, including a linked OME level 0.
+Different remote URLs, copied volumes and physically overlapping crops remain
+unverified.
 Existing local paths take precedence over URI parsing, matching the CT reader,
 including local names containing colons. For symlinked volumes, annotation paths
 stay beside the configured volume path, as they do in training.
 The `checkpoint_outputs` check protects loop state and named local inputs from
-experiment checkpoint and configured curve destinations. The trainer repeats
+experiment checkpoint and configured curve destinations. CT protection includes
+the resolved array as well as the configured root. The trainer repeats
 these checks before work and saving, including step snapshots when their names
 are known. Source/writer serialization is still required; these snapshots are
 not locks or a proof of scientific holdout independence.

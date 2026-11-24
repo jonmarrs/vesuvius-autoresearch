@@ -124,6 +124,32 @@ def test_uri_like_local_ct_tree_cannot_be_overwritten(tmp_path):
     assert output.read_bytes() == b"original CT chunk"
 
 
+@pytest.mark.parametrize("role", ["training", "validation", "unlabeled"])
+def test_selected_level_zero_is_a_protected_checkpoint_input(
+    tmp_path, monkeypatch, role
+):
+    repo = tmp_path / "inspected"
+    array = repo / "actual volume.zarr"
+    array.mkdir(parents=True)
+    (array / ".zarray").write_bytes(b"stat only")
+    chunk = array / "0.0.0"
+    chunk.write_bytes(b"original CT bytes")
+    group = repo / "other volume.zarr"
+    group.mkdir()
+    (group / "0").symlink_to(array, target_is_directory=True)
+    options = {
+        "training": {"uris": [group.name]},
+        "validation": {"val_uri": group.as_uri()},
+        "unlabeled": {"use_uamt": True, "unlabeled_uris": [group.name]},
+    }
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="artifact collision"):
+        validate_training_checkpoint_writes(
+            config(str(chunk.relative_to(repo)), **options[role]), base_dir=repo.name
+        )
+    assert chunk.read_bytes() == b"original CT bytes"
+
+
 def test_relative_checkout_base_protects_the_actual_annotation_path(
     tmp_path, monkeypatch
 ):
