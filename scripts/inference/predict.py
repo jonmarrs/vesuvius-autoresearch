@@ -54,6 +54,7 @@ from vesuvius_autoresearch.core.regional_resources import (
     plan_regional_accumulators,
 )
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
+from volume_cartographer_wrapper.volume import local_volume_array_path
 
 
 def build_prediction_model(config_dict, args, use_ridges):
@@ -402,13 +403,22 @@ def predict():
         args.max_accumulator_bytes,
     )
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
+    volume_options = {
+        "use_ridges": use_ridges,
+        "ridge_sigma": ridge_sigma,
+        "strict_reads": True,
+    }
+    dataset = None
+    auto_source_array = None
     if args.z is None:
         # Centre the window in the depth band the checkpoint was trained on, on
         # the volumes it was trained or validated on (the band is in their slice
         # numbers); otherwise in the volume (surface volumes are built around the
         # segment surface at their middle layer). Pass --z to choose.
-        depth = FastVesuviusVolume(args.uri).shape[0]
-        band = depth_band_for(config_dict, args.uri)
+        auto_source_array = local_volume_array_path(args.uri)
+        dataset = FastVesuviusVolume(str(auto_source_array), **volume_options)
+        depth = dataset.shape[0]
+        band = depth_band_for(config_dict, auto_source_array)
         if band and 0 <= band[0] < band[1] <= depth:
             centre = band[0] + band[1]
         else:
@@ -419,6 +429,8 @@ def predict():
     artifacts = RegionalArtifactPlan.create(
         base_name, out_path, args.metadata_out, args.uri, [checkpoint_path]
     )
+    if auto_source_array is not None and auto_source_array != artifacts.source_array:
+        raise RuntimeError("selected CT array changed during automatic depth selection")
     out_path, output_dir = str(artifacts.image), str(artifacts.directory)
     uncertainty_path, uncertainty_sources = _uncertainty_sources(
         args, base_name, output_dir, out_path
@@ -441,6 +453,11 @@ def predict():
                 uncertainty_path, overwrite=True, sources=uncertainty_sources
             )
             args.uncertainty_export = {"status": "PLANNED", "path": None}
+
+    if dataset is None:
+        dataset = FastVesuviusVolume(str(artifacts.source_array), **volume_options)
+    validate_region(args, patch_size, num_layers, dataset.shape)
+
     memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
@@ -453,15 +470,6 @@ def predict():
     has_fiber = "fiber" in heads
     if memory_profile is not None:
         memory_profile.sample("models_loaded")
-
-    # Open the dataset
-    dataset = FastVesuviusVolume(
-        str(artifacts.source_array),
-        use_ridges=use_ridges,
-        ridge_sigma=ridge_sigma,
-        strict_reads=True,
-    )
-    validate_region(args, patch_size, num_layers, dataset.shape)
 
     # Determine region and tiling parameters
     predict_width, predict_height, stride = args.width, args.height, args.stride
