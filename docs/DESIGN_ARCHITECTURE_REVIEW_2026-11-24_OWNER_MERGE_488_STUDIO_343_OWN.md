@@ -75,8 +75,9 @@ None this round.
   - Ruff 0.9.10 `check` is clean over the repository, as the CPU workflow runs it, and `format` is clean on the
     touched module.
   - Mypy is clean over the whole repository, 1,110 files, with `--python-executable ./.venv/bin/python`.
-- **The standard suite**, 235 modules, gives the same 278 failing ids as round #225's run. It does not run the
-  touched module.
+- **The standard suite**, 235 modules, gives 280 failing ids. They are round #225's 278, and 2 new cases from the
+  owner's #541 in `test_training_data_sources.py`. Those two need a villa checkout, and fail on `fe6c25b` alone. The
+  suite does not run the touched module.
 - **The 310 test modules outside the suite** give the same 24 failing ids as round #225's run.
   - 3,494 passed: round #225's 3,483 and the 11 new cases.
   - 5 xfailed, as in round #225.
@@ -93,7 +94,7 @@ Every other failing id is this container's: it has no villa checkout.
   - They also replace Studio's map reader, only to put one NaN cell into the published map. Studio's maps, the carry,
     the reading frame and finding 124's statistic run as written.
 - **Still not reviewed from the owner's merges since round #182:** #488's run script, #489, #493, #496, #505, #517,
-  #524 and #541.
+  #524, #541, and #543, which the owner merged during this round.
 - **Still not reviewed from before:** #437 and the rest of #433 (both need villa), #422, #424 and #428, the rest of
   #390, #396 and #411, and the parts of #421 and #423 that rounds #170 and #171 listed.
 - **The mutants are a sample.** All 28 were run again with the new tests, and all 28 are killed.
