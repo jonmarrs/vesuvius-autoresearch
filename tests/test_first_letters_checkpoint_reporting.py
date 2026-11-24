@@ -28,9 +28,10 @@ class ScalarLike:
         return "scalar-like"
 def load(path, **kwargs):
     calls.append({"path": path, "kwargs": kwargs})
-    if path in spec["refuse"]:
+    name = path.rsplit("/", 1)[-1]
+    if name in spec["refuse"] or path in spec["refuse"]:
         raise RuntimeError("synthetic restricted-load refusal")
-    if path == "scalar":
+    if name == "scalar" or path == "scalar":
         return {"counter": ScalarLike()}
     return {"state_dict": {"parameter": 1}}
 fake.load = load
@@ -43,23 +44,46 @@ finally:
 """
 
 
-def check(paths: list[str], refuse: list[str]):
+def _zip_bytes() -> bytes:
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr("archive/data.pkl", b"\x80\x02.")
+    return buf.getvalue()
+
+
+ZIP = _zip_bytes()
+
+
+def check(paths: list[str], refuse: list[str], *, body: bytes | None | bool = None):
+    """``body`` None writes a zip per path. False passes the path through. bytes is written."""
     env = dict(os.environ, CUDA_VISIBLE_DEVICES="")
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            "-c",
-            BOOTSTRAP,
-            str(SCRIPTS / "check_ckpt_safe.py"),
-            json.dumps({"paths": paths, "refuse": refuse}),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=5,
-        check=False,
-        env=env,
-    )
+    with tempfile.TemporaryDirectory() as temp:
+        concrete = []
+        for path in paths:
+            if body is False or "://" in path:
+                concrete.append(path)
+                continue
+            dest = Path(temp) / Path(path).name
+            dest.write_bytes(ZIP if body is None else body)
+            concrete.append(str(dest))
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                BOOTSTRAP,
+                str(SCRIPTS / "check_ckpt_safe.py"),
+                json.dumps({"paths": concrete, "refuse": refuse}),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+            env=env,
+        )
     line = next(row for row in result.stderr.splitlines() if row.startswith("CALLS="))
     return result, json.loads(line[6:])
 
@@ -88,7 +112,9 @@ class CheckpointReporting(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("WEIGHTS_ONLY_OK good", result.stdout)
         self.assertIn("NOT_WEIGHTS_ONLY refused", result.stdout)
-        self.assertEqual([call["path"] for call in calls], ["refused", "good"])
+        self.assertEqual(
+            [Path(call["path"]).name for call in calls], ["refused", "good"]
+        )
 
     def test_success_and_restricted_cpu_arguments(self):
         result, calls = check(["first", "second"], [])
@@ -107,7 +133,29 @@ class CheckpointReporting(unittest.TestCase):
         self.assertIn("WEIGHTS_ONLY_OK scalar", result.stdout)
         self.assertIn("scalar-like", result.stdout)
         self.assertIn("WEIGHTS_ONLY_OK good", result.stdout)
-        self.assertEqual([call["path"] for call in calls], ["scalar", "good"])
+        self.assertEqual(
+            [Path(call["path"]).name for call in calls], ["scalar", "good"]
+        )
+
+    def test_a_missing_file_is_refused_without_loading(self):
+        result, calls = check(["missing"], [], body=False)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("NOT_WEIGHTS_ONLY missing", result.stdout)
+        self.assertIn("refusing a missing checkpoint", result.stdout)
+        self.assertEqual(calls, [])
+
+    def test_a_url_is_refused_without_loading(self):
+        result, calls = check(["https://example.invalid/weights.pt"], [])
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("NOT_WEIGHTS_ONLY weights.pt", result.stdout)
+        self.assertIn("refusing a checkpoint URL", result.stdout)
+        self.assertEqual(calls, [])
+
+    def test_a_non_zip_is_refused_without_loading(self):
+        result, calls = check(["legacy"], [], body=b"not a zip")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("convert it offline to zip", result.stdout)
+        self.assertEqual(calls, [])
 
     def test_generated_record_does_not_invent_checkpoint_verification(self):
         spec = importlib.util.spec_from_file_location(

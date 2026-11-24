@@ -36,10 +36,18 @@ f120_tests = _load(
 # --- the pickle audit -------------------------------------------------------------------------------------------
 
 
+def _zip_of(path: Path, data: bytes, name: str = "archive/data.pkl") -> None:
+    """A zip the torch reader will open, with ``data`` as the named record."""
+    _write_named(
+        path,
+        [("archive/version", b"3\n"), ("archive/byteorder", b"little"), (name, data)],
+    )
+
+
 def test_a_pickle_that_imports_os_system_is_refused(tmp_path):
     for protocol in (0, 2, 4):
-        path = tmp_path / f"p{protocol}.pkl"
-        path.write_bytes(pickle.dumps(os.system, protocol=protocol))
+        path = tmp_path / f"p{protocol}.pt"
+        _zip_of(path, pickle.dumps(os.system, protocol=protocol))
         result = audit.audit(path, set())
         assert not result["passes"], protocol
         assert result["outside_allowlist"] == ["posix.system"], protocol
@@ -259,6 +267,12 @@ def test_the_driver_checks_and_audits_before_any_load_and_sends_nothing():
     )
     assert 'PYTHONPATH="$HERE/gp_stub"' in text and "WANDB_MODE=disabled" in text
     assert "--stride 32 --batch_size 64" in text
+    # The loader is handed the copy that was checksummed and audited, not $CK.
+    assert 'cp -- "$CK" "$CK_COPY"' in text
+    assert "echo '$CK_SHA256  $CK_COPY'" in text
+    assert '"$CK_COPY"' in text.split("step audit", 1)[1]
+    assert '--model_path "$CK_COPY"' in text
+    assert text.index('cp -- "$CK" "$CK_COPY"') < text.index("step checksum")
 
 
 def test_the_wandb_stub_does_nothing():
@@ -343,8 +357,8 @@ def test_a_memo_entry_that_is_not_a_string_breaks_the_pair():
 
 
 def test_a_class_named_inline_by_inst_is_listed_and_refused(tmp_path):
-    path = tmp_path / "inst.pkl"
-    path.write_bytes(b"(ios\nsystem\n.")  # MARK, INST os system, STOP
+    path = tmp_path / "inst.pt"
+    _zip_of(path, b"(ios\nsystem\n.")  # MARK, INST os system, STOP
     result = audit.audit(path, set())
     assert result["outside_allowlist"] == ["os.system"] and not result["passes"]
 
@@ -358,8 +372,8 @@ def test_a_class_named_inline_by_inst_is_listed_and_refused(tmp_path):
     ],
 )
 def test_every_copyreg_extension_opcode_refuses_the_file(tmp_path, capsys, op, code):
-    path = tmp_path / f"{op}.pkl"
-    path.write_bytes(b"\x80\x02" + code + b".")
+    path = tmp_path / f"{op}.pt"
+    _zip_of(path, b"\x80\x02" + code + b".")
     result = audit.audit(path, set())
     assert result["refused_opcodes"] == [op] and result["outside_allowlist"] == []
     assert not result["passes"]
@@ -386,8 +400,8 @@ def test_every_copyreg_extension_opcode_refuses_the_file(tmp_path, capsys, op, c
 def test_only_a_storage_class_of_torch_itself_passes_as_storage(
     tmp_path, module, name, passes
 ):
-    path = tmp_path / "global.pkl"
-    path.write_bytes(b"\x80\x04c" + module.encode() + b"\n" + name.encode() + b"\n.")
+    path = tmp_path / "global.pt"
+    _zip_of(path, b"\x80\x04c" + module.encode() + b"\n" + name.encode() + b"\n.")
     assert audit.audit(path, set())["passes"] is passes
 
 
@@ -397,36 +411,520 @@ def test_the_audit_takes_exactly_one_checkpoint(capsys):
     assert "usage: audit_pickle.py" in capsys.readouterr().err
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="audit_pickle reads a file up to its first STOP; a legacy (non-zip) torch file is several pickles, "
-    "and torch.load unpickles the object after the first",
+def _write_tar(path: Path, members: list[tuple[str, bytes]]) -> None:
+    import io
+    import tarfile
+
+    with tarfile.open(path, "w:", format=tarfile.PAX_FORMAT) as archive:
+        for name, data in members:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+
+
+def _stored_zip(members: list[tuple[str, bytes]]) -> bytes:
+    """A stored zip whose central directory lists members in ``members`` order."""
+    import struct
+    import zipfile as zipfmt
+
+    def local(name: str, data: bytes) -> bytes:
+        raw = name.encode()
+        crc = zipfmt.crc32(data) & 0xFFFFFFFF
+        header = struct.pack(
+            "<IHHHHHIIIHH",
+            0x04034B50,
+            20,
+            0,
+            0,
+            0,
+            0,
+            crc,
+            len(data),
+            len(data),
+            len(raw),
+            0,
+        )
+        return header + raw + data
+
+    def central(name: str, data: bytes, offset: int) -> bytes:
+        raw = name.encode()
+        crc = zipfmt.crc32(data) & 0xFFFFFFFF
+        header = struct.pack(
+            "<IHHHHHHIIIHHHHHII",
+            0x02014B50,
+            20,
+            20,
+            0,
+            0,
+            0,
+            0,
+            crc,
+            len(data),
+            len(data),
+            len(raw),
+            0,
+            0,
+            0,
+            0,
+            0,
+            offset,
+        )
+        return header + raw
+
+    parts: list[bytes] = []
+    metas = []
+    offset = 0
+    for name, data in members:
+        chunk = local(name, data)
+        metas.append((name, data, offset))
+        parts.append(chunk)
+        offset += len(chunk)
+    directory = b"".join(central(name, data, at) for name, data, at in metas)
+    end = struct.pack(
+        "<IHHHHIIH", 0x06054B50, 0, 0, len(metas), len(metas), len(directory), offset, 0
+    )
+    return b"".join(parts) + directory + end
+
+
+def _touch(marker: Path) -> bytes:
+    class Touch:
+        def __reduce__(self):
+            return (os.system, (f"touch {marker}",))
+
+    return pickle.dumps(Touch(), protocol=2)
+
+
+def _torch_records() -> list[tuple[str, bytes]]:
+    return [("archive/version", b"3\n"), ("archive/byteorder", b"little")]
+
+
+def _write_named(path: Path, members: list[tuple[str, bytes]]) -> None:
+    import io
+    import warnings
+    import zipfile
+
+    buf = io.BytesIO()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        with zipfile.ZipFile(buf, "w") as archive:
+            for name, data in members:
+                archive.writestr(name, data)
+    path.write_bytes(buf.getvalue())
+
+
+@pytest.mark.parametrize("name", ["archive/DATA.PKL", "archive/data.PKL"])
+def test_a_pkl_suffix_in_another_case_is_the_pickle_torch_runs(tmp_path, name):
+    """miniz matches the suffix without regard to case; a case-sensitive scan does not."""
+    torch = pytest.importorskip("torch")
+    path = tmp_path / "case.pt"
+    # version is first, so a scan of only the first member never sees the pickle.
+    _write_named(
+        path,
+        _torch_records() + [(name, pickle.dumps(os.system, protocol=2))],
+    )
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert "posix.system" in result["outside_allowlist"]
+    assert torch.load(path, weights_only=False) is os.system
+
+
+def test_a_later_pickle_member_is_audited_not_only_data_pkl(tmp_path):
+    """A benign ``data.pkl`` followed by another pickle must not pass on its own."""
+    path = tmp_path / "later.pt"
+    _write_named(
+        path,
+        [("archive/data.pkl", pickle.dumps({"ok": 1}, protocol=2))]
+        + _torch_records()
+        + [("archive/weights.pkl", pickle.dumps(os.system, protocol=2))],
+    )
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert "posix.system" in result["outside_allowlist"]
+    # Record names are what torch's reader uses, without the archive/ prefix.
+    assert "weights.pkl" in result["pickles"]
+    assert "data.pkl" in result["pickles"]
+
+
+@pytest.mark.parametrize(
+    ("order", "stored", "executes"),
+    [("EEB", True, True), ("EBB", True, False), ("EBEB", False, True)],
 )
-def test_a_legacy_checkpoint_is_audited_past_its_first_pickle(tmp_path):
+def test_duplicate_data_pkl_members_are_refused(tmp_path, order, stored, executes):
+    """zipfile.read returns the last copy. torch.load can execute an earlier one.
+
+    Stored EEB and a ZipFile-written EBEB are the orders where torch 2.9.1 does
+    that. EBB is refused as a duplicate even when both readers currently agree
+    on the benign last copy.
+    """
+    torch = pytest.importorskip("torch")
+    import zipfile
+
+    marker = tmp_path / "ran"
+    path = tmp_path / f"{order}.pt"
+    evil = _touch(marker)
+    benign = pickle.dumps({"ok": 1}, protocol=2)
+    copies = [(evil if item == "E" else benign) for item in order]
+    if stored:
+        path.write_bytes(
+            _stored_zip(
+                [("archive/data.pkl", data) for data in copies] + _torch_records()
+            )
+        )
+    else:
+        # ZipFile's data-descriptor flag makes torch 2.9.1 execute the third
+        # copy of a four-copy member. The other records are what torch.save writes.
+        import io
+
+        saved = io.BytesIO()
+        torch.save({"w": torch.zeros(1)}, saved)
+        with zipfile.ZipFile(io.BytesIO(saved.getvalue())) as archive:
+            others = [
+                (info.filename, archive.read(info))
+                for info in archive.infolist()
+                if not info.filename.casefold().endswith(".pkl")
+            ]
+        _write_named(path, [("archive/data.pkl", data) for data in copies] + others)
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert result["refused_opcodes"] == ["duplicate member"]
+    with zipfile.ZipFile(path) as archive:
+        assert archive.read("archive/data.pkl") == benign
+    torch.load(path, weights_only=False)
+    assert marker.exists() is executes
+    marker.unlink(missing_ok=True)
+
+
+def test_an_appended_second_zip_is_refused(tmp_path):
+    """zipfile reads the second archive. A shifted central directory is refused."""
+    torch = pytest.importorskip("torch")
+    import struct
+    import zipfile
+
+    marker = tmp_path / "ran"
+    path = tmp_path / "appended.pt"
+    evil = _touch(marker)
+    benign = pickle.dumps({"ok": 1}, protocol=2)
+    first = _stored_zip([("archive/data.pkl", evil)] + _torch_records())
+    second = _stored_zip([("archive/data.pkl", benign)] + _torch_records())
+    path.write_bytes(first + second)
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert result["message"] == audit.SHIFTED_ZIP
+    with zipfile.ZipFile(path) as archive:
+        assert archive.read("archive/data.pkl") == benign
+        eocd = path.read_bytes().rfind(b"PK\x05\x06")
+        recorded = struct.unpack_from("<I", path.read_bytes(), eocd + 16)[0]
+        assert archive.start_dir != recorded
+    with pytest.raises(RuntimeError):
+        torch.load(path, weights_only=False)
+    assert not marker.exists()
+
+
+def test_bytes_after_the_archive_are_refused(tmp_path):
+    path = tmp_path / "tail.pt"
+    benign = pickle.dumps({"ok": 1}, protocol=2)
+    path.write_bytes(
+        _stored_zip([("archive/data.pkl", benign)] + _torch_records()) + b"TRAILER"
+    )
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert result["message"] == audit.SHIFTED_ZIP
+
+
+def test_a_missing_checkpoint_and_a_url_are_refused(tmp_path):
+    checkpoints = importlib.import_module("vesuvius_autoresearch.core.checkpoint_tools")
+    missing = tmp_path / "gone.pt"
+    with pytest.raises(ValueError, match="refusing a missing checkpoint"):
+        checkpoints.require_zip_checkpoint(missing)
+    with pytest.raises(ValueError, match="refusing a missing checkpoint"):
+        checkpoints.load_checkpoint(missing, weights_only=True)
+    for url in ("https://example.invalid/w.pt", "s3://bucket/w.pt"):
+        with pytest.raises(ValueError, match="refusing a checkpoint URL"):
+            checkpoints.require_zip_checkpoint(url)
+
+
+def test_infer_resenc_refuses_a_non_zip_and_loads_a_zip(tmp_path):
+    """The script's torch.load wrapper is the gate. Importing the file also trains.
+
+    Only the prefix that installs the wrapper is executed, so the dataset read
+    at the bottom of the script does not run.
+    """
+    torch = pytest.importorskip("torch")
+    path = ROOT / "repro" / "gp_winner" / "infer_resenc.py"
+    source = path.read_text()
+    prefix = source[: source.index("\nPIL.Image.MAX_IMAGE_PIXELS")]
+    namespace: dict = {"__name__": "infer_resenc_under_test"}
+    exec(prefix, namespace)  # noqa: S102 - the wrapper under test, not the training script
+    original = namespace["_original_load"]
+    torch.load = original
+    try:
+        marker = tmp_path / "ran"
+        legacy = tmp_path / "legacy.pt"
+        legacy.write_bytes(_touch(marker))
+        with pytest.raises(ValueError, match="convert it offline to zip"):
+            namespace["_load_no_weights_only"](str(legacy), weights_only=True)
+        assert not marker.exists()
+        good = tmp_path / "good.pt"
+        torch.save({"w": torch.zeros(1)}, good)
+        loaded = namespace["_load_no_weights_only"](str(good), map_location="cpu")
+        assert tuple(loaded["w"].shape) == (1,)
+        with pytest.raises(ValueError, match="refusing a missing checkpoint"):
+            namespace["_require_zip"](tmp_path / "gone.pt")
+        with pytest.raises(ValueError, match="refusing a checkpoint URL"):
+            namespace["_require_zip"]("https://example.invalid/w.pt")
+    finally:
+        torch.load = original
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [b"PK\x03\x04", b"PK\x03\x04truncated", b"PK\x03\x04" + pickle.dumps({"w": 1})],
+)
+def test_a_file_that_only_starts_with_the_zip_signature_is_refused(tmp_path, payload):
+    path = tmp_path / "broken.pt"
+    path.write_bytes(payload)
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert result["message"] == audit.NON_ZIP_CHECKPOINT
+    assert audit.main([str(path)]) == 1
+
+
+def test_a_malicious_zip_is_refused_at_the_weights_only_false_sites(tmp_path):
+    """A valid torch zip whose pickle is os.system never reaches the unpickler."""
+    torch = pytest.importorskip("torch")
+    marker = tmp_path / "ran"
+
+    class Touch:
+        def __reduce__(self):
+            return (os.system, (f"touch {marker}",))
+
+    evil = tmp_path / "evil.pt"
+    torch.save(Touch(), evil)
+    checkpoints = importlib.import_module("vesuvius_autoresearch.core.checkpoint_tools")
+    with pytest.raises(ValueError, match="posix.system"):
+        checkpoints.load_checkpoint(evil, weights_only=False)
+    assert not marker.exists()
+
+    infer_mod = importlib.import_module("vesuvius_autoresearch.detector.infer")
+    config_mod = importlib.import_module("vesuvius_autoresearch.detector.config")
+    with pytest.raises(ValueError, match="posix.system"):
+        infer_mod.infer(
+            config_mod.DetectorConfig(data_root=str(tmp_path)),
+            str(evil),
+            "frag",
+        )
+    assert not marker.exists()
+
+    # The fiber loader builds the network from plans, then audits the zip.
+    semantic = importlib.import_module("vesuvius_autoresearch.fibers.semantic")
+    bundle = tmp_path / "bundle"
+    (bundle / "fold_0").mkdir(parents=True)
+    (bundle / "plans.json").write_text(
+        '{"configurations":{"3d_fullres":{"patch_size":[4,4,4],'
+        '"normalization_schemes":["ZScoreNormalization"],'
+        '"use_mask_for_norm":[false],'
+        '"architecture":{"network_class_name":"test.Network",'
+        '"arch_kwargs":{"strides":[[1,1,1]]}}}}}'
+    )
+    import json
+
+    labels = {name: index for index, name in semantic.LABELS.items()}
+    (bundle / "dataset.json").write_text(
+        json.dumps({"channel_names": {"0": "CT"}, "labels": labels})
+    )
+
+    # torch is the module pytest.importorskip returned, so mypy cannot resolve the base class
+    class BundleNetwork(torch.nn.Module):  # type: ignore[name-defined]
+        def __init__(self, **kwargs):
+            super().__init__()
+            self.encoder = torch.nn.Linear(1, 1)
+
+    original_import = semantic._import_by_path
+    semantic._import_by_path = lambda name: BundleNetwork
+    torch.save(Touch(), bundle / "fold_0" / "checkpoint_final.pth")
+    try:
+        with pytest.raises(ValueError, match="posix.system"):
+            semantic.load_model(bundle, device="cpu")
+    finally:
+        semantic._import_by_path = original_import
+    assert not marker.exists()
+
+    path = ROOT / "repro" / "gp_winner" / "infer_resenc.py"
+    source = path.read_text()
+    prefix = source[: source.index("\nPIL.Image.MAX_IMAGE_PIXELS")]
+    namespace: dict = {"__name__": "infer_resenc_malicious"}
+    exec(prefix, namespace)  # noqa: S102 - the wrapper under test
+    torch.load = namespace["_original_load"]
+    try:
+        with pytest.raises(ValueError, match="posix.system"):
+            namespace["_load_no_weights_only"](str(evil))
+    finally:
+        torch.load = namespace["_original_load"]
+    assert not marker.exists()
+
+
+def _legacy_prefix() -> bytes:
+    """The three pickles a legacy torch.load finishes before the object."""
+    torch = pytest.importorskip("torch")
+    from torch.serialization import MAGIC_NUMBER, PROTOCOL_VERSION
+
+    return b"".join(
+        pickle.dumps(value, protocol=0)
+        for value in (
+            MAGIC_NUMBER,
+            PROTOCOL_VERSION,
+            {"protocol_version": PROTOCOL_VERSION},
+        )
+    )
+
+
+def _stopless(module: str, name: str, arg: str) -> bytes:
+    """A protocol-0 call with no STOP."""
+    text = f"c{module}\n{name}\n(S'{arg}'\ntR"
+    assert "\x00" not in text
+    return text.encode()
+
+
+def _assert_non_zip_refused(path: Path) -> None:
+    """The audit and both loaders refuse ``path`` and name the offline conversion."""
+    import io
+
+    checkpoints = importlib.import_module("vesuvius_autoresearch.core.checkpoint_tools")
+    NON_ZIP_CHECKPOINT = checkpoints.NON_ZIP_CHECKPOINT
+    load_checkpoint = checkpoints.load_checkpoint
+
+    result = audit.audit(path, set())
+    assert result["passes"] is False
+    assert result["message"] == NON_ZIP_CHECKPOINT
+    assert "not a zip checkpoint" in result["refused_opcodes"]
+    assert audit.main([str(path)]) == 1
+    blob = path.read_bytes()
+    with pytest.raises(ValueError, match="convert it offline to zip"):
+        load_checkpoint(path, weights_only=False)
+    with pytest.raises(ValueError, match="convert it offline to zip"):
+        load_checkpoint(io.BytesIO(blob), weights_only=False)
+
+
+def test_a_legacy_checkpoint_is_refused_by_path_and_bytesio(tmp_path, capsys):
     torch = pytest.importorskip("torch")
     path = tmp_path / "legacy.pt"
-    payload = f120_tests._MakesADirectory(str(tmp_path / "made"))
-    torch.save(
-        {"w": torch.zeros(2), "x": payload}, path, _use_new_zipfile_serialization=False
+    torch.save({"w": torch.zeros(2)}, path, _use_new_zipfile_serialization=False)
+    _assert_non_zip_refused(path)
+    assert "convert it offline to zip" in capsys.readouterr().err
+
+
+def test_a_tar_checkpoint_is_refused_by_path_and_bytesio(tmp_path):
+    path = tmp_path / "legacy.tar"
+    _write_tar(path, [("pickle", pickle.dumps({"w": 1}, protocol=2))])
+    _assert_non_zip_refused(path)
+
+
+def test_a_magic_pickle_then_a_stopless_import_is_refused(tmp_path):
+    torch = pytest.importorskip("torch")
+    from torch.serialization import MAGIC_NUMBER
+
+    marker = tmp_path / "ran"
+    path = tmp_path / "magic.pkl"
+    path.write_bytes(
+        pickle.dumps(MAGIC_NUMBER, protocol=0)
+        + _stopless("os", "system", f"touch {marker}")
     )
-    assert not audit.audit(path, set())["passes"]
+    _assert_non_zip_refused(path)
+    assert not marker.exists()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="audit_pickle reads a file as a zip archive wherever Python's zipfile finds one, but torch.load only "
-    "when the file starts with the zip signature: a pickle placed before an archive is loaded and never read",
-)
-def test_a_pickle_placed_before_a_zip_archive_is_audited(tmp_path):
+def test_a_legacy_header_then_a_stopless_makedirs_is_refused(tmp_path):
+    pytest.importorskip("torch")
+    marker = tmp_path / "made"
+    path = tmp_path / "shaped.pkl"
+    path.write_bytes(_legacy_prefix() + _stopless("os", "makedirs", str(marker)))
+    _assert_non_zip_refused(path)
+    assert not marker.exists()
+
+
+def _bytestring_tar(path: Path, length: int, evil: bytes) -> None:
+    """A tar whose first header is a BINBYTES8 of ``length`` bytes, then ``evil``."""
+    import struct
+    import tarfile
+
+    plain = path.with_name(path.name + ".plain")
+    _write_tar(plain, [("pickle", pickle.dumps(0, protocol=2))])
+    blob = bytearray(plain.read_bytes())
+    header = blob[:512]
+    header[:9] = b"\x8e" + struct.pack("<Q", length)
+    header[148:156] = b"        "
+    header[148:156] = f"{sum(header):06o}\0 ".encode()
+    blob[:512] = header
+    if len(blob) > 9 + length:
+        raise AssertionError("the tar is longer than the bytestring")
+    path.write_bytes(bytes(blob) + b"\x00" * (9 + length - len(blob)) + evil)
+    assert tarfile.is_tarfile(path)
+
+
+@pytest.mark.parametrize("length", [1024 * 1024 + 4096, 4 * 1024 * 1024])
+def test_a_long_bytestring_hides_an_import_past_the_tar(tmp_path, length):
+    marker = tmp_path / "ran"
+    path = tmp_path / "long.tar"
+    _bytestring_tar(path, length, _stopless("os", "system", f"touch {marker}"))
+    _assert_non_zip_refused(path)
+    assert not marker.exists()
+
+
+def test_a_frame_that_extends_past_its_stop_hides_the_next_pickle(tmp_path):
+    torch = pytest.importorskip("torch")
+    import struct
+
+    from torch.serialization import MAGIC_NUMBER
+
+    marker = tmp_path / "framed"
+    magic = pickle.dumps(MAGIC_NUMBER, protocol=0)
+    inner = magic + b"".join(pickle.dumps(0, protocol=0) for _ in range(4))
+    path = tmp_path / "framed.pkl"
+    path.write_bytes(
+        b"\x80\x04\x95"
+        + struct.pack("<Q", len(inner))
+        + inner
+        + _stopless("os", "system", f"touch {marker}")
+    )
+    _assert_non_zip_refused(path)
+    assert not marker.exists()
+
+
+def test_zip_tensor_checkpoints_still_load(tmp_path):
     torch = pytest.importorskip("torch")
     import io
 
-    archive = io.BytesIO()
-    torch.save({"w": torch.zeros(2)}, archive)
-    payload = f120_tests._MakesADirectory(str(tmp_path / "made"))
-    path = tmp_path / "joined.pt"
-    path.write_bytes(pickle.dumps(payload, protocol=2) + archive.getvalue())
-    assert not audit.audit(path, set())["passes"]
+    load_checkpoint = importlib.import_module(
+        "vesuvius_autoresearch.core.checkpoint_tools"
+    ).load_checkpoint
+
+    for n in range(256):
+        path = tmp_path / f"{n}.pt"
+        torch.save(torch.zeros(n), path)
+        assert audit.audit(path, set())["passes"] is True
+        loaded = load_checkpoint(path, map_location="cpu", weights_only=True)
+        assert tuple(loaded.shape) == (n,)
+        again = load_checkpoint(
+            io.BytesIO(path.read_bytes()), map_location="cpu", weights_only=True
+        )
+        assert tuple(again.shape) == (n,)
+
+
+def test_the_pinned_gp_checkpoint_still_loads():
+    pytest.importorskip("torch")
+    path = ROOT / "villa/ink-detection/timesformer_weights.ckpt"
+    if not path.is_file():
+        pytest.skip("the pinned Grand Prize checkpoint is not in this checkout")
+    # weights_only=False: that checkpoint carries defaultdict, AdamW and
+    # CosineAnnealingLR. The audit allows those and still runs first.
+    checkpoints = importlib.import_module("vesuvius_autoresearch.core.checkpoint_tools")
+    loaded = checkpoints.load_checkpoint(
+        path,
+        map_location="cpu",
+        weights_only=False,
+        allow=checkpoints.CHECKPOINT_CLASS_ALLOW,
+    )
+    assert isinstance(loaded, dict) and loaded
 
 
 # --- the segments, the prediction reader and the comparison's other branches ------------------------------------

@@ -6,7 +6,6 @@ import hashlib
 import json
 import math
 import os
-import pickle
 import subprocess
 import sys
 import time
@@ -799,7 +798,7 @@ def test_required_starting_load_cannot_swallow_bad_weights(tmp_path, damage):
         path.write_bytes(b"not a torch checkpoint")
     else:
         torch.save({"config": asdict(config), "model_state_dict": state}, path)
-    expected_error = pickle.UnpicklingError if damage == "unreadable" else RuntimeError
+    expected_error = ValueError if damage == "unreadable" else RuntimeError
     with pytest.raises(expected_error):
         train.load_required_starting_checkpoint(torch.nn.Linear(2, 1), config, path)
 

@@ -303,7 +303,8 @@ def test_image_destination_preflight_in_both_entrypoints_without_loading_models(
     from scripts.regional_prediction_artifacts import RegionalArtifactPlan
 
     checkpoint = tmp_path / "model.png"
-    checkpoint.write_bytes(b"plain sentinel, never deserialized")
+    # A zip header, so the load gate reaches the stub. The stub never unpickles it.
+    checkpoint.write_bytes(b"PK\x03\x04plain sentinel, never deserialized")
     source = tmp_path / "ct.zarr"
     source.mkdir()
     config = {"patch_size": 8, "num_layers": 2, "base_feat": 4, "voxel_size_um": 2}

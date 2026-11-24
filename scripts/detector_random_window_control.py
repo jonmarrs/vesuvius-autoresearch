@@ -43,6 +43,9 @@ from scripts.detector_on_loop_sample import (  # noqa: E402
     sha256,
 )
 from scripts.training.config import ExperimentConfig  # noqa: E402
+from vesuvius_autoresearch.core.checkpoint_tools import (  # noqa: E402
+    require_zip_checkpoint,
+)
 from vesuvius_autoresearch.detector.config import DetectorConfig  # noqa: E402
 from vesuvius_autoresearch.detector.model import DetectorModel  # noqa: E402
 
@@ -56,6 +59,8 @@ def main(out_path, detector):
     torch.set_num_threads(1)  # the loop's data pipeline needs the other cores
     config = ExperimentConfig.load("config.json")
     cfg = DetectorConfig()
+    # weights_only=False: this Lightning checkpoint embeds CosineAnnealingLR.
+    require_zip_checkpoint(detector)
     model = DetectorModel.load_from_checkpoint(
         detector, cfg=cfg, pred_shape=(1, 1), weights_only=False, map_location="cpu"
     ).eval()

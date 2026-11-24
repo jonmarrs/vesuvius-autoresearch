@@ -38,8 +38,10 @@ class MutexStitcher:
 
         self.trainer = MutexAffinityTrainer(mgr=MockMgr())
         if checkpoint_path and os.path.exists(checkpoint_path):
-            checkpoint = torch.load(
-                checkpoint_path, map_location=self.device, weights_only=False
+            from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+            checkpoint = load_checkpoint(
+                checkpoint_path, map_location=self.device, weights_only=True
             )
             self.trainer.load_state_dict(checkpoint)
         self.trainer.model.to(self.device)

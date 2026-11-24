@@ -168,7 +168,9 @@ def _cached(path, key):
     if not os.path.exists(path):
         return None
     try:
-        blob = torch.load(path, map_location="cpu", weights_only=True)
+        from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+        blob = load_checkpoint(path, map_location="cpu", weights_only=True)
     except Exception as exc:
         print(f"ignoring unreadable prediction cache {path}: {exc}")
         return None

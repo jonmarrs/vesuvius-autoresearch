@@ -10,6 +10,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    CHECKPOINT_CLASS_ALLOW,
+    require_audited_checkpoint,
+)
 from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 
 from .data import read_volume_mask
@@ -57,8 +61,11 @@ def infer(
             model_cls = ResEncDetectorModel
         else:
             model_cls = DetectorModel
-        # weights_only=False: our checkpoint embeds the LR scheduler (CosineAnnealingLR),
-        # which PyTorch 2.6's weights_only=True default rejects. We trust our own ckpt.
+        # weights_only=False: the checkpoint embeds the LR scheduler
+        # (CosineAnnealingLR), which the weights-only unpickler rejects.
+        # The audit runs first, so a zip whose pickle imports anything else
+        # (including os.system) is refused before Lightning unpickles it.
+        require_audited_checkpoint(checkpoint_path, allow=CHECKPOINT_CLASS_ALLOW)
         model = model_cls.load_from_checkpoint(
             checkpoint_path, cfg=cfg, pred_shape=(1, 1), weights_only=False
         )

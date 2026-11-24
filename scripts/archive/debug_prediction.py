@@ -7,7 +7,14 @@ from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 
 def debug_prediction():
     # Load last model
-    chk = torch.load("last_model.pt", map_location="cpu", weights_only=False)
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+    chk = load_checkpoint(
+        "last_model.pt",
+        map_location="cpu",
+        weights_only=True,
+        allow_numpy_scalars=True,
+    )
     config_dict = chk["config"]
     # Reconstruct ExperimentConfig and VesuviusConfig
     exp_config = ExperimentConfig(**config_dict)

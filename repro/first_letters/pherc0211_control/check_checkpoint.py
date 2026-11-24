@@ -29,10 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) != 1:
         print(__doc__, file=sys.stderr)
         return 2
-    import torch
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 
     try:
-        state = torch.load(args[0], map_location="cpu", weights_only=True)
+        state = load_checkpoint(args[0], map_location="cpu", weights_only=True)
     except Exception as error:  # noqa: BLE001 - any refusal means: do not hand it to villa
         print(
             f"REFUSED: {args[0]} does not load weights-only: {error}", file=sys.stderr

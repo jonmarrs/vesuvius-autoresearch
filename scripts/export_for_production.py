@@ -22,7 +22,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.artifact_hashes import sha256_file
 from scripts.labeling.label_artifacts import new_output, publish_new_file
-from vesuvius_autoresearch.core.checkpoint_tools import build_tool_model
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    build_tool_model,
+    load_checkpoint,
+)
 from vesuvius_autoresearch.core.inference import positive_integer
 
 CHECKPOINT_ERRORS = (
@@ -145,7 +148,9 @@ def export_checkpoint(input_path, output_path):
     if not source.is_file():
         raise FileNotFoundError(f"checkpoint not found: {source}")
     digest = sha256_file(source)
-    checkpoint = torch.load(source, map_location="cpu", weights_only=False)
+    checkpoint = load_checkpoint(
+        source, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+    )
     if (
         isinstance(checkpoint, dict)
         and "model_state_dict" not in checkpoint
@@ -187,7 +192,9 @@ def export_checkpoint(input_path, output_path):
     with publish_new_file(output, source) as staging:
         torch.save(exported, staging)
         validate_envelope(
-            torch.load(staging, map_location="cpu", weights_only=False),
+            load_checkpoint(
+                staging, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+            ),
         )
     print(f"Checkpoint envelope exported: {output}")
     print(

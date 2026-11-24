@@ -33,6 +33,7 @@ from scripts.regional_prediction_artifacts import (
     RegionalArtifactPlan,
     validate_checkpoint_metadata,
 )
+from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 from vesuvius_autoresearch.core.inference import (
     multitask_inference_recipe,
     multitask_probabilities,
@@ -104,7 +105,12 @@ def ensemble_predict():
             raise FileNotFoundError(
                 f"requested ensemble checkpoint not found: {checkpoint_path}"
             )
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        checkpoint = load_checkpoint(
+            checkpoint_path,
+            map_location="cpu",
+            weights_only=True,
+            allow_numpy_scalars=True,
+        )
         if not isinstance(checkpoint, dict) or not isinstance(
             checkpoint.get("config", {}), dict
         ):

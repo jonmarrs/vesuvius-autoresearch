@@ -13,6 +13,7 @@ import segmentation_models_pytorch as smp
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from albumentations.pytorch import ToTensorV2
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import (
@@ -26,13 +27,27 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 from warmup_scheduler import GradualWarmupScheduler
 
-import wandb
-
-# Patch torch.load to disable weights_only
+# Lightning and GradualWarmupScheduler are not in the weights-only allowlist, so
+# this script's loads stay weights_only=False. A legacy pickle or a tar is still
+# refused before that unpickle: torch.load only treats a leading PK header as a zip.
 _original_load = torch.load
 
 
+def _require_zip(source) -> None:
+    from vesuvius_autoresearch.core.checkpoint_refusal import require_zip_checkpoint
+
+    require_zip_checkpoint(source)
+
+
 def _load_no_weights_only(*args, **kwargs):
+    from vesuvius_autoresearch.core.checkpoint_tools import (
+        RESENC_CHECKPOINT_ALLOW,
+        require_audited_checkpoint,
+    )
+
+    source = args[0] if args else kwargs["f"]
+    # Zip signature, then the pickle audit. A valid zip can still carry os.system.
+    require_audited_checkpoint(source, allow=RESENC_CHECKPOINT_ALLOW)
     kwargs["weights_only"] = False
     return _original_load(*args, **kwargs)
 
@@ -269,7 +284,7 @@ def worker_function(fragment_id, CFG):
 
 
 def get_train_valid_dataset(
-    fragment_ids=[
+    fragment_ids=[  # noqa: B006 - the GP winner's own default, read and never changed here
         "PHercParis2Fr47",
         "PHercParis2Fr143",
     ],

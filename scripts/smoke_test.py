@@ -162,9 +162,12 @@ def test_best_model_loads():
     if not os.path.exists("best_model.pt"):
         raise SkipTest("best_model.pt not present")
     from scripts.training.train import load_shape_compatible_state
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
     from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
-    chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
+    chk = load_checkpoint(
+        "best_model.pt", map_location="cpu", weights_only=True, allow_numpy_scalars=True
+    )
     sc = chk.get("config", {})
     m = build_inference_model(
         architecture=sc.get("architecture", "resenc_unet"),

@@ -16,6 +16,8 @@ from pathlib import Path
 
 import torch
 
+from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -110,7 +112,9 @@ def build_primus_submission_package(
     source = Path(checkpoint_path).resolve()
     destination = new_output(package_dir, source)
     digest = sha256_file(source)
-    loaded = torch.load(source, map_location="cpu", weights_only=False)
+    loaded = load_checkpoint(
+        source, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+    )
     _, config, _, _ = checkpoint_contract(loaded)
     if config["architecture"] != "primus_lejepa":
         raise ValueError("Primus archive requires primus_lejepa weights")
@@ -166,7 +170,9 @@ def build_primus_submission_package(
 
 def validate_exported_checkpoint(path):
     try:
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        checkpoint = load_checkpoint(
+            path, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+        )
         validate_envelope(checkpoint)
         return checkpoint, []
     except CHECKPOINT_ERRORS as exc:
