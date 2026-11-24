@@ -35,6 +35,9 @@ count and SHA-256 of the captured file bytes. Source files must be regular and
 have no symlinks or hard links within the selected tree. Inventory/stat checks
 before and after capture detect ordinary mutation; they do not lock sources.
 Keep inputs stable and serialize launch, GUI use and verification.
+For a recorded launch, the grid and label-range checks run after both
+fingerprints are captured. The launcher rechecks the input inventories and
+pinned proofreader source before publishing the receipt and opening the GUI.
 
 Recorded launches explicitly select `progress.json` and `edited_labels.zarr`
 inside the session directory. Initial sampling is sequential with `min_z=0`,

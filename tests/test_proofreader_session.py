@@ -700,6 +700,46 @@ def test_source_change_during_capture_refuses_publication(inputs, monkeypatch):
     assert result == 1 and not configs and not inputs[2].exists()
 
 
+def test_recorded_launch_rejects_ct_changed_during_label_capture(
+    inputs, monkeypatch, capsys
+):
+    ct, labels, output = inputs
+    original = sessions.capture_bytes
+
+    def capture(path, limit):
+        result = original(path, limit)
+        if Path(path) == labels / ".zarray":
+            zarr.open(str(ct), mode="r+")[0, 0, 0] = 19
+        return result
+
+    monkeypatch.setattr(sessions, "capture_bytes", capture)
+    result, configs = _launch(inputs, monkeypatch)
+    assert result == 1 and not configs and not output.exists()
+    assert "recorded CT changed during receipt creation" in capsys.readouterr().err
+
+
+def test_recorded_launch_rejects_out_of_range_labels_in_captured_source(
+    inputs, monkeypatch, capsys
+):
+    _, labels, output = inputs
+    array = zarr.open(
+        str(labels), mode="w", shape=(8, 16, 16), chunks=(4, 8, 8), dtype="u2"
+    )
+    array[:] = 1
+    original = sessions.capture_bytes
+
+    def capture(path, limit):
+        result = original(path, limit)
+        if Path(path) == PROOFREADER:
+            array[0, 0, 0] = 300
+        return result
+
+    monkeypatch.setattr(sessions, "capture_bytes", capture)
+    result, configs = _launch(inputs, monkeypatch)
+    assert result == 1 and not configs and not output.exists()
+    assert "labels must be in 0..255" in capsys.readouterr().err
+
+
 def test_record_cannot_raise_checker_limits_or_change_pinned_code(
     inputs, monkeypatch, tmp_path
 ):

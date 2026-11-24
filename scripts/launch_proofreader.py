@@ -10,7 +10,6 @@ import json
 import os
 import subprocess
 import sys
-from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -52,23 +51,12 @@ def generate_config(
     return config_out_path
 
 
-def _inputs(volume_path, predictions_path, output, patch_size):
+def _inputs(volume_path, predictions_path, output, patch_size, *, record_session=False):
     from vesuvius_autoresearch.core.prediction_artifacts import validate_plan_paths
+    from vesuvius_autoresearch.core.proofreader_session import validate_input_arrays
     from volume_cartographer_wrapper.volume import FastLocalVolume
 
     volume, labels = FastLocalVolume(volume_path), FastLocalVolume(predictions_path)
-    if volume.shape != labels.shape:
-        raise ValueError("CT and categorical labels must have the same 3D shape/grid")
-    if labels.dtype.kind not in "bui":
-        raise ValueError(
-            "proofreader requires categorical integer labels; probability/entropy maps need conversion"
-        )
-    if any(size < patch_size for size in volume.shape):
-        raise ValueError(
-            "patch_size must fit every CT axis; select a smaller cubic patch"
-        )
-    if volume.path == labels.path:
-        raise ValueError("CT and categorical labels must be distinct inputs")
     validate_plan_paths(
         [(output, "proofreader dataset")],
         [
@@ -78,30 +66,10 @@ def _inputs(volume_path, predictions_path, output, patch_size):
             (labels.path, "label array"),
         ],
     )
-    _validate_label_range(labels)
+    # Recorded launches validate these arrays between hashing and the final inventory.
+    if not record_session:
+        validate_input_arrays(volume, labels, patch_size)
     return volume.path, labels.path
-
-
-def _validate_label_range(labels):
-    """Pinned Villa saves uint8 labels; reject values that its cast would lose."""
-    if labels.dtype.kind == "b" or (
-        labels.dtype.kind == "u" and labels.dtype.itemsize == 1
-    ):
-        return
-    # Signed/wide labels can still be lossless. Check all values without loading
-    # a full label volume; each requested block is at most 64**3 voxels.
-    block_shape = tuple(min(64, size) for size in labels.chunks)
-    for origin in product(
-        *(
-            range(0, size, step)
-            for size, step in zip(labels.shape, block_shape, strict=True)
-        )
-    ):
-        block = labels.get_chunk(*origin, *block_shape)
-        if int(block.min()) < 0 or int(block.max()) > 255:
-            raise ValueError(
-                "proofreader labels must be in 0..255; pinned Villa saves labels as uint8"
-            )
 
 
 def main(argv=None):
@@ -143,7 +111,13 @@ def main(argv=None):
             raise ValueError(
                 "--out-dir must be new or empty; existing sessions need a verified resume configuration"
             )
-        volume, labels = _inputs(args.volume, args.predictions, output, args.patch_size)
+        volume, labels = _inputs(
+            args.volume,
+            args.predictions,
+            output,
+            args.patch_size,
+            record_session=args.record_session,
+        )
         with TemporaryDirectory(prefix="vesuvius-proofreader-") as temporary:
             config = Path(temporary) / "config.json"
             generate_config(

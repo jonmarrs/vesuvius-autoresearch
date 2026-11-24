@@ -2097,3 +2097,17 @@ coordinate alignment, resuming sessions and training ingestion remain open.
 PR review reproduced late changes to the receipt in the default mode and to
 the pinned proofreader source in both default and export verification. These
 files are now rechecked before either mode reports success.
+
+## Recorded proofreader launch input stability (2026-11-24 UTC)
+
+This pass starts from main `f067c111`. One launcher fixture changed a CT
+voxel while the label tree was being hashed. Another inserted category 300
+after label preflight and before source capture. Both published receipts and
+reached the GUI subprocess boundary.
+
+The recorded launcher now checks geometry and categorical values between
+source capture and a final inventory check. It also rechecks the pinned
+proofreader file before publishing. Both fixtures refuse the launch before
+creating a session directory or receipt. Physical alignment, resume and
+training ingestion remain separate audit items.
+[Recorded launch](PROOFREADER_SESSION_RECORDS.md#what-is-recorded)
