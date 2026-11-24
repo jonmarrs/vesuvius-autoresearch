@@ -111,6 +111,12 @@ def require_audited_checkpoint(source, allow=()) -> None:
     if result["passes"]:
         return
     detail = result.get("message") or ", ".join(result["outside_allowlist"])
+    if not detail and result.get("refused_opcodes"):
+        # Nothing outside the allowlist: the refusal is the pickle's shape
+        # (BUILD on a class, an unbalanced stack, an opcode torch never writes).
+        detail = "refusing a checkpoint whose pickle uses: " + ", ".join(
+            result["refused_opcodes"]
+        )
     raise ValueError(detail or "refusing a checkpoint that imports what is not allowed")
 
 
@@ -126,10 +132,15 @@ def load_lightning_checkpoint(
     Lightning is handed the absolute local path that was audited, never a
     string fsspec could read as a URL.
     """
+    if "weights_only" in kwargs:
+        raise TypeError(
+            "load_lightning_checkpoint always loads weights_only=False after the"
+            " pickle audit; do not pass weights_only (use load_checkpoint for a"
+            " weights-only load)"
+        )
     local = local_checkpoint_path(path)
     require_audited_checkpoint(local, allow=allow)
-    kwargs["weights_only"] = False
-    return model_cls.load_from_checkpoint(local, **kwargs)
+    return model_cls.load_from_checkpoint(local, weights_only=False, **kwargs)
 
 
 def _numpy_scalar_types():

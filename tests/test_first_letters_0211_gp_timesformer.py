@@ -317,7 +317,10 @@ def _named(module: str, name: str, op: str = "SHORT_BINUNICODE") -> bytes:
                                 "SHORT_BINSTRING", "BINSTRING", "STRING"])  # fmt: skip
 def test_stack_global_names_pushed_by_any_string_opcode_are_read(op):
     names, refused = audit.imported(_proto4(_named("posixpath", "join", op)))
-    assert names == {"posixpath.join": 1} and refused == []
+    assert names == {"posixpath.join": 1}
+    # Python 3's pickler never writes the byte-string opcodes, so they are refused too (#563).
+    expected = [op, op] if op in audit.NOT_WRITTEN_BY_PICKLER else []
+    assert refused == expected
 
 
 @pytest.mark.parametrize(

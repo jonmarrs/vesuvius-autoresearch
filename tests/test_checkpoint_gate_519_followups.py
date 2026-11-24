@@ -21,6 +21,7 @@ import io
 import os
 import pickle
 import shutil
+import struct
 import subprocess
 import sys
 import zipfile
@@ -245,6 +246,20 @@ def test_the_lightning_helper_audits_before_lightning_unpickles(tmp_path):
     assert _FakeLightning.loads == [] and not marker.exists()
 
 
+def test_the_lightning_helper_refuses_a_caller_weights_only_instead_of_overriding_it(
+    tmp_path,
+):
+    good = tmp_path / "good.ckpt"
+    torch.save({"state_dict": {"w": torch.zeros(1)}}, good)
+    _FakeLightning.loads = []
+    for value in (True, False):
+        with pytest.raises(TypeError, match="do not pass weights_only"):
+            checkpoints.load_lightning_checkpoint(
+                _FakeLightning, good, weights_only=value
+            )
+    assert _FakeLightning.loads == []
+
+
 def test_the_lightning_helper_hands_lightning_the_audited_absolute_path(
     tmp_path, monkeypatch
 ):
@@ -275,6 +290,11 @@ def test_the_lightning_helper_hands_lightning_the_audited_absolute_path(
 
 # --- LOW-4: BUILD on a class -------------------------------------------------------------------------------------
 
+
+def _frame(body: bytes) -> bytes:
+    return b"\x95" + struct.pack("<Q", len(body)) + body
+
+
 _SCHED = b"ctorch.optim.lr_scheduler\nCosineAnnealingLR\n"
 _STATE = b"N}X\x04\x00\x00\x00stepccollections\ndefaultdict\ns\x86"
 BUILD_ON_CLASS_PICKLES = {
@@ -286,7 +306,43 @@ BUILD_ON_CLASS_PICKLES = {
         + b"b."
     ),
     "in_a_dict": b"\x80\x02}X\x01\x00\x00\x00k" + _SCHED + _STATE + b"bs.",
+    # #563 Reviewer LOW-A: DUP copies the class past a replay that forgets identity.
+    "dup": b"\x80\x02" + _SCHED + b"2" + _STATE + b"b0.",
+    "memo_dup": b"\x80\x02" + _SCHED + b"q\x000h\x002" + _STATE + b"b0.",
+    "dup_dup": b"\x80\x02" + _SCHED + b"22" + _STATE + b"b00.",
+    "proto4_frame_stack_global_memoize_dup": b"\x80\x04"
+    + _frame(
+        b"\x8c\x18torch.optim.lr_scheduler\x94\x8c\x11CosineAnnealingLR\x94\x93\x94"
+        + b"2"
+        + _STATE
+        + b"b0."
+    ),
+    # #563 second pass (Vesuvius bot): MEMOIZE then DUP, and a DUP'd copy stored and fetched back.
+    "memoize_then_dup": b"\x80\x04"
+    + b"\x8c\x18torch.optim.lr_scheduler\x94\x8c\x11CosineAnnealingLR\x94\x93\x94"
+    + b"2"
+    + _STATE
+    + b"b0.",
+    "dup_binput_pop_pop_binget": b"\x80\x02"
+    + _SCHED
+    + b"2q\x0000h\x00"
+    + _STATE
+    + b"b.",
+    # STACK_GLOBAL memoized, dropped, then fetched back from the memo before BUILD.
+    "stack_global_memoize_pop_binget": b"\x80\x04"
+    + b"\x8c\x18torch.optim.lr_scheduler\x94\x8c\x11CosineAnnealingLR\x94\x93\x94"
+    + b"0h\x02"
+    + _STATE
+    + b"b.",
 }
+DUP_CASES = (
+    "dup",
+    "memo_dup",
+    "dup_dup",
+    "proto4_frame_stack_global_memoize_dup",
+    "memoize_then_dup",
+    "dup_binput_pop_pop_binget",
+)
 
 
 @pytest.mark.parametrize("kind", sorted(BUILD_ON_CLASS_PICKLES))
@@ -299,6 +355,226 @@ def test_a_build_on_a_class_is_refused(tmp_path, kind):
     _zip_of(path, data)
     result = audit.audit(path, set(checkpoints.CHECKPOINT_CLASS_ALLOW))
     assert result["outside_allowlist"] == [] and result["passes"] is False
+
+
+def test_the_build_on_class_cases_each_reach_build_on_a_class():
+    for kind, data in BUILD_ON_CLASS_PICKLES.items():
+        ops = next(iter(audit._pickle_streams(data)))
+        assert audit.BUILD_ON_CLASS in audit._class_builds(ops), kind
+
+
+@pytest.mark.parametrize(
+    ("data", "why"),
+    [
+        (b"\x80\x02N1N.", "POP_MARK with no MARK on the stack"),
+        (b"\x80\x02NeN.", "APPENDS with no MARK on the stack"),
+        (b"\x80\x020N.", "POP on an empty stack"),
+        (b"\x80\x02Nb.", "BUILD with one entry on the stack"),
+        (b"\x80\x04\x94N.", "MEMOIZE on an empty stack"),
+        (b"\x80\x02q\x00N.", "BINPUT on an empty stack"),
+        (b"\x80\x022N.", "DUP on an empty stack"),
+    ],
+)
+def test_a_stack_the_replay_cannot_follow_is_refused(data, why):
+    ops = next(iter(audit._pickle_streams(data)))
+    assert audit._class_builds(ops)[-1:] == [audit.UNBALANCED], why
+    assert audit.UNBALANCED in audit.imported(data)[1], why
+
+
+@pytest.mark.parametrize(
+    ("data", "words"),
+    [
+        (BUILD_ON_CLASS_PICKLES["global"], "BUILD on a class"),
+        (b"\x80\x020N.", "unbalanced pickle stack"),
+    ],
+)
+def test_a_shape_refusal_names_the_reason_not_an_import(tmp_path, data, words):
+    path = tmp_path / "shape.pt"
+    _torch_zip_with(data, path)
+    with pytest.raises(ValueError) as caught:
+        checkpoints.require_audited_checkpoint(
+            path, allow=checkpoints.CHECKPOINT_CLASS_ALLOW
+        )
+    message = str(caught.value)
+    assert words in message and "imports what is not allowed" not in message
+    assert message.startswith("refusing a checkpoint whose pickle uses: ")
+
+
+@pytest.mark.parametrize("kind", DUP_CASES)
+def test_dup_is_refused_and_the_replay_keeps_its_identity(kind):
+    data = BUILD_ON_CLASS_PICKLES[kind]
+    names, refused = audit.imported(data)
+    assert "DUP" in refused, refused
+    # Defence in depth: the stack replay alone also sees the class through DUP.
+    ops = next(iter(audit._pickle_streams(data)))
+    assert audit.BUILD_ON_CLASS in audit._class_builds(ops)
+
+
+# Reviewer's #563 probes (vr563-2395d6ca-probes-build.py): every case must be refused,
+# and through the loader gate torch.load must never run, so the class is untouched.
+_G = _SCHED
+REVIEWER_PROBES = {
+    "A plain GLOBAL;BUILD": b"\x80\x02" + _G + _STATE + b"b.",
+    "B GLOBAL;DUP;BUILD;POP": b"\x80\x02" + _G + b"2" + _STATE + b"b0.",
+    "C GLOBAL;BINPUT;POP;BINGET;BUILD": b"\x80\x02"
+    + _G
+    + b"q\x000h\x00"
+    + _STATE
+    + b"b.",
+    "D p4 FRAME STACK_GLOBAL;MEMOIZE;POP;BINGET": b"\x80\x04"
+    + _frame(
+        b"\x8c\x18torch.optim.lr_scheduler\x94\x8c\x11CosineAnnealingLR\x94\x93\x94"
+        + b"0h\x02"
+        + _STATE
+        + b"b."
+    ),
+    "E DUP after BINGET": b"\x80\x02" + _G + b"q\x000h\x002" + _STATE + b"b0.",
+    "F MARK;POP trick": b"\x80\x02" + _G + b"(0" + _STATE + b"b.",
+    "G class in a tuple": b"\x80\x02" + _G + b"\x85" + _STATE + b"b.",
+    "H DUP DUP": b"\x80\x02" + _G + b"22" + _STATE + b"b00.",
+    "J p4 FRAME STACK_GLOBAL;MEMOIZE;DUP": b"\x80\x04"
+    + _frame(
+        b"\x8c\x18torch.optim.lr_scheduler\x94\x8c\x11CosineAnnealingLR\x94\x93\x94"
+        + b"2"
+        + _STATE
+        + b"b0."
+    ),
+    "I p0 text GLOBAL;PUT;GET": _G
+    + b"p0\n0g0\n"
+    + b"(N(dS'step'\nccollections\ndefaultdict\nst"
+    + b"b.",
+}
+
+
+def _torch_zip_with(data: bytes, path: Path) -> None:
+    """A real torch.save zip whose data.pkl is replaced by ``data``."""
+    buf = io.BytesIO()
+    torch.save({"a": 1}, buf)
+    source = zipfile.ZipFile(io.BytesIO(buf.getvalue()))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as archive:
+        for name in source.namelist():
+            archive.writestr(
+                name, data if name.endswith("data.pkl") else source.read(name)
+            )
+    path.write_bytes(out.getvalue())
+
+
+_CHILD = r"""
+import sys
+sys.path[:0] = sys.argv[2:]
+import torch
+from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+before = torch.optim.lr_scheduler.CosineAnnealingLR.step
+try:
+    load_checkpoint(sys.argv[1], weights_only=False, map_location="cpu")
+    outcome = "loaded"
+except ValueError:
+    outcome = "refused"
+except Exception:
+    outcome = "failed"
+print(outcome, torch.optim.lr_scheduler.CosineAnnealingLR.step is not before)
+"""
+
+
+@pytest.mark.parametrize("case", sorted(REVIEWER_PROBES))
+def test_reviewers_build_probes_are_refused_before_torch_loads_them(tmp_path, case):
+    path = tmp_path / "probe.pt"
+    _torch_zip_with(REVIEWER_PROBES[case], path)
+    result = audit.audit(path, set(checkpoints.CHECKPOINT_CLASS_ALLOW))
+    child = _run(
+        [sys.executable, "-c", _CHILD, str(path), str(ROOT / "src"), str(ROOT)],
+        cwd=tmp_path,
+    )
+    if case.startswith("G "):
+        # BUILD targets the tuple, not the class: the audit has nothing to refuse,
+        # and torch.load fails on the tuple without touching the class.
+        assert result["passes"] is True, result
+        outcome = child.stdout.split()
+        assert outcome[0] != "loaded" and outcome[1] == "False", child.stdout
+        return
+    assert result["passes"] is False, (case, result)
+    assert child.stdout.split() == ["refused", "False"], child.stdout + child.stderr
+
+
+@pytest.mark.parametrize("op", sorted(audit.NOT_WRITTEN_BY_PICKLER))
+def test_an_opcode_the_pickler_never_writes_is_refused(op):
+    assert op in audit.REFUSED_OPS
+    samples = {
+        "DUP": b"\x80\x02N20.",
+        "INST": b"(ibuiltins\ndict\n.",
+        "OBJ": b"(cbuiltins\ndict\no.",
+        "STRING": b"S'x'\n.",
+        "BINSTRING": b"T\x01\x00\x00\x00x.",
+        "SHORT_BINSTRING": b"U\x01x.",
+    }
+    _, refused = audit.imported(samples[op])
+    assert op in refused
+
+
+@pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
+def test_the_pickler_itself_never_writes_a_refused_opcode(protocol):
+    import pickletools
+
+    value = {
+        "s": "text",
+        "b": b"bytes",
+        "ba": bytearray(b"x"),
+        "i": [0, 1, 255, 65536, 2**40, -(2**70)],
+        "f": 1.5,
+        "t": ((), (1,), (1, 2), (1, 2, 3), (1, 2, 3, 4)),
+        "set": {1},
+        "fs": frozenset({2}),
+        "none": None,
+        "bool": (True, False),
+        "dd": collections.defaultdict(dict, {"a": {}}),
+        "od": collections.OrderedDict(a=1),
+        "shared": [[1]] * 2,
+        "cls": collections.OrderedDict,
+    }
+    for data in (pickle.dumps(value, protocol=protocol), _pure_dumps(value, protocol)):
+        used = {op.name for op, _, _ in pickletools.genops(data)}
+        assert not used & audit.REFUSED_OPS, (protocol, used & audit.REFUSED_OPS)
+
+
+def _pure_dumps(value, protocol):
+    buf = io.BytesIO()
+    pickle._Pickler(buf, protocol=protocol).dump(value)
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("protocol", [2, None])
+def test_a_lightning_style_torch_save_has_no_refused_opcode(tmp_path, protocol):
+    import pickletools
+
+    model = torch.nn.Linear(2, 2)
+    optimizer = torch.optim.AdamW(model.parameters())
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
+    model(torch.ones(1, 2)).sum().backward()
+    optimizer.step()
+    scheduler.step()
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "optimizer_states": [optimizer.state_dict()],
+        "lr_schedulers": [scheduler.state_dict()],
+        "scheduler": scheduler,
+        "optimizer": optimizer,
+        "loops": collections.defaultdict(dict, {"fit": {}}),
+        "hyper_parameters": {"lr": 1e-3, "name": "detector"},
+    }
+    path = tmp_path / "lightning.ckpt"
+    if protocol is None:
+        torch.save(checkpoint, path)
+    else:
+        torch.save(checkpoint, path, pickle_protocol=protocol)
+    result = audit.audit(path, set(checkpoints.CHECKPOINT_CLASS_ALLOW))
+    assert result["passes"], result
+    with zipfile.ZipFile(path) as archive:
+        data = archive.read(
+            next(n for n in archive.namelist() if n.endswith("data.pkl"))
+        )
+    used = {op.name for op, _, _ in pickletools.genops(data)}
+    assert not used & audit.REFUSED_OPS
 
 
 def test_real_checkpoints_with_allowlisted_instances_still_pass(tmp_path):

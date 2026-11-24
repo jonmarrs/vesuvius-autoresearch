@@ -70,7 +70,19 @@ BASE = {
     "__builtin__.dict",
 }
 STORAGE = re.compile(r"^torch\.[A-Za-z]*Storage$")
-REFUSED_OPS = {"EXT1", "EXT2", "EXT4"}
+# Opcodes CPython 3's pickler (pickle.py and _pickle.c, protocols 0-5) never writes,
+# so torch.save never does either. The unpickler still runs them, and DUP in
+# particular copies a class object past the BUILD-on-a-class check. A checkpoint
+# holding any of them was not written by torch.save, and is refused.
+NOT_WRITTEN_BY_PICKLER = {
+    "DUP",
+    "INST",
+    "OBJ",
+    "STRING",
+    "BINSTRING",
+    "SHORT_BINSTRING",
+}
+REFUSED_OPS = {"EXT1", "EXT2", "EXT4"} | NOT_WRITTEN_BY_PICKLER
 # A torch zip starts with a local-file header. A central directory that zipfile had to
 # slide into place, or any bytes before the first member or after the end record, is a
 # different archive than the one torch's reader opens. Those files are refused.
@@ -383,6 +395,8 @@ def _imported_ops(ops) -> tuple[dict[str, int], list[str]]:
     ] = []  # strings pushed since the last opcode that was not a string push or a memo store
     for op, arg, _ in ops:
         name = None
+        if op.name in REFUSED_OPS:
+            refused.append(op.name)
         if op.name in STRINGS:
             if arg is _SKIPPED or not isinstance(arg, str):
                 last = None
@@ -413,8 +427,6 @@ def _imported_ops(ops) -> tuple[dict[str, int], list[str]]:
                 name = f"{run[-2]}.{run[-1]}"
         elif op.name in ("GLOBAL", "INST"):
             name = str(arg).replace(" ", ".")
-        elif op.name in REFUSED_OPS:
-            refused.append(op.name)
         if name is not None:
             names[name] = names.get(name, 0) + 1
         last = None
@@ -435,8 +447,9 @@ def _class_builds(ops) -> list[str]:
     GLOBAL or STACK_GLOBAL takes the slot-state ``setattr`` path and rewrites an
     allowlisted class for the whole process (``CosineAnnealingLR.step =
     defaultdict``). The stack is replayed from each opcode's declared stack
-    effect, tracking only which entries are a class fetched by name, directly or
-    back from the memo. A stack the replay cannot follow is refused too.
+    effect, tracking only which entries are a class fetched by name, directly,
+    back from the memo, or copied by DUP. A stack the replay cannot follow is
+    refused too.
     """
     stack: list[object] = []
     memo: dict[int, object] = {}
@@ -449,6 +462,13 @@ def _class_builds(ops) -> list[str]:
             if not stack:
                 return refused + [UNBALANCED]
             memo[int(arg)] = stack[-1]
+            continue
+        if name == "DUP":
+            # Refused outright as never written by the pickler; the replay still
+            # copies the entry itself, so a class keeps its mark through DUP.
+            if not stack:
+                return refused + [UNBALANCED]
+            stack.append(stack[-1])
             continue
         if name == "MEMOIZE":
             if not stack:
