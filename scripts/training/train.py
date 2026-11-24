@@ -74,7 +74,7 @@ from scripts.training.ink_losses import (
     confidence_weight,
     confidence_weighted_ink_losses,
 )
-from scripts.training.input_paths import training_label_path
+from scripts.training.input_paths import training_label_path, training_volume_path
 from scripts.training.promotion import (
     RESCORE_COMMAND,
     VALIDATION_LABEL_FILES,
@@ -829,7 +829,7 @@ def build_validation_dataset(config: ExperimentConfig):
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
     dataset = VesuviusLabeledDataset(
-        config.val_uri,
+        training_volume_path(config.val_uri),
         labels_path,
         mask_path if inputs["mask"] is not None or os.path.exists(mask_path) else None,
         config.patch_size,
@@ -902,7 +902,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         uri,
     )
     return VesuviusS3Dataset(
-        uri,
+        training_volume_path(uri),
         config.patch_size,
         num_layers + 2 * DEPTH_MARGIN,
         seed=seed,
@@ -2129,7 +2129,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 datasets.append(unlabeled_dataset(uri, config, seed))
                 continue
 
-            parent_dir = os.path.dirname(uri.rstrip("/"))
+            volume = training_volume_path(uri)
+            parent_dir = os.path.dirname(volume.rstrip("/"))
             labels_path = training_labels[uri]
             mask_path = os.path.join(parent_dir, "mask.png")
             patches_json_path = os.path.join(parent_dir, "patches.json")
@@ -2137,7 +2138,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False, config_path=None
                 patches_json_path if os.path.lexists(patches_json_path) else None
             )
             ds = VesuviusLabeledDataset(
-                uri,
+                volume,
                 labels_path,
                 mask_path
                 if catalog_path is None and os.path.lexists(mask_path)
