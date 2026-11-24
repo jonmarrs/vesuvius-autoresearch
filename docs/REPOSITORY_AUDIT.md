@@ -2170,3 +2170,9 @@ trainer opens labels or initializes the device. A bare array still takes
 precedence over any unused level-0 link. Copied or physically overlapping crops
 still require split review.
 [Workspace split diagnostics](WORKSPACE_STATUS.md)
+
+PR review reproduced the same path gap in checkpoint preflight. A checkpoint
+destination could name a chunk in an external level-0 array while the guard
+protected only the configured group. The guard now also protects the selected
+array for training, validation and active UA-MT inputs. The real-trainer
+fixture confirms refusal before Torch setup and preserves the chunk bytes.

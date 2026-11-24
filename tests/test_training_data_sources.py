@@ -57,12 +57,19 @@ def test_heldout_overlap_stops_the_real_trainer_before_labels_or_gpu(
 
 
 @pytest.mark.parametrize(
-    "target", ["best_model.pt", "training/inklabels.png", "active.json"]
+    "target", ["best_model.pt", "training/inklabels.png", "active.json", "linked CT"]
 )
 def test_checkpoint_collision_stops_the_real_trainer_before_gpu(
     tmp_path, monkeypatch, target
 ):
     uri = _volume(tmp_path / "training")
+    if target == "linked CT":
+        chunk = Path(uri) / "0.0.0"
+        assert chunk.is_file()
+        group = tmp_path / "linked.zarr"
+        zarr.open_group(str(group), mode="w")
+        (group / "0").symlink_to(uri, target_is_directory=True)
+        uri, target = group.as_uri(), str(chunk)
     selected = _config(uri, checkpoint_out=target)
     monkeypatch.chdir(tmp_path)
 

@@ -35,7 +35,8 @@ Existing local paths take precedence over URI parsing, matching the CT reader,
 including local names containing colons. For symlinked volumes, annotation paths
 stay beside the configured volume path, as they do in training.
 The `checkpoint_outputs` check protects loop state and named local inputs from
-experiment checkpoint and configured curve destinations. The trainer repeats
+experiment checkpoint and configured curve destinations. CT protection includes
+the resolved array as well as the configured root. The trainer repeats
 these checks before work and saving, including step snapshots when their names
 are known. Source/writer serialization is still required; these snapshots are
 not locks or a proof of scientific holdout independence.
