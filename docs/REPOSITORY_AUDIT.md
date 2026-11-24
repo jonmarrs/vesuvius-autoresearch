@@ -2117,3 +2117,20 @@ recorded source file limit. It now resolves the selected local arrays without
 opening their metadata. A fixture with over-budget metadata checks that the
 launcher refuses it before either array opens. A two-level OME fixture still
 selects level 0 and produces a verifiable receipt.
+
+## Local Zarr metadata at volume open (2026-11-24 UTC)
+
+This pass starts from main `4fd33125`. The shared local reader accepted
+zero-sized and wrong-rank chunks. It silently truncated fractional sizes and
+converted booleans to integers. It also accepted a chunk separator that did
+not match either supported local Zarr v2 convention. Malformed metadata could
+raise a parser exception through the proofreader launcher.
+
+The reader now checks the opened array's three positive integer shape and
+chunk dimensions and its resolved chunk separator. Metadata parse failures
+report the selected array path. Both recorded and normal proofreader launches
+refuse malformed metadata before opening the GUI or publishing a receipt.
+This checks geometry and layout. A standard Zarr read can still substitute
+fill values for absent chunks. Use the separate receipt check for prepared
+training stores.
+[Prepared fragment verification](TRAINING_DATA_IMPORT.md#verify-a-prepared-fragment)

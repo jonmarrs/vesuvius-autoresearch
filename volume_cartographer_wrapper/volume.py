@@ -14,7 +14,6 @@ reintroducing a dependency on deprecated ``vesuvius-c``.
 
 from __future__ import annotations
 
-import json
 from numbers import Integral
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -82,28 +81,44 @@ class FastLocalVolume:
         del prefer_native  # Kept for compatibility with old call sites.
         self.source_path = local_volume_path(path).resolve()
         self.path = local_volume_array_path(self.source_path)
-        self._zarr = zarr.open(str(self.path), mode="r")
-        if (
-            not isinstance(self._zarr, zarr.Array)
-            or self._zarr.ndim != 3
-            or min(self._zarr.shape) <= 0
-        ):
+        try:
+            self._zarr = zarr.open(str(self.path), mode="r")
+        except (
+            zarr.errors.MetadataError,
+            AttributeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise ValueError(
+                f"cannot open local Zarr volume {self.path}: {exc}"
+            ) from exc
+        if not isinstance(self._zarr, zarr.Array):
             raise ValueError(
                 "local volume must be a nonempty 3D Zarr array or group with array '0'"
             )
+        self.shape = self._axis_sizes(self._zarr.shape, "shape")
+        self.chunks = self._axis_sizes(self._zarr.chunks, "chunk geometry")
         if self._zarr.dtype.kind not in "uifb":
             raise ValueError("local volume must contain real numeric or boolean voxels")
-        self.shape = tuple(int(value) for value in self._zarr.shape)
-        self.chunks = tuple(int(value) for value in self._zarr.chunks)
         self.dtype = self._zarr.dtype
-        self.sep = self._detect_separator()
+        # Zarr 2 uses the resolved separator from this array to look up chunks.
+        self.sep = getattr(self._zarr, "_dimension_separator", ".")
+        if self.sep not in (".", "/"):
+            raise ValueError(
+                f"invalid Zarr chunk separator for {self.path}: {self.sep!r}"
+            )
         self.backend = "volume-cartographer-zarr"
 
-    def _detect_separator(self) -> str:
-        zarray = self.path / ".zarray"
-        if not zarray.exists():
-            return "."
-        return json.loads(zarray.read_text()).get("dimension_separator", ".")
+    def _axis_sizes(self, sizes, name):
+        if len(sizes) != 3 or any(
+            not isinstance(size, Integral) or isinstance(size, bool) or size < 1
+            for size in sizes
+        ):
+            raise ValueError(
+                f"invalid Zarr {name} for {self.path}: expected three positive integer Z/Y/X sizes"
+            )
+        return tuple(map(int, sizes))
 
     def get_chunk(self, z: int, y: int, x: int, depth=None, height=None, width=None):
         def integer(value, name, minimum):
