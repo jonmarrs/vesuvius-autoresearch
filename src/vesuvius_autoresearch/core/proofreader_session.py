@@ -563,10 +563,9 @@ def verify_record(
             raise ValueError(
                 f"{role} source shape differs from the proofreader input record"
             )
-        if check_exports:
-            source_states[role] = (Path(source["path"]), snapshot)
-            if role == "ct":
-                ct = volume
+        source_states[role] = (Path(source["path"]), snapshot)
+        if check_exports and role == "ct":
+            ct = volume
     progress = _progress_summary(
         root,
         config,
@@ -577,11 +576,12 @@ def verify_record(
         if verify_edited_labels
         else None,
     )
+    stage = "export verification" if check_exports else "session verification"
+    for role, (path, snapshot) in source_states.items():
+        if _inventory(path, effective)[1] != snapshot:
+            name = "CT" if role == "ct" else role
+            raise ValueError(f"recorded {name} changed during {stage}")
     if check_exports:
-        for role, (path, snapshot) in source_states.items():
-            if _inventory(path, effective)[1] != snapshot:
-                name = "CT" if role == "ct" else role
-                raise ValueError(f"recorded {name} changed during export verification")
         if _file_hash(root / RECORD_NAME) != record_sha256:
             raise ValueError(
                 "proofreader input record changed during export verification"

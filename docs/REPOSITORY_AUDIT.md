@@ -2079,3 +2079,17 @@ PR review reproduced a negative validation batch size yielding an empty
 sample marked complete. A negative periodic sample limit also read nearly
 the full catalog and reported AUC. Both settings now require positive
 integers at the evaluation boundary.
+
+## Proofreader input stability during verification (2026-11-24 UTC)
+
+This pass starts from main `9895bbed`. The default proofreader check hashed
+each source and then parsed the progress log. In two CLI fixtures, a CT or
+label voxel changed during the progress read and the command still reported
+`input_record_matches: true`. Both export verification modes already checked
+their input inventories again before reporting success.
+
+The checker now repeats both input inventories in the default mode as well.
+The fixtures report the changed source and exit 1. These inventory checks
+detect ordinary file changes during verification. The broader decisions on
+coordinate alignment, resuming sessions and training ingestion remain open.
+[Proofreader session verification](PROOFREADER_SESSION_RECORDS.md#what-verification-establishes)

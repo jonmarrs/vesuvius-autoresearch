@@ -572,6 +572,28 @@ def test_progress_hash_and_counts_use_the_same_captured_bytes(inputs, monkeypatc
     assert report["progress"]["status_counts"]["approved"] == 1
 
 
+@pytest.mark.parametrize(("role", "name"), [(0, "CT"), (1, "labels")])
+def test_default_check_rejects_a_source_changed_after_hashing(
+    inputs, monkeypatch, capsys, role, name
+):
+    assert _launch(inputs, monkeypatch, _pinned_progress)[0] == 0
+    root = inputs[2]
+    original = sessions.capture_bytes
+
+    def capture(source, limit):
+        result = original(source, limit)
+        if Path(source) == root / sessions.PROGRESS_NAME:
+            zarr.open(str(inputs[role]), mode="r+")[0, 0, 0] = 22
+        return result
+
+    monkeypatch.setattr(sessions, "capture_bytes", capture)
+    capsys.readouterr()
+    assert check.main(["--session", str(root)]) == 1
+    stdout, stderr = capsys.readouterr()
+    assert not stdout
+    assert f"recorded {name} changed during session verification" in stderr
+
+
 @pytest.mark.parametrize("role", [0, 1])
 @pytest.mark.parametrize("change", ["chunk", "metadata", "add", "remove"])
 def test_changed_source_bytes_or_inventory_refuse_verification(
