@@ -441,6 +441,15 @@ def predict():
                 uncertainty_path, overwrite=True, sources=uncertainty_sources
             )
             args.uncertainty_export = {"status": "PLANNED", "path": None}
+
+    dataset = FastVesuviusVolume(
+        str(artifacts.source_array),
+        use_ridges=use_ridges,
+        ridge_sigma=ridge_sigma,
+        strict_reads=True,
+    )
+    validate_region(args, patch_size, num_layers, dataset.shape)
+
     memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
@@ -453,15 +462,6 @@ def predict():
     has_fiber = "fiber" in heads
     if memory_profile is not None:
         memory_profile.sample("models_loaded")
-
-    # Open the dataset
-    dataset = FastVesuviusVolume(
-        str(artifacts.source_array),
-        use_ridges=use_ridges,
-        ridge_sigma=ridge_sigma,
-        strict_reads=True,
-    )
-    validate_region(args, patch_size, num_layers, dataset.shape)
 
     # Determine region and tiling parameters
     predict_width, predict_height, stride = args.width, args.height, args.stride

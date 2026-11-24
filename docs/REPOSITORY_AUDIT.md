@@ -2199,3 +2199,16 @@ deprecated `uri` coexisted with `uris`. Live matching now uses the normalized
 labeled list and the same working directory as the actual reads. Both
 fixtures keep the valid band's read range and return to full-depth sampling
 for the unrelated array.
+
+## Single-model regional CT bounds before model setup (2026-11-24 UTC)
+
+This pass starts from main `2d054b63`. The single-model command checked
+the region's fit against the CT shape after model construction and device
+transfer. Three CPU fixtures reached model construction for out-of-bounds
+regions with explicit or automatic depth selection.
+
+The command now checks the selected CT dimensions after path preflight and
+before building the model. The fixtures stop before model setup or output
+publication. Representative GPU peak memory and ensemble residency
+measurements remain open.
+[Regional inference](VOLUME_INFERENCE.md)

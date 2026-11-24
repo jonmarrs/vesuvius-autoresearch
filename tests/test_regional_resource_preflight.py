@@ -11,6 +11,25 @@ from scripts.inference import ensemble_predict as ensemble, predict as single
 
 
 @pytest.mark.parametrize(
+    ("axis", "value", "auto_z"), [("x", 23, False), ("x", 23, True), ("z", 5, False)]
+)
+def test_single_refuses_out_of_bounds_regions_before_building_model(
+    tmp_path, monkeypatch, axis, value, auto_z
+):
+    run, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    argv[argv.index(f"--{axis}") + 1] = str(value)
+    if auto_z:
+        start = argv.index("--z")
+        del argv[start : start + 2]
+
+    with pytest.raises(ValueError, match="requested region exceeds volume shape"):
+        run()
+
+    assert not models
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
     "mode,skip_uncertainty", [("single", False), ("single", True), ("ensemble", True)]
 )
 @pytest.mark.parametrize("sharded", [False, True])
