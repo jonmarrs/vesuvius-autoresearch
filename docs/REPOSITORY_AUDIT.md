@@ -2139,3 +2139,16 @@ PR review reproduced a separate path in the edited-label verifier. An invalid
 separator made the reader return zero fill for stored nonzero edits, and the
 comparison accepted two all-zero TIFFs. The edited-label verifier now uses the
 same separator check before reading the approved crops.
+
+## Volume benchmark report destinations (2026-11-24 UTC)
+
+This pass starts from main `13f06abb`. The benchmark promised to publish its
+optional JSON report outside both the declared source and the selected array.
+Its CLI checked the declared root alone. A local file URI selecting a group
+with a linked level 0 successfully wrote a report into the selected array.
+
+The CLI resolves both paths before timing reads and refuses report destinations
+in either directory. Path planning uses the same selector as the reader and
+avoids opening the array an extra time before timing. The fixture now exits
+with an overlap diagnostic and leaves the input directory intact.
+[Volume-read benchmark](LOCAL_VOLUME_READS.md#comparable-repeated-read-timings)

@@ -24,6 +24,8 @@ from scripts.labeling.label_artifacts import new_output, publish_new_file
 from volume_cartographer_wrapper.volume import (
     FastLocalVolume,
     VolumeCartographerUnavailable,
+    local_volume_array_path,
+    local_volume_path,
 )
 
 MAX_READ_BYTES = 64 * 1024**2
@@ -183,10 +185,14 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        source = FastLocalVolume(args.input).source_path if args.output else None
-        output = new_output(args.output, source) if args.output else None
-        if output is not None and output.suffix.lower() != ".json":
-            raise ValueError("benchmark report must end in .json")
+        output = None
+        sources: tuple[Path, ...] = ()
+        if args.output is not None:
+            source = local_volume_path(args.input).resolve()
+            sources = (source, local_volume_array_path(source))
+            output = new_output(args.output, *sources)
+            if output.suffix.lower() != ".json":
+                raise ValueError("benchmark report must end in .json")
         record = benchmark(
             args.input,
             origin_zyx=args.origin_zyx,
@@ -197,7 +203,7 @@ def main(argv=None) -> int:
         )
         serialized = json.dumps(record, indent=2, allow_nan=False) + "\n"
         if output is not None:
-            with publish_new_file(output, source) as staging:
+            with publish_new_file(output, *sources) as staging:
                 staging.write_text(serialized)
     except (
         OSError,

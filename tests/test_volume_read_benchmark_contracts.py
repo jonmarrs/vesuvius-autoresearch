@@ -400,6 +400,22 @@ def test_actual_cli_runs_outside_checkout_and_publishes_a_real_report(tmp_path):
     assert json.loads(output.read_text())["source"] == str(path)
 
 
+def test_report_is_refused_inside_linked_level_zero(tmp_path, capsys):
+    selected, _ = volume(tmp_path, name="selected array.zarr")
+    group = tmp_path / "input group.zarr"
+    zarr.open_group(str(group), mode="w")
+    (group / "0").symlink_to(selected, target_is_directory=True)
+    output = selected / "timings.json"
+    files_before = set(selected.iterdir())
+
+    assert bench.main(cli_args(group.as_uri(), output)) == 1
+
+    stdout, stderr = capsys.readouterr()
+    assert not stdout
+    assert "source and output paths must not overlap" in stderr
+    assert set(selected.iterdir()) == files_before
+
+
 @pytest.mark.parametrize(
     "where", ["source_array", "source_group", "existing", "broken_link", "wrong_suffix"]
 )
