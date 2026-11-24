@@ -57,7 +57,7 @@ def test_auto_z_uses_one_reader_and_requires_a_stable_array(
 
     monkeypatch.setattr(single, "FastVesuviusVolume", track_open)
     if retarget:
-        with pytest.raises(RuntimeError, match="selected CT array changed"):
+        with pytest.raises(RuntimeError, match="CT source selection changed"):
             run()
         assert not models
         assert not (tmp_path / "out").exists()
@@ -67,25 +67,71 @@ def test_auto_z_uses_one_reader_and_requires_a_stable_array(
     assert opened == [volume]
 
 
-@pytest.mark.parametrize("retarget_during_setup", [False, True])
-def test_ensemble_rechecks_the_planned_ct_before_reading_and_publication(
-    tmp_path, monkeypatch, retarget_during_setup
+def test_auto_z_protects_the_original_group_when_two_groups_share_an_array(
+    tmp_path, monkeypatch
+):
+    run, argv, models, volume, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    first, second = tmp_path / "first.zarr", tmp_path / "second.zarr"
+    for group in (first, second):
+        zarr.open_group(str(group), mode="w").attrs["group_name"] = group.name
+        (group / "0").symlink_to(volume, target_is_directory=True)
+    link = tmp_path / "current.zarr"
+    link.symlink_to(first, target_is_directory=True)
+    argv[argv.index("--uri") + 1] = link.as_uri()
+    start = argv.index("--z")
+    del argv[start : start + 2]
+    metadata = first / ".zattrs"
+    before = metadata.read_bytes()
+    argv.extend(["--metadata_out", str(metadata)])
+    original = single.FastVesuviusVolume
+
+    def retarget_after_open(*args, **kwargs):
+        reader = original(*args, **kwargs)
+        link.unlink()
+        link.symlink_to(second, target_is_directory=True)
+        return reader
+
+    monkeypatch.setattr(single, "FastVesuviusVolume", retarget_after_open)
+    with pytest.raises(RuntimeError, match="CT source selection changed"):
+        run()
+
+    assert link.resolve() == second
+    assert not models
+    assert not (tmp_path / "out").exists()
+    assert metadata.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("mode", "stage"),
+    [
+        ("ensemble", "setup"),
+        ("ensemble", "inference"),
+        ("single", "opening"),
+        ("single", "inference"),
+    ],
+)
+def test_prediction_rechecks_the_planned_ct_before_reading_and_publication(
+    tmp_path, monkeypatch, mode, stage
 ):
     from test_volume_inference_contracts import ConstantHeads
 
-    run, argv, models, volume, _ = setup_prediction(tmp_path, monkeypatch, "ensemble")
+    run, argv, models, volume, _ = setup_prediction(tmp_path, monkeypatch, mode)
     group = tmp_path / "linked.zarr"
     zarr.open_group(str(group), mode="w")
     level = group / "0"
     level.symlink_to(volume, target_is_directory=True)
-    replacement = tmp_path / "replacement.zarr"
-    zarr.open_array(str(replacement), mode="w", shape=(6, 24, 24), dtype="u1")[:] = 128
     argv[argv.index("--uri") + 1] = group.as_uri()
     argv.extend(["--artifact_stem", "region"])
     output = tmp_path / "out"
     output.mkdir()
     metadata = output / "region_meta.json"
     metadata.write_bytes(b"prior metadata")
+    export = output / "region_ink.zarr"
+    replacement = export / "0"
+    zarr.open_group(str(export), mode="w").create_dataset(
+        "0", shape=(6, 24, 24), dtype="u1"
+    )[:] = 128
+    before = {path: path.read_bytes() for path in output.rglob("*") if path.is_file()}
 
     def retarget(original):
         def call(*args, **kwargs):
@@ -96,12 +142,16 @@ def test_ensemble_rechecks_the_planned_ct_before_reading_and_publication(
 
         return call
 
-    if retarget_during_setup:
+    if stage == "setup":
         monkeypatch.setattr(
             ensemble, "build_inference_model", retarget(ensemble.build_inference_model)
         )
         monkeypatch.setattr(
             ensemble, "FastVesuviusVolume", lambda *a, **k: pytest.fail("volume opened")
+        )
+    elif stage == "opening":
+        monkeypatch.setattr(
+            single, "FastVesuviusVolume", retarget(single.FastVesuviusVolume)
         )
     else:
         monkeypatch.setattr(ConstantHeads, "forward", retarget(ConstantHeads.forward))
@@ -109,11 +159,11 @@ def test_ensemble_rechecks_the_planned_ct_before_reading_and_publication(
     with pytest.raises(RuntimeError, match="CT source selection changed"):
         run()
 
-    assert len(models) == 1
-    assert bool(models[0].inputs) == (not retarget_during_setup)
+    assert len(models) == (0 if stage == "opening" else 1)
+    assert any(model.inputs for model in models) == (stage == "inference")
     assert level.resolve() == replacement
-    assert list(output.iterdir()) == [metadata]
-    assert metadata.read_bytes() == b"prior metadata"
+    after = {path: path.read_bytes() for path in output.rglob("*") if path.is_file()}
+    assert after == before
 
 
 @pytest.mark.parametrize(

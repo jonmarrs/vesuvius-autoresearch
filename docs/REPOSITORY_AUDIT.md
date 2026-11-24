@@ -2298,3 +2298,20 @@ residency measurements remain open.
 PR review found that a valid shard index assigned zero tiles could still
 reach model setup. The command now builds the lazy tile plan during preflight,
 and that fixture stops before constructing a member.
+
+## Single-model CT selection before publication (2026-11-24 UTC)
+
+This pass starts from main `0c0c2da8`. A linked level 0 moved to the planned
+ink export while an explicit-Z command opened the original reader or ran
+inference. Both runs overwrote the newly selected CT array, replacing its
+`6 × 24 × 24` shape with `1 × 11 × 13` in the CPU fixtures.
+
+Single-model prediction now checks the opened reader against the output plan
+and reuses the ensemble's CT selection checks before model setup and before
+publication. Both cases preserve the existing Zarr tree and metadata. The
+checks are filesystem snapshots. Representative GPU measurements remain open.
+
+PR review found that automatic Z could accept a changed group link when both
+groups pointed to the same array. The fixture overwrote the original group's
+`.zattrs`. The command now binds the group as well as the array before opening
+the reader, so this case stops before model setup and preserves the attributes.

@@ -54,7 +54,10 @@ from vesuvius_autoresearch.core.regional_resources import (
     plan_regional_accumulators,
 )
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
-from volume_cartographer_wrapper.volume import local_volume_array_path
+from volume_cartographer_wrapper.volume import (
+    local_volume_array_path,
+    local_volume_path,
+)
 
 
 def build_prediction_model(config_dict, args, use_ridges):
@@ -413,13 +416,15 @@ def predict():
         "strict_reads": True,
     }
     dataset = None
-    auto_source_array = None
+    auto_source_selection = None
     if args.z is None:
         # Centre the window in the depth band the checkpoint was trained on, on
         # the volumes it was trained or validated on (the band is in their slice
         # numbers); otherwise in the volume (surface volumes are built around the
         # segment surface at their middle layer). Pass --z to choose.
-        auto_source_array = local_volume_array_path(args.uri)
+        auto_source_root = local_volume_path(args.uri).resolve()
+        auto_source_array = local_volume_array_path(auto_source_root)
+        auto_source_selection = (auto_source_root, auto_source_array)
         dataset = FastVesuviusVolume(str(auto_source_array), **volume_options)
         depth = dataset.shape[0]
         band = depth_band_for(config_dict, auto_source_array)
@@ -437,8 +442,11 @@ def predict():
         args.uri,
         [checkpoint_path, args.checkpoint],
     )
-    if auto_source_array is not None and auto_source_array != artifacts.source_array:
-        raise RuntimeError("selected CT array changed during automatic depth selection")
+    if auto_source_selection is not None and auto_source_selection != (
+        artifacts.source,
+        artifacts.source_array,
+    ):
+        raise RuntimeError("CT source selection changed during automatic depth selection")
     out_path, output_dir = str(artifacts.image), str(artifacts.directory)
     uncertainty_path, uncertainty_sources = _uncertainty_sources(
         args, base_name, output_dir, out_path
@@ -464,6 +472,9 @@ def predict():
 
     if dataset is None:
         dataset = FastVesuviusVolume(str(artifacts.source_array), **volume_options)
+    if dataset.vol.path != artifacts.source_array:
+        raise RuntimeError("CT source selection changed while opening the regional volume")
+    artifacts.validate_source_selection(args.uri)
     validate_region(args, patch_size, num_layers, dataset.shape)
 
     memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
@@ -550,7 +561,8 @@ def predict():
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
-    # Protect the current link target as well as the file we read.
+    artifacts.validate_source_selection(args.uri)
+    # Protect the current checkpoint link target as well as the file we read.
     artifacts.validate(checkpoint_aliases=(args.checkpoint,))
     if args.uncertainty_export["status"] == "PLANNED":
         validate_destination(
