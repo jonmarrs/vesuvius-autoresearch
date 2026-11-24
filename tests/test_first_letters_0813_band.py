@@ -1,5 +1,6 @@
 """PHerc. 0813 in the band scripts (clockwise, as PHerc. 343), its band, and the band read's tiling option."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -191,10 +192,26 @@ def test_a_render_is_refused_when_the_disk_is_nearly_full(tmp_path):
         + 3
     ]
     (tmp_path / "work").mkdir()
-    for limit, code in (("0", 0), ("999999999", 1), ("", 0)):
+    # A stand-in df reports a fixed free space, so the default line is tested on any machine: the real disk's
+    # free space decided the unset case before (it failed with 37 GB free, under the default 50).
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "df").write_text(
+        '#!/bin/sh\nprintf "Avail\\n%s\\n" "$STAND_IN_FREE_GB"\n'
+    )
+    (bin_dir / "df").chmod(0o755)
+    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+    for free, limit, code in (
+        ("60", "0", 0),
+        ("60", "999999999", 1),
+        ("60", "", 0),  # unset: the default 50
+        ("50", "", 0),
+        ("49", "", 1),
+        ("37", "30", 0),
+    ):
         run = subprocess.run(["bash", "-uc", f'R="{tmp_path}"; FL_MIN_FREE_GB="{limit}"; [ -z "$FL_MIN_FREE_GB" ] && unset FL_MIN_FREE_GB\n{guard}\nroom_for_render'],
-                             capture_output=True, text=True)  # fmt: skip
-        assert run.returncode == code, (limit, run.stderr)
+                             capture_output=True, text=True, env=env | {"STAND_IN_FREE_GB": free})  # fmt: skip
+        assert run.returncode == code, (free, limit, run.stderr)
     render = text[
         text.index("render_one() {") : text.index("\n}\n", text.index("render_one() {"))
     ]
