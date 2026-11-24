@@ -733,7 +733,8 @@ def test_a_malicious_zip_is_refused_at_the_weights_only_false_sites(tmp_path):
         json.dumps({"channel_names": {"0": "CT"}, "labels": labels})
     )
 
-    class BundleNetwork(torch.nn.Module):
+    # torch is the module pytest.importorskip returned, so mypy cannot resolve the base class
+    class BundleNetwork(torch.nn.Module):  # type: ignore[name-defined]
         def __init__(self, **kwargs):
             super().__init__()
             self.encoder = torch.nn.Linear(1, 1)
