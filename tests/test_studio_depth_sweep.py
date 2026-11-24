@@ -2,7 +2,10 @@
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -561,3 +564,279 @@ def test_the_command_needs_both_arms_writes_once_prints_the_registered_part_and_
         "described_only": True,
         "r": {"d+0": 0.6},
     }
+
+
+# --- run_depth_sweep.sh: each block taken from the script's text and run under bash -u with stand-in commands ------
+
+SCRIPT = CONTROL / "run_depth_sweep.sh"
+ARRAYS = 'declare -A RENDERS=([e2e]={t}/renders/e2e [dense2s3]={t}/renders/dense2s3)\n' \
+         'declare -A ZERO=([e2e]={t}/zero/e2e [dense2s3]={t}/zero/dense2s3)\n' \
+         'declare -A FINALS=([e2e]={t}/finals/e2e [dense2s3]={t}/finals/dense2s3)\n'  # fmt: skip
+
+
+def _block(start, end):
+    """The script's text from the line holding START to the end of the line holding END after it."""
+    text = SCRIPT.read_text()
+    a = text.rindex("\n", 0, text.index(start)) + 1
+    return text[a : text.index("\n", text.index(end, a)) + 1]
+
+
+def _function(name):
+    text = SCRIPT.read_text()
+    a = text.index(f"\n{name}() {{") + 1
+    return text[a : text.index("\n}\n", a) + 3]
+
+
+def _bash(script, path=None):
+    env = {"PATH": f"{path}:/usr/bin:/bin" if path else "/usr/bin:/bin"}
+    return subprocess.run(
+        ["bash", "-uc", script], capture_output=True, text=True, env=env
+    )
+
+
+def _stub(path, body):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/usr/bin/env bash\n" + body)
+    path.chmod(0o755)
+    return path
+
+
+def _inputs(t):
+    """The run's inputs on disk: every arm's renders and D = 0 maps, and PHerc. 343's render and forward map."""
+    for arm in ds.ARMS:
+        for w in ("w033", "w034"):
+            (t / "renders" / arm / f"{w}_66.zarr" / "0").mkdir(parents=True)
+            for name in (f"{w}.npy", f"{w}_reversed.npy"):
+                (t / "zero" / arm).mkdir(parents=True, exist_ok=True)
+                (t / "zero" / arm / name).write_text("")
+    (t / "b343" / "N_66.zarr" / "0").mkdir(parents=True)
+    (t / "b343" / "studio_343" / "maps").mkdir(parents=True)
+    (t / "b343" / "studio_343" / "maps" / "forward.npy").write_text("")
+    _stub(t / "env" / "bin" / "python", "")
+
+
+@pytest.mark.parametrize(
+    ("arrange", "message"),
+    [
+        (None, None),
+        ("out", "exists: finding 135 runs once"),
+        ("env", "finding 123's Studio environment is missing"),
+        ("renders/e2e/w034_66.zarr/0", "e2e w034: render or D = 0 maps missing"),
+        (
+            "zero/dense2s3/w034_reversed.npy",
+            "dense2s3 w034: render or D = 0 maps missing",
+        ),
+        (
+            "b343/studio_343/maps/forward.npy",
+            "finding 110's render or finding 127's maps are missing",
+        ),
+    ],
+)
+def test_the_renders_and_d0_maps_are_required_before_anything_runs(
+    tmp_path, arrange, message
+):
+    import shutil
+
+    _inputs(tmp_path)
+    if arrange == "out":
+        (tmp_path / "out").mkdir()
+    elif arrange == "env":
+        shutil.rmtree(tmp_path / "env")
+    elif arrange:
+        target = tmp_path / arrange
+        shutil.rmtree(target) if target.is_dir() else target.unlink()
+    run = _bash(
+        f"OUT={tmp_path}/out ENV={tmp_path}/env WINDINGS=(w033 w034) B343={tmp_path}/b343 N343=N\n"
+        + ARRAYS.format(t=tmp_path)
+        + _block(
+            '[ -e "$OUT" ] &&', "finding 110's render or finding 127's maps are missing"
+        )
+        + "echo checked\n"
+    )
+    if message is None:
+        assert (run.returncode, run.stdout) == (0, "checked\n")
+    else:
+        assert (run.returncode, run.stdout) == (2, "")
+        assert message in run.stderr
+
+
+def test_a_failed_step_records_its_gate_and_stops_the_run(tmp_path):
+    (tmp_path / "logs").mkdir()
+    run = _bash(
+        f"OUT={tmp_path}\n"
+        f'control_gate() {{ echo "GATE $1 $2" >> {tmp_path}/gates; }}\n'
+        + _function("step")
+        + "step one true\nstep two false\necho after\n"
+    )
+    assert run.returncode == 1 and "after" not in run.stdout
+    assert (
+        tmp_path / "gates"
+    ).read_text() == "GATE depth_sweep_one 0\nGATE depth_sweep_two 1\n"
+
+
+def _sweep(tmp_path, fail_shift=None, compare_rc=0, compare343_rc=0):
+    """Stand-ins: PYW makes a shift's planes (failing at FAIL_SHIFT) and exits as told for compare and compare343;
+    Studio writes its output and logs its working folder and arguments."""
+    _inputs(tmp_path)
+    _stub(
+        tmp_path / "pyw",
+        f"""echo "$*" >> {tmp_path}/pyw.log
+case "$3" in
+  planes) [ "${{@: -1}}" = "{fail_shift}" ] && exit 1; : > "$5" ;;
+  compare) exit {compare_rc} ;;
+  compare343) exit {compare343_rc} ;;
+esac
+""",
+    )
+    _stub(
+        tmp_path / "env" / "bin" / "python",
+        f'echo "$PWD $*" >> {tmp_path}/studio.log\n: > "$5"\n',
+    )
+    (tmp_path / "code").mkdir()
+    (tmp_path / "out" / "planes").mkdir(parents=True)
+    return (
+        f"OUT={tmp_path}/out ENV={tmp_path}/env PYW={tmp_path}/pyw HERE={tmp_path}/here CODE={tmp_path}/code "
+        f"WEIGHTS=/w.safetensors WINDINGS=(w033) SHIFTS=(-2 1) B343={tmp_path}/b343 N343=N\n"
+        + ARRAYS.format(t=tmp_path)
+        + _function("studio")
+        + _function("one")
+        + _function("sweep211")
+        + _function("sweep343")
+    )
+
+
+def test_every_arm_winding_and_shift_is_read_with_the_winners_command_into_its_shifts_folder(
+    tmp_path,
+):
+    run = _bash(_sweep(tmp_path) + "sweep211 && sweep343")
+    assert run.returncode == 0, run.stderr
+    out = tmp_path / "out"
+    maps = sorted(str(p.relative_to(out)) for p in (out / "maps").rglob("*.npy"))
+    assert maps == ["maps/343/d+1/forward.npy", "maps/343/d-2/forward.npy", "maps/dense2s3/d+1/w033.npy",
+                    "maps/dense2s3/d-2/w033.npy", "maps/e2e/d+1/w033.npy", "maps/e2e/d-2/w033.npy"]  # fmt: skip
+    assert (
+        list((out / "planes").iterdir()) == []
+    )  # each shift's planes are deleted once read
+    planes = [line.split() for line in (tmp_path / "pyw.log").read_text().splitlines()]
+    assert planes[0] == ["-I", f"{tmp_path}/here/depth_sweep.py", "planes", f"{tmp_path}/renders/e2e/w033_66.zarr",
+                         f"{out}/planes/w033.npy", "--shift", "-2"]  # fmt: skip
+    assert [p[-1] for p in planes] == ["-2", "1", "-2", "1", "-2", "1"]
+    studio = (tmp_path / "studio.log").read_text().splitlines()[0].split()
+    assert studio == [str(tmp_path / "code"), "inference.py", "--input", f"{out}/planes/w033.npy", "--output",
+                      f"{out}/maps/e2e/d-2/w033.npy", "--checkpoint", "/w.safetensors", "--stride", "64", "--blend",
+                      "hann", "--batch-size", "32"]  # fmt: skip
+
+
+def test_a_shift_whose_planes_fail_stops_the_sweep_before_studio_reads_it(tmp_path):
+    run = _bash(_sweep(tmp_path, fail_shift=1) + "sweep211")
+    assert run.returncode == 1
+    out = tmp_path / "out"
+    assert sorted(str(p.relative_to(out)) for p in (out / "maps").rglob("*.npy")) == [
+        "maps/e2e/d-2/w033.npy"
+    ]
+    assert not (out / "maps" / "dense2s3").exists()
+
+
+@pytest.mark.parametrize(
+    ("compare_rc", "compare343_rc", "rc"), [(0, 0, 0), (1, 0, 1), (0, 1, 1)],
+    ids=["both-run", "no-verdict-still-describes-343", "343-fails"],
+)  # fmt: skip
+def test_compare_describes_343_even_without_a_verdict_and_fails_if_either_fails(
+    tmp_path, compare_rc, compare343_rc, rc
+):
+    (tmp_path / "r" / "work" / "surf_sdt" / "a_surf_sdt.ome.zarr").mkdir(parents=True)
+    run = _bash(
+        _sweep(tmp_path, compare_rc=compare_rc, compare343_rc=compare343_rc)
+        + f"C={tmp_path}/c R={tmp_path}/r SEG=seg MAPS=maps RENDER=render WINNER={tmp_path}/winner\n"
+        + _function("compare")
+        + "compare"
+    )
+    assert run.returncode == rc
+    calls = [
+        line.split()[2] for line in (tmp_path / "pyw.log").read_text().splitlines()
+    ]
+    assert calls == ["compare", "compare343"]
+    first = (tmp_path / "pyw.log").read_text().splitlines()[0].split()
+    assert (
+        first[first.index("--sdt") + 1]
+        == f"{tmp_path}/r/work/surf_sdt/a_surf_sdt.ome.zarr"
+    )
+
+
+def test_the_repeat_compares_studio_again_with_finding_124s_own_map(tmp_path):
+    _inputs(tmp_path)
+    np.save(tmp_path / "zero" / "e2e" / "w035.npy", np.zeros((2, 3), np.float32))
+    again = np.zeros((2, 3), np.float32)
+    again[1, 2] = 0.25
+    np.save(tmp_path / "again.npy", again)
+    _stub(
+        tmp_path / "pyw",
+        f'[ "$2" = -c ] && exec {sys.executable} "$@"\n: > "${{@: -1}}"\n',
+    )
+    _stub(tmp_path / "env" / "bin" / "python", f'cp {tmp_path}/again.npy "$5"\n')
+    (tmp_path / "code").mkdir()
+    (tmp_path / "out" / "planes").mkdir(
+        parents=True
+    )  # as the script makes it before its steps
+    run = _bash(
+        f"OUT={tmp_path}/out ENV={tmp_path}/env PYW={tmp_path}/pyw HERE={tmp_path}/here CODE={tmp_path}/code "
+        "WEIGHTS=/w.safetensors\n"
+        + ARRAYS.format(t=tmp_path)
+        + _function("studio")
+        + _function("repeat")
+        + "repeat"
+    )
+    assert run.returncode == 0, run.stderr
+    assert json.loads((tmp_path / "out" / "repeat.json").read_text()) == {"max_abs_difference": 0.25,
+                                                                          "identical": False}  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("csv", "peak"),
+    [("t, 900 MiB, 50 %\nt, 12000 MiB, 99 %\nt, 3000 MiB, 10 %\n", 12000), ("", None)],
+)
+def test_the_gpu_peak_is_the_largest_sample(tmp_path, csv, peak):
+    (tmp_path / "gpu.csv").write_text(csv)
+    run = _bash(f"OUT={tmp_path}\n" + _block("peak=$(", '> "$OUT/gpu_peak.json"'))
+    assert run.returncode == 0, run.stderr
+    assert json.loads((tmp_path / "gpu_peak.json").read_text()) == {
+        "gpu_peak_mib_all_processes": peak
+    }
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="run_depth_sweep.sh has no EXIT trap: a failed step leaves its nvidia-smi sampler running "
+    "(run_snap_passes.sh stops it with a trap). Registered script, not changed.",
+)
+def test_a_failed_step_stops_the_gpu_sampler(tmp_path):
+    (tmp_path / "logs").mkdir()
+    _stub(
+        tmp_path / "bin" / "nvidia-smi",
+        f"exec 2>/dev/null\necho $$ > {tmp_path}/sampler.pid\nexec sleep 30\n",
+    )
+    run = _bash(
+        f"OUT={tmp_path}\ncontrol_gate() {{ :; }}\nsweep211() {{ return 3; }}\n"
+        + _function("step")
+        + _block("nvidia-smi --query-gpu", "step sweep211 sweep211"),
+        path=tmp_path / "bin",
+    )
+    assert run.returncode == 3
+    for _ in range(100):
+        if (tmp_path / "sampler.pid").exists() and (
+            tmp_path / "sampler.pid"
+        ).read_text().strip():
+            break
+        time.sleep(0.05)
+    pid = int((tmp_path / "sampler.pid").read_text())
+    try:
+        os.kill(pid, 0)
+        running = True
+    except ProcessLookupError:
+        running = False
+    finally:
+        try:
+            os.kill(pid, 9)
+        except ProcessLookupError:
+            pass
+    assert not running
