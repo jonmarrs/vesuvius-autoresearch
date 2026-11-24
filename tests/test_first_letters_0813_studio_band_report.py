@@ -377,3 +377,96 @@ def test_the_strategy_carries_the_finding():
     at = FLAT_STRATEGY.index("first_letters_0813_studio_band.md")
     assert FLAT_STRATEGY.index("first_letters_0358_studio_band.md") < at
     assert at < FLAT_STRATEGY.index("**Kill criterion.**")
+
+
+# --- every place the report restates a count, a winding or a registered estimate, not only the first ---------------
+
+
+def test_the_counts_the_report_repeats_are_the_records():
+    parts = RECORD["fit"]["full_by_index"]
+    first, last = parts[0]["first"], parts[-1]["last"]
+    assert RECORD["fit"]["full"]["windings_scored"] == last - first + 1
+    assert (
+        f"villa's fit writes w000 to w{last:03d}; the score starts at w{first:03d}) | "
+        f"{RECORD['fit']['full']['windings_scored']} |" in FLAT
+    )
+    assert f"Villa's fit writes {last + 1} windings whatever the scroll" in FLAT
+    steps = RECORD["fit"]["steps"]
+    assert f"excess, {steps['full/fit']['steps']:,}-step fit |" in FLAT
+    assert (
+        f"The {steps['smoke/fit']['steps']}-step fit was scored after the read" in FLAT
+    )
+    for phrase in (
+        f"Studio read all {N} selected windings",
+        f"every step of the read exited 0 on all {N} windings",
+        f"all {N} at one eighth",
+        f"**Selected for the read:** the {N} windings with positive excess",
+        f"| median over the {N} windings |",
+        f"| read, {N} windings |",
+        f"| flatten, {N} windings |",
+        f"| render, {N} windings |",
+        f"| Studio, {N} windings (planes and map) |",
+    ):
+        assert phrase in FLAT, phrase
+
+
+def test_the_windings_the_report_names_are_the_records():
+    by = RECORD["by_winding"]
+    trusted = {w: r["geometry"]["trusted"] for w, r in by.items()}
+    inner_low = sorted(w for w, v in trusted.items() if v < 0.4 and _index(w) < 111)
+    assert (
+        f"{', '.join(inner_low[:-1])} and {inner_low[-1]} among the inner ones" in FLAT
+    )
+    outer = sorted(w for w in by if _index(w) >= 111)
+    inner = sorted(w for w in by if _index(w) < 111)
+    span = f"{outer[0]} to {outer[-1]}"
+    assert (
+        f"the {len(outer)} outermost windings, {span}, lie mostly off the predicted sheet"
+        in FLAT
+    )
+    assert f"Of the {len(outer)} read windings {span}" in FLAT
+    assert f"where the {len(inner)} have none" in FLAT
+    part = OUTER["read_windings_geometry"]["parts"][
+        0
+    ]  # the index range w010 to w110, of which w012 on are read
+    assert f"for the {len(inner)} windings {part['first']} to {part['last']}" in FLAT
+
+
+def test_the_papyrus_edge_is_named_where_the_outer_sheet_gap_changes_sign():
+    gaps = {
+        w: r["outermost_sheet_minus_winding_radius_working_median"]
+        for w, r in OUTER["windings"].items()
+    }
+    inside = max((w for w, g in gaps.items() if g > 0), key=_index)
+    past = min((w for w, g in gaps.items() if g < 0), key=_index)
+    assert (inside, past) == ("w110", "w115")
+    assert f"those from {past} outward lie past its outermost sheet" in FLAT
+    assert (
+        f"the predicted papyrus ends near {inside}, and the windings from {past} outward lie past it"
+        in FLAT
+    )
+    assert f"The edge near {inside} was measured at one slice" in FLAT
+
+
+def test_the_band_and_the_registered_estimates_are_the_registrations():
+    lo, hi = (
+        int(v) for v in re.search(r"FL_Z_BEGIN=(\d+) FL_Z_END=(\d+)", REG).groups()
+    )
+    assert (
+        f"the middle {hi - lo:,} slices of PHerc. 0813's tracked range (z {lo} to {hi})"
+        in FLAT
+    )
+    fit, flatten, render, studio = re.search(
+        r"about ([\d.]+) h of fit, then about (\d+) h of flatten, (\d+) h of renders and (\d+) h of Studio",
+        REG,
+    ).groups()
+    assert f"| about {fit} hours |" in FLAT
+    total = int(flatten) + int(render) + int(studio)
+    assert (
+        f"about {total} hours ({flatten} h flatten, {render} h renders, {studio} h Studio)"
+        in FLAT
+    )
+    assert "about a day and a half" in REG and "**about a day and a half**" in FLAT
+    gpu = re.search(r"GPU memory up to about (\d+) GB", REG).group(1)
+    assert f"inside the registered {gpu} GB" in FLAT
+    assert "0.28" in REG and "as amendment 1 measured on three windings (0.28)" in FLAT
