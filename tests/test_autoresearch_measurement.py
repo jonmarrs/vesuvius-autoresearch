@@ -93,6 +93,18 @@ def test_validation_rejects_an_invalid_model_depth_before_scoring():
         )
 
 
+@pytest.mark.parametrize("batch_size", [0, -1, True, 1.5])
+def test_validation_refuses_an_invalid_batch_size_before_reading(batch_size):
+    data = Catalogue(4)
+    with pytest.raises(
+        ValueError, match="validation batch size must be a positive integer"
+    ):
+        train.collect_validation_predictions(
+            MeanInk(), data, 8, torch.device("cpu"), batch_size=batch_size
+        )
+    assert data.reads == []
+
+
 # --- validation sample --------------------------------------------------------
 
 
@@ -162,6 +174,96 @@ def test_a_failed_read_makes_the_sample_incomplete():
         MeanInk(), data, 8, torch.device("cpu"), batch_size=4
     )
     assert diag["batch_errors"] == 1 and not diag["complete"]
+
+
+@pytest.mark.parametrize("magnitude", [12.0, float("inf")])
+def test_only_finite_validation_logits_can_support_promotion(tmp_path, magnitude):
+    data = Catalogue(4)
+    labels = torch.stack([data[i][1] for i in range(len(data))]).unsqueeze(1)
+
+    class PerfectInk(torch.nn.Module):
+        def forward(self, x):
+            return torch.where(labels > 0.5, magnitude, -magnitude), None
+
+    probs, targets, diag = train.collect_validation_predictions(
+        PerfectInk(), data, 8, torch.device("cpu"), batch_size=4
+    )
+    metrics = train.pooled_segmentation_metrics(probs, targets)
+    promote, _, reason = _decide(
+        tmp_path / "absent.pt",
+        val_f1=metrics.get("val_f1", float("nan")),
+        lift=metrics.get("ap_prevalence_lift", float("nan")),
+        complete=diag["complete"],
+    )
+    if np.isfinite(magnitude):
+        assert promote and diag["complete"] and metrics["val_f1"] == 1.0
+    else:
+        assert not promote, (diag, metrics)
+        assert reason and "incomplete" in reason
+        assert diag["batch_errors"] == 1 and not probs and not targets
+
+
+@pytest.mark.parametrize(
+    "predictions",
+    [
+        torch.zeros(3, 1, 4, 4),
+        torch.zeros(4, 1, 2, 8),
+        torch.zeros(4, 1, 4, 4, dtype=torch.int32),
+        torch.full((4, 1, 4, 4), 1.01),
+        torch.full((4, 1, 4, 4), float("nan")),
+    ],
+)
+def test_validation_refuses_malformed_callback_probabilities(predictions):
+    probs, targets, diag = train.collect_validation_predictions(
+        MeanInk(),
+        Catalogue(4),
+        8,
+        torch.device("cpu"),
+        batch_size=4,
+        probabilities=lambda *args: predictions,
+    )
+    assert diag["batch_errors"] == 1 and not diag["complete"]
+    assert not probs and not targets
+
+
+@pytest.mark.parametrize("target", [torch.ones(2, 8), torch.full((4, 4), -1.0)])
+def test_validation_refuses_malformed_targets(target):
+    sample = (torch.zeros(1, 12, 4, 4), target, torch.zeros(1, 1, 4, 4))
+    probs, targets, diag = _collect([sample])
+    assert diag["batch_errors"] == 1 and not diag["complete"]
+    assert not probs and not targets
+
+
+@pytest.mark.parametrize(
+    "magnitude,sample_size,auc,diagnostic",
+    [
+        (12.0, 1, "1.0000", None),
+        (float("inf"), 1, "nan", "ink logits"),
+        (12.0, -1, "nan", "eval_sample_patches must be a positive integer"),
+    ],
+)
+def test_periodic_auc_checks_predictions_and_sample_size(
+    tmp_path, capsys, magnitude, sample_size, auc, diagnostic
+):
+    class SignedInk(torch.nn.Module):
+        def forward(self, x):
+            return torch.where(x[:, :, 0] > 0.5, magnitude, -magnitude)
+
+    target = torch.eye(4)
+    ct = target.expand(1, 12, 4, 4)
+    config = ExperimentConfig(
+        num_layers=8,
+        checkpoint_out=str(tmp_path / "model.pt"),
+        eval_sample_patches=sample_size,
+    )
+    model = SignedInk()
+    dataset = [(ct, target, torch.zeros(1, 1, 4, 4))] * 2
+    train.periodic_pixel_auc_eval(model, dataset, config, "cpu", 3, 1.5)
+    rows = (tmp_path / "model.pt.curve.csv").read_text().splitlines()
+    assert rows[-1] == f"3,1.5,{auc}"
+    if diagnostic:
+        assert diagnostic in capsys.readouterr().out
+    assert model.training and (tmp_path / "model.pt.step3.pt").is_file()
 
 
 def _fragment(root, labels=b"ink"):
