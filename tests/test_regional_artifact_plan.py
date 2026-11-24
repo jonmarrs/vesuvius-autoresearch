@@ -25,7 +25,7 @@ def _tree(root):
 def test_custom_metadata_cannot_replace_an_input_or_prediction(
     tmp_path, monkeypatch, mode, collision
 ):
-    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
+    run, argv, models, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
     stem = "region"
     argv.extend(["--artifact_stem", stem])
     target = (
@@ -37,6 +37,7 @@ def test_custom_metadata_cannot_replace_an_input_or_prediction(
     before = _tree(tmp_path)
     with pytest.raises(ValueError, match="artifact collision"):
         run()
+    assert not models
     assert _tree(tmp_path) == before
 
 
@@ -57,7 +58,8 @@ def test_prediction_binds_a_retargeted_checkpoint_link_to_loaded_weights(
     run, argv, models, _, checkpoints = setup_prediction(
         tmp_path, monkeypatch, mode, configs
     )
-    checkpoint = Path(checkpoints[-1])
+    selected_index = 0 if metadata_overlaps_checkpoint else len(checkpoints) - 1
+    checkpoint = Path(checkpoints[selected_index])
     original_bytes = checkpoint.read_bytes()
     replacement = tmp_path / "replacement.pt"
     replacement.write_bytes(b"a different checkpoint target")
@@ -74,7 +76,7 @@ def test_prediction_binds_a_retargeted_checkpoint_link_to_loaded_weights(
         nonlocal loaded_count
         loaded = load_checkpoint(*args, **kwargs)
         loaded_count += 1
-        if loaded_count == len(checkpoints):
+        if loaded_count == selected_index + 1:
             link.unlink()
             link.symlink_to(replacement)
         return loaded
@@ -83,9 +85,7 @@ def test_prediction_binds_a_retargeted_checkpoint_link_to_loaded_weights(
     if metadata_overlaps_checkpoint:
         with pytest.raises(ValueError, match="artifact collision"):
             run()
-        if mode == "single":
-            assert not models
-        assert not any(model.inputs for model in models)
+        assert not models
         assert not (tmp_path / "out").exists()
     else:
         run()

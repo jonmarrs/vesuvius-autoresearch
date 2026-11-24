@@ -2280,3 +2280,17 @@ those paths and checks the requested links again before replacing outputs.
 The metadata lists the selected members in their loading order. The checks
 are filesystem snapshots. Representative GPU peak memory and ensemble
 residency measurements remain open.
+
+## Ensemble region and output preflight (2026-11-24 UTC)
+
+This pass starts from main `adfc912d`. Seven invalid geometry fixtures and
+two output collisions reached ensemble model construction. The command now
+validates geometry, shard settings and artifact destinations as soon as it
+knows the first checkpoint's patch size, before building or transferring any
+model. Compatibility checks still precede opening the CT reader, and actual
+volume bounds use the deepest compatible member.
+
+The early plan checks the declared CT and selected array again before opening
+the reader and before publication. Retargeted level-0 link fixtures stop
+without replacing prior outputs. Representative GPU peak and ensemble
+residency measurements remain open.

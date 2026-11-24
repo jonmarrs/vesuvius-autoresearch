@@ -370,7 +370,7 @@ def test_complete_region_has_no_black_edges_and_consistent_exports(
         ("--part_id", "1"),
     ],
 )
-def test_bad_geometry_fails_before_outputs(tmp_path, monkeypatch, mode, option, value):
+def test_bad_geometry_fails_before_model_setup(tmp_path, monkeypatch, mode, option, value):
     runner, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
     if option in argv:
         argv[argv.index(option) + 1] = value
@@ -378,7 +378,7 @@ def test_bad_geometry_fails_before_outputs(tmp_path, monkeypatch, mode, option, 
         argv += [option, value]
     with pytest.raises(ValueError):
         runner()
-    assert not any(model.inputs for model in models)
+    assert not models
     assert not (tmp_path / "out").exists()
     assert not (tmp_path / "predictions").exists()
 

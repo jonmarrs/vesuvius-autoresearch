@@ -86,6 +86,11 @@ class RegionalArtifactPlan:
             paths.append(self.metadata)
         return paths
 
+    def validate_source_selection(self, uri):
+        source = local_volume_path(uri).resolve()
+        if source != self.source or local_volume_array_path(source) != self.source_array:
+            raise RuntimeError("CT source selection changed after regional output planning")
+
     def validate(self, *, checkpoint_aliases=()):
         if os.path.lexists(self.directory) and not stat.S_ISDIR(
             self.directory.lstat().st_mode

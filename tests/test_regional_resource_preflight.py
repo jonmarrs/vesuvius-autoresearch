@@ -67,6 +67,55 @@ def test_auto_z_uses_one_reader_and_requires_a_stable_array(
     assert opened == [volume]
 
 
+@pytest.mark.parametrize("retarget_during_setup", [False, True])
+def test_ensemble_rechecks_the_planned_ct_before_reading_and_publication(
+    tmp_path, monkeypatch, retarget_during_setup
+):
+    from test_volume_inference_contracts import ConstantHeads
+
+    run, argv, models, volume, _ = setup_prediction(tmp_path, monkeypatch, "ensemble")
+    group = tmp_path / "linked.zarr"
+    zarr.open_group(str(group), mode="w")
+    level = group / "0"
+    level.symlink_to(volume, target_is_directory=True)
+    replacement = tmp_path / "replacement.zarr"
+    zarr.open_array(str(replacement), mode="w", shape=(6, 24, 24), dtype="u1")[:] = 128
+    argv[argv.index("--uri") + 1] = group.as_uri()
+    argv.extend(["--artifact_stem", "region"])
+    output = tmp_path / "out"
+    output.mkdir()
+    metadata = output / "region_meta.json"
+    metadata.write_bytes(b"prior metadata")
+
+    def retarget(original):
+        def call(*args, **kwargs):
+            if level.resolve() != replacement:
+                level.unlink()
+                level.symlink_to(replacement, target_is_directory=True)
+            return original(*args, **kwargs)
+
+        return call
+
+    if retarget_during_setup:
+        monkeypatch.setattr(
+            ensemble, "build_inference_model", retarget(ensemble.build_inference_model)
+        )
+        monkeypatch.setattr(
+            ensemble, "FastVesuviusVolume", lambda *a, **k: pytest.fail("volume opened")
+        )
+    else:
+        monkeypatch.setattr(ConstantHeads, "forward", retarget(ConstantHeads.forward))
+
+    with pytest.raises(RuntimeError, match="CT source selection changed"):
+        run()
+
+    assert len(models) == 1
+    assert bool(models[0].inputs) == (not retarget_during_setup)
+    assert level.resolve() == replacement
+    assert list(output.iterdir()) == [metadata]
+    assert metadata.read_bytes() == b"prior metadata"
+
+
 @pytest.mark.parametrize(
     "mode,skip_uncertainty", [("single", False), ("single", True), ("ensemble", True)]
 )
