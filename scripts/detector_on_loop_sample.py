@@ -60,6 +60,7 @@ from scripts.training.promotion import (  # noqa: E402
 from vesuvius_autoresearch.core.checkpoint_tools import (  # noqa: E402
     ink_probabilities,
     load_tool_checkpoint,
+    require_zip_checkpoint,
     validate_batch,
 )
 from vesuvius_autoresearch.detector.config import DetectorConfig  # noqa: E402
@@ -237,6 +238,8 @@ def main(out_path, detector):
     check_origins(config.val_uri, coords, targets)
 
     cfg = DetectorConfig()
+    # weights_only=False: this Lightning checkpoint embeds CosineAnnealingLR.
+    require_zip_checkpoint(detector)
     model = DetectorModel.load_from_checkpoint(
         detector, cfg=cfg, pred_shape=(1, 1), weights_only=False, map_location="cpu"
     ).eval()

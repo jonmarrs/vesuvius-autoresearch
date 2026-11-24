@@ -66,8 +66,10 @@ def checkpoint(raw: bytes) -> dict:
     except ImportError:
         from numpy.core.multiarray import scalar  # type: ignore[no-redef]  # NumPy 1.x
     allowed = [scalar, np.dtype, type(np.dtype("float64")), type(np.dtype("float32"))]
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
     with torch.serialization.safe_globals(allowed):
-        return torch.load(io.BytesIO(raw), map_location="cpu", weights_only=True)
+        return load_checkpoint(io.BytesIO(raw), map_location="cpu", weights_only=True)
 
 
 def comparison_checks(candidate: dict, incumbent: dict, config: dict, inputs: str) -> list[tuple[str, bool, str]]:  # fmt: skip

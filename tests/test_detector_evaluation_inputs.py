@@ -60,13 +60,24 @@ def fragment(tmp_path, monkeypatch):
         return Grid()
 
     monkeypatch.setattr(inference.DetectorModel, "load_from_checkpoint", load)
+    # The zip gate refuses a path that is not on disk. These tests stub the load.
+    _ckpt(cfg)
     return cfg, root, loads
 
 
+def _ckpt(cfg) -> str:
+    # A real zip of plain tensors. The audit in front of the stubbed load
+    # refuses a bare PK header, and this one imports nothing outside tensors.
+    path = Path(cfg.reports_dir).parent / "test.ckpt"
+    torch.save({"ok": 1}, path)
+    return str(path)
+
+
 def _score(cfg, mode, **kwargs):
+    checkpoint = _ckpt(cfg)
     if mode == "eval":
-        return cli._eval_fragment(cfg, "test.ckpt", "frag", **kwargs)
-    return measurement.measure(cfg, "test.ckpt", [("frag", "same")], **kwargs)["frag"]
+        return cli._eval_fragment(cfg, checkpoint, "frag", **kwargs)
+    return measurement.measure(cfg, checkpoint, [("frag", "same")], **kwargs)["frag"]
 
 
 @pytest.mark.parametrize("mode", ["eval", "measure"])
@@ -114,9 +125,9 @@ def test_cli_cannot_replace_its_own_configuration_with_report_files(
         )
     args = [command, "--config", str(config)]
     if command == "eval":
-        args += ["--fragment", "frag", "--checkpoint", "test.ckpt"]
+        args += ["--fragment", "frag", "--checkpoint", _ckpt(cfg)]
     elif command == "measure":
-        args += ["--same", "frag", "--cross", "missing", "--checkpoint", "test.ckpt"]
+        args += ["--same", "frag", "--cross", "missing", "--checkpoint", _ckpt(cfg)]
     with pytest.raises(ValueError, match="artifact collision"):
         cli.main(args)
     assert config.read_bytes() == before
@@ -184,7 +195,7 @@ def test_strict_eval_preserves_a_previous_complete_report(fragment, tmp_path):
                 "--config",
                 str(config),
                 "--checkpoint",
-                "test.ckpt",
+                _ckpt(cfg),
                 "--fragment",
                 "frag",
                 "--require-full-coverage",
@@ -218,7 +229,7 @@ def test_strict_measurement_records_partial_failure_and_exits_nonzero(
                 "--config",
                 str(config),
                 "--checkpoint",
-                "test.ckpt",
+                _ckpt(cfg),
                 "--same",
                 "full",
                 "--cross",
@@ -357,7 +368,7 @@ def test_measurement_rejects_nonboolean_coverage_policy_before_model_work(fragme
     cfg, _, loads = fragment
     with pytest.raises(ValueError, match="require_full_coverage must be a boolean"):
         measurement.measure(
-            cfg, "test.ckpt", [("frag", "same")], require_full_coverage="false"
+            cfg, _ckpt(cfg), [("frag", "same")], require_full_coverage="false"
         )
     assert loads == []
 

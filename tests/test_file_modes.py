@@ -143,6 +143,7 @@ NOT_CHECKED = {
     # checks the published response/preview modes in dense and tiled runs.
     "src/vesuvius_autoresearch/fibers/filter_artifacts.py::staged_file",
     # Scratch, never renamed into place.
+    "src/vesuvius_autoresearch/core/checkpoint_tools.py::_audit_path",
     "scripts/f1_noise_probe.py::execute",
     "scripts/tracer_rescore_analysis.py::v1_scorer",
 }

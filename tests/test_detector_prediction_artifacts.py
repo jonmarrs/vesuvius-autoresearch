@@ -419,6 +419,8 @@ def test_cli_strict_failure_preserves_previous_output(tmp_path, monkeypatch):
     output = tmp_path / "prediction.npy"
     output.write_bytes(b"previous prediction")
     local_volume(monkeypatch)
+    # The load is stubbed, but the audit still reads the file first.
+    torch.save({"ok": 1}, tmp_path / "model.ckpt")
     monkeypatch.setattr(
         inference.DetectorModel,
         "load_from_checkpoint",

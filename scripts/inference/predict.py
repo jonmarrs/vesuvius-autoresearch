@@ -28,6 +28,7 @@ from scripts.regional_prediction_artifacts import (
     validate_checkpoint_metadata,
 )
 from scripts.uncertainty_artifacts import mask_shape, validate_destination
+from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 from vesuvius_autoresearch.core.inference import (
     depth_band_for,
     hann2d,
@@ -365,8 +366,11 @@ def predict():
 
     checkpoint_bytes = Path(checkpoint_path).read_bytes()
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
-    checkpoint = torch.load(
-        io.BytesIO(checkpoint_bytes), map_location="cpu", weights_only=False
+    checkpoint = load_checkpoint(
+        io.BytesIO(checkpoint_bytes),
+        map_location="cpu",
+        weights_only=True,
+        allow_numpy_scalars=True,
     )
     del checkpoint_bytes
     if not isinstance(checkpoint, dict) or not isinstance(

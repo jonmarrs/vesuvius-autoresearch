@@ -115,7 +115,7 @@ def load_model(
     `<fold>/<checkpoint>`, i.e. the Hugging Face repo contents with the
     checkpoint moved into a fold subdirectory.
     """
-    import torch
+    from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 
     model_dir = Path(model_dir)
     plans = json.loads((model_dir / "plans.json").read_text())
@@ -166,9 +166,12 @@ def load_model(
         **kwargs,
     )
 
-    ck = torch.load(
-        model_dir / fold / checkpoint, map_location="cpu", weights_only=False
-    )
+    # weights_only=False: a published nnUNet checkpoint is a trainer dump, and
+    # the trainer class is a villa type the weights-only unpickler will not rebuild.
+    # load_checkpoint audits the pickle first and refuses one that imports
+    # anything beyond tensors and plain containers.
+    weights_path = model_dir / fold / checkpoint
+    ck = load_checkpoint(weights_path, map_location="cpu", weights_only=False)
     weights = ck["network_weights"]
     # The checkpoint was saved with deep supervision on, so it carries extra
     # decoder.seg_layers.{1..n}. Those heads are unused at inference; dropping

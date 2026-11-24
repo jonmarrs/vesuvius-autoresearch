@@ -207,7 +207,11 @@ def _read_incumbent(path: str, protocol: str) -> tuple[float, str | None, str | 
     import torch
 
     try:
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+
+        checkpoint = load_checkpoint(
+            path, map_location="cpu", weights_only=True, allow_numpy_scalars=True
+        )
     except Exception as exc:
         raise IncumbentUnavailable(
             f"{path} cannot be read ({type(exc).__name__}: {exc}); "

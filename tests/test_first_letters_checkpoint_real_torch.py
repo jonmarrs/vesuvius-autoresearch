@@ -54,13 +54,12 @@ def test_a_pickle_that_would_run_code_is_refused_without_running_it(tmp_path):
     assert "pickle code ran" not in result.stdout
 
 
-def test_a_legacy_format_checkpoint_is_refused_because_it_cannot_be_mapped(tmp_path):
-    # The checker asks for mmap, which needs the zip format. A legacy file of
-    # tensors alone is therefore reported as NOT_WEIGHTS_ONLY: closed, but for
-    # the mapping, not for its contents. The reason printed names mmap.
+def test_a_legacy_format_checkpoint_is_refused_before_it_is_loaded(tmp_path):
+    # A non-zip checkpoint is refused before torch.load. The message says to
+    # convert it offline to zip.
     path = tmp_path / "legacy.pt"
     torch.save({"w": torch.zeros(2)}, path, _use_new_zipfile_serialization=False)
     result = _check(path)
     assert result.returncode == 1
-    assert result.stdout.startswith("NOT_WEIGHTS_ONLY legacy.pt RuntimeError")
-    assert "mmap" in result.stdout
+    assert result.stdout.startswith("NOT_WEIGHTS_ONLY legacy.pt ValueError")
+    assert "convert it offline to zip" in result.stdout
