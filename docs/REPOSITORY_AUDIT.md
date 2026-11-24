@@ -2265,3 +2265,18 @@ remain open.
 PR review reproduced a second collision when the link moved during inference.
 The final publication check also resolves the requested checkpoint path again,
 so it protects the new target and preserves the prior metadata in that case.
+
+## Ensemble checkpoint symlinks (2026-11-24 UTC)
+
+This pass starts from main `f493d6bc`. Three ensemble fixtures reproduced
+the remaining checkpoint identity problem. Moving a link after loading
+changed the recorded member path or let metadata overwrite the file that
+supplied the weights. Moving the link during inference also let metadata
+overwrite its new target.
+
+The ensemble resolves its checkpoint paths before loading models and uses
+one open file per member for signature checking and CPU loading. It protects
+those paths and checks the requested links again before replacing outputs.
+The metadata lists the selected members in their loading order. The checks
+are filesystem snapshots. Representative GPU peak memory and ensemble
+residency measurements remain open.

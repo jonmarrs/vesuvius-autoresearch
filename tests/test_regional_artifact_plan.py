@@ -40,58 +40,77 @@ def test_custom_metadata_cannot_replace_an_input_or_prediction(
     assert _tree(tmp_path) == before
 
 
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("metadata_overlaps_checkpoint", [False, True])
-def test_single_prediction_binds_a_retargeted_checkpoint_link_to_loaded_weights(
-    tmp_path, monkeypatch, metadata_overlaps_checkpoint
+def test_prediction_binds_a_retargeted_checkpoint_link_to_loaded_weights(
+    tmp_path, monkeypatch, mode, metadata_overlaps_checkpoint
 ):
     import hashlib
 
-    from scripts.inference import predict
+    from scripts.inference import ensemble_predict, predict
 
-    run, argv, models, _, checkpoints = setup_prediction(tmp_path, monkeypatch, "single")
-    checkpoint = Path(checkpoints[0])
+    configs = None
+    if mode == "ensemble":
+        configs = [
+            {"patch_size": 8, "num_layers": depth, "base_feat": 4} for depth in (2, 3)
+        ]
+    run, argv, models, _, checkpoints = setup_prediction(
+        tmp_path, monkeypatch, mode, configs
+    )
+    checkpoint = Path(checkpoints[-1])
     original_bytes = checkpoint.read_bytes()
     replacement = tmp_path / "replacement.pt"
     replacement.write_bytes(b"a different checkpoint target")
     link = tmp_path / "current.pt"
     link.symlink_to(checkpoint)
-    argv[argv.index("--checkpoint") + 1] = str(link)
+    argv[argv.index(str(checkpoint))] = str(link)
     metadata = checkpoint if metadata_overlaps_checkpoint else tmp_path / "meta.json"
     argv.extend(["--metadata_out", str(metadata)])
-    load_checkpoint = predict.load_checkpoint
+    module = predict if mode == "single" else ensemble_predict
+    load_checkpoint = module.load_checkpoint
+    loaded_count = 0
 
     def retarget_after_loading(*args, **kwargs):
+        nonlocal loaded_count
         loaded = load_checkpoint(*args, **kwargs)
-        link.unlink()
-        link.symlink_to(replacement)
+        loaded_count += 1
+        if loaded_count == len(checkpoints):
+            link.unlink()
+            link.symlink_to(replacement)
         return loaded
 
-    monkeypatch.setattr(predict, "load_checkpoint", retarget_after_loading)
+    monkeypatch.setattr(module, "load_checkpoint", retarget_after_loading)
     if metadata_overlaps_checkpoint:
         with pytest.raises(ValueError, match="artifact collision"):
             run()
-        assert not models
+        if mode == "single":
+            assert not models
+        assert not any(model.inputs for model in models)
         assert not (tmp_path / "out").exists()
     else:
         run()
         record = json.loads(metadata.read_text())
-        assert record["checkpoint_path"] == str(checkpoint)
-        assert record["checkpoint_sha256"] == hashlib.sha256(original_bytes).hexdigest()
+        if mode == "ensemble":
+            assert record["ensemble_checkpoints"] == checkpoints
+        else:
+            assert record["checkpoint_path"] == str(checkpoint)
+            assert record["checkpoint_sha256"] == hashlib.sha256(original_bytes).hexdigest()
     assert link.resolve() == replacement
     assert checkpoint.read_bytes() == original_bytes
     assert replacement.read_bytes() == b"a different checkpoint target"
 
 
-def test_single_prediction_rechecks_the_requested_checkpoint_link_before_writes(
-    tmp_path, monkeypatch
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_prediction_rechecks_the_requested_checkpoint_link_before_writes(
+    tmp_path, monkeypatch, mode
 ):
     from test_volume_inference_contracts import ConstantHeads
 
-    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, "single")
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
     checkpoint = Path(checkpoints[0])
     link = tmp_path / "current.pt"
     link.symlink_to(checkpoint)
-    argv[argv.index("--checkpoint") + 1] = str(link)
+    argv[argv.index(str(checkpoint))] = str(link)
     out = tmp_path / "out"
     out.mkdir()
     canonical = out / "region_meta.json"
