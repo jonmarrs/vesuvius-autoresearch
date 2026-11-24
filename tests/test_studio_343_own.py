@@ -3,6 +3,8 @@ branches."""
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -354,3 +356,209 @@ def test_the_command_writes_once_prints_without_the_described_part_and_exits_1_w
     assert json.loads(capsys.readouterr().out) == {"finding": 136, "verdict": verdict}
     assert json.loads((tmp_path / "o.json").read_text()) == record
     assert own.main(argv) == 2  # written once
+
+
+# --- run_studio_343_own.sh: each block taken from the script's text and run under bash -u with stand-in commands ---
+
+SCRIPT = ROOT / "repro/first_letters/pherc343/run_studio_343_own.sh"
+
+
+def _block(start, end):
+    """The script's text from the line holding START to the end of the line holding END after it."""
+    text = SCRIPT.read_text()
+    a = text.rindex("\n", 0, text.index(start)) + 1
+    return text[a : text.index("\n", text.index(end, a)) + 1]
+
+
+def _function(name):
+    text = SCRIPT.read_text()
+    a = text.index(f"\n{name}() {{") + 1
+    return text[a : text.index("\n}\n", a) + 3]
+
+
+def _bash(script, path=None):
+    env = {"PATH": f"{path}:/usr/bin:/bin" if path else "/usr/bin:/bin"}
+    return subprocess.run(
+        ["bash", "-uc", script], capture_output=True, text=True, env=env
+    )
+
+
+def _stub(path, body):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/usr/bin/env bash\n" + body)
+    path.chmod(0o755)
+    return path
+
+
+VARS = "M={t}/m B={t}/b OUT={t}/m/studio_own ENV={t}/env PYW={t}/pyw ROOT=/repo HERE=/repo/pherc343 CODE={t}/code " \
+       "WEIGHTS=/w.safetensors N=N WINDINGS=(w047 w048)\n"  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("missing", "message"),
+    [
+        (None, None),
+        ("m/studio_own", "exists: finding 136 runs once"),
+        ("env/bin/python", "finding 123's environment is missing"),
+        (
+            "m/render_recipe/w048_66.zarr/0",
+            "finding 110's w048 render or mesh is missing",
+        ),
+        ("m/final_recipe/w047.tifxyz", "finding 110's w047 render or mesh is missing"),
+        ("b/studio_343/maps/reversed.npy", "finding 127's maps are missing"),
+    ],
+)
+def test_finding_110s_windings_and_finding_127s_maps_are_required_before_anything_runs(
+    tmp_path, missing, message
+):
+    import shutil
+
+    for w in ("w047", "w048"):
+        (tmp_path / "m/render_recipe" / f"{w}_66.zarr" / "0").mkdir(parents=True)
+        (tmp_path / "m/final_recipe" / f"{w}.tifxyz").mkdir(parents=True)
+    (tmp_path / "b/studio_343/maps").mkdir(parents=True)
+    for name in ("forward.npy", "reversed.npy"):
+        (tmp_path / "b/studio_343/maps" / name).write_text("")
+    _stub(tmp_path / "env/bin/python", "")
+    if missing == "m/studio_own":
+        (tmp_path / missing).mkdir()
+    elif missing:
+        target = tmp_path / missing
+        shutil.rmtree(target) if target.is_dir() else target.unlink()
+    run = _bash(
+        VARS.format(t=tmp_path)
+        + _block('[ -e "$OUT" ] &&', "finding 127's maps are missing")
+        + "echo checked\n"
+    )
+    if message is None:
+        assert (run.returncode, run.stdout) == (0, "checked\n")
+    else:
+        assert (run.returncode, run.stdout) == (2, "")
+        assert message in run.stderr
+
+
+def test_a_failed_step_writes_its_gate_and_stops_the_run(tmp_path):
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "gate").mkdir()
+    run = _bash(
+        f"OUT={tmp_path}\n"
+        + _function("step")
+        + "step one true\nstep two false\necho after\n"
+    )
+    assert run.returncode == 1 and "after" not in run.stdout
+    gates = {
+        name: json.loads((tmp_path / "gate" / f"{name}.json").read_text())["exit"]
+        for name in ("one", "two")
+    }
+    assert gates == {"one": 0, "two": 1}
+
+
+@pytest.mark.parametrize("fail", [None, "w047_66.zarr"])
+def test_the_planes_are_each_windings_layers_in_both_orders_and_a_failure_stops_them(
+    tmp_path, fail
+):
+    _stub(tmp_path / "pyw", f'echo "$*" >> {tmp_path}/pyw.log\n[ "$4" = "{tmp_path}/m/render_recipe/{fail}" ] && exit 1\n'
+                            ': > "$5"\n')  # fmt: skip
+    (tmp_path / "m/studio_own/planes").mkdir(parents=True)
+    run = _bash(VARS.format(t=tmp_path) + _function("planes") + "planes")
+    calls = [
+        line.split()[3:] for line in (tmp_path / "pyw.log").read_text().splitlines()
+    ]
+    planes = f"{tmp_path}/m/studio_own/planes"
+    if fail:
+        assert run.returncode == 1
+        assert calls == [
+            [f"{tmp_path}/m/render_recipe/w047_66.zarr", f"{planes}/w047.npy"]
+        ]
+    else:
+        assert run.returncode == 0, run.stderr
+        assert calls == [
+            [
+                f"{tmp_path}/m/render_recipe/{w}_66.zarr",
+                f"{planes}/{w}{suffix}.npy",
+                *flag,
+            ]
+            for w in ("w047", "w048")
+            for suffix, flag in (("", []), ("_reversed", ["--reverse"]))
+        ]
+
+
+def _infer(tmp_path, fail=None):
+    """Stand-ins: nvidia-smi writes two samples, writes its pid, and waits to be stopped; Studio waits for the first
+    samples, logs its arguments, and writes its output (failing on FAIL's planes)."""
+    out = tmp_path / "m/studio_own"
+    (out / "planes").mkdir(parents=True)
+    (out / "maps").mkdir()
+    for name in ("w047", "w047_reversed", "w048", "w048_reversed"):
+        (out / "planes" / f"{name}.npy").write_text("")
+    _stub(tmp_path / "bin/nvidia-smi", f"exec 2>/dev/null\necho $$ > {tmp_path}/smi.pid\n"
+                                       'echo "t, 900 MiB, 5 %"\necho "t, 4000 MiB, 90 %"\necho "t, 1200 MiB, 9 %"\n'
+                                       "exec sleep 30\n")  # fmt: skip
+    _stub(tmp_path / "env/bin/python", f"until [ -s {out}/gpu.csv ] && [ -s {tmp_path}/smi.pid ]; do sleep 0.01; done\n"
+                                       f'echo "$PWD $*" >> {tmp_path}/studio.log\n'
+                                       f'[ "$3" = "{out}/planes/{fail}.npy" ] && exit 1\n: > "$5"\n')  # fmt: skip
+    (tmp_path / "code").mkdir()
+    run = _bash(
+        VARS.format(t=tmp_path) + _function("infer") + "infer", path=tmp_path / "bin"
+    )
+    pid = int((tmp_path / "smi.pid").read_text())
+    try:
+        os.kill(pid, 0)
+        sampling = True
+    except ProcessLookupError:
+        sampling = False
+    finally:
+        try:
+            os.kill(pid, 9)
+        except ProcessLookupError:
+            pass
+    return run, out, sampling
+
+
+def test_studio_reads_all_four_plane_sets_with_the_winners_command_and_records_the_gpu_peak(
+    tmp_path,
+):
+    run, out, sampling = _infer(tmp_path)
+    assert run.returncode == 0, run.stderr
+    calls = [
+        line.split() for line in (tmp_path / "studio.log").read_text().splitlines()
+    ]
+    names = ["w047", "w047_reversed", "w048", "w048_reversed"]
+    assert calls == [[str(tmp_path / "code"), "inference.py", "--input", f"{out}/planes/{n}.npy", "--output",
+                      f"{out}/maps/{n}.npy", "--checkpoint", "/w.safetensors", "--stride", "64", "--blend", "hann",
+                      "--batch-size", "32"] for n in names]  # fmt: skip
+    assert sorted(p.name for p in (out / "maps").iterdir()) == sorted(
+        f"{n}.npy" for n in names
+    )
+    assert (
+        list((out / "planes").iterdir()) == []
+    )  # each set of planes is deleted once read
+    assert json.loads((out / "gpu_peak.json").read_text()) == {
+        "gpu_peak_mib_all_processes": 4000
+    }
+    assert not sampling
+
+
+def test_a_failed_read_stops_studio_fails_the_step_and_still_stops_the_sampler(
+    tmp_path,
+):
+    run, out, sampling = _infer(tmp_path, fail="w047_reversed")
+    assert run.returncode == 1
+    assert sorted(p.name for p in (out / "maps").iterdir()) == ["w047.npy"]
+    assert len((tmp_path / "studio.log").read_text().splitlines()) == 2
+    assert (out / "gpu_peak.json").exists() and not sampling
+
+
+def test_compare_gives_each_winding_its_mesh_render_and_both_maps(tmp_path):
+    _stub(tmp_path / "pyw", f'printf "%s\\n" "$@" > {tmp_path}/argv\n')
+    run = _bash(VARS.format(t=tmp_path) + _function("compare") + "compare")
+    assert run.returncode == 0, run.stderr
+    argv = (tmp_path / "argv").read_text().splitlines()
+    ours = [argv[i + 1 : i + 5] for i, a in enumerate(argv) if a == "--ours"]
+    m, maps = f"{tmp_path}/m", f"{tmp_path}/m/studio_own/maps"
+    assert ours == [[f"{m}/final_recipe/{w}.tifxyz", f"{m}/render_recipe/{w}_66.zarr", f"{maps}/{w}.npy",
+                     f"{maps}/{w}_reversed.npy"] for w in ("w047", "w048")]  # fmt: skip
+    assert (
+        argv[argv.index("--published-studio-reversed") + 1]
+        == f"{tmp_path}/b/studio_343/maps/reversed.npy"
+    )
