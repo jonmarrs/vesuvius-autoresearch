@@ -604,6 +604,8 @@ def test_empty_shard_is_rejected(tmp_path, monkeypatch, mode):
     argv += ["--num_parts", "7", "--part_id", "6"]
     with pytest.raises(ValueError, match="no tiles"):
         runner()
+    if mode == "ensemble":
+        assert not models
     assert not any(model.inputs for model in models)
     assert not (tmp_path / "out").exists()
 

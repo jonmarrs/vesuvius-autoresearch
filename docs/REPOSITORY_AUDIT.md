@@ -2294,3 +2294,7 @@ The early plan checks the declared CT and selected array again before opening
 the reader and before publication. Retargeted level-0 link fixtures stop
 without replacing prior outputs. Representative GPU peak and ensemble
 residency measurements remain open.
+
+PR review found that a valid shard index assigned zero tiles could still
+reach model setup. The command now builds the lazy tile plan during preflight,
+and that fixture stops before constructing a member.

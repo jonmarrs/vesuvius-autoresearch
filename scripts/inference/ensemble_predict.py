@@ -170,6 +170,7 @@ def ensemble_predict():
         else:
             patch_size, voxel_size_um = member_patch_size, scale
             artifacts = _plan_region(args, patch_size, layers, checkpoint_paths)
+            tiles = region_tiles(args, patch_size)
         max_layers = max(max_layers, layers)
         if use_ridges:
             if ridge_settings is not None and ridge_sigma != ridge_settings[0]:
@@ -224,7 +225,6 @@ def ensemble_predict():
     if dataset.vol.path != artifacts.source_array:
         raise RuntimeError("CT source selection changed while opening the ensemble volume")
     validate_region(args, patch_size, max_layers, dataset.shape)
-    tiles = region_tiles(args, patch_size)
     full_ink = torch.zeros(
         (args.height, args.width), device=device, dtype=torch.float32
     )
