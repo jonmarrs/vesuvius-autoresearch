@@ -95,14 +95,15 @@ def test_checks_files_without_claiming_training_readiness(workspace):
     assert check(report, "validation.labels")["path"] == str(repo / "val/inklabels.png")
 
 
-def test_existing_uri_like_local_paths_use_the_same_lookup_as_training(workspace):
+@pytest.mark.parametrize("name", ["scan:train", "file:train"])
+def test_existing_uri_like_local_paths_use_the_same_lookup_as_training(workspace, name):
     repo, _ = workspace
-    (repo / "train").rename(repo / "scan:train")
-    save_config(workspace, uris=["scan:train/surface_volume.zarr"])
+    (repo / "train").rename(repo / name)
+    save_config(workspace, uris=[f"{name}/surface_volume.zarr"])
     report = status.inspect_workspace(repo)
     assert report["setup_status"] == "ok"
     assert check(report, "training[0].labels")["path"] == str(
-        repo / "scan:train/inklabels.png"
+        repo / name / "inklabels.png"
     )
 
 
@@ -122,6 +123,40 @@ def test_symlinked_volume_keeps_its_visible_annotation_parent(workspace):
     assert report["setup_status"] == "blocked"
     assert check(report, "checkpoint_outputs")["status"] == "blocked"
     assert label.read_bytes() == b"visible annotation"
+
+
+@pytest.mark.parametrize("shadow_path", [False, True])
+def test_checks_local_file_uris_and_their_decoded_label_paths(
+    workspace, monkeypatch, shadow_path
+):
+    repo, _ = workspace
+    visible = repo / "train #1"
+    (repo / "train").rename(visible)
+    uri = (visible / "surface_volume.zarr").as_uri()
+    if shadow_path:
+        caller = repo / "outside"
+        (caller / uri).mkdir(parents=True)
+        monkeypatch.chdir(caller)
+    save_config(
+        workspace,
+        uris=[uri],
+        val_uri=(repo / "val/surface_volume.zarr").as_uri(),
+    )
+    report = status.inspect_workspace(repo)
+    assert report["setup_status"] == "ok"
+    assert check(report, "training[0].labels")["path"] == str(visible / "inklabels.png")
+    assert check(report, "validation.labels")["path"] == str(repo / "val/inklabels.png")
+
+
+@pytest.mark.parametrize(
+    "uri", ["file:train/surface_volume.zarr", "file://another-host/tmp/scan.zarr"]
+)
+def test_invalid_local_file_uris_are_blocked(workspace, uri):
+    repo = save_config(workspace, uris=[uri])
+    report = status.inspect_workspace(repo)
+    finding = check(report, "training[0]")
+    assert finding["status"] == "blocked"
+    assert "file URI must identify an absolute local path" in finding["message"]
 
 
 @pytest.mark.parametrize("strict", [False, True])

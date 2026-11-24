@@ -5,7 +5,10 @@ import re
 from pathlib import Path
 
 from scripts.training.data_split import local_volume_path
-from scripts.training.input_paths import VALIDATION_LABEL_FILES
+from scripts.training.input_paths import (
+    VALIDATION_LABEL_FILES,
+    training_pseudo_label_path,
+)
 from vesuvius_autoresearch.core.prediction_artifacts import (
     validate_output_file,
     validate_plan_paths,
@@ -118,8 +121,9 @@ def validate_training_checkpoint_writes(
                 for name in (*VALIDATION_LABEL_FILES, "mask.png", "patches.json")
             )
         if getattr(config, "pseudo_label_dir", None):
-            segment = os.path.basename(os.path.dirname(uri.rstrip("/")))
-            inputs.append(Path(config.pseudo_label_dir) / f"{segment}_pseudo.png")
+            inputs.append(
+                training_pseudo_label_path(uri, config.pseudo_label_dir, base_dir=base)
+            )
     if getattr(config, "foundation_model_path", None):
         inputs.append(config.foundation_model_path)
     validate_checkpoint_writes(paths, inputs=inputs, base_dir=base)

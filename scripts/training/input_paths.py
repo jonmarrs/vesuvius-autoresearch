@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
+
+from vesuvius_autoresearch.core.volume_paths import volume_location
 
 if TYPE_CHECKING:
     from scripts.training.config import ExperimentConfig
@@ -18,9 +22,19 @@ VALIDATION_LABEL_FILES = (
 )
 
 
+def training_volume_path(uri: str, *, base_dir: str | Path = ".") -> str:
+    """Decode a local file URI without following the visible volume's links."""
+    if not uri.lower().startswith("file:") or (Path(base_dir) / uri).exists():
+        return uri
+    path, _ = volume_location(uri, base_dir, resolve_local=False)
+    if path is None or not urlsplit(uri).path.startswith("/"):
+        raise ValueError("file URI must identify an absolute local path")
+    return os.fspath(path)
+
+
 def validation_label_path(val_uri: str) -> str:
     """The label file read for this volume (inklabels.png when none exists)."""
-    parent = os.path.dirname(val_uri.rstrip("/"))
+    parent = os.path.dirname(training_volume_path(val_uri).rstrip("/"))
     for name in VALIDATION_LABEL_FILES:
         path = os.path.join(parent, name)
         if os.path.exists(path):
@@ -31,12 +45,21 @@ def validation_label_path(val_uri: str) -> str:
 def validation_input_paths(val_uri: str) -> dict[str, str]:
     """The files beside the volume that validation reads, by role. The one
     definition build_validation_dataset and the fingerprint both use."""
-    parent = os.path.dirname(val_uri.rstrip("/"))
+    volume = training_volume_path(val_uri)
+    parent = os.path.dirname(volume.rstrip("/"))
     return {
-        "labels": validation_label_path(val_uri),
+        "labels": validation_label_path(volume),
         "mask": os.path.join(parent, "mask.png"),
         "patches_json": os.path.join(parent, "patches.json"),
     }
+
+
+def training_pseudo_label_path(
+    uri: str, directory: str | Path, *, base_dir: str | Path = "."
+) -> str:
+    volume = training_volume_path(uri, base_dir=base_dir)
+    segment = os.path.basename(os.path.dirname(volume.rstrip("/")))
+    return os.path.join(directory, f"{segment}_pseudo.png")
 
 
 def training_label_path(uri: str, config: ExperimentConfig) -> str:
@@ -50,8 +73,7 @@ def training_label_path(uri: str, config: ExperimentConfig) -> str:
     trained as ink 128/255.
     """
     if config.pseudo_label_dir:
-        segment = os.path.basename(os.path.dirname(uri.rstrip("/")))
-        pseudo = os.path.join(config.pseudo_label_dir, f"{segment}_pseudo.png")
+        pseudo = training_pseudo_label_path(uri, config.pseudo_label_dir)
         if os.path.exists(pseudo):
             if not getattr(config, "use_confidence_weight", False):
                 raise ValueError(

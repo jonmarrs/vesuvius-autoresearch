@@ -27,7 +27,11 @@ from scripts.text_snapshot import Snapshot
 from scripts.training.checkpoint_paths import validate_training_checkpoint_writes
 from scripts.training.config import ExperimentConfig, data_read_policy
 from scripts.training.data_split import validate_training_split
-from scripts.training.input_paths import training_label_path, validation_label_path
+from scripts.training.input_paths import (
+    training_label_path,
+    training_volume_path,
+    validation_label_path,
+)
 
 DEFAULT_CONFIG_BYTES = 1024**2
 MAX_CONFIG_BYTES = 16 * 1024**2
@@ -259,6 +263,12 @@ def inspect_workspace(
         config.pseudo_label_dir = str(pseudo_path)
 
     def volume(uri, name, *, training=False, labels=True):
+        try:
+            if isinstance(uri, str):
+                uri = training_volume_path(uri, base_dir=repo)
+        except (OSError, ValueError) as exc:
+            add(name, "blocked", str(exc))
+            return
         data = local_path(uri, name)
         if data is None:
             return

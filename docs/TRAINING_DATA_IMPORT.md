@@ -93,6 +93,19 @@ the new path. The reader normalizes this uint16 CT by 65535. Reevaluate the
 incumbent under the resulting inputs/protocol before restarting the research
 loop; see the [quick start](../README.md).
 
+### Local volume identifiers
+
+Training and validation accept filesystem paths and absolute local `file://`
+URIs. For a URI with spaces or `#` in the filename, use its percent-encoded
+form. The trainer finds labels, masks and patch catalogs beside the decoded
+volume path. A volume symlink uses the sidecars beside the visible link. The
+same spelling determines the segment name for pseudo-label selection.
+
+A URI and its decoded absolute path produce the same validation input
+fingerprint. Checkpoint output protection and the read-only workspace status
+command use the decoded paths as well. Workspace checks use the inspected
+checkout as their base directory.
+
 ## Verify a prepared fragment
 
 Run this check after moving a fragment or before reusing a stored copy:
