@@ -459,11 +459,11 @@ def predict():
     validate_region(args, patch_size, num_layers, dataset.shape)
 
     memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
-    model = build_prediction_model(config_dict, args, use_ridges).to(device)
-    # Partial warm starts are appropriate for training, not evidence export.
+    model = build_prediction_model(config_dict, args, use_ridges)
+    # Check complete weights on CPU before allocating the model on the device.
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     del checkpoint
-    model.eval()
+    model = model.to(device).eval()
     # A model without a fiber head returns its ink logits as "fiber": exported,
     # that was the ink map under the fiber prediction's name.
     heads = sorted(task_heads(model))

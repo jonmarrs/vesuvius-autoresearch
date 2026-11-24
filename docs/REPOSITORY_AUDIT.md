@@ -2238,3 +2238,12 @@ Review reproduced a device transfer before strict weight loading reported
 a tensor shape mismatch. Each ensemble member's state is now loaded
 strictly on CPU before transfer. The mismatch fixture tracks the transfer
 calls, and the successful mixed-depth fixture covers both member orders.
+
+## Single-model checkpoint state preflight (2026-11-24 UTC)
+
+This pass starts from main `33b771fd`. The ensemble's mismatch fixture also
+reproduced a device transfer in single-model prediction before strict state
+loading rejected the checkpoint. The single-model command now checks the
+complete weights on CPU and releases the checkpoint before transferring the
+model. The regression covers both regional commands. Representative GPU
+memory and ensemble residency measurements remain open.

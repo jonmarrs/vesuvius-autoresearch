@@ -480,16 +480,17 @@ def test_missing_requested_ensemble_member_fails(tmp_path, monkeypatch):
     assert not (tmp_path / "out").exists()
 
 
-def test_ensemble_checks_model_state_before_transferring_the_member(
-    tmp_path, monkeypatch
+@pytest.mark.parametrize(("mode", "rejected_index"), [("single", 0), ("ensemble", 1)])
+def test_regional_prediction_checks_state_before_transferring_the_model(
+    tmp_path, monkeypatch, mode, rejected_index
 ):
     config = {"patch_size": 8, "num_layers": 2, "base_feat": 4}
     runner, _, models, _, checkpoints = setup_prediction(
-        tmp_path, monkeypatch, "ensemble", [config, config]
+        tmp_path, monkeypatch, mode, [config] * (rejected_index + 1)
     )
     torch.save(
         {"config": config, "model_state_dict": {"bias": torch.zeros(2)}},
-        checkpoints[1],
+        checkpoints[rejected_index],
     )
     original = ConstantHeads.to
     transfers = []
@@ -501,8 +502,8 @@ def test_ensemble_checks_model_state_before_transferring_the_member(
     monkeypatch.setattr(ConstantHeads, "to", track_transfer)
     with pytest.raises(RuntimeError, match="size mismatch for bias"):
         runner()
-    assert len(models) == 2
-    assert transfers == models[:1]
+    assert len(models) == rejected_index + 1
+    assert transfers == models[:rejected_index]
     assert not (tmp_path / "out").exists()
 
 
