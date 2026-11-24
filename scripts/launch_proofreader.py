@@ -54,22 +54,31 @@ def generate_config(
 def _inputs(volume_path, predictions_path, output, patch_size, *, record_session=False):
     from vesuvius_autoresearch.core.prediction_artifacts import validate_plan_paths
     from vesuvius_autoresearch.core.proofreader_session import validate_input_arrays
-    from volume_cartographer_wrapper.volume import FastLocalVolume
+    from volume_cartographer_wrapper.volume import (
+        FastLocalVolume,
+        local_volume_array_path,
+        local_volume_path,
+    )
 
-    volume, labels = FastLocalVolume(volume_path), FastLocalVolume(predictions_path)
+    volume_source = local_volume_path(volume_path).resolve()
+    label_source = local_volume_path(predictions_path).resolve()
+    volume = local_volume_array_path(volume_source)
+    labels = local_volume_array_path(label_source)
     validate_plan_paths(
         [(output, "proofreader dataset")],
         [
-            (volume.source_path, "CT source"),
-            (volume.path, "CT array"),
-            (labels.source_path, "label source"),
-            (labels.path, "label array"),
+            (volume_source, "CT source"),
+            (volume, "CT array"),
+            (label_source, "label source"),
+            (labels, "label array"),
         ],
     )
     # Recorded launches validate these arrays between hashing and the final inventory.
     if not record_session:
-        validate_input_arrays(volume, labels, patch_size)
-    return volume.path, labels.path
+        validate_input_arrays(
+            FastLocalVolume(volume), FastLocalVolume(labels), patch_size
+        )
+    return volume, labels
 
 
 def main(argv=None):

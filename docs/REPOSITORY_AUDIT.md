@@ -2111,3 +2111,9 @@ proofreader file before publishing. Both fixtures refuse the launch before
 creating a session directory or receipt. Physical alignment, resume and
 training ingestion remain separate audit items.
 [Recorded launch](PROOFREADER_SESSION_RECORDS.md#what-is-recorded)
+
+PR review found that path selection still opened Zarr metadata ahead of the
+recorded source file limit. It now resolves the selected local arrays without
+opening their metadata. A fixture with over-budget metadata checks that the
+launcher refuses it before either array opens. A two-level OME fixture still
+selects level 0 and produces a verifiable receipt.
