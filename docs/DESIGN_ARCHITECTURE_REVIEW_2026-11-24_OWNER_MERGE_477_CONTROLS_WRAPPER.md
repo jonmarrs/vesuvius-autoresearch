@@ -60,6 +60,10 @@ None this round.
     touched module.
   - Mypy is clean over the whole repository, 1,110 files, with `--python-executable ./.venv/bin/python`.
 - **The standard suite**, 235 modules, gives the same 278 failing ids as round #219's run.
+  - A first run, alongside mypy and the smoke test, also failed the two `SIGHUP` cases of
+    `test_supervisor_startup.py`: a child was not gone within 5 seconds.
+  - That module passed alone three times, and a second run of the suite alone gave the 278.
+  - The suite does not run the touched module.
 - **The 310 test modules outside the suite** give the same 24 failing ids as round #219's run.
   - 3,417 passed: round #219's 3,412 and the 5 new cases.
   - 4 xfailed, as in round #219.
