@@ -558,6 +558,30 @@ def test_a_training_volume_read_by_uamt_is_read_inside_the_band(tmp_path):
     assert starts <= set(range(8)) and len(starts) > 1
 
 
+@pytest.mark.parametrize("alias", ["checkout fallback", "deprecated uri"])
+def test_uamt_only_matches_the_live_labeled_config(tmp_path, monkeypatch, alias):
+    from vesuvius_autoresearch.core import inference_constants
+
+    working, other_checkout = tmp_path / "working", tmp_path / "checkout"
+    working.mkdir()
+    other_checkout.mkdir()
+    labeled = _volume(working / "Fr47")
+    other = _volume(other_checkout / "Fr47")
+    monkeypatch.chdir(working)
+    if alias == "checkout fallback":
+        monkeypatch.setattr(inference_constants, "_REPO", str(other_checkout))
+        selected = _config("Fr47/surface_volume.zarr")
+    else:
+        selected = ExperimentConfig(
+            uris=[labeled], uri=other, num_layers=16, patch_size=16, depth_band=[1, 27]
+        )
+
+    assert train.unlabeled_dataset(labeled, selected, seed=0).depth_range == (0, 31)
+    different = train.unlabeled_dataset(other, selected, seed=0)
+    assert different.depth_range is None
+    assert max(_read_starts(different)) > 7
+
+
 @pytest.mark.parametrize("depth, labels", [(33, False), (33, True), (21, True)])
 def test_any_other_unlabeled_volume_is_read_over_its_whole_depth(
     tmp_path, depth, labels

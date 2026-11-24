@@ -2192,3 +2192,10 @@ keep separate depth decisions. Remote version identity and the offline
 spelling fallback remain supported. Copied volumes and physically overlapping
 crops still need independent alignment and split review.
 [Regional inference depth selection](VOLUME_INFERENCE.md)
+
+Review found that live UA-MT could borrow the band from an unrelated array
+when the training path also existed in another checkout, or when a stale
+deprecated `uri` coexisted with `uris`. Live matching now uses the normalized
+labeled list and the same working directory as the actual reads. Both
+fixtures keep the valid band's read range and return to full-depth sampling
+for the unrelated array.

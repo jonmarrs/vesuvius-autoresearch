@@ -76,7 +76,7 @@ def _volume_keys(uri, bases):
     return local_keys or remote_keys
 
 
-def depth_band_for(saved_config, volume_uri):
+def depth_band_for(saved_config, volume_uri, *, recorded_base_dir=None):
     """The checkpoint's depth_band for volume_uri, or None (the whole depth).
 
     A band names slices of the volumes it was set for: the training fragments'
@@ -84,8 +84,9 @@ def depth_band_for(saved_config, volume_uri):
     layers 17-42. A volume built another way numbers its slices differently, so
     the same numbers would name other layers, or lie past a shallower volume.
     The band therefore applies only to the labeled volumes the checkpoint
-    recorded (uri, uris, val_uri); recorded relative paths resolve against the
-    working directory or this checkout. unlabeled_uris are left out: UA-MT
+    recorded (uri, uris, val_uri). By default recorded relative paths resolve
+    against the working directory or this checkout. Live callers can supply
+    their exact recorded_base_dir. unlabeled_uris are left out: UA-MT
     bands an unlabeled volume only when it is one of these (train.unlabeled_dataset
     applies this function) and reads any other over its whole depth.
     """
@@ -102,11 +103,13 @@ def depth_band_for(saved_config, volume_uri):
     for key in ("uri", "uris", "val_uri"):
         value = saved_config.get(key)
         recorded.extend([value] if isinstance(value, str) else value or [])
-    target = _volume_keys(str(volume_uri), [os.getcwd()])
+    working_dir = os.getcwd()
+    recorded_bases = (
+        [working_dir, _REPO] if recorded_base_dir is None else [recorded_base_dir]
+    )
+    target = _volume_keys(str(volume_uri), [working_dir])
     if any(
-        isinstance(uri, str)
-        and uri
-        and target & _volume_keys(uri, [os.getcwd(), _REPO])
+        isinstance(uri, str) and uri and target & _volume_keys(uri, recorded_bases)
         for uri in recorded
     ):
         return [band[0], band[1]]
