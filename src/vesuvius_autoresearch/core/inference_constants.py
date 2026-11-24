@@ -19,7 +19,7 @@ import os
 import sys
 from numbers import Integral
 
-from .volume_paths import volume_location
+from .volume_paths import select_local_zarr_array, volume_location
 
 DEPTH_MARGIN = 4
 INK_PROBABILITY = "sigmoid(ink)"
@@ -59,16 +59,16 @@ _REPO = os.path.dirname(
 
 
 def _volume_keys(uri, bases):
-    """Comparable spellings of one volume: resolved against each base directory,
-    file:// as its path, and an OME-Zarr group the same as its level 0 array
-    (FastVesuviusVolume opens either)."""
+    """Resolve each spelling to the selected array or the remote identity."""
     local_keys, remote_keys = set(), set()
     for base in bases:
         local, remote = volume_location(uri, base)
         if local is not None:
-            if local.name == "0":
+            # Preserve lexical root/level-0 matching for unavailable stores.
+            # For existing paths, use the reader's actual selection.
+            if local.name == "0" and not local.parent.exists():
                 local = local.parent
-            local_keys.add(str(local))
+            local_keys.add(str(select_local_zarr_array(local)))
         else:
             remote_keys.add(remote)
     # A URI-like path may exist under only one candidate checkout base. Do not
@@ -76,7 +76,7 @@ def _volume_keys(uri, bases):
     return local_keys or remote_keys
 
 
-def depth_band_for(saved_config, volume_uri):
+def depth_band_for(saved_config, volume_uri, *, recorded_base_dir=None):
     """The checkpoint's depth_band for volume_uri, or None (the whole depth).
 
     A band names slices of the volumes it was set for: the training fragments'
@@ -84,8 +84,9 @@ def depth_band_for(saved_config, volume_uri):
     layers 17-42. A volume built another way numbers its slices differently, so
     the same numbers would name other layers, or lie past a shallower volume.
     The band therefore applies only to the labeled volumes the checkpoint
-    recorded (uri, uris, val_uri); recorded relative paths resolve against the
-    working directory or this checkout. unlabeled_uris are left out: UA-MT
+    recorded (uri, uris, val_uri). By default recorded relative paths resolve
+    against the working directory or this checkout. Live callers can supply
+    their exact recorded_base_dir. unlabeled_uris are left out: UA-MT
     bands an unlabeled volume only when it is one of these (train.unlabeled_dataset
     applies this function) and reads any other over its whole depth.
     """
@@ -102,11 +103,13 @@ def depth_band_for(saved_config, volume_uri):
     for key in ("uri", "uris", "val_uri"):
         value = saved_config.get(key)
         recorded.extend([value] if isinstance(value, str) else value or [])
-    target = _volume_keys(str(volume_uri), [os.getcwd()])
+    working_dir = os.getcwd()
+    recorded_bases = (
+        [working_dir, _REPO] if recorded_base_dir is None else [recorded_base_dir]
+    )
+    target = _volume_keys(str(volume_uri), [working_dir])
     if any(
-        isinstance(uri, str)
-        and uri
-        and target & _volume_keys(uri, [os.getcwd(), _REPO])
+        isinstance(uri, str) and uri and target & _volume_keys(uri, recorded_bases)
         for uri in recorded
     ):
         return [band[0], band[1]]

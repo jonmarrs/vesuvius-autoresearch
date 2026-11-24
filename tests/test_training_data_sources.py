@@ -548,11 +548,38 @@ def test_a_training_volume_read_by_uamt_is_read_inside_the_band(tmp_path):
     band [1, 27), 24-slice reads. The band widened by the 4-slice margin is
     [0, 31), so reads start at 0-7; over the whole depth they started at 0-9."""
     uri = _volume(tmp_path / "Fr47 #1")
-    for spelling in (uri, uri + "/", Path(uri).as_uri()):
+    group = tmp_path / "linked volume.zarr"
+    zarr.open_group(str(group), mode="w")
+    (group / "0").symlink_to(uri, target_is_directory=True)
+    for spelling in (uri, uri + "/", Path(uri).as_uri(), group.as_uri()):
         dataset = train.unlabeled_dataset(spelling, _config(uri), seed=0)
         assert dataset.depth_range == (0, 31)
     starts = _read_starts(dataset)
     assert starts <= set(range(8)) and len(starts) > 1
+
+
+@pytest.mark.parametrize("alias", ["checkout fallback", "deprecated uri"])
+def test_uamt_only_matches_the_live_labeled_config(tmp_path, monkeypatch, alias):
+    from vesuvius_autoresearch.core import inference_constants
+
+    working, other_checkout = tmp_path / "working", tmp_path / "checkout"
+    working.mkdir()
+    other_checkout.mkdir()
+    labeled = _volume(working / "Fr47")
+    other = _volume(other_checkout / "Fr47")
+    monkeypatch.chdir(working)
+    if alias == "checkout fallback":
+        monkeypatch.setattr(inference_constants, "_REPO", str(other_checkout))
+        selected = _config("Fr47/surface_volume.zarr")
+    else:
+        selected = ExperimentConfig(
+            uris=[labeled], uri=other, num_layers=16, patch_size=16, depth_band=[1, 27]
+        )
+
+    assert train.unlabeled_dataset(labeled, selected, seed=0).depth_range == (0, 31)
+    different = train.unlabeled_dataset(other, selected, seed=0)
+    assert different.depth_range is None
+    assert max(_read_starts(different)) > 7
 
 
 @pytest.mark.parametrize("depth, labels", [(33, False), (33, True), (21, True)])

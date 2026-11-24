@@ -912,21 +912,18 @@ def unlabeled_dataset(
 ):
     """UA-MT's reader for one unlabeled_uris volume.
 
-    The band names slices of the volumes it was set for, so it applies to an
-    unlabeled volume that is also one of them (a training volume, matched by
-    path as inference_constants.depth_band_for matches a checkpoint's), whose
-    labeled reads use it. Any other unlabeled volume is read over its whole
-    depth: it may number its slices differently.
+    The band follows the configured labeled arrays in the live working
+    directory. Other unlabeled volumes use their full depth.
     """
     num_layers = positive_integer(config.num_layers, "num_layers")
     band = depth_band_for(
         {
             "depth_band": getattr(config, "depth_band", None),
-            "uri": config.uri,
             "uris": config.uris,
             "val_uri": config.val_uri,
         },
         uri,
+        recorded_base_dir=os.getcwd(),
     )
     return VesuviusS3Dataset(
         training_volume_path(uri),

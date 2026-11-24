@@ -100,6 +100,9 @@ URIs. For a URI with spaces or `#` in the filename, use its percent-encoded
 form. The trainer finds labels, masks and patch catalogs beside the decoded
 volume path. A volume symlink uses the sidecars beside the visible link. The
 same spelling determines the segment name for pseudo-label selection.
+UA-MT applies the depth band when an unlabeled path selects a configured
+labeled array. Live training resolves those paths in its working directory
+and uses the normalized `uris` list.
 
 A URI and its decoded absolute path produce the same validation input
 fingerprint. Checkpoint output protection and the read-only workspace status
