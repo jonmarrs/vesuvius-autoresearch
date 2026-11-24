@@ -93,6 +93,10 @@ from scripts.training.promotion import (
     validation_record_sha256,
 )
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    ink_probabilities,
+    validate_targets,
+)
 
 try:
     sys.path.append(os.path.join(os.path.dirname(__file__), "villa/vesuvius/src"))
@@ -629,7 +633,11 @@ def promotion_decision(
     except IncumbentUnavailable as exc:
         return False, float("nan"), str(exc)
     if not validation_complete:
-        return False, incumbent, "the validation sample is incomplete (failed reads)"
+        return (
+            False,
+            incumbent,
+            "the validation sample is incomplete (failed reads or predictions)",
+        )
     if incumbent_inputs is not None and inputs != incumbent_inputs:
         reason = (
             "this run recorded no validation-input fingerprint"
@@ -938,9 +946,21 @@ def unlabeled_dataset(
     )
 
 
-def _sigmoid_ink(model, x):
-    out = model(x)
-    return torch.sigmoid(out[0] if isinstance(out, tuple) else out)
+def _validation_scoring_tensors(batch, probabilities, target):
+    """Check the exact pairs sent to the validation metrics."""
+    expected = (len(batch), 1, *batch.shape[-2:])
+    if isinstance(probabilities, torch.Tensor):
+        probabilities = probabilities.cpu()
+    if (
+        not isinstance(probabilities, torch.Tensor)
+        or tuple(probabilities.shape) != expected
+        or not probabilities.is_floating_point()
+        or not ((probabilities >= 0) & (probabilities <= 1)).all()
+    ):
+        raise ValueError(
+            f"ink probabilities must be finite floating point in [0,1] with shape {expected}"
+        )
+    return probabilities.float(), validate_targets(target, probabilities)
 
 
 def probe_validation_read(dataset) -> None:
@@ -1079,7 +1099,7 @@ def collect_validation_predictions(
     device,
     batch_size: int = 4,
     amp_enabled=False,
-    probabilities=_sigmoid_ink,
+    probabilities=ink_probabilities,
     protocol=VALIDATION_PROTOCOL,
 ):
     """Score the protocol's fixed sample of ``dataset``.
@@ -1093,8 +1113,9 @@ def collect_validation_predictions(
     forward passes: which patches count is decided per patch, so it does not change
     the result. ``complete`` is False when any read or forward pass failed; such a
     sample is not the protocol's sample and cannot support a promotion.
-    ``probabilities(model, x)`` maps an input batch to ink probabilities; checkpoint
-    tools pass a validating version. ``protocol`` is recorded in the diagnostics
+    ``probabilities(model, x)`` maps an input batch to ink probabilities. The
+    default checks logits before sigmoid. All paths check probabilities and
+    targets before scoring. ``protocol`` is recorded in the diagnostics
     (validation_protocol(config.depth_band) for the dataset's depth range).
     """
     num_layers = positive_integer(num_layers, "num_layers")
@@ -1116,10 +1137,11 @@ def collect_validation_predictions(
                     [dataset[int(i)] for i in chunk]
                 )
                 val_x = _validation_window(val_x_raw, num_layers).to(device)
-                if val_target.dim() == 3:
-                    val_target = val_target.unsqueeze(1)
                 with autocast(device_type=device.type, enabled=amp_enabled):
-                    prob_2d = probabilities(model, val_x).float().cpu()
+                    prob_2d = probabilities(model, val_x)
+                prob_2d, val_target = _validation_scoring_tensors(
+                    val_x, prob_2d, val_target
+                )
             except Exception as exc:
                 diag["batch_errors"] += 1
                 if diag["batch_errors"] <= 3:
@@ -1569,10 +1591,11 @@ def periodic_pixel_auc_eval(
             for i in idxs:
                 x_raw, t, _ = val_dataset[int(i)]
                 x = _validation_window(x_raw.unsqueeze(0), nl).to(device)
-                out = model(x)
-                out = out[0] if isinstance(out, tuple) else out
-                probs.append(torch.sigmoid(out).squeeze().float().cpu().numpy().ravel())
-                labels.append((t.numpy() > 0.5).astype(int).ravel())
+                prob, target = _validation_scoring_tensors(
+                    x, ink_probabilities(model, x), t.unsqueeze(0)
+                )
+                probs.append(prob.numpy().ravel())
+                labels.append(target.numpy().ravel())
         auc = pooled_pixel_auc(probs, labels)
     except Exception as exc:  # an eval glitch must not kill a 12h run
         print(f"  [curve] eval failed at step {step}: {type(exc).__name__}: {exc}")

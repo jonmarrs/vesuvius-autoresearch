@@ -164,6 +164,83 @@ def test_a_failed_read_makes_the_sample_incomplete():
     assert diag["batch_errors"] == 1 and not diag["complete"]
 
 
+@pytest.mark.parametrize("magnitude", [12.0, float("inf")])
+def test_only_finite_validation_logits_can_support_promotion(tmp_path, magnitude):
+    data = Catalogue(4)
+    labels = torch.stack([data[i][1] for i in range(len(data))]).unsqueeze(1)
+
+    class PerfectInk(torch.nn.Module):
+        def forward(self, x):
+            return torch.where(labels > 0.5, magnitude, -magnitude), None
+
+    probs, targets, diag = train.collect_validation_predictions(
+        PerfectInk(), data, 8, torch.device("cpu"), batch_size=4
+    )
+    metrics = train.pooled_segmentation_metrics(probs, targets)
+    promote, _, reason = _decide(
+        tmp_path / "absent.pt",
+        val_f1=metrics.get("val_f1", float("nan")),
+        lift=metrics.get("ap_prevalence_lift", float("nan")),
+        complete=diag["complete"],
+    )
+    if np.isfinite(magnitude):
+        assert promote and diag["complete"] and metrics["val_f1"] == 1.0
+    else:
+        assert not promote, (diag, metrics)
+        assert reason and "incomplete" in reason
+        assert diag["batch_errors"] == 1 and not probs and not targets
+
+
+@pytest.mark.parametrize(
+    "predictions",
+    [
+        torch.zeros(3, 1, 4, 4),
+        torch.zeros(4, 1, 2, 8),
+        torch.zeros(4, 1, 4, 4, dtype=torch.int32),
+        torch.full((4, 1, 4, 4), 1.01),
+        torch.full((4, 1, 4, 4), float("nan")),
+    ],
+)
+def test_validation_refuses_malformed_callback_probabilities(predictions):
+    probs, targets, diag = train.collect_validation_predictions(
+        MeanInk(),
+        Catalogue(4),
+        8,
+        torch.device("cpu"),
+        batch_size=4,
+        probabilities=lambda *args: predictions,
+    )
+    assert diag["batch_errors"] == 1 and not diag["complete"]
+    assert not probs and not targets
+
+
+@pytest.mark.parametrize("target", [torch.ones(2, 8), torch.full((4, 4), -1.0)])
+def test_validation_refuses_malformed_targets(target):
+    sample = (torch.zeros(1, 12, 4, 4), target, torch.zeros(1, 1, 4, 4))
+    probs, targets, diag = _collect([sample])
+    assert diag["batch_errors"] == 1 and not diag["complete"]
+    assert not probs and not targets
+
+
+def test_periodic_auc_refuses_infinite_logits(tmp_path, capsys):
+    class InfiniteInk(torch.nn.Module):
+        def forward(self, x):
+            return torch.where(x[:, :, 0] > 0.5, float("inf"), -float("inf"))
+
+    target = torch.eye(4)
+    ct = target.expand(1, 12, 4, 4)
+    config = ExperimentConfig(
+        num_layers=8, checkpoint_out=str(tmp_path / "model.pt"), eval_sample_patches=1
+    )
+    model = InfiniteInk()
+    dataset = [(ct, target, torch.zeros(1, 1, 4, 4))]
+    train.periodic_pixel_auc_eval(model, dataset, config, "cpu", 3, 1.5)
+    rows = (tmp_path / "model.pt.curve.csv").read_text().splitlines()
+    assert rows[-1] == "3,1.5,nan"
+    assert "ink logits" in capsys.readouterr().out
+    assert model.training and (tmp_path / "model.pt.step3.pt").is_file()
+
+
 def _fragment(root, labels=b"ink"):
     frag = root / "frag"
     (frag / "surface_volume.zarr").mkdir(parents=True)

@@ -2060,3 +2060,17 @@ are excluded. The incomplete-return fixture confirms that returned values
 can still fail the strict CT checks. A representative real-data failure-rate
 measurement and a default read policy decision remain open.
 [Training read counts](TRAINING_DATA_IMPORT.md#choose-the-training-read-policy)
+
+## Validation predictions and targets (2026-11-24 UTC)
+
+This pass starts from main `cbbfd25a`. A CPU model fixture returned infinite
+logits with the correct sign at every pixel. Sigmoid mapped them to 0 and 1,
+so final validation accepted the sample and the promotion decision accepted
+its F1 of 1.0. The same pattern produced a periodic AUC of 1.0. Malformed
+probability tensors and targets could also reach the metrics.
+
+The trainer now uses the checkpoint tools' ink-logit check before sigmoid.
+Both final validation and periodic AUC check the shape and range of
+probabilities and their targets before scoring. A failed final batch marks
+the sample incomplete and blocks promotion. A failed periodic measurement
+records a missing AUC and lets training continue.
