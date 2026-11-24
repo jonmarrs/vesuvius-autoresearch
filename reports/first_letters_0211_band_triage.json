@@ -1,0 +1,634 @@
+{
+ "finding": 138,
+ "registration": "docs/preregistration/2026-11-22_first_letters_0211_band_triage.md",
+ "registration_commit": "26d5c8a5",
+ "controls": {
+  "finding_132": "SKIP_ADOPTED",
+  "finding_131": "DENSE_READS_SAME",
+  "finding_134": "three_passes",
+  "settings": "STUDIO_SKIP_EMPTY=1 FL_DENSIFY=2 FL_SNAP_PASSES=3 FL_OVERLAP=1"
+ },
+ "weights": {
+  "repo": "SirProdigle/pherc0306b-first-letters",
+  "commit": "feabff6c54f95bd8e52a90e0a7a76881ee67d4cc",
+  "path": "discovery/x_glyph/models/gA.pt",
+  "sha256": "36ae0d6d9fdaac9d8681af75ec9be17e9317f7f77aa9422ea8ff8d09dd6f19ad"
+ },
+ "windings_read": 80,
+ "place": {
+  "mask_cells": 550480,
+  "min_place_cells": 1000,
+  "place_cells": 438968,
+  "place_share_of_mask": 0.7974,
+  "by_winding": {
+   "w031": {
+    "place_cells": 4,
+    "by_window": [
+     {
+      "x0": 0,
+      "place_cells": 4
+     }
+    ]
+   },
+   "w032": {
+    "place_cells": 2420,
+    "by_window": [
+     {
+      "x0": 0,
+      "place_cells": 2197
+     },
+     {
+      "x0": 1300,
+      "place_cells": 1781
+     },
+     {
+      "x0": 1820,
+      "place_cells": 1781
+     }
+    ]
+   },
+   "w033": {
+    "place_cells": 183633,
+    "by_window": [
+     {
+      "x0": 0,
+      "place_cells": 30082
+     },
+     {
+      "x0": 1300,
+      "place_cells": 138354
+     },
+     {
+      "x0": 2000,
+      "place_cells": 180309
+     }
+    ]
+   },
+   "w035": {
+    "place_cells": 248229,
+    "by_window": [
+     {
+      "x0": 0,
+      "place_cells": 111693
+     },
+     {
+      "x0": 1300,
+      "place_cells": 181138
+     },
+     {
+      "x0": 2280,
+      "place_cells": 150092
+     }
+    ]
+   },
+   "w037": {
+    "place_cells": 4675,
+    "by_window": [
+     {
+      "x0": 0,
+      "place_cells": 4414
+     },
+     {
+      "x0": 1300,
+      "place_cells": 1929
+     },
+     {
+      "x0": 2580,
+      "place_cells": 261
+     }
+    ]
+   },
+   "w038": {
+    "place_cells": 7,
+    "by_window": [
+     {
+      "x0": 1300,
+      "place_cells": 7
+     },
+     {
+      "x0": 2600,
+      "place_cells": 7
+     },
+     {
+      "x0": 2740,
+      "place_cells": 7
+     }
+    ]
+   }
+  }
+ },
+ "registered": {
+  "windows": 467,
+  "place_windows": 11,
+  "place_windows_scored": 11,
+  "best_place_rank": 2,
+  "lines": {
+   "first": 10,
+   "high": 24
+  }
+ },
+ "verdict": "TRIAGE_FINDS_THE_TEXT",
+ "predictions": {
+  "1_verdict": {
+   "predicted": "TRIAGE_RANKS_THE_TEXT_HIGH (low); TRIAGE_FINDS_THE_TEXT nearly as likely",
+   "result": "TRIAGE_FINDS_THE_TEXT",
+   "held": false
+  },
+  "2_best_place_window_on_w035": {
+   "predicted": "w035 (moderate)",
+   "result": "w033",
+   "held": false,
+   "w035_best_rank": 15
+  },
+  "3_rows_rank_the_place_lower": {
+   "glyph_rank": 2,
+   "rows_rank": 4,
+   "held": true
+  }
+ },
+ "described": {
+  "best_place_rank_by_rows": 4,
+  "windows_with_a_row_score": 467,
+  "place_windows": [
+   {
+    "winding": "w033",
+    "x0": 2000,
+    "glyph": 13.977,
+    "rows": 6.232,
+    "rank": 2
+   },
+   {
+    "winding": "w035",
+    "x0": 0,
+    "glyph": 13.336,
+    "rows": 11.772,
+    "rank": 15
+   },
+   {
+    "winding": "w035",
+    "x0": 1300,
+    "glyph": 13.164,
+    "rows": 5.096,
+    "rank": 19
+   },
+   {
+    "winding": "w033",
+    "x0": 0,
+    "glyph": 13.039,
+    "rows": -2.053,
+    "rank": 23
+   },
+   {
+    "winding": "w033",
+    "x0": 1300,
+    "glyph": 12.766,
+    "rows": 0.996,
+    "rank": 31
+   },
+   {
+    "winding": "w035",
+    "x0": 2280,
+    "glyph": 12.578,
+    "rows": 11.348,
+    "rank": 40
+   },
+   {
+    "winding": "w037",
+    "x0": 1300,
+    "glyph": 10.93,
+    "rows": 0.998,
+    "rank": 173
+   },
+   {
+    "winding": "w037",
+    "x0": 0,
+    "glyph": 10.656,
+    "rows": 1.073,
+    "rank": 201
+   },
+   {
+    "winding": "w032",
+    "x0": 1820,
+    "glyph": 10.609,
+    "rows": 22.854,
+    "rank": 208
+   },
+   {
+    "winding": "w032",
+    "x0": 1300,
+    "glyph": 10.398,
+    "rows": 5.022,
+    "rank": 234
+   },
+   {
+    "winding": "w032",
+    "x0": 0,
+    "glyph": 9.172,
+    "rows": 3.045,
+    "rank": 330
+   }
+  ],
+  "top": [
+   {
+    "rank": 1,
+    "winding": "w029",
+    "x0": 1200,
+    "on_sheet": 0.6275,
+    "glyph": 14.188,
+    "rows": 4.603
+   },
+   {
+    "rank": 2,
+    "winding": "w033",
+    "x0": 2000,
+    "on_sheet": 0.5788,
+    "glyph": 13.977,
+    "rows": 6.232
+   },
+   {
+    "rank": 3,
+    "winding": "w086",
+    "x0": 10400,
+    "on_sheet": 0.593,
+    "glyph": 13.891,
+    "rows": -1.379
+   },
+   {
+    "rank": 4,
+    "winding": "w086",
+    "x0": 10660,
+    "on_sheet": 0.543,
+    "glyph": 13.797,
+    "rows": -0.405
+   },
+   {
+    "rank": 5,
+    "winding": "w092",
+    "x0": 5200,
+    "on_sheet": 0.6036,
+    "glyph": 13.789,
+    "rows": -0.238
+   },
+   {
+    "rank": 6,
+    "winding": "w092",
+    "x0": 3900,
+    "on_sheet": 0.5936,
+    "glyph": 13.703,
+    "rows": 2.836
+   },
+   {
+    "rank": 7,
+    "winding": "w090",
+    "x0": 2600,
+    "on_sheet": 0.5885,
+    "glyph": 13.648,
+    "rows": 2.709
+   },
+   {
+    "rank": 8,
+    "winding": "w080",
+    "x0": 7800,
+    "on_sheet": 0.6129,
+    "glyph": 13.609,
+    "rows": 1.4
+   },
+   {
+    "rank": 9,
+    "winding": "w090",
+    "x0": 3900,
+    "on_sheet": 0.5914,
+    "glyph": 13.609,
+    "rows": 0.173
+   },
+   {
+    "rank": 10,
+    "winding": "w082",
+    "x0": 5200,
+    "on_sheet": 0.6227,
+    "glyph": 13.5,
+    "rows": 0.121
+   },
+   {
+    "rank": 11,
+    "winding": "w087",
+    "x0": 10880,
+    "on_sheet": 0.5413,
+    "glyph": 13.453,
+    "rows": 3.598
+   },
+   {
+    "rank": 12,
+    "winding": "w055",
+    "x0": 5680,
+    "on_sheet": 0.5572,
+    "glyph": 13.391,
+    "rows": 0.101
+   },
+   {
+    "rank": 13,
+    "winding": "w080",
+    "x0": 6500,
+    "on_sheet": 0.6055,
+    "glyph": 13.391,
+    "rows": -0.656
+   },
+   {
+    "rank": 14,
+    "winding": "w052",
+    "x0": 5000,
+    "on_sheet": 0.551,
+    "glyph": 13.375,
+    "rows": 5.571
+   },
+   {
+    "rank": 15,
+    "winding": "w035",
+    "x0": 0,
+    "on_sheet": 0.5828,
+    "glyph": 13.336,
+    "rows": 11.772
+   },
+   {
+    "rank": 16,
+    "winding": "w086",
+    "x0": 6500,
+    "on_sheet": 0.6118,
+    "glyph": 13.266,
+    "rows": 1.134
+   },
+   {
+    "rank": 17,
+    "winding": "w052",
+    "x0": 3900,
+    "on_sheet": 0.6264,
+    "glyph": 13.203,
+    "rows": 29.434
+   },
+   {
+    "rank": 18,
+    "winding": "w086",
+    "x0": 7800,
+    "on_sheet": 0.6111,
+    "glyph": 13.172,
+    "rows": 3.706
+   },
+   {
+    "rank": 19,
+    "winding": "w035",
+    "x0": 1300,
+    "on_sheet": 0.6373,
+    "glyph": 13.164,
+    "rows": 5.096
+   },
+   {
+    "rank": 20,
+    "winding": "w082",
+    "x0": 6500,
+    "on_sheet": 0.6156,
+    "glyph": 13.148,
+    "rows": 2.362
+   }
+  ],
+  "windings_by_best_window": [
+   "w029",
+   "w033",
+   "w086",
+   "w092",
+   "w090",
+   "w080",
+   "w082",
+   "w087",
+   "w055",
+   "w052",
+   "w035",
+   "w048",
+   "w049",
+   "w088",
+   "w095",
+   "w074",
+   "w083",
+   "w046",
+   "w077",
+   "w094",
+   "w066",
+   "w085",
+   "w081",
+   "w098",
+   "w089",
+   "w091",
+   "w099",
+   "w065",
+   "w076",
+   "w075",
+   "w056",
+   "w058",
+   "w054",
+   "w057",
+   "w060",
+   "w093",
+   "w059",
+   "w039",
+   "w070",
+   "w045",
+   "w067",
+   "w038",
+   "w040",
+   "w044",
+   "w025",
+   "w019",
+   "w073",
+   "w072",
+   "w078",
+   "w037",
+   "w030",
+   "w071",
+   "w079",
+   "w053",
+   "w096",
+   "w031",
+   "w104",
+   "w047",
+   "w016",
+   "w100",
+   "w064",
+   "w032",
+   "w084",
+   "w105",
+   "w041",
+   "w063",
+   "w028",
+   "w027",
+   "w043",
+   "w014",
+   "w050",
+   "w022",
+   "w012",
+   "w013",
+   "w010",
+   "w011",
+   "w109"
+  ],
+  "place_windings_rank_by_best_window": {
+   "w032": 62,
+   "w033": 2,
+   "w035": 11,
+   "w037": 50
+  },
+  "share_of_windows_above_their_p99": 0.7302,
+  "glyph_quantiles": {
+   "p50": 10.398,
+   "p90": 12.494,
+   "p99": 13.732,
+   "max": 14.188
+  },
+  "missing_maps": []
+ },
+ "audit_after_the_result": {
+  "registered": false,
+  "written": "after the result, to check it",
+  "windows": 467,
+  "end_windows": {
+   "all": 67,
+   "share": 0.1435,
+   "in_first": {
+    "10": 3,
+    "20": 6,
+    "50": 9
+   },
+   "glyph_median": 10.391,
+   "others_glyph_median": 10.41
+  },
+  "grid_only": {
+   "windows": 400,
+   "best_place_rank": 9
+  },
+  "best_place_window": {
+   "winding": "w033",
+   "x0": 2000,
+   "end_window": true,
+   "place_cells": 180309,
+   "glyph": 13.977,
+   "below_first_rank": 0.211,
+   "above_next_rank": 0.086,
+   "above_rank_10": 0.477
+  },
+  "first_rank": {
+   "winding": "w029",
+   "x0": 1200,
+   "end_window": true
+  }
+ },
+ "look_after_the_result": {
+  "registered_look": "the windows ranked above the place (PHerc. 211 may be viewed)",
+  "rank_1": {
+   "winding": "w029",
+   "x0": 1200,
+   "seen": "blocky texture; a few stroke-like marks near its right end (the winding's end); no letters I can read"
+  },
+  "place_rank_2": {
+   "winding": "w033",
+   "x0": 2000,
+   "seen": "letter shapes in three lines, mirrored as this fit's windings render"
+  },
+  "beyond_the_registered_look": {
+   "rank_3": {
+    "winding": "w086",
+    "x0": 10400,
+    "seen": "blocky texture; no letters"
+   },
+   "rank_5": {
+    "winding": "w092",
+    "x0": 5200,
+    "seen": "blocky texture with a few letter-like strokes at its top left"
+   }
+  },
+  "how": "crops of summary/images/wNNN.png over the window's columns, at one third scale"
+ },
+ "steps": {
+  "check": {
+   "exit": 0,
+   "seconds": 3
+  },
+  "select": {
+   "exit": 0,
+   "seconds": 0
+  },
+  "densify": {
+   "exit": 0,
+   "seconds": 13
+  },
+  "read": {
+   "exit": 0,
+   "seconds": 54943
+  },
+  "glyph": {
+   "exit": 0,
+   "seconds": 469
+  },
+  "place": {
+   "exit": 0,
+   "seconds": 40
+  },
+  "verdict": {
+   "exit": 0,
+   "seconds": 0
+  }
+ },
+ "read": {
+  "stages": {
+   "snap": {
+    "exit": 0,
+    "seconds": 1270
+   },
+   "stacked": {
+    "exit": 0,
+    "seconds": 14
+   },
+   "orient": {
+    "exit": 0,
+    "seconds": 41420
+   },
+   "summarise": {
+    "exit": 0,
+    "seconds": 137
+   }
+  },
+  "flatten": {
+   "attempted": 80,
+   "exited_zero": 80,
+   "seconds_total": 4563,
+   "seconds_median": 64,
+   "seconds_max": 97
+  },
+  "render": {
+   "attempted": 80,
+   "exited_zero": 80,
+   "seconds_total": 6574,
+   "seconds_median": 81,
+   "seconds_max": 234
+  },
+  "studio": {
+   "attempted": 80,
+   "exited_zero": 80,
+   "seconds_total": 7201,
+   "seconds_median": 88,
+   "seconds_max": 244
+  }
+ },
+ "freeze": {
+  "why": "the read's render guard (FL_MIN_FREE_GB 50) would have refused every render at 42 GB free",
+  "frozen": "2026-11-23T22:38:30-08:00",
+  "thawed": "2026-11-24T10:08:47-08:00",
+  "seconds": 41417,
+  "inside": "the orient stage's gate and the read step's seconds",
+  "by": "a scratch unit freezing the run's cgroup; nothing of the run was changed"
+ },
+ "bytes_on_disk_mib": {
+  "renders": 21917,
+  "studio_maps": 6792,
+  "flatten": 6278,
+  "snap_three_passes": 300
+ },
+ "read_seconds_without_the_freeze": 13526
+}

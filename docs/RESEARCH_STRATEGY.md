@@ -494,6 +494,14 @@ predicted-sheet runs outside it, so the papyrus outside it was not read. The fir
 and the chain ran again from the start; the second crossed oomd's 50% line twice, for about 6 s and 18 s, under its
 20 s. No automatic verdict was registered: the images stay on this machine and the owner reads them.
 
+**The PHerc. 306B team's glyph network puts PHerc. 211's known text 2nd in a band read, among windows of texture
+(November 24).** Finding 119's band of PHerc. 211 was read the way finding 133 read PHerc. 0800 (80 windings), and
+every window was scored by the network the PHerc. 306B team used to find their line
+([report](../reports/first_letters_0211_band_triage.md), finding 138). The best window on the winner's text ranks 2nd
+of 467 (`TRIAGE_FINDS_THE_TEXT`); on the team's own window grid, 9th of 400. The window ranked above it and those just
+below show no letters, and their scores lie within a fraction of a logit of the text's: the ranking orders a look, it
+does not detect text. As registered, the eligible bands' pages get their windows in glyph order, the first 10 first.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 

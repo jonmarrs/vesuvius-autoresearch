@@ -479,23 +479,27 @@ def test_2501_s_entry_quotes_its_record():
     assert "the PR thanks EhimenNathan and AndreasHad04 for the pixel evidence" in TEXT
 
 
-def test_the_runs_still_going_claim_no_result():
-    """Each run still going is named by its registration's branch and commit, and nothing of a result is written
-    before its report exists."""
-    section = " ".join(
-        _section(
-            "Still running: a test at PHerc. 211 that may land before filing"
-        ).split()
+def test_no_run_is_still_going_and_the_triage_entry_quotes_its_record():
+    """Finding 138 has reported, so no section claims a run still going; its entry quotes its record and audit."""
+    assert "Still running" not in DRAFT
+    record = json.loads(
+        (ROOT / "reports/first_letters_0211_band_triage.json").read_text()
     )
-    assert "It has no result yet" in section
-    assert not re.search(r"\br = |\bAUC\b|[Vv]erdict|TRIAGE_|[Ff]inding \d", section)
-    assert re.findall(
-        r"registered on branch `(research/[\w-]+)` at `([0-9a-f]{8})`", section
-    ) == [("research/studio-band-triage", "26d5c8a5")]
+    assert record["verdict"] == "TRIAGE_FINDS_THE_TEXT"
+    reg, audit = record["registered"], record["audit_after_the_result"]
+    flat = " ".join(DRAFT.split())
     assert (
-        "the fit declared to turn the wrong way, has reported and is above" in section
+        f"ranks {reg['best_place_rank']}nd of {reg['windows']}; counting only the windows on their own grid, "
+        f"{audit['grid_only']['best_place_rank']}th of {audit['grid_only']['windows']}"
+        in flat
     )
-    assert "**The owner's decision (2026-11-23):**" in section
+    assert (
+        audit["best_place_window"]["end_window"]
+        and "without those windows the text ranks 9th" in flat
+    )
+    assert "[report](../reports/first_letters_0211_band_triage.md)" in flat
+    assert "the network is Liam Warner's and Nicola Bodill's" in flat
+    assert "PHerc. 0125" not in DRAFT
 
 
 def test_the_wrong_hand_entry_quotes_its_record():
