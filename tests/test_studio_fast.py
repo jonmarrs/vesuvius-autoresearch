@@ -206,3 +206,133 @@ def test_the_run_keeps_the_winners_command_and_uploads_nothing():
     f123 = dict(re.findall(r"^(W_SHA|CODE_SHA|P_SHA)=(\w+)", (CONTROL / "run_studio_reproduction.sh").read_text(),
                            flags=re.M))  # fmt: skip
     assert shas == f123 and len(shas) == 3
+
+
+# --- each edge of a window's crop, the inputs predict refuses, the window count, the lines, compare and run's checks -
+
+
+@pytest.mark.parametrize(
+    ("y", "x", "has"),
+    [(260, 200, True), (275, 200, True), (276, 200, False),  # CT only in the 16 rows of context above the window
+     (40, 200, True), (35, 200, False),  # only in the last 16 rows of the crop, below the window
+     (200, 330, True), (200, 70, True), (200, 65, False)],  # the same, left and right
+)  # fmt: skip
+def test_a_windows_crop_reaches_16_pixels_each_side_of_it(y, x, has):
+    # the CT block is rows 150 to 259 and columns 180 to 329
+    v = _volume()
+    assert sf.has_ct(sf.integral(v), *v.shape[1:], y, x) is has
+
+
+def test_ct_in_any_one_plane_counts():
+    v = np.zeros((16, 200, 200), np.uint8)
+    v[5, 100, 100] = 7
+    assert sf.has_ct(sf.integral(v), 200, 200, 64, 64)
+
+
+@pytest.mark.parametrize(
+    ("volume", "batch"),
+    [(np.zeros((15, 64, 64), np.uint8), 1), (np.zeros((16, 64, 64), np.uint16), 1),
+     (np.zeros((16, 64, 64), np.uint8), 0)],
+    ids=["15-planes", "16-bit", "no-batch"],
+)  # fmt: skip
+def test_predict_refuses_another_input_or_an_empty_batch(tmp_path, volume, batch):
+    with pytest.raises(ValueError):
+        sf.predict(
+            _toy_inf(), _toy_model, volume, tmp_path / "o.npy", "cpu", batch, "fp32"
+        )
+
+
+@pytest.mark.parametrize(
+    ("stride", "blend", "windows"), [(64, "hann", 8 * 9), (96, "none", 5 * 6)]
+)
+def test_the_window_count_is_the_winners_starts(tmp_path, stride, blend, windows):
+    # hann adds a last window flush with the bottom and the right edges: rows 304 and columns 404
+    counts = sf.predict(
+        _toy_inf(),
+        _toy_model,
+        _volume(),
+        tmp_path / "o.npy",
+        "cpu",
+        32,
+        "fp32",
+        stride,
+        blend,
+    )
+    assert counts == {"windows": windows, "run": windows}
+
+
+def test_a_map_exactly_at_each_line_is_the_same_map():
+    assert sf.same(_numbers(r=sf.R_SAME, p99=sf.P99_SAME, side=sf.SIDE_SAME))
+
+
+def test_the_verdict_needs_pairs_and_ratios_and_takes_a_ratio_at_the_line():
+    pairs = {"full_a": _numbers(), "skip_a": _numbers()}
+    assert sf.verdict(True, {}, [0.5]) == "DOES_NOT_RUN"
+    assert sf.verdict(True, pairs, []) == "SKIP_NOT_FASTER"
+    assert sf.verdict(True, pairs, [sf.FASTER]) == "SKIP_ADOPTED"
+
+
+def _compare_files(tmp_path):
+    """Planes with CT in plane 3 only, over the left half; two maps equal there and different on the right."""
+    planes = np.zeros((16, 8, 8), np.uint8)
+    planes[3, :, :4] = 9
+    rng = np.random.default_rng(0)
+    ref = rng.random((8, 8)).astype(np.float32)
+    ours = ref.copy()
+    ours[:, 4:] += 0.3
+    for name, array in (("planes", planes), ("ref", ref), ("ours", ours)):
+        np.save(tmp_path / f"{name}.npy", array)
+    return tmp_path / "ours.npy", tmp_path / "ref.npy", tmp_path / "planes.npy"
+
+
+def test_a_pair_is_compared_over_the_pixels_any_plane_gives_ct(tmp_path):
+    numbers = sf.compare_pair(*_compare_files(tmp_path))
+    assert numbers["pixels"] == 32 and numbers["exact_over_the_ct"] is True
+
+
+@pytest.mark.parametrize(
+    ("steps_ok", "expected"), [("yes", "SKIP_ADOPTED"), ("no", "DOES_NOT_RUN")]
+)
+def test_the_compare_command_takes_skip_over_full_time_and_runs_once(
+    tmp_path, steps_ok, expected
+):
+    import json
+
+    ours, ref, planes = _compare_files(tmp_path)
+    (tmp_path / "runs.json").write_text(
+        json.dumps({"full_w": {"seconds": 10.0}, "skip_w": {"seconds": 6.0}})
+    )
+    argv = ["compare", str(tmp_path / "out.json"), "--pair", "full_w", str(ref), str(ref), str(planes),
+            "--pair", "skip_w", str(ref), str(ref), str(planes), "--seconds-json", str(tmp_path / "runs.json"),
+            "--band-windings", "w", "--steps-ok", steps_ok]  # fmt: skip
+    assert sf.main(argv) == 0
+    out = json.loads((tmp_path / "out.json").read_text())
+    assert out["time_ratio_skip_over_full"] == {"w": 0.6} and out["verdict"] == expected
+    assert sf.main(argv) == 2
+
+
+def test_run_checks_its_code_its_output_and_its_tiling_first(tmp_path, monkeypatch):
+    import argparse
+
+    code = tmp_path / "code"
+    code.mkdir()
+    (code / "inference.py").write_text("")
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.delitem(sys.modules, "inference", raising=False)
+
+    def args(**kw):
+        base = {"code": code, "input": tmp_path / "in.npy", "output": tmp_path / "out.npy",
+                "checkpoint": tmp_path / "w", "batch_size": 32, "stride": 96, "blend": "none",
+                "skip_empty": False}  # fmt: skip
+        return argparse.Namespace(**{**base, **kw})
+
+    (tmp_path / "out.npy").write_bytes(b"")
+    with pytest.raises(SystemExit, match="exists"):
+        sf.run(args())
+    with pytest.raises(SystemExit, match="needs --blend hann"):
+        sf.run(args(output=tmp_path / "new.npy", stride=64))
+    other = types.ModuleType("inference")
+    other.__file__ = str(tmp_path / "elsewhere" / "inference.py")
+    monkeypatch.setitem(sys.modules, "inference", other)
+    with pytest.raises(SystemExit, match="imported"):
+        sf.run(args(output=tmp_path / "new.npy"))
