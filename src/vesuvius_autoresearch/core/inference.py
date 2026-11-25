@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from numbers import Real
 from typing import overload
 
+import numpy as np
 import torch
 
 from .inference_constants import (  # noqa: F401 (re-exported)
@@ -288,3 +289,17 @@ def blend_coverage_fraction(weights, *, complete):
     if complete:
         return 1.0
     return int(torch.count_nonzero(weights > 0).item()) / weights.numel()
+
+
+def quantize_probabilities(probabilities: np.ndarray) -> np.ndarray:
+    """Convert to 8-bit export pixels with bounded scratch arrays."""
+    image = np.empty_like(probabilities, dtype=np.uint8, subok=False)
+    with np.nditer(
+        [probabilities, image],
+        flags=["external_loop", "buffered", "zerosize_ok"],
+        op_flags=[["readonly"], ["writeonly"]],
+        buffersize=262144,
+    ) as blocks:
+        for values, pixels in blocks:
+            pixels[...] = np.clip(values, 0, 1) * 255
+    return image

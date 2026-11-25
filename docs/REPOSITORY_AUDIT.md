@@ -2591,3 +2591,22 @@ The ten complete-region and shard CLI fixtures guard against summing a
 region-sized boolean tensor and still verify the published coverage. These
 measurements describe the CPU coverage operation. Representative end-to-end
 GPU and host peak-memory measurements and ensemble residency remain open.
+
+## Bound probability-to-image conversion allocations (2026-11-25 UTC)
+
+This pass starts from main `2a6ab7bb`. Quantizing a 4096-by-4096 float32
+probability plane allocated separate full-size clipped and scaled arrays.
+The original expression peaked at 128.00 MiB of traced allocations with the
+source already resident.
+
+Regional and production exports now share a blockwise conversion. Each
+iteration applies the same clipping, scaling and truncation to at most
+262,144 elements, writing into the final uint8 image. The repeat trace
+peaked at 18.01 MiB, including the 16 MiB result, and matched every original
+pixel. Fixtures compare contiguous and strided read-only inputs, verify the
+block bound and confirm that regional PNGs and Zarr arrays agree with the
+original formula applied to the saved NumPy planes.
+
+These figures are for one CPU conversion, with the source excluded from the
+trace. Representative whole-run CPU and GPU peaks and ensemble residency
+remain open.
