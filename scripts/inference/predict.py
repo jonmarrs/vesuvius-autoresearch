@@ -47,6 +47,7 @@ from vesuvius_autoresearch.core.inference import (
     normalize_blend,
     positive_number,
     prepare_volume_input,
+    quantize_probabilities,
     read_model_block,
     region_tiles,
     ridge_depth_context,
@@ -302,7 +303,7 @@ def stage_regional_outputs(
             )
             np.save(npy, probability, allow_pickle=False)
 
-            image = (np.clip(probability, 0, 1) * 255).astype(np.uint8)
+            image = quantize_probabilities(probability)
             png = arrays.enter_context(_stage_prediction_file(f"{base}.png"))
             Image.fromarray(image).save(png, format="PNG")
 

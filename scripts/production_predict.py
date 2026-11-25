@@ -19,7 +19,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from tqdm.auto import tqdm
@@ -38,6 +37,7 @@ from vesuvius_autoresearch.core.inference import (
     hann2d,
     normalize_blend,
     prepare_volume_input,
+    quantize_probabilities,
     read_model_block,
     ridge_depth_context,
     tile_count,
@@ -257,7 +257,7 @@ def production_predict(argv=None):
         flush()
         final_prob = normalize_blend(full_prob, full_count).cpu().numpy()
     args.tiles_total = args.tiles_processed = len(ys) * len(xs)
-    final_uint8 = (np.clip(final_prob, 0, 1) * 255).astype(np.uint8)
+    final_uint8 = quantize_probabilities(final_prob)
     print(f"Inference complete in {time.time() - start:.1f}s")
 
     plan.validate()

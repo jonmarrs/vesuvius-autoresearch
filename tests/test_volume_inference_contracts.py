@@ -56,6 +56,31 @@ def test_blend_normalization_avoids_full_size_fallbacks(monkeypatch, complete):
     assert fallbacks == expected_fallbacks
 
 
+@pytest.mark.parametrize("strided", [False, True])
+def test_export_quantization_preserves_pixels_in_bounded_blocks(monkeypatch, strided):
+    values = np.linspace(-0.25, 1.25, 1024 * 1024, dtype=np.float32).reshape(1024, 1024)
+    if strided:
+        values = values[::2, ::-1]
+    before = values.copy()
+    clip = np.clip
+    expected = (clip(values, 0, 1) * 255).astype(np.uint8)
+    sizes = []
+
+    def track_blocks(block, *args, **kwargs):
+        sizes.append(block.size)
+        return clip(block, *args, **kwargs)
+
+    values.setflags(write=False)
+    monkeypatch.setattr(np, "clip", track_blocks)
+    actual = inference_helpers.quantize_probabilities(values)
+
+    np.testing.assert_array_equal(actual, expected)
+    np.testing.assert_array_equal(values, before)
+    assert actual.dtype == np.uint8
+    assert sum(sizes) == values.size
+    assert max(sizes) <= 262144
+
+
 def _fresh_coherence():
     path = Path(__file__).resolve().parents[1] / "scripts/compute_fiber_coherence.py"
     spec = importlib.util.spec_from_file_location("_coherence_source_probe", path)
@@ -339,6 +364,8 @@ def forbid_region_mask_sum(monkeypatch):
 def test_complete_region_has_no_black_edges_and_consistent_exports(
     tmp_path, monkeypatch, forbid_region_mask_sum, mode, tta, gaussian
 ):
+    from PIL import Image
+
     runner, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
     if not tta:
         argv.append("--disable_tta")
@@ -386,7 +413,12 @@ def test_complete_region_has_no_black_edges_and_consistent_exports(
     )
     for key in ("vc3d_zarr_path", "fiber_vc3d_zarr_path"):
         export = Path(metadata[key])
-        assert zarr.open_group(str(export), mode="r")["0"].shape == (1, 11, 13)
+        probabilities = np.load(export.with_suffix(".npy"))
+        pixels = (np.clip(probabilities, 0, 1) * 255).astype(np.uint8)
+        level = zarr.open_group(str(export), mode="r")["0"]
+        np.testing.assert_array_equal(level[:], pixels[None])
+        with Image.open(export.with_suffix(".png")) as image:
+            np.testing.assert_array_equal(np.asarray(image), pixels)
         transforms = json.loads((export / ".zattrs").read_text())["multiscales"][0][
             "datasets"
         ][0]["coordinateTransformations"]
