@@ -213,8 +213,10 @@ real directories and regular files without symbolic or hard links; metadata
 must also be a regular file without hard links. Inspection stops after 100,000
 entries in the existing group. An unsafe or oversized existing output is refused;
 choose a fresh output directory or stem. The source volume is not recursively
-scanned. The command rechecks paths after staging. Keep source paths stable and
-serialize writers targeting the same artifacts.
+scanned. Before replacement, the command checks that the requested CT still selects
+the planned group and array. It also checks the current checkpoint alias
+against both outputs. These checks run before and after staging. Keep source
+paths stable and serialize writers targeting the same artifacts.
 
 Without `--artifact-stem`, names remain
 `prod_pred_<z>_<y>_<x>_<width>x<height>.zarr` and the matching `_meta.json`.
