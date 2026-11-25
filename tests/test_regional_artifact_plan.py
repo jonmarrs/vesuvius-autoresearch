@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 import torch
+import zarr
 from test_volume_inference_contracts import setup_prediction
 
 from scripts.regional_prediction_artifacts import RegionalArtifactPlan
@@ -221,6 +222,36 @@ def test_output_plan_is_rechecked_before_invalidating_old_metadata(
         run()
     assert checkpoint.read_bytes() == before
     assert metadata.read_text() == "previous completed metadata"
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_shard_keeps_previous_outputs_when_only_the_ct_preview_read_fails(
+    tmp_path, monkeypatch, mode
+):
+    run, argv, models, volume, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    zarr.open_array(
+        str(volume),
+        mode="w",
+        shape=(6, 24, 24),
+        chunks=(2, 8, 8),
+        dtype="u1",
+        compressor=None,
+        dimension_separator=".",
+    )[:] = 128
+    argv[argv.index("--width") + 1] = "19"
+    argv.extend(["--artifact_stem", "region", "--num_parts", "8", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    assert (output / "region_part0of8_meta.json").is_file()
+    before = _tree(output)
+
+    # The first tile stops at x=11. Only the full-width preview reaches x=16.
+    (volume / "1.0.2").write_bytes(b"short chunk")
+    with pytest.raises(ValueError, match="cannot reshape array"):
+        run()
+
+    assert len(models[-1].inputs) == 1
+    assert _tree(output) == before
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])

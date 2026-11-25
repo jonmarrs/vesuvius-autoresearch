@@ -559,6 +559,11 @@ def predict():
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
+    # The full preview can reach damaged chunks outside this shard's tiles.
+    z_mid = args.z + num_layers // 2
+    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, predict_height, predict_width)[
+        0
+    ]
     artifacts.validate_source_selection(args.uri)
     # Protect the current checkpoint link target as well as the file we read.
     artifacts.validate(checkpoint_aliases=(args.checkpoint,))
@@ -646,21 +651,9 @@ def predict():
             }
             print(f"Warning: skipping active-learning export: {exc}")
 
-    # Generate Visualization (using center CT slice of the whole region)
-    # ...
-
-    # Note: For very large regions, we'd need to fetch the CT slice in parts too.
-    # For now, we fetch the middle slice of the entire requested area.
-    z_mid = args.z + num_layers // 2
-    # CT only: indexing a ridge-enabled volume would run the ridge filter on one
-    # slice, which it refuses with a spurious ridge-fallback warning.
-    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, predict_height, predict_width)[
-        0
-    ]
-
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
-    axes[0].set_title(f"CT Slice (Z={args.z + num_layers // 2})")
+    axes[0].set_title(f"CT Slice (Z={z_mid})")
 
     if has_fiber:
         axes[1].imshow(prob_fiber_final, cmap="magma")
