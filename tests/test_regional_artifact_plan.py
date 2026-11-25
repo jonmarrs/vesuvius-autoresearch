@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
 import zarr
@@ -222,6 +223,41 @@ def test_output_plan_is_rechecked_before_invalidating_old_metadata(
         run()
     assert checkpoint.read_bytes() == before
     assert metadata.read_text() == "previous completed metadata"
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("kind", ["ink", "fiber", "weight"])
+def test_interrupted_array_save_preserves_the_previous_npy(
+    tmp_path, monkeypatch, mode, kind
+):
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--num_parts", "2", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    destination = output / f"region_part0of2_{kind}.npy"
+    before = destination.read_bytes()
+    assert (output / "region_part0of2_meta.json").is_file()
+    order = ("ink", "fiber", "weight") if mode == "single" else ("weight", "ink", "fiber")
+    save = np.save
+    count = 0
+    attempts = []
+
+    def fail_after_partial_save(file, array, **kwargs):
+        nonlocal count
+        count += 1
+        if count != order.index(kind) + 1:
+            return save(file, array, **kwargs)
+        attempts.append(Path(file))
+        Path(file).write_bytes(b"partial NPY")
+        raise OSError("interrupted array save")
+
+    monkeypatch.setattr(np, "save", fail_after_partial_save)
+    with pytest.raises(OSError, match="interrupted array save"):
+        run()
+
+    assert destination.read_bytes() == before
+    assert len(attempts) == 1 and not attempts[0].exists()
+    assert not (output / "region_part0of2_meta.json").exists()
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])

@@ -28,6 +28,7 @@ from scripts.inference.predict import (
     prediction_scale_bar,
     publish_regional_previews,
     regional_preview_figure,
+    save_regional_array,
     save_vc3d_zarr,
     write_prediction_metadata,
 )
@@ -323,11 +324,11 @@ def ensemble_predict():
         )
         if args.num_parts > 1:
             args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
-            np.save(args.blend_weight_path, weights.cpu().numpy())
+            save_regional_array(args.blend_weight_path, weights.cpu().numpy())
         exports = []
         outputs = [("ink", ink)] + ([("fiber", fiber)] if has_fiber else [])
         for name, array in outputs:
-            np.save(os.path.join(output_dir, f"{base}_{name}.npy"), array)
+            save_regional_array(os.path.join(output_dir, f"{base}_{name}.npy"), array)
             image = (np.clip(array, 0, 1) * 255).astype(np.uint8)
             Image.fromarray(image).save(os.path.join(output_dir, f"{base}_{name}.png"))
             export = os.path.join(output_dir, f"{base}_{name}.zarr")

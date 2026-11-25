@@ -114,13 +114,25 @@ def regional_preview_figure():
         plt.close(figure)
 
 
+@contextmanager
+def _stage_prediction_file(destination, *, suffix=""):
+    with staged_file(destination, suffix=suffix) as temporary:
+        yield temporary
+        if os.path.lexists(destination):
+            validate_output_file(destination)
+
+
 def publish_regional_previews(preview_files):
     """Replace each preview file after copying it completely beside its destination."""
     for destination, source in preview_files.items():
-        with staged_file(destination) as temporary:
+        with _stage_prediction_file(destination) as temporary:
             copyfile(source, temporary)
-            if os.path.lexists(destination):
-                validate_output_file(destination)
+
+
+def save_regional_array(destination, array):
+    """Publish a complete numeric NPY through a sibling temporary file."""
+    with _stage_prediction_file(destination, suffix=".npy") as temporary:
+        np.save(temporary, array, allow_pickle=False)
 
 
 def save_vc3d_zarr(
@@ -301,11 +313,8 @@ def write_prediction_metadata(
             raise ValueError("extra metadata must not overwrite prediction facts")
         metadata.update(extra_metadata)
     encoded = json.dumps(metadata, indent=2, allow_nan=False)
-    output = Path(path)
-    with staged_file(output) as temporary:
+    with _stage_prediction_file(path) as temporary:
         temporary.write_text(encoded + "\n", encoding="utf-8")
-        if os.path.lexists(output):
-            validate_output_file(output)
 
 
 def _prediction_output(args):
@@ -654,12 +663,14 @@ def predict():
         metadata_path = invalidate_prediction_metadata(
             output_dir, base_name, str(artifacts.metadata)
         )
-        np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
+        save_regional_array(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
         if has_fiber:
-            np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
+            save_regional_array(
+                os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final
+            )
         if args.num_parts > 1:
             args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
-            np.save(args.blend_weight_path, full_weight.cpu().numpy())
+            save_regional_array(args.blend_weight_path, full_weight.cpu().numpy())
 
         # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
         from PIL import Image
