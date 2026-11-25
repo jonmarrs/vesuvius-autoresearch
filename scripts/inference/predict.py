@@ -12,8 +12,8 @@ import stat
 import sys
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
-from shutil import copy2, copyfile, copytree
-from tempfile import TemporaryDirectory
+from shutil import copy2, copyfile, copytree, rmtree
+from tempfile import TemporaryDirectory, mkdtemp
 from urllib.parse import unquote, urlsplit
 
 # Both direct and -m launches must use this checkout's src; the shared editable
@@ -336,11 +336,40 @@ def invalidate_prediction_metadata(output_dir, base_name, metadata_out=None):
     Rankers discover the canonical sidecar even when this run selects a custom
     one. Leaving it intact would authorize the old run's retained fiber files.
     """
-    canonical = os.path.join(output_dir, f"{base_name}_meta.json")
-    selected = metadata_out or canonical
-    for path in {canonical, selected}:
-        if os.path.lexists(path):
+    canonical = Path(output_dir) / f"{base_name}_meta.json"
+    selected = metadata_out or str(canonical)
+    paths = [
+        path
+        for path in dict.fromkeys((canonical, Path(selected)))
+        if os.path.lexists(path)
+    ]
+    for path in paths:
+        validate_output_file(path)
+    if len(paths) < 2:
+        for path in paths:
             os.remove(path)
+        return selected
+
+    first, second = paths
+    workspace = Path(mkdtemp(dir=first.parent, prefix=".prediction-sidecars-"))
+    backup = workspace / "previous.json"
+    invalidated = False
+    try:
+        first.rename(backup)
+        try:
+            os.remove(second)
+        except BaseException:
+            try:
+                backup.rename(first)
+            except OSError as exc:
+                raise RuntimeError(
+                    f"sidecar rollback failed; previous record retained at {backup}"
+                ) from exc
+            raise
+        invalidated = True
+    finally:
+        if invalidated or not backup.exists():
+            rmtree(workspace, ignore_errors=True)
     return selected
 
 

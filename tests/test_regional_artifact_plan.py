@@ -372,6 +372,74 @@ def test_completion_sidecar_preparation_failure_preserves_previous_run(
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("restore_fails", [False, True])
+def test_failure_invalidating_second_sidecar_preserves_previous_run(
+    tmp_path, monkeypatch, mode, restore_fails
+):
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    run()
+
+    canonical = tmp_path / "out/region_meta.json"
+    selected = tmp_path / "records/other.json"
+    selected.parent.mkdir()
+    selected.write_bytes(canonical.read_bytes())
+    canonical.chmod(0o640)
+    selected.chmod(0o600)
+    argv.extend(["--metadata_out", str(selected)])
+    _change_fixture_weights(checkpoints[0])
+    before = _tree(tmp_path)
+    attempts = []
+    remove = os.remove
+    rename = Path.rename
+
+    def check_invalidation(source):
+        if Path(source) in (canonical, selected):
+            attempts.append(Path(source))
+            if len(attempts) == 2:
+                raise OSError("second sidecar invalidation failed")
+
+    def checked_remove(source, *args, **kwargs):
+        check_invalidation(source)
+        return remove(source, *args, **kwargs)
+
+    def checked_rename(source, destination):
+        if (
+            restore_fails
+            and source.name == "previous.json"
+            and destination == canonical
+        ):
+            raise OSError("first sidecar restoration failed")
+        check_invalidation(source)
+        return rename(source, destination)
+
+    monkeypatch.setattr(os, "remove", checked_remove)
+    monkeypatch.setattr(Path, "rename", checked_rename)
+    if restore_fails:
+        with pytest.raises(RuntimeError, match="previous record retained at") as error:
+            run()
+        (backup,) = canonical.parent.glob(".prediction-sidecars-*/previous.json")
+        assert str(backup) in str(error.value)
+        assert backup.parent.stat().st_mode & 0o777 == 0o700
+        assert not canonical.exists()
+        before[str(backup.relative_to(tmp_path))] = before.pop(
+            str(canonical.relative_to(tmp_path))
+        )
+        retained_record = backup
+        assert list(tmp_path.rglob(".*-*/")) == [backup.parent]
+    else:
+        with pytest.raises(OSError, match="second sidecar invalidation failed"):
+            run()
+        retained_record = canonical
+        assert not list(tmp_path.rglob(".*-*/"))
+
+    assert len(attempts) == 2
+    assert _tree(tmp_path) == before
+    assert retained_record.stat().st_mode & 0o777 == 0o640
+    assert selected.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
 def test_shard_keeps_previous_outputs_when_only_the_ct_preview_read_fails(
     tmp_path, monkeypatch, mode
 ):

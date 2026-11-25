@@ -2530,3 +2530,26 @@ the prior run. Optional coherence still adds a later observation.
 After installation starts, the individual replacements remain separate.
 The completion record is absent if an installation fails before it can be
 published. Representative GPU and host peak-memory measurements remain open.
+
+## Restore the first regional sidecar if invalidating the second fails (2026-11-25 UTC)
+
+This pass starts from main `df213ccf`. A rerun with both the canonical and
+selected custom sidecar present could remove one record and then fail to
+remove the other. Two CPU fixtures reproduced a missing record even though
+all previous prediction payloads survived.
+
+Both regional commands now retain the first record in the same filesystem
+while removing the second. A failed removal restores the first record at
+its original path. If restoration itself fails, the error names the backup
+so it can be recovered. A single previous record still requires only one
+removal. The fixtures check both records, their modes and all previous
+payload bytes after the injected failure.
+
+Once payload installation starts, each replacement still runs separately.
+The new completion record is installed only after the payloads succeed.
+Representative GPU and host peak-memory measurements remain open.
+
+Review added recovery checks for a failed restore in both commands. They
+verify the backup location in the error, the private directory mode and the
+original record's mode and bytes. The file-mode audit now lists this private
+workspace with the other temporary directories that never become outputs.

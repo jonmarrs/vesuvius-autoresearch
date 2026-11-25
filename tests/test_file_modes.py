@@ -145,6 +145,9 @@ NOT_CHECKED = {
     # Scratch, never renamed into place.
     "src/vesuvius_autoresearch/core/checkpoint_tools.py::_audit_path",
     "scripts/f1_noise_probe.py::execute",
+    # The backup directory stays private. Rollback renames the existing file,
+    # preserving its mode without publishing the directory.
+    "scripts/inference/predict.py::invalidate_prediction_metadata",
     "scripts/tracer_rescore_analysis.py::v1_scorer",
 }
 TEMPORARY = {"mkstemp", "mkdtemp", "NamedTemporaryFile"}
