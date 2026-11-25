@@ -37,9 +37,10 @@ def _image_destination(value):
     image_format = requested_format.lower()
     formats = FigureCanvasBase.get_supported_filetypes()
     if image_format not in formats:
-        # An active canvas can also implement a writer for an unregistered format.
         canvas = backend_registry.load_backend_module(get_backend()).FigureCanvas
-        if not hasattr(canvas, f"print_{image_format}"):
+        # Importing the active backend can register additional writers.
+        formats = FigureCanvasBase.get_supported_filetypes()
+        if image_format not in formats and not hasattr(canvas, f"print_{image_format}"):
             raise ValueError(
                 f"Format {image_format!r} is not supported for --output_img "
                 f"(registered formats: {', '.join(sorted(formats))})"

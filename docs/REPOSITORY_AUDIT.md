@@ -2353,3 +2353,7 @@ passes it separately from the filename. Dot-only names still resolve to the
 default extension, and the explicit format lets savefig write that dotfile.
 The failed reruns preserve prior outputs. Runtime rendering failures and
 representative GPU and host memory measurements remain open.
+
+PR review reproduced a refusal for a writer registered during the active
+backend's import. The plan checks the updated registry after loading that
+backend. A synthetic backend fixture confirms its registered writer can save.

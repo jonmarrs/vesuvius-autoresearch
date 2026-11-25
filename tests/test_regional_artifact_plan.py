@@ -446,6 +446,35 @@ def test_unsupported_preview_format_preserves_previous_prediction(
     assert not models
 
 
+def test_preview_format_registered_when_active_backend_loads(tmp_path, monkeypatch):
+    from matplotlib import backend_bases
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.backends.registry import backend_registry
+
+    # Simulate a backend that registers an alternate format when imported.
+    formats = backend_bases.FigureCanvasBase.get_supported_filetypes().copy()
+    monkeypatch.setattr(backend_bases.FigureCanvasBase, "filetypes", formats)
+    monkeypatch.setattr(backend_bases, "_default_filetypes", formats)
+    monkeypatch.setattr(
+        backend_bases, "_default_backends", backend_bases._default_backends.copy()
+    )
+
+    class PreviewCanvas(FigureCanvasAgg):
+        print_auditpreview = FigureCanvasAgg.print_png
+
+    def load_backend(_name):
+        backend_bases.register_backend("auditpreview", PreviewCanvas)
+        return SimpleNamespace(FigureCanvas=FigureCanvasAgg)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(backend_registry, "load_backend_module", load_backend)
+        plan = RegionalArtifactPlan.create(
+            "region", tmp_path / "view.auditpreview", None, tmp_path / "ct.zarr", []
+        )
+    _image_destination_writer("single", plan)
+    assert plan.image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 def test_image_destination_preflight_in_both_entrypoints_without_loading_models(
     tmp_path, monkeypatch, mode
