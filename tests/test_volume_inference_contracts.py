@@ -1196,15 +1196,35 @@ def zeroed_region_plane_copies(monkeypatch):
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("origin", ["upper", "lower"])
 def test_a_model_without_a_fiber_head_exports_no_fiber_prediction(
-    tmp_path, monkeypatch, zeroed_region_plane_copies, mode
+    tmp_path, monkeypatch, zeroed_region_plane_copies, mode, origin
 ):
     """Without a fiber head a model returns its ink logits as "fiber": exported,
     that was the ink map under the fiber prediction's name (and in its zarr)."""
+    from matplotlib import rc_context
+    from matplotlib.axes import Axes
+
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
     argv.append("--disable_tta")
     _without_heads(monkeypatch, [frozenset()])
-    runner()
+    imshow = Axes.imshow
+    placeholders = []
+
+    def capture_placeholder(axes, *args, **kwargs):
+        artist = imshow(axes, *args, **kwargs)
+        if kwargs.get("cmap") == "gray" and kwargs.get("vmin") == 0:
+            placeholders.append(artist)
+        return artist
+
+    monkeypatch.setattr(Axes, "imshow", capture_placeholder)
+    with rc_context({"image.origin": origin}):
+        runner()
+
+    (placeholder,) = placeholders
+    y_extent = (10.5, -0.5) if origin == "upper" else (-0.5, 10.5)
+    assert tuple(placeholder.get_extent()) == (-0.5, 12.5, *y_extent)
+    np.testing.assert_array_equal(placeholder.get_array(), [[0.0]])
     assert zeroed_region_plane_copies == [11 * 13 * 4]
     output = tmp_path / "out"
     assert list(output.glob("*_ink.npy")) and not list(output.glob("*_fiber.*"))

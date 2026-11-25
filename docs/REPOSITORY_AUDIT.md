@@ -2628,3 +2628,20 @@ the same output validation and the no-fiber preview retains its placeholder.
 The preflight policy and recorded resource plan continue to budget for
 three planes before model construction. Representative whole-run CPU and
 GPU peak-memory measurements and ensemble residency remain open.
+
+## Bound empty fiber preview allocations (2026-11-25 UTC)
+
+This pass starts from main `50e18884`. Ink-only previews built a full-size
+black image for the empty fiber panel. Constructing the old 4096-by-4096
+float32 placeholder and adding it to Matplotlib peaked at 144.04 MiB of
+traced CPU allocations.
+
+A shared helper now draws one zero pixel across the original source
+extent, respecting Matplotlib's upper and lower image origins. The repeat
+trace peaked at about 21 KiB. Four regional CLI fixtures preserve the
+visible bounds and verify the placeholder has one pixel. Twelve Agg
+comparison renders matched pixel-for-pixel across both origins, multiple
+aspect ratios and two interpolation settings, including a scale-bar patch.
+
+These figures cover the empty panel's construction. Whole-run CPU and GPU
+peak-memory measurements and ensemble residency remain open.
