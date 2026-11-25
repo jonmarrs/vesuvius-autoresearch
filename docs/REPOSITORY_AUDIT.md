@@ -2490,3 +2490,21 @@ peak-memory measurements remain outside this verification.
 Review moved the four stale-sidecar checks to the final file replacement.
 The tests confirm both canonical and custom records are invalidated before a
 new prediction file appears, including when installation stops after a rename.
+
+## Prepare the regional proofreader mask before publication (2026-11-25 UTC)
+
+This pass starts from main `3c5dbd30`. Two single-model reruns interrupted a
+proofreader mask chunk or attribute write. The old mask survived, but the
+command had already installed new prediction files and removed the previous
+completion sidecar.
+
+The mask writer now supports preparing a store before committing it. Regional
+prediction prepares the mask alongside the other outputs, then checks the
+source and output plan again before replacing artifacts. Standalone mask
+exports still install immediately after preparation. The changed-weights
+reruns verify byte-for-byte preservation of the full prior output tree.
+
+The published files, stores and completion record still install separately.
+Staging the mask also requires space for its replacement alongside the old
+store. Proofreader coordinate alignment, training ingestion and representative
+GPU and host peak-memory measurements remain open.

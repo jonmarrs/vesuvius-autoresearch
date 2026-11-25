@@ -289,29 +289,51 @@ def test_missing_optional_exporter_is_recorded(tmp_path, monkeypatch):
     assert "optional exporter unavailable" in record["reason"]
 
 
-def test_prediction_mask_failure_leaves_no_success_metadata(tmp_path, monkeypatch):
-    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+@pytest.mark.parametrize("stage", ["chunks", "attributes"])
+def test_prediction_mask_preparation_failure_preserves_previous_run(
+    tmp_path, monkeypatch, stage
+):
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, "single")
     argv.remove("--skip_active_learning")
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
     run()
-    path = tmp_path / "out/pred_1_2_3_13x11_uncertain"
-    before = {
-        str(p.relative_to(path)): p.read_bytes() for p in path.rglob("*") if p.is_file()
-    }
-    write = zarr.Array.__setitem__
+    output = tmp_path / "out"
+    assert (output / "region_meta.json").is_file()
+    assert zarr.open(str(output / "region_uncertain"), mode="r")[:].sum() > 0
 
-    def fail(self, key, value):
-        write(self, key, value)
-        if "_uncertain-" in str(self.store.path):
+    def snapshot():
+        return {
+            str(path.relative_to(output)): path.read_bytes()
+            for path in output.rglob("*")
+            if path.is_file()
+        }
+
+    before = snapshot()
+    checkpoint = torch.load(checkpoints[0], weights_only=True)
+    checkpoint["model_state_dict"]["bias"].fill_(2)
+    torch.save(checkpoint, checkpoints[0])
+    write = zarr.Array.__setitem__
+    update = zarr.attrs.Attributes.update
+
+    def fail_after_chunk(array, key, values):
+        write(array, key, values)
+        if array.chunks == (1, 64, 64):
             raise OSError("mask storage failed")
 
-    monkeypatch.setattr(zarr.Array, "__setitem__", fail)
+    def fail_after_attributes(attributes, values):
+        update(attributes, values)
+        if "uncertainty_mask_contract" in values:
+            raise OSError("mask storage failed")
+
+    if stage == "chunks":
+        monkeypatch.setattr(zarr.Array, "__setitem__", fail_after_chunk)
+    else:
+        monkeypatch.setattr(zarr.attrs.Attributes, "update", fail_after_attributes)
     with pytest.raises(OSError, match="mask storage failed"):
         run()
-    after = {
-        str(p.relative_to(path)): p.read_bytes() for p in path.rglob("*") if p.is_file()
-    }
-    assert after == before
-    assert not (tmp_path / "out/pred_1_2_3_13x11_meta.json").exists()
+
+    assert snapshot() == before
+    assert not list(output.glob(".*-*/"))
 
 
 @pytest.mark.parametrize(
