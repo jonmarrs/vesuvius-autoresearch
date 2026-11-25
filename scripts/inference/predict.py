@@ -10,7 +10,7 @@ import json
 import os
 import stat
 import sys
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from shutil import copy2, copyfile, copytree
 from tempfile import TemporaryDirectory
@@ -161,7 +161,8 @@ def _retain_vc3d_entries(destination, staging, metadata_files):
             copy2(entry, staging / entry.name)
 
 
-def save_vc3d_zarr(
+@contextmanager
+def _stage_vc3d_zarr(
     base_path,
     array_uint8,
     name="prediction",
@@ -169,7 +170,7 @@ def save_vc3d_zarr(
     source_uri=None,
     origin_xyz=None,
 ):
-    """Save a 2D uint8 array; origin_xyz is a position in source voxel indices.
+    """Build a 2D uint8 store and publish it on successful context exit.
 
     OME axes are z/y/x and their units are micrometers, so translation reverses
     the caller's x/y/z order and converts indices to physical coordinates.
@@ -261,6 +262,8 @@ def save_vc3d_zarr(
         if consolidated:
             zarr.consolidate_metadata(str(staging))
 
+        yield
+
         if os.path.lexists(destination):
             validate_output_tree(destination)
             for filename in metadata_files:
@@ -269,6 +272,45 @@ def save_vc3d_zarr(
                     validate_output_file(previous)
                     (staging / filename).chmod(replacement_mode(previous))
             staging.chmod(stat.S_IMODE(destination.stat().st_mode))
+
+
+def save_vc3d_zarr(
+    base_path,
+    array_uint8,
+    name="prediction",
+    voxel_size_um=7.91,
+    source_uri=None,
+    origin_xyz=None,
+):
+    """Build and publish one standalone VC3D store."""
+    with _stage_vc3d_zarr(
+        base_path, array_uint8, name, voxel_size_um, source_uri, origin_xyz
+    ):
+        pass
+
+
+@contextmanager
+def stage_regional_zarr(
+    output_dir, stem, outputs, *, voxel_size_um, source_uri, origin_xyz
+):
+    """Build all regional stores before yielding their paths and PNG pixels."""
+    with ExitStack() as pending:
+        exports = {}
+        for kind, (probability, label) in outputs.items():
+            image = (np.clip(probability, 0, 1) * 255).astype(np.uint8)
+            destination = os.path.join(output_dir, f"{stem}_{kind}.zarr")
+            pending.enter_context(
+                _stage_vc3d_zarr(
+                    destination,
+                    image,
+                    name=label,
+                    voxel_size_um=voxel_size_um,
+                    source_uri=source_uri,
+                    origin_xyz=origin_xyz,
+                )
+            )
+            exports[kind] = (destination, image)
+        yield exports
 
 
 def invalidate_prediction_metadata(output_dir, base_name, metadata_out=None):
@@ -697,52 +739,44 @@ def predict():
         artifacts.validate(
             checkpoint_aliases=(args.checkpoint,), preview_paths=preview_files
         )
-        if args.uncertainty_export["status"] == "PLANNED":
-            validate_destination(
-                uncertainty_path, overwrite=True, sources=uncertainty_sources
-            )
-        os.makedirs(output_dir, exist_ok=True)
-        metadata_path = invalidate_prediction_metadata(
-            output_dir, base_name, str(artifacts.metadata)
-        )
-        save_regional_array(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
+        outputs = {"ink": (prob_ink_final, f"Ink Prediction {base_name}")}
         if has_fiber:
-            save_regional_array(
-                os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final
-            )
-        if args.num_parts > 1:
-            args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
-            save_regional_array(args.blend_weight_path, full_weight.cpu().numpy())
-
-        # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
-        ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
-        fiber_uint8 = (np.clip(prob_fiber_final, 0, 1) * 255).astype(np.uint8)
-        save_regional_png(os.path.join(output_dir, f"{base_name}_ink.png"), ink_uint8)
-        if has_fiber:
-            save_regional_png(
-                os.path.join(output_dir, f"{base_name}_fiber.png"), fiber_uint8
-            )
-        # Save as VC3D OME-Zarr
-        zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")
-        save_vc3d_zarr(
-            zarr_path,
-            ink_uint8,
-            name=f"Ink Prediction {base_name}",
+            outputs["fiber"] = (prob_fiber_final, f"Fiber Prediction {base_name}")
+        with stage_regional_zarr(
+            output_dir,
+            base_name,
+            outputs,
             voxel_size_um=args.voxel_size_um,
             source_uri=args.uri,
             origin_xyz=[int(args.x), int(args.y), int(args.z)],
-        )
-        fiber_zarr_path = None
-        if has_fiber:
-            fiber_zarr_path = os.path.join(output_dir, f"{base_name}_fiber.zarr")
-            save_vc3d_zarr(
-                fiber_zarr_path,
-                fiber_uint8,
-                name=f"Fiber Prediction {base_name}",
-                voxel_size_um=args.voxel_size_um,
-                source_uri=args.uri,
-                origin_xyz=[int(args.x), int(args.y), int(args.z)],
+        ) as exports:
+            # Encoding can take place after a source link or destination changes.
+            artifacts.validate_source_selection(args.uri)
+            artifacts.validate(
+                checkpoint_aliases=(args.checkpoint,), preview_paths=preview_files
             )
+            if args.uncertainty_export["status"] == "PLANNED":
+                validate_destination(
+                    uncertainty_path, overwrite=True, sources=uncertainty_sources
+                )
+            metadata_path = invalidate_prediction_metadata(
+                output_dir, base_name, str(artifacts.metadata)
+            )
+            for kind, (probability, _) in outputs.items():
+                save_regional_array(
+                    os.path.join(output_dir, f"{base_name}_{kind}.npy"), probability
+                )
+            if args.num_parts > 1:
+                args.blend_weight_path = os.path.join(
+                    output_dir, f"{base_name}_weight.npy"
+                )
+                save_regional_array(args.blend_weight_path, full_weight.cpu().numpy())
+            for kind, (_, image) in exports.items():
+                save_regional_png(
+                    os.path.join(output_dir, f"{base_name}_{kind}.png"), image
+                )
+        zarr_path = exports["ink"][0]
+        fiber_zarr_path = exports["fiber"][0] if has_fiber else None
 
         # Active Learning: optional proofreader export. Prize evidence generation
         # should not fail if this auxiliary tool is not available.

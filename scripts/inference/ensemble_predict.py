@@ -29,7 +29,7 @@ from scripts.inference.predict import (
     regional_preview_figure,
     save_regional_array,
     save_regional_png,
-    save_vc3d_zarr,
+    stage_regional_zarr,
     write_prediction_metadata,
 )
 from scripts.regional_prediction_artifacts import (
@@ -318,39 +318,44 @@ def ensemble_predict():
         artifacts.validate(
             checkpoint_aliases=args.checkpoints, preview_paths=preview_files
         )
-        os.makedirs(output_dir, exist_ok=True)
-        metadata_path = invalidate_prediction_metadata(
-            output_dir, base, str(artifacts.metadata)
-        )
-        if args.num_parts > 1:
-            args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
-            save_regional_array(args.blend_weight_path, weights.cpu().numpy())
-        exports = []
-        outputs = [("ink", ink)] + ([("fiber", fiber)] if has_fiber else [])
-        for name, array in outputs:
-            save_regional_array(os.path.join(output_dir, f"{base}_{name}.npy"), array)
-            image = (np.clip(array, 0, 1) * 255).astype(np.uint8)
-            save_regional_png(os.path.join(output_dir, f"{base}_{name}.png"), image)
-            export = os.path.join(output_dir, f"{base}_{name}.zarr")
-            save_vc3d_zarr(
-                export,
-                image,
-                name=f"Ensemble {name}",
-                voxel_size_um=args.voxel_size_um,
-                source_uri=args.uri,
-                origin_xyz=[args.x, args.y, args.z],
+        outputs = {"ink": (ink, "Ensemble ink")}
+        if has_fiber:
+            outputs["fiber"] = (fiber, "Ensemble fiber")
+        with stage_regional_zarr(
+            output_dir,
+            base,
+            outputs,
+            voxel_size_um=args.voxel_size_um,
+            source_uri=args.uri,
+            origin_xyz=[args.x, args.y, args.z],
+        ) as exports:
+            artifacts.validate_source_selection(args.uri)
+            artifacts.validate(
+                checkpoint_aliases=args.checkpoints, preview_paths=preview_files
             )
-            exports.append(export)
+            metadata_path = invalidate_prediction_metadata(
+                output_dir, base, str(artifacts.metadata)
+            )
+            if args.num_parts > 1:
+                args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
+                save_regional_array(args.blend_weight_path, weights.cpu().numpy())
+            for kind, (probability, _) in outputs.items():
+                save_regional_array(
+                    os.path.join(output_dir, f"{base}_{kind}.npy"), probability
+                )
+                save_regional_png(
+                    os.path.join(output_dir, f"{base}_{kind}.png"), exports[kind][1]
+                )
         publish_regional_previews(preview_files)
 
     write_prediction_metadata(
         metadata_path,
         args,
         configs[0],
-        exports[0],
+        exports["ink"][0],
         output_img,
         {"mean": float(ink.mean()), "std": float(ink.std()), "max": float(ink.max())},
-        fiber_zarr_path=exports[1] if has_fiber else None,
+        fiber_zarr_path=exports["fiber"][0] if has_fiber else None,
         fiber_stats={
             "mean": float(fiber.mean()),
             "std": float(fiber.std()),

@@ -2452,3 +2452,19 @@ the format explicitly to Pillow. The shared path check and rename publish
 the complete file with its output mode. The targeted file survives a failed
 encode, and the success sidecar stays absent after publication begins. Zarr
 export writes and representative peak-memory measurements remain open.
+
+## Prepare regional Zarr exports before publication (2026-11-25 UTC)
+
+This pass starts from main `21f35420`. An interrupted Zarr encode preserved
+the individual destination after the staged-directory fix, but four CPU
+reruns still lost the prior completion sidecar and changed NumPy or PNG files.
+The two fiber failures had already installed the replacement ink store.
+
+Both regional commands now build the requested ink and fiber stores before
+invalidating the prior sidecar. They recheck source selection and artifact
+paths after encoding, then write the arrays and PNGs, install the prepared
+stores and finish with a new sidecar. The fixtures retry with changed model
+weights and verify the full prior output tree survives each encoding failure.
+The regional output family still publishes separately. Preparing both stores
+can require disk space for both staged copies at once. Representative GPU and
+host peak-memory measurements remain open.

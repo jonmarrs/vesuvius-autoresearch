@@ -296,16 +296,18 @@ def test_interrupted_png_save_preserves_the_previous_export(
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("kind", ["ink", "fiber"])
-def test_interrupted_zarr_write_preserves_the_previous_store(
+def test_interrupted_zarr_write_preserves_the_previous_run(
     tmp_path, monkeypatch, mode, kind
 ):
-    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
     argv.extend(["--artifact_stem", "region", "--disable_tta"])
     run()
     output = tmp_path / "out"
-    destination = output / f"region_{kind}.zarr"
-    before = _tree(destination)
+    before = _tree(output)
     assert (output / "region_meta.json").is_file()
+    checkpoint = torch.load(checkpoints[0], weights_only=True)
+    checkpoint["model_state_dict"]["bias"].fill_(2)
+    torch.save(checkpoint, checkpoints[0])
     write_chunk = zarr.Array.__setitem__
     writes = []
 
@@ -321,9 +323,9 @@ def test_interrupted_zarr_write_preserves_the_previous_store(
     with pytest.raises(OSError, match="interrupted Zarr array write"):
         run()
 
-    assert _tree(destination) == before
     assert all(not path.exists() for path in writes)
-    assert not (output / "region_meta.json").exists()
+    assert not list(output.glob(".prediction-zarr-*"))
+    assert _tree(output) == before
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
