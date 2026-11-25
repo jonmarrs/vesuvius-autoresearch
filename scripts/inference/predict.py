@@ -536,7 +536,7 @@ class PredictionArgs(Tap):
     part_id: int = 0
     disable_tta: bool = False
     skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
-    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
+    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Blend-plane budget in bytes
     profile_memory: bool = False  # Record process RSS and selected-device PyTorch allocator peaks in metadata
     compute_coherence: bool = (
         False  # Enable automated fiber coherence evaluation (Villa ST)
@@ -699,7 +699,7 @@ def predict():
     full_prob_ink = torch.zeros(
         (predict_height, predict_width), device=device, dtype=torch.float32
     )
-    full_prob_fiber = torch.zeros_like(full_prob_ink)
+    full_prob_fiber = torch.zeros_like(full_prob_ink) if has_fiber else None
     full_weight = torch.zeros_like(full_prob_ink)
 
     # Choose weight window: Gaussian (smoother) or Hanning (default)
@@ -737,15 +737,16 @@ def predict():
 
         with torch.no_grad():
             ink_batch, fiber_batch = multitask_probabilities(model, x, args.disable_tta)
-            prob_ink, prob_fiber = ink_batch[0], fiber_batch[0]
+            prob_ink = ink_batch[0]
 
             # Accumulate with weight window
             full_prob_ink[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
                 prob_ink * weight_window
             )
-            full_prob_fiber[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
-                prob_fiber * weight_window
-            )
+            if full_prob_fiber is not None:
+                full_prob_fiber[
+                    y_off : y_off + patch_size, x_off : x_off + patch_size
+                ] += fiber_batch[0] * weight_window
             full_weight[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
                 weight_window
             )
@@ -753,11 +754,14 @@ def predict():
     # Normalize by weights
     complete = args.num_parts == 1
     full_prob_ink = normalize_blend(full_prob_ink, full_weight, complete)
-    full_prob_fiber = normalize_blend(full_prob_fiber, full_weight, complete)
+    if full_prob_fiber is not None:
+        full_prob_fiber = normalize_blend(full_prob_fiber, full_weight, complete)
     args.coverage_fraction = blend_coverage_fraction(full_weight, complete=complete)
 
     prob_ink_final = full_prob_ink.cpu().numpy()
-    prob_fiber_final = full_prob_fiber.cpu().numpy()
+    prob_fiber_final = (
+        full_prob_fiber.cpu().numpy() if full_prob_fiber is not None else None
+    )
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
@@ -779,7 +783,7 @@ def predict():
                 "std": float(prob_fiber_final.std()),
                 "max": float(prob_fiber_final.max()),
             }
-            if has_fiber
+            if prob_fiber_final is not None
             else None,
             fiber_coherence=fiber_coherence,
             extra_metadata={"task_heads": heads},
@@ -797,7 +801,7 @@ def predict():
             axes[0].imshow(ct_slice, cmap="gray")
             axes[0].set_title(f"CT Slice (Z={z_mid})")
 
-            if has_fiber:
+            if prob_fiber_final is not None:
                 axes[1].imshow(prob_fiber_final, cmap="magma")
                 axes[1].set_title("Fiber Context (Fused)")
             else:
@@ -847,7 +851,7 @@ def predict():
             checkpoint_aliases=(args.checkpoint,), preview_paths=preview_files
         )
         outputs = {"ink": (prob_ink_final, f"Ink Prediction {base_name}")}
-        if has_fiber:
+        if prob_fiber_final is not None:
             outputs["fiber"] = (prob_fiber_final, f"Fiber Prediction {base_name}")
         if args.num_parts > 1:
             args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")

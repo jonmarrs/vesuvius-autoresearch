@@ -1181,9 +1181,23 @@ def _without_heads(monkeypatch, members):
     monkeypatch.setattr(ConstantHeads, "__init__", init)
 
 
+@pytest.fixture
+def zeroed_region_plane_copies(monkeypatch):
+    original = torch.zeros_like
+    allocated = []
+
+    def record(tensor, *args, **kwargs):
+        if tensor.dtype == torch.float32 and tensor.shape == (11, 13):
+            allocated.append(tensor.numel() * tensor.element_size())
+        return original(tensor, *args, **kwargs)
+
+    monkeypatch.setattr(torch, "zeros_like", record)
+    return allocated
+
+
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 def test_a_model_without_a_fiber_head_exports_no_fiber_prediction(
-    tmp_path, monkeypatch, mode
+    tmp_path, monkeypatch, zeroed_region_plane_copies, mode
 ):
     """Without a fiber head a model returns its ink logits as "fiber": exported,
     that was the ink map under the fiber prediction's name (and in its zarr)."""
@@ -1191,6 +1205,7 @@ def test_a_model_without_a_fiber_head_exports_no_fiber_prediction(
     argv.append("--disable_tta")
     _without_heads(monkeypatch, [frozenset()])
     runner()
+    assert zeroed_region_plane_copies == [11 * 13 * 4]
     output = tmp_path / "out"
     assert list(output.glob("*_ink.npy")) and not list(output.glob("*_fiber.*"))
     metadata = json.loads(next(output.glob("*_meta.json")).read_text())
@@ -1200,7 +1215,7 @@ def test_a_model_without_a_fiber_head_exports_no_fiber_prediction(
 
 
 def test_an_ensemble_exports_fiber_only_when_every_member_has_the_head(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, zeroed_region_plane_copies
 ):
     config = {"patch_size": 8, "num_layers": 2, "base_feat": 4, "voxel_size_um": 2.0}
     runner, argv, _, _, _ = setup_prediction(
@@ -1209,6 +1224,7 @@ def test_an_ensemble_exports_fiber_only_when_every_member_has_the_head(
     argv.append("--disable_tta")
     _without_heads(monkeypatch, [ConstantHeads.task_heads, frozenset()])
     runner()
+    assert zeroed_region_plane_copies == [11 * 13 * 4]
     output = tmp_path / "out"
     assert not list(output.glob("*_fiber.*"))
     metadata = json.loads(next(output.glob("*_meta.json")).read_text())

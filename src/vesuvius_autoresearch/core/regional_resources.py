@@ -17,8 +17,8 @@ def plan_regional_accumulators(
     ):
         if type(value) is not int or value < 1:
             raise ValueError(f"{name} must be a positive integer")
-    # Both predictors retain ink, fiber and weight planes even without a fiber
-    # head or when processing a shard. Their allocations explicitly use float32.
+    # Budget the maximum of three float32 planes before loading model heads.
+    # Runs without fiber output allocate only ink and blend weights.
     size = width * height * 3 * 4
     if size > max_accumulator_bytes:
         raise ValueError(
