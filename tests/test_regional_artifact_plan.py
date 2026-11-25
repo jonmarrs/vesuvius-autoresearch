@@ -384,6 +384,7 @@ def test_image_destination_cannot_hide_a_protected_appended_path(
         ("view", "png", "view.png"),
         ("view", "svg", "view.svg"),
         ("view...", "png", "view.png"),
+        ("...", "png", ".png"),
         ("view.pdf", "png", "view.pdf"),
         ("view.PNG", "svg", "view.PNG"),
     ],
@@ -416,6 +417,62 @@ def test_image_destination_matches_actual_writer_and_allows_regular_replacement(
         "weights.sentinel",
         expected,
     }
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("use_default_format", [False, True])
+def test_unsupported_preview_format_preserves_previous_prediction(
+    tmp_path, monkeypatch, mode, use_default_format
+):
+    import matplotlib as mpl
+
+    run, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    assert (output / "region_meta.json").is_file()
+    before = _tree(output)
+    models.clear()
+
+    extension = "unregistered-preview"
+    name = "preview" if use_default_format else f"preview.{extension}"
+    argv[argv.index("--output_img") + 1] = str(output / name)
+    default_format = extension if use_default_format else "png"
+    with mpl.rc_context({"savefig.format": default_format}):
+        with pytest.raises(ValueError, match=f"Format '{extension}' is not supported"):
+            run()
+
+    assert _tree(output) == before
+    assert not models
+
+
+def test_preview_format_registered_when_active_backend_loads(tmp_path, monkeypatch):
+    from matplotlib import backend_bases
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.backends.registry import backend_registry
+
+    # Simulate a backend that registers an alternate format when imported.
+    formats = backend_bases.FigureCanvasBase.get_supported_filetypes().copy()
+    monkeypatch.setattr(backend_bases.FigureCanvasBase, "filetypes", formats)
+    monkeypatch.setattr(backend_bases, "_default_filetypes", formats)
+    monkeypatch.setattr(
+        backend_bases, "_default_backends", backend_bases._default_backends.copy()
+    )
+
+    class PreviewCanvas(FigureCanvasAgg):
+        print_auditpreview = FigureCanvasAgg.print_png
+
+    def load_backend(_name):
+        backend_bases.register_backend("auditpreview", PreviewCanvas)
+        return SimpleNamespace(FigureCanvas=FigureCanvasAgg)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(backend_registry, "load_backend_module", load_backend)
+        plan = RegionalArtifactPlan.create(
+            "region", tmp_path / "view.auditpreview", None, tmp_path / "ct.zarr", []
+        )
+    _image_destination_writer("single", plan)
+    assert plan.image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])

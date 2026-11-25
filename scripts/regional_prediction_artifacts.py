@@ -25,14 +25,30 @@ def _output_path(value):
     return path.parent.resolve() / path.name
 
 
-def _image_path(value):
-    """Bind savefig's filename before checking aliases or reserving artifacts."""
-    path = _output_path(value)
-    if not path.suffix:
-        from matplotlib import rcParams
+def _image_destination(value):
+    """Bind savefig's filename and format before reserving artifacts."""
+    from matplotlib import get_backend, rcParams
+    from matplotlib.backend_bases import FigureCanvasBase
+    from matplotlib.backends.registry import backend_registry
 
-        path = Path(f"{str(path).rstrip('.')}.{rcParams['savefig.format']}")
-    return path
+    path = _output_path(value)
+    suffix = path.suffix
+    requested_format = suffix[1:] if suffix else rcParams["savefig.format"]
+    image_format = requested_format.lower()
+    formats = FigureCanvasBase.get_supported_filetypes()
+    if image_format not in formats:
+        canvas = backend_registry.load_backend_module(get_backend()).FigureCanvas
+        # Importing the active backend can register additional writers.
+        formats = FigureCanvasBase.get_supported_filetypes()
+        if image_format not in formats and not hasattr(canvas, f"print_{image_format}"):
+            raise ValueError(
+                f"Format {image_format!r} is not supported for --output_img "
+                f"(registered formats: {', '.join(sorted(formats))})"
+            )
+
+    if not suffix:
+        path = path.with_name(f"{path.name.rstrip('.')}.{requested_format}")
+    return path, image_format
 
 
 def validate_checkpoint_metadata(config):
@@ -52,10 +68,11 @@ class RegionalArtifactPlan:
     source: Path
     source_array: Path
     checkpoints: tuple[Path, ...]
+    image_format: str
 
     @classmethod
     def create(cls, stem, image, metadata, uri, checkpoints):
-        image = _image_path(image)
+        image, image_format = _image_destination(image)
         source = local_volume_path(uri).resolve()
         plan = cls(
             image.parent,
@@ -65,15 +82,10 @@ class RegionalArtifactPlan:
             source,
             local_volume_array_path(source),
             tuple(Path(path).resolve() for path in checkpoints),
+            image_format=image_format,
         )
         plan.validate()
         return plan
-
-    @property
-    def image_format(self):
-        # Writers pass this explicitly so backend/default changes cannot append
-        # another suffix to the filename that this plan actually validated.
-        return self.image.suffix[1:]
 
     @property
     def paths(self):
