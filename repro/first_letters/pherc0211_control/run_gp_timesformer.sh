@@ -35,10 +35,11 @@ SEGS=$C/work/gp_segments
 [ -d "$RENDER/0" ] && [ -d "$C/work/maps_reader_v3/$SEG_NAME" ] || { echo "finding 118's render or 120's maps are missing" >&2; exit 2; }
 mkdir -p "$C/logs" "$C/work/tmp"
 # Checksum, audit, and infer this copy. $CK itself is never passed to the loader.
-CK_DIR=$(mktemp -d "$C/work/tmp/gpck.XXXXXX")
+# The trap is set before the copy, so an interrupt during cp leaves no checkpoint-sized copy behind.
+CK_DIR=$(mktemp -d "$C/work/tmp/gpck.XXXXXX") || exit 2
+trap 'rm -rf "$CK_DIR"' EXIT
 CK_COPY=$CK_DIR/timesformer_weights.ckpt
 cp -- "$CK" "$CK_COPY"
-trap 'rm -rf "$CK_DIR"' EXIT
 
 step() {  # NAME COMMAND...: run, record the gate, stop on failure
   local name=$1 t0 rc
@@ -64,7 +65,8 @@ infer() {  # ORDER START_IDX
   [ -s "$OUT/${1}_prediction_rotated_0_layer_${2}.png" ] || { echo "no prediction for $1" >&2; return 1; }
 }
 
-step checksum bash -c "echo '$CK_SHA256  $CK_COPY' | sha256sum -c"
+# The sum and the path are arguments, not spliced into the command text, so a quote in $C cannot break it.
+step checksum bash -c 'echo "$1  $2" | sha256sum -c' checksum "$CK_SHA256" "$CK_COPY"
 step audit "$PYW" -I "$HERE/audit_pickle.py" "$CK_COPY" --allow torch.optim.adamw.AdamW \
   --allow torch.optim.lr_scheduler.CosineAnnealingLR --allow collections.defaultdict
 step segments "$PYW" -I "$HERE/gp_timesformer.py" segments "$RENDER" "$SEGS"

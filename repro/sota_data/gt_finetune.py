@@ -132,7 +132,7 @@ def cmd_finetune():
     from pytorch_lightning.loggers import CSVLogger
     from torch.utils.data import DataLoader
 
-    from vesuvius_autoresearch.core.checkpoint_tools import require_zip_checkpoint
+    from vesuvius_autoresearch.core.checkpoint_tools import load_lightning_checkpoint
     from vesuvius_autoresearch.detector.config import DetectorConfig
     from vesuvius_autoresearch.detector.data import build_datasets
     from vesuvius_autoresearch.detector.model import DetectorModel
@@ -188,9 +188,9 @@ def cmd_finetune():
     )
     # init from arm C (distilled); configure_optimizers rebuilds AdamW(lr=cfg.lr=FT_LR)
     # weights_only=False: the Lightning checkpoint embeds CosineAnnealingLR.
-    require_zip_checkpoint(ARM_C_CKPT)
-    model = DetectorModel.load_from_checkpoint(
-        ARM_C_CKPT, cfg=cfg, pred_shape=pred_shape, weights_only=False
+    # The pickle is audited against CHECKPOINT_CLASS_ALLOW before it is loaded.
+    model = load_lightning_checkpoint(
+        DetectorModel, ARM_C_CKPT, cfg=cfg, pred_shape=pred_shape
     )
     ckpt_cb = ModelCheckpoint(
         filename="ft_{epoch}",

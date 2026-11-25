@@ -9,6 +9,7 @@ import torch
 from . import model_wrappers
 from .checkpoint_refusal import (
     NON_ZIP_CHECKPOINT as NON_ZIP_CHECKPOINT,  # re-exported
+    local_checkpoint_path,
     read_signature,
     require_zip_checkpoint,
 )
@@ -66,7 +67,12 @@ def _audit_module():
 
 
 def _audit_path(source):
-    """A filesystem path whose bytes are ``source``, and a temp name to delete."""
+    """A filesystem path whose bytes are ``source``, and a temp name to delete.
+
+    A file object is copied from its current position, not from offset 0:
+    ``torch.load`` reads a buffer from where it stands, so those are the bytes
+    it would unpickle. The position is restored afterwards.
+    """
     if isinstance(source, (str, os.PathLike)):
         return Path(os.fspath(source)), None
     import tempfile
@@ -79,9 +85,10 @@ def _audit_path(source):
             handle.write(bytes(source))
         else:
             position = source.tell()
-            source.seek(0)
-            handle.write(source.read())
-            source.seek(position)
+            try:
+                handle.write(source.read())
+            finally:
+                source.seek(position)
     finally:
         handle.close()
     return Path(handle.name), handle.name
@@ -104,7 +111,36 @@ def require_audited_checkpoint(source, allow=()) -> None:
     if result["passes"]:
         return
     detail = result.get("message") or ", ".join(result["outside_allowlist"])
+    if not detail and result.get("refused_opcodes"):
+        # Nothing outside the allowlist: the refusal is the pickle's shape
+        # (BUILD on a class, an unbalanced stack, an opcode torch never writes).
+        detail = "refusing a checkpoint whose pickle uses: " + ", ".join(
+            result["refused_opcodes"]
+        )
     raise ValueError(detail or "refusing a checkpoint that imports what is not allowed")
+
+
+def load_lightning_checkpoint(
+    model_cls, path, *, allow=CHECKPOINT_CLASS_ALLOW, **kwargs
+):
+    """``model_cls.load_from_checkpoint(path, weights_only=False)``, audited first.
+
+    Lightning detector checkpoints carry optimizer and scheduler state
+    (``CosineAnnealingLR``, ``defaultdict``) that torch's weights-only
+    unpickler will not rebuild, so these loads stay ``weights_only=False``.
+    The zip is audited against ``allow`` before Lightning unpickles it, and
+    Lightning is handed the absolute local path that was audited, never a
+    string fsspec could read as a URL.
+    """
+    if "weights_only" in kwargs:
+        raise TypeError(
+            "load_lightning_checkpoint always loads weights_only=False after the"
+            " pickle audit; do not pass weights_only (use load_checkpoint for a"
+            " weights-only load)"
+        )
+    local = local_checkpoint_path(path)
+    require_audited_checkpoint(local, allow=allow)
+    return model_cls.load_from_checkpoint(local, weights_only=False, **kwargs)
 
 
 def _numpy_scalar_types():

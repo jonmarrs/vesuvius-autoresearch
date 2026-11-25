@@ -28,6 +28,7 @@ usage: audit_pickle.py CHECKPOINT [--allow MODULE.NAME]...
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import json
 import pickletools
@@ -37,7 +38,28 @@ import sys
 import zipfile
 from pathlib import Path
 
-from vesuvius_autoresearch.core.checkpoint_refusal import NON_ZIP_CHECKPOINT
+
+def _checkout_refusal():
+    """This checkout's ``checkpoint_refusal`` module, loaded by file path.
+
+    The wrapper runs this file as ``python -I``, which drops PYTHONPATH, and
+    its interpreter need not have the package installed. Loading by path also
+    means another ``vesuvius_autoresearch`` on ``sys.path`` cannot supply the
+    refusal sentence instead of this checkout's.
+    """
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "src/vesuvius_autoresearch/core/checkpoint_refusal.py"
+    )
+    spec = importlib.util.spec_from_file_location("vesuvius_checkpoint_refusal", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+NON_ZIP_CHECKPOINT = _checkout_refusal().NON_ZIP_CHECKPOINT
 
 # what torch.save writes for tensors and state dicts
 BASE = {
@@ -48,7 +70,19 @@ BASE = {
     "__builtin__.dict",
 }
 STORAGE = re.compile(r"^torch\.[A-Za-z]*Storage$")
-REFUSED_OPS = {"EXT1", "EXT2", "EXT4"}
+# Opcodes CPython 3's pickler (pickle.py and _pickle.c, protocols 0-5) never writes,
+# so torch.save never does either. The unpickler still runs them, and DUP in
+# particular copies a class object past the BUILD-on-a-class check. A checkpoint
+# holding any of them was not written by torch.save, and is refused.
+NOT_WRITTEN_BY_PICKLER = {
+    "DUP",
+    "INST",
+    "OBJ",
+    "STRING",
+    "BINSTRING",
+    "SHORT_BINSTRING",
+}
+REFUSED_OPS = {"EXT1", "EXT2", "EXT4"} | NOT_WRITTEN_BY_PICKLER
 # A torch zip starts with a local-file header. A central directory that zipfile had to
 # slide into place, or any bytes before the first member or after the end record, is a
 # different archive than the one torch's reader opens. Those files are refused.
@@ -162,11 +196,16 @@ def _torch_pickles(path: Path) -> list[tuple[str, bytes]]:
         if key in by_key:
             raise _DuplicateNames(record)
         by_key[key] = record
-    return [
-        (record, bytes(reader.get_record(record)))
-        for key, record in by_key.items()
-        if key.endswith(".pkl")
-    ]
+    # A record the list names can still fail to read, e.g. a name cut at an
+    # embedded NUL that the lookup then misses. That is a refusal, not a crash.
+    try:
+        return [
+            (record, bytes(reader.get_record(record)))
+            for key, record in by_key.items()
+            if key.endswith(".pkl")
+        ]
+    except (OSError, RuntimeError) as exc:
+        raise _BadZip(path.name) from exc
 
 
 def pickles(path: Path) -> list[tuple[str, bytes]]:
@@ -356,6 +395,8 @@ def _imported_ops(ops) -> tuple[dict[str, int], list[str]]:
     ] = []  # strings pushed since the last opcode that was not a string push or a memo store
     for op, arg, _ in ops:
         name = None
+        if op.name in REFUSED_OPS:
+            refused.append(op.name)
         if op.name in STRINGS:
             if arg is _SKIPPED or not isinstance(arg, str):
                 last = None
@@ -386,13 +427,80 @@ def _imported_ops(ops) -> tuple[dict[str, int], list[str]]:
                 name = f"{run[-2]}.{run[-1]}"
         elif op.name in ("GLOBAL", "INST"):
             name = str(arg).replace(" ", ".")
-        elif op.name in REFUSED_OPS:
-            refused.append(op.name)
         if name is not None:
             names[name] = names.get(name, 0) + 1
         last = None
         run = []
     return names, refused
+
+
+BUILD_ON_CLASS = "BUILD on a class"
+UNBALANCED = "unbalanced pickle stack"
+_CLASS = "class"  # a value GLOBAL or STACK_GLOBAL pushed: the class object itself
+_MARK = object()
+
+
+def _class_builds(ops) -> list[str]:
+    """Refusals for BUILD whose target is a class object rather than an instance.
+
+    BUILD on an instance sets that instance's state. BUILD on a class pushed by
+    GLOBAL or STACK_GLOBAL takes the slot-state ``setattr`` path and rewrites an
+    allowlisted class for the whole process (``CosineAnnealingLR.step =
+    defaultdict``). The stack is replayed from each opcode's declared stack
+    effect, tracking only which entries are a class fetched by name, directly,
+    back from the memo, or copied by DUP. A stack the replay cannot follow is
+    refused too.
+    """
+    stack: list[object] = []
+    memo: dict[int, object] = {}
+    refused: list[str] = []
+    for op, arg, _ in ops:
+        name = op.name
+        if name == "BUILD" and len(stack) >= 2 and stack[-2] == _CLASS:
+            refused.append(BUILD_ON_CLASS)
+        if name in PUTS:
+            if not stack:
+                return refused + [UNBALANCED]
+            memo[int(arg)] = stack[-1]
+            continue
+        if name == "DUP":
+            # Refused outright as never written by the pickler; the replay still
+            # copies the entry itself, so a class keeps its mark through DUP.
+            if not stack:
+                return refused + [UNBALANCED]
+            stack.append(stack[-1])
+            continue
+        if name == "MEMOIZE":
+            if not stack:
+                return refused + [UNBALANCED]
+            memo[len(memo)] = stack[-1]
+            continue
+        before, after = op.stack_before, op.stack_after
+        if pickletools.markobject in before:
+            # Everything above the most recent MARK, the MARK, then whatever
+            # the opcode takes from below it (OBJ's class, SETITEMS' dict...).
+            while stack and stack[-1] is not _MARK:
+                stack.pop()
+            if not stack:
+                return refused + [UNBALANCED]
+            stack.pop()
+            below = before.index(pickletools.markobject)
+        else:
+            below = len(before)
+        if below:
+            if len(stack) < below:
+                return refused + [UNBALANCED]
+            del stack[-below:]
+        if name in GETS:
+            pushed: list[object] = [memo.get(int(arg))]
+        elif name in ("GLOBAL", "STACK_GLOBAL"):
+            pushed = [_CLASS]
+        else:
+            pushed = [
+                _MARK if item is pickletools.markobject else None for item in after
+            ]
+        stack.extend(pushed)
+    return refused
 
 
 def imported(data: bytes | io.BufferedIOBase) -> tuple[dict[str, int], list[str]]:
@@ -409,6 +517,7 @@ def imported(data: bytes | io.BufferedIOBase) -> tuple[dict[str, int], list[str]
             if ops[-1][0].name == "STOP":
                 saw_stop = True
             found, bad = _imported_ops(ops)
+            bad += _class_builds(ops)
             for name, count in found.items():
                 names[name] = names.get(name, 0) + count
             refused += bad
