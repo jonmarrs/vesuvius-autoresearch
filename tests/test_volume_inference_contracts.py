@@ -1140,13 +1140,15 @@ def test_an_ensemble_exports_fiber_only_when_every_member_has_the_head(
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("step", ["tight_layout", "savefig"])
 def test_a_run_cut_short_leaves_no_metadata_from_the_previous_one(
-    tmp_path, monkeypatch, mode
+    tmp_path, monkeypatch, mode, step
 ):
     """Each run writes the same names (the loop's benchmark: one region). Cut
     short after its arrays (the loop's 600 s timeout, a stop), it left the
     previous run's metadata describing them; the metadata comes last."""
     import matplotlib.figure
+    import matplotlib.pyplot as plt
 
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
     argv.append("--disable_tta")
@@ -1159,9 +1161,17 @@ def test_a_run_cut_short_leaves_no_metadata_from_the_previous_one(
     def cut_short(*args, **kwargs):
         raise RuntimeError("stopped")
 
-    monkeypatch.setattr(matplotlib.figure.Figure, "savefig", cut_short)
-    with pytest.raises(RuntimeError, match="stopped"):
-        runner()
+    monkeypatch.setattr(matplotlib.figure.Figure, step, cut_short)
+    existing = plt.figure()
+    before = set(plt.get_fignums())
+    try:
+        with pytest.raises(RuntimeError, match="stopped"):
+            runner()
+        assert set(plt.get_fignums()) == before
+    finally:
+        for number in set(plt.get_fignums()) - before:
+            plt.close(number)
+        plt.close(existing)
     assert list(output.glob("*_ink.npy"))
     assert not stale.exists()
 

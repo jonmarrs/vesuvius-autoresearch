@@ -2357,3 +2357,14 @@ representative GPU and host memory measurements remain open.
 PR review reproduced a refusal for a writer registered during the active
 backend's import. The plan checks the updated registry after loading that
 backend. A synthetic backend fixture confirms its registered writer can save.
+
+## Regional preview figure cleanup (2026-11-25 UTC)
+
+This pass starts from main `e545623b`. Both regional commands leaked a
+Matplotlib figure when layout or saving raised. Four CPU fixtures reproduced
+the retained figure after a failed call in a process with another open figure.
+
+The preview now closes its own figure on success or failure. Layout and saving
+use that figure directly. The interrupted-publication checks still exercise
+sidecar invalidation after arrays have been replaced. Staging runtime rendering
+before publication and measuring representative peak memory remain open.

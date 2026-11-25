@@ -9,6 +9,7 @@ import io
 import json
 import os
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -97,6 +98,16 @@ def prediction_scale_bar(width, voxel_size_um):
         if pixels <= width * 0.8:
             return pixels, label
     return width * 0.5, f"{width * 0.5 * voxel_size_um:g} µm"
+
+
+@contextmanager
+def regional_preview_figure():
+    """Close this command's preview on success or rendering failure."""
+    figure = plt.figure(figsize=(15, 5))
+    try:
+        yield figure, figure.subplots(1, 3)
+    finally:
+        plt.close(figure)
 
 
 def save_vc3d_zarr(
@@ -651,52 +662,51 @@ def predict():
             }
             print(f"Warning: skipping active-learning export: {exc}")
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    axes[0].imshow(ct_slice, cmap="gray")
-    axes[0].set_title(f"CT Slice (Z={z_mid})")
+    with regional_preview_figure() as (figure, axes):
+        axes[0].imshow(ct_slice, cmap="gray")
+        axes[0].set_title(f"CT Slice (Z={z_mid})")
 
-    if has_fiber:
-        axes[1].imshow(prob_fiber_final, cmap="magma")
-        axes[1].set_title("Fiber Context (Fused)")
-    else:
-        axes[1].imshow(np.zeros_like(prob_ink_final), cmap="gray", vmin=0, vmax=1)
-        axes[1].set_title("No fiber head")
+        if has_fiber:
+            axes[1].imshow(prob_fiber_final, cmap="magma")
+            axes[1].set_title("Fiber Context (Fused)")
+        else:
+            axes[1].imshow(np.zeros_like(prob_ink_final), cmap="gray", vmin=0, vmax=1)
+            axes[1].set_title("No fiber head")
 
-    axes[2].imshow(ct_slice, cmap="gray")
-    axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
-    axes[2].set_title("Ink Overlay (Soft-Tiled)")
+        axes[2].imshow(ct_slice, cmap="gray")
+        axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
+        axes[2].set_title("Ink Overlay (Soft-Tiled)")
 
-    # Add Scale Bar — uses args.voxel_size_um (same source as the OME-Zarr
-    # metadata + per-axis scale) to avoid the previous ~1.1% scale-bar
-    # miscalibration (was hardcoded to 8.0 µm despite the rest of the file
-    # using 7.91 µm). Reviewers eyeball the PNG scale bar when judging prize
-    # submissions; the bar's label needs to match the voxel-size declared in
-    # the OME-Zarr metadata that ships alongside the PNG.
-    pixel_size_um = args.voxel_size_um
-    bar_px, bar_label = prediction_scale_bar(predict_width, pixel_size_um)
+        # Add Scale Bar — uses args.voxel_size_um (same source as the OME-Zarr
+        # metadata + per-axis scale) to avoid the previous ~1.1% scale-bar
+        # miscalibration (was hardcoded to 8.0 µm despite the rest of the file
+        # using 7.91 µm). Reviewers eyeball the PNG scale bar when judging prize
+        # submissions; the bar's label needs to match the voxel-size declared in
+        # the OME-Zarr metadata that ships alongside the PNG.
+        pixel_size_um = args.voxel_size_um
+        bar_px, bar_label = prediction_scale_bar(predict_width, pixel_size_um)
 
-    for ax in axes:
-        rect = Rectangle(
-            (predict_width * 0.1, predict_height * 0.85),
-            bar_px,
-            max(0.5, predict_height * 0.02),
-            facecolor="white",
-            edgecolor="black",
-        )
-        ax.add_patch(rect)
-        ax.text(
-            predict_width * 0.1,
-            predict_height * 0.75,
-            bar_label,
-            color="white",
-            fontsize=10,
-            fontweight="bold",
-        )
-        ax.axis("off")
+        for ax in axes:
+            rect = Rectangle(
+                (predict_width * 0.1, predict_height * 0.85),
+                bar_px,
+                max(0.5, predict_height * 0.02),
+                facecolor="white",
+                edgecolor="black",
+            )
+            ax.add_patch(rect)
+            ax.text(
+                predict_width * 0.1,
+                predict_height * 0.75,
+                bar_label,
+                color="white",
+                fontsize=10,
+                fontweight="bold",
+            )
+            ax.axis("off")
 
-    plt.tight_layout()
-    plt.savefig(out_path, format=artifacts.image_format)
-    plt.close()
+        figure.tight_layout()
+        figure.savefig(out_path, format=artifacts.image_format)
 
     def write_metadata(fiber_coherence=None):
         write_prediction_metadata(
