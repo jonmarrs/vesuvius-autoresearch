@@ -330,10 +330,8 @@ def _image_destination_writer(mode, plan):
     FigureCanvasAgg(figure)
     figure.subplots().plot([0, 1])
     scope = {
-        "plt": SimpleNamespace(savefig=figure.savefig),
         "figure": figure,
-        "out_path": str(plan.image),
-        "output_img": str(plan.image),
+        "staging": plan.directory,
         "artifacts": plan,
     }
     exec(
@@ -444,6 +442,41 @@ def test_unsupported_preview_format_preserves_previous_prediction(
 
     assert _tree(output) == before
     assert not models
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("collision", [False, True])
+def test_preview_companions_are_published_only_to_distinct_paths(
+    tmp_path, monkeypatch, mode, collision
+):
+    from matplotlib.figure import Figure
+
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    companion = output / "prediction-img0.png"
+    if collision:
+        argv.extend(["--metadata_out", str(companion)])
+    before = _tree(output)
+    savefig = Figure.savefig
+    staging_paths = []
+
+    def save_with_companion(figure, destination, **kwargs):
+        savefig(figure, destination, **kwargs)
+        staging = Path(destination).parent
+        staging_paths.append(staging)
+        (staging / companion.name).write_bytes(b"renderer companion")
+
+    monkeypatch.setattr(Figure, "savefig", save_with_companion)
+    if collision:
+        with pytest.raises(ValueError, match="artifact collision"):
+            run()
+        assert _tree(output) == before
+    else:
+        run()
+        assert companion.read_bytes() == b"renderer companion"
+    assert len(staging_paths) == 1 and not staging_paths[0].exists()
 
 
 def test_preview_format_registered_when_active_backend_loads(tmp_path, monkeypatch):

@@ -1141,39 +1141,36 @@ def test_an_ensemble_exports_fiber_only_when_every_member_has_the_head(
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("step", ["tight_layout", "savefig"])
-def test_a_run_cut_short_leaves_no_metadata_from_the_previous_one(
+def test_failed_preview_render_preserves_prior_outputs_and_closes_figure(
     tmp_path, monkeypatch, mode, step
 ):
-    """Each run writes the same names (the loop's benchmark: one region). Cut
-    short after its arrays (the loop's 600 s timeout, a stop), it left the
-    previous run's metadata describing them; the metadata comes last."""
     import matplotlib.figure
     import matplotlib.pyplot as plt
 
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
     argv.append("--disable_tta")
+    runner()
     output = tmp_path / "out"
-    output.mkdir()
-    prefix = "pred" if mode == "single" else "ensemble_pred"
-    stale = output / f"{prefix}_1_2_3_13x11_meta.json"
-    stale.write_text('{"model_config": "the previous model"}')
+    before = {path: path.read_bytes() for path in output.rglob("*") if path.is_file()}
 
-    def cut_short(*args, **kwargs):
+    def cut_short(self, *args, **kwargs):
+        if step == "savefig":
+            Path(args[0]).write_bytes(b"incomplete preview")
         raise RuntimeError("stopped")
 
     monkeypatch.setattr(matplotlib.figure.Figure, step, cut_short)
     existing = plt.figure()
-    before = set(plt.get_fignums())
+    figures_before = set(plt.get_fignums())
     try:
         with pytest.raises(RuntimeError, match="stopped"):
             runner()
-        assert set(plt.get_fignums()) == before
+        assert set(plt.get_fignums()) == figures_before
     finally:
-        for number in set(plt.get_fignums()) - before:
+        for number in set(plt.get_fignums()) - figures_before:
             plt.close(number)
         plt.close(existing)
-    assert list(output.glob("*_ink.npy"))
-    assert not stale.exists()
+    after = {path: path.read_bytes() for path in output.rglob("*") if path.is_file()}
+    assert after == before
 
 
 def test_fiber_coherence_tells_oriented_structure_from_noise():
@@ -1208,8 +1205,6 @@ def test_predict_records_the_fiber_coherence_it_is_asked_for(tmp_path, monkeypat
 def test_custom_metadata_rerun_invalidates_default_sidecar(
     tmp_path, monkeypatch, mode, cut_short
 ):
-    import matplotlib.figure
-
     from scripts.rank_scroll23_candidates import score_row
 
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
@@ -1229,16 +1224,14 @@ def test_custom_metadata_rerun_invalidates_default_sidecar(
     def check_sidecars_before_writing(*args, **kwargs):
         assert not default.exists()
         assert not custom.exists()
-        return original_save(*args, **kwargs)
+        original_save(*args, **kwargs)
+        if cut_short:
+            raise RuntimeError("stopped after array write")
 
     monkeypatch.setattr(np, "save", check_sidecars_before_writing)
     if cut_short:
 
-        def stop_before_metadata(*args, **kwargs):
-            raise RuntimeError("stopped before publication")
-
-        monkeypatch.setattr(matplotlib.figure.Figure, "savefig", stop_before_metadata)
-        with pytest.raises(RuntimeError, match="stopped before publication"):
+        with pytest.raises(RuntimeError, match="stopped after array write"):
             runner()
         assert not custom.exists()
     else:

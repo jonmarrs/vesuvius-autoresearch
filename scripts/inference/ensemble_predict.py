@@ -9,6 +9,8 @@ Ensembling does not guarantee the absence of hallucinations or establish accurac
 import os
 import sys
 from pathlib import Path
+from shutil import copyfile
+from tempfile import TemporaryDirectory
 
 # "src" too: the shared .venv's editable install may point at another checkout.
 if not __package__:
@@ -272,66 +274,75 @@ def ensemble_predict():
     # The full preview can reach damaged chunks outside this shard's tiles.
     z_mid = args.z + max_layers // 2
     ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, args.height, args.width)[0]
-    artifacts.validate_source_selection(args.uri)
-    artifacts.validate(checkpoint_aliases=args.checkpoints)
-    os.makedirs(output_dir, exist_ok=True)
-    metadata_path = invalidate_prediction_metadata(
-        output_dir, base, str(artifacts.metadata)
-    )
-    if args.num_parts > 1:
-        args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
-        np.save(args.blend_weight_path, weights.cpu().numpy())
-    exports = []
-    outputs = [("ink", ink)] + ([("fiber", fiber)] if has_fiber else [])
-    for name, array in outputs:
-        np.save(os.path.join(output_dir, f"{base}_{name}.npy"), array)
-        image = (np.clip(array, 0, 1) * 255).astype(np.uint8)
-        Image.fromarray(image).save(os.path.join(output_dir, f"{base}_{name}.png"))
-        export = os.path.join(output_dir, f"{base}_{name}.zarr")
-        save_vc3d_zarr(
-            export,
-            image,
-            name=f"Ensemble {name}",
-            voxel_size_um=args.voxel_size_um,
-            source_uri=args.uri,
-            origin_xyz=[args.x, args.y, args.z],
-        )
-        exports.append(export)
-
-    with regional_preview_figure() as (figure, axes):
-        axes[0].imshow(ct_slice, cmap="gray")
-        axes[0].set_title(f"CT Slice (Z={z_mid})")
-        if has_fiber:
-            axes[1].imshow(fiber, cmap="magma")
-            axes[1].set_title("Ensemble Fiber Context")
-        else:
-            axes[1].imshow(np.zeros_like(ink), cmap="gray", vmin=0, vmax=1)
-            axes[1].set_title("No fiber head in every member")
-        axes[2].imshow(ct_slice, cmap="gray")
-        axes[2].imshow(ink, cmap="jet", alpha=0.5)
-        axes[2].set_title("Ensemble Ink Overlay")
-        bar_px, label = prediction_scale_bar(args.width, args.voxel_size_um)
-        for ax in axes:
-            ax.add_patch(
-                Rectangle(
-                    (args.width * 0.1, args.height * 0.85),
-                    bar_px,
-                    max(0.5, args.height * 0.02),
-                    facecolor="white",
-                    edgecolor="black",
+    with TemporaryDirectory(prefix="regional-preview-") as directory:
+        staging = Path(directory)
+        with regional_preview_figure() as (figure, axes):
+            axes[0].imshow(ct_slice, cmap="gray")
+            axes[0].set_title(f"CT Slice (Z={z_mid})")
+            if has_fiber:
+                axes[1].imshow(fiber, cmap="magma")
+                axes[1].set_title("Ensemble Fiber Context")
+            else:
+                axes[1].imshow(np.zeros_like(ink), cmap="gray", vmin=0, vmax=1)
+                axes[1].set_title("No fiber head in every member")
+            axes[2].imshow(ct_slice, cmap="gray")
+            axes[2].imshow(ink, cmap="jet", alpha=0.5)
+            axes[2].set_title("Ensemble Ink Overlay")
+            bar_px, label = prediction_scale_bar(args.width, args.voxel_size_um)
+            for ax in axes:
+                ax.add_patch(
+                    Rectangle(
+                        (args.width * 0.1, args.height * 0.85),
+                        bar_px,
+                        max(0.5, args.height * 0.02),
+                        facecolor="white",
+                        edgecolor="black",
+                    )
                 )
+                ax.text(
+                    args.width * 0.1,
+                    args.height * 0.75,
+                    label,
+                    color="white",
+                    fontsize=10,
+                    fontweight="bold",
+                )
+                ax.axis("off")
+            figure.tight_layout()
+            figure.savefig(
+                str(staging / artifacts.image.name), format=artifacts.image_format
             )
-            ax.text(
-                args.width * 0.1,
-                args.height * 0.75,
-                label,
-                color="white",
-                fontsize=10,
-                fontweight="bold",
+        preview_files = artifacts.preview_files(staging)
+        artifacts.validate_source_selection(args.uri)
+        artifacts.validate(
+            checkpoint_aliases=args.checkpoints, preview_paths=preview_files
+        )
+        os.makedirs(output_dir, exist_ok=True)
+        metadata_path = invalidate_prediction_metadata(
+            output_dir, base, str(artifacts.metadata)
+        )
+        if args.num_parts > 1:
+            args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
+            np.save(args.blend_weight_path, weights.cpu().numpy())
+        exports = []
+        outputs = [("ink", ink)] + ([("fiber", fiber)] if has_fiber else [])
+        for name, array in outputs:
+            np.save(os.path.join(output_dir, f"{base}_{name}.npy"), array)
+            image = (np.clip(array, 0, 1) * 255).astype(np.uint8)
+            Image.fromarray(image).save(os.path.join(output_dir, f"{base}_{name}.png"))
+            export = os.path.join(output_dir, f"{base}_{name}.zarr")
+            save_vc3d_zarr(
+                export,
+                image,
+                name=f"Ensemble {name}",
+                voxel_size_um=args.voxel_size_um,
+                source_uri=args.uri,
+                origin_xyz=[args.x, args.y, args.z],
             )
-            ax.axis("off")
-        figure.tight_layout()
-        figure.savefig(output_img, format=artifacts.image_format)
+            exports.append(export)
+        for destination, staged in preview_files.items():
+            copyfile(staged, destination)
+
     write_prediction_metadata(
         metadata_path,
         args,
