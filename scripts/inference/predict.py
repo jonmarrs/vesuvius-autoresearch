@@ -114,6 +114,15 @@ def regional_preview_figure():
         plt.close(figure)
 
 
+def publish_regional_previews(preview_files):
+    """Replace each preview file after copying it completely beside its destination."""
+    for destination, source in preview_files.items():
+        with staged_file(destination) as temporary:
+            copyfile(source, temporary)
+            if os.path.lexists(destination):
+                validate_output_file(destination)
+
+
 def save_vc3d_zarr(
     base_path,
     array_uint8,
@@ -720,8 +729,7 @@ def predict():
                     "reason": str(exc),
                 }
                 print(f"Warning: skipping active-learning export: {exc}")
-        for destination, staged in preview_files.items():
-            copyfile(staged, destination)
+        publish_regional_previews(preview_files)
 
     def write_metadata(fiber_coherence=None):
         write_prediction_metadata(

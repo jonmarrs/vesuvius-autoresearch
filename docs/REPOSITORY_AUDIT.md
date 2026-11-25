@@ -2395,3 +2395,17 @@ publishes it by rename after the write completes. An interrupted first write
 leaves no success record, and a failed optional update preserves the valid
 record without coherence. This protects the sidecar as an individual file.
 The output family still uses separate writes, and peak memory remains open.
+
+## Atomic regional preview file replacement (2026-11-25 UTC)
+
+This pass starts from main `7682fed0`. After preview staging, both commands
+copied each file directly over its destination. Four CPU reruns interrupted
+the copy after writing partial bytes. The old preview or companion file was
+truncated in every case.
+
+The shared preview publisher copies to a sibling temporary file, rechecks the
+destination and renames the completed file into place with its output mode.
+The reruns preserve the particular file whose copy failed, remove the temporary
+file and leave the completion sidecar absent after publication has begun.
+The output family still uses separate writes. Peak-memory measurements remain
+open.
