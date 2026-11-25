@@ -99,6 +99,8 @@ def production_predict(argv=None):
     checkpoint_path, checkpoint_bytes = capture_bytes(
         plan.checkpoint, args.max_checkpoint_bytes
     )
+    if checkpoint_path != plan.checkpoint:
+        raise RuntimeError("checkpoint path changed while capturing production inputs")
     args.checkpoint = str(checkpoint_path)
     args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
     args.checkpoint_size_bytes = len(checkpoint_bytes)
@@ -159,6 +161,10 @@ def production_predict(argv=None):
             use_ridges=use_ridges,
             ridge_sigma=ridge_sigma,
             strict_reads=True,
+        )
+    if dataset.vol.path != plan.source_array:
+        raise RuntimeError(
+            "CT source selection changed while opening the production volume"
         )
     ends = (args.z + args.num_layers, args.y + args.height, args.x + args.width)
     if any(end > limit for end, limit in zip(ends, dataset.shape, strict=True)):
