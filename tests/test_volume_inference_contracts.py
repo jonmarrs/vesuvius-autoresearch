@@ -321,11 +321,23 @@ def test_checkpoint_hash_is_bound_to_bytes_actually_loaded(tmp_path, monkeypatch
     )
 
 
+@pytest.fixture
+def forbid_region_mask_sum(monkeypatch):
+    original = torch.Tensor.sum
+
+    def check_sum(tensor, *args, **kwargs):
+        if tensor.dtype == torch.bool and tensor.shape == (11, 13):
+            pytest.fail("region coverage promoted a boolean mask through sum")
+        return original(tensor, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "sum", check_sum)
+
+
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("tta", [False, True])
 @pytest.mark.parametrize("gaussian", [False, True])
 def test_complete_region_has_no_black_edges_and_consistent_exports(
-    tmp_path, monkeypatch, mode, tta, gaussian
+    tmp_path, monkeypatch, forbid_region_mask_sum, mode, tta, gaussian
 ):
     runner, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
     if not tta:
@@ -577,7 +589,9 @@ def test_a_non_finite_qc_head_does_not_stop_a_region(tmp_path, monkeypatch, mode
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
-def test_partial_shard_is_explicit_and_saves_blend_weights(tmp_path, monkeypatch, mode):
+def test_partial_shard_is_explicit_and_saves_blend_weights(
+    tmp_path, monkeypatch, forbid_region_mask_sum, mode
+):
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
     argv += ["--disable_tta", "--num_parts", "2", "--part_id", "0"]
     runner()
@@ -586,6 +600,7 @@ def test_partial_shard_is_explicit_and_saves_blend_weights(tmp_path, monkeypatch
     assert metadata["num_parts"] == 2 and metadata["part_id"] == 0
     weights = np.load(metadata["blend_weight_path"])
     assert weights.shape == (11, 13)
+    assert 0 < metadata["coverage_fraction"] < 1
     assert metadata["coverage_fraction"] == np.count_nonzero(weights) / weights.size
     assert np.isfinite(np.load(next((tmp_path / "out").glob("*_ink.npy")))).all()
 

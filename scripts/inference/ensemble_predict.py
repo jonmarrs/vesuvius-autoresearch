@@ -37,6 +37,7 @@ from scripts.regional_prediction_artifacts import (
 from vesuvius_autoresearch.core.checkpoint_refusal import require_zip_checkpoint
 from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 from vesuvius_autoresearch.core.inference import (
+    blend_coverage_fraction,
     multitask_inference_recipe,
     multitask_probabilities,
     normalize_blend,
@@ -264,9 +265,10 @@ def ensemble_predict():
             )
             weights[y : y + patch_size, x : x + patch_size] += window
 
-    ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
-    fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
-    args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
+    complete = args.num_parts == 1
+    ink = normalize_blend(full_ink, weights, complete).cpu().numpy()
+    fiber = normalize_blend(full_fiber, weights, complete).cpu().numpy()
+    args.coverage_fraction = blend_coverage_fraction(weights, complete=complete)
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
