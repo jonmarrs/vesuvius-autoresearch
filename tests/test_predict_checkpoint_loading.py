@@ -1,5 +1,6 @@
 from argparse import Namespace
 from pathlib import Path
+from stat import S_IMODE
 
 import numpy as np
 import pytest
@@ -36,6 +37,30 @@ def test_save_vc3d_zarr_writes_ome_scale_metadata(tmp_path):
     assert (out / "meta.json").exists()
     assert (out / "0" / ".zarray").exists()
     assert zarr.open_group(str(out), mode="r")["0"].shape == (1, 8, 8)
+
+
+def test_replacing_vc3d_level_zero_preserves_other_entries_and_modes(tmp_path):
+    out = tmp_path / ("prediction-" + "x" * 233 + ".zarr")
+    save_vc3d_zarr(out, np.full((3, 4), 17, dtype=np.uint8))
+    group = zarr.open_group(str(out), mode="a")
+    group.create_dataset("1", shape=(1, 2, 2), dtype="u1")[:] = 42
+    notes = out / "notes.txt"
+    notes.write_text("keep alongside the generated level")
+    out.chmod(0o750)
+    (out / ".zattrs").chmod(0o644)
+    (out / "meta.json").chmod(0o640)
+
+    save_vc3d_zarr(out, np.full((5, 6), 19, dtype=np.uint8))
+
+    group = zarr.open_group(str(out), mode="r")
+    assert group["0"].shape == (1, 5, 6)
+    np.testing.assert_array_equal(group["0"][0], 19)
+    np.testing.assert_array_equal(group["1"][0], 42)
+    assert notes.read_text() == "keep alongside the generated level"
+    assert S_IMODE(out.stat().st_mode) == 0o750
+    assert S_IMODE((out / ".zattrs").stat().st_mode) == 0o644
+    assert S_IMODE((out / "meta.json").stat().st_mode) == 0o640
+    assert list(tmp_path.iterdir()) == [out]
 
 
 def test_write_prediction_metadata_records_fiber_vc3d_artifacts(tmp_path):

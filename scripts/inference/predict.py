@@ -8,10 +8,11 @@ import hashlib
 import io
 import json
 import os
+import stat
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from shutil import copyfile
+from shutil import copy2, copyfile, copytree
 from tempfile import TemporaryDirectory
 from urllib.parse import unquote, urlsplit
 
@@ -32,6 +33,7 @@ from scripts.regional_prediction_artifacts import (
 )
 from scripts.uncertainty_artifacts import mask_shape, validate_destination
 from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
+from vesuvius_autoresearch.core.file_modes import replacement_mode
 from vesuvius_autoresearch.core.inference import (
     depth_band_for,
     hann2d,
@@ -47,11 +49,12 @@ from vesuvius_autoresearch.core.inference import (
     validate_region,
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
-from vesuvius_autoresearch.core.new_artifacts import staged_file
+from vesuvius_autoresearch.core.new_artifacts import staged_directory, staged_file
 from vesuvius_autoresearch.core.prediction_artifacts import (
     prediction_paths,
     prediction_stem,
     validate_output_file,
+    validate_output_tree,
 )
 from vesuvius_autoresearch.core.regional_memory import RegionalMemoryProfile
 from vesuvius_autoresearch.core.regional_resources import (
@@ -143,6 +146,21 @@ def save_regional_png(destination, array_uint8):
         Image.fromarray(array_uint8).save(temporary, format="PNG")
 
 
+def _retain_vc3d_entries(destination, staging):
+    """Keep entries outside the store's generated level and metadata."""
+    validate_output_tree(destination)
+    for entry in destination.iterdir():
+        if entry.name == "0":
+            if not entry.is_dir():
+                raise ValueError("existing VC3D level 0 must be a directory")
+        elif entry.name in {".zattrs", "meta.json"}:
+            validate_output_file(entry)
+        elif entry.is_dir():
+            copytree(entry, staging / entry.name)
+        else:
+            copy2(entry, staging / entry.name)
+
+
 def save_vc3d_zarr(
     base_path,
     array_uint8,
@@ -156,85 +174,95 @@ def save_vc3d_zarr(
     OME axes are z/y/x and their units are micrometers, so translation reverses
     the caller's x/y/z order and converts indices to physical coordinates.
     """
-    import json
-    import os
     import uuid
 
     import zarr
 
-    os.makedirs(base_path, exist_ok=True)
+    destination = Path(base_path)
+    with staged_directory(destination, prefix=".prediction-zarr-") as staging:
+        if os.path.lexists(destination):
+            _retain_vc3d_entries(destination, staging)
 
-    # A resolution array plus .zattrs is not a Zarr group without .zgroup.
-    zarr.open_group(str(base_path), mode="a")
-    # Create Zarr group/array at scale '0'
-    z = zarr.open(
-        os.path.join(base_path, "0"),
-        mode="w",
-        shape=(1, *array_uint8.shape),
-        chunks=(1, 256, 256),
-        dtype="|u1",
-    )
-    z[0] = array_uint8
+        # A resolution array plus .zattrs is not a Zarr group without .zgroup.
+        zarr.open_group(str(staging), mode="a")
+        # Create Zarr group/array at scale '0'
+        z = zarr.open(
+            str(staging / "0"),
+            mode="w",
+            shape=(1, *array_uint8.shape),
+            chunks=(1, 256, 256),
+            dtype="|u1",
+        )
+        z[0] = array_uint8
 
-    zattrs = {
-        "multiscales": [
-            {
-                "name": name,
-                "axes": [
-                    {"name": "z", "type": "space", "unit": "micrometer"},
-                    {"name": "y", "type": "space", "unit": "micrometer"},
-                    {"name": "x", "type": "space", "unit": "micrometer"},
-                ],
-                "datasets": [
-                    {
-                        "path": "0",
-                        "coordinateTransformations": [
-                            {
-                                "type": "scale",
-                                "scale": [
-                                    float(voxel_size_um),
-                                    float(voxel_size_um),
-                                    float(voxel_size_um),
-                                ],
-                            },
-                            {
-                                "type": "translation",
-                                "translation": [
-                                    float(v) * float(voxel_size_um)
-                                    for v in reversed(
-                                        origin_xyz
-                                        if origin_xyz is not None
-                                        else [0, 0, 0]
-                                    )
-                                ],
-                            },
-                        ],
-                    }
-                ],
-                "version": "0.4",
-            }
-        ]
-    }
-    with open(os.path.join(base_path, ".zattrs"), "w") as f:
-        json.dump(zattrs, f, indent=2)
+        zattrs = {
+            "multiscales": [
+                {
+                    "name": name,
+                    "axes": [
+                        {"name": "z", "type": "space", "unit": "micrometer"},
+                        {"name": "y", "type": "space", "unit": "micrometer"},
+                        {"name": "x", "type": "space", "unit": "micrometer"},
+                    ],
+                    "datasets": [
+                        {
+                            "path": "0",
+                            "coordinateTransformations": [
+                                {
+                                    "type": "scale",
+                                    "scale": [
+                                        float(voxel_size_um),
+                                        float(voxel_size_um),
+                                        float(voxel_size_um),
+                                    ],
+                                },
+                                {
+                                    "type": "translation",
+                                    "translation": [
+                                        float(v) * float(voxel_size_um)
+                                        for v in reversed(
+                                            origin_xyz
+                                            if origin_xyz is not None
+                                            else [0, 0, 0]
+                                        )
+                                    ],
+                                },
+                            ],
+                        }
+                    ],
+                    "version": "0.4",
+                }
+            ]
+        }
+        with (staging / ".zattrs").open("w", encoding="utf-8") as f:
+            json.dump(zattrs, f, indent=2)
 
-    # Create VC3D meta.json
-    meta = {
-        "height": array_uint8.shape[0],
-        "max": 255.0,
-        "min": 0.0,
-        "name": name,
-        "slices": 1,
-        "type": "vol",
-        "uuid": str(uuid.uuid4()),
-        "voxelsize": float(voxel_size_um),
-        "width": array_uint8.shape[1],
-        "format": "zarr",
-        "source_uri": source_uri,
-        "origin_xyz": origin_xyz,
-    }
-    with open(os.path.join(base_path, "meta.json"), "w") as f:
-        json.dump(meta, f, indent=2)
+        # Create VC3D meta.json
+        meta = {
+            "height": array_uint8.shape[0],
+            "max": 255.0,
+            "min": 0.0,
+            "name": name,
+            "slices": 1,
+            "type": "vol",
+            "uuid": str(uuid.uuid4()),
+            "voxelsize": float(voxel_size_um),
+            "width": array_uint8.shape[1],
+            "format": "zarr",
+            "source_uri": source_uri,
+            "origin_xyz": origin_xyz,
+        }
+        with (staging / "meta.json").open("w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
+
+        if os.path.lexists(destination):
+            validate_output_tree(destination)
+            for filename in (".zattrs", "meta.json"):
+                previous = destination / filename
+                if os.path.lexists(previous):
+                    validate_output_file(previous)
+                    (staging / filename).chmod(replacement_mode(previous))
+            staging.chmod(stat.S_IMODE(destination.stat().st_mode))
 
 
 def invalidate_prediction_metadata(output_dir, base_name, metadata_out=None):

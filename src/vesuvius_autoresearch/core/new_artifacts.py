@@ -27,7 +27,7 @@ def separate_paths(source, destination):
 
 
 @contextmanager
-def staged_directory(destination):
+def staged_directory(destination, *, prefix=None):
     """Publish only after success; keep an existing directory if building fails.
 
     Replacement uses two renames on the same filesystem and rolls back rename
@@ -40,7 +40,10 @@ def staged_directory(destination):
         )
     destination.parent.mkdir(parents=True, exist_ok=True)
     workspace = Path(
-        tempfile.mkdtemp(prefix=f".{destination.name}-", dir=destination.parent)
+        tempfile.mkdtemp(
+            prefix=f".{destination.name}-" if prefix is None else prefix,
+            dir=destination.parent,
+        )
     )
     staging, backup = workspace / "new.zarr", workspace / "previous"
     staging.mkdir()
