@@ -205,6 +205,13 @@ fields are explicitly false. A plan is not a GPU memory estimate or proof that
 inference will succeed. Remove `--dry-run` to execute the command with the same
 options; a later invocation reads and validates its inputs again.
 
+For a production inference run, add `--profile-memory` to save the same
+memory observation schema in the completion record. The observations span
+model construction, inference and output preparation through the staged
+Zarr store. A dry run with this flag still returns the metadata-only plan.
+See [the memory observation fields](#regional-memory-observations) for the
+measurement scope and CUDA synchronization overhead.
+
 Production accepts local paths and local `file://` volume URIs. Before model
 work and again before replacing outputs, it checks the Zarr group and metadata
 paths against the source volume, selected array and checkpoint, including

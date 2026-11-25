@@ -100,6 +100,39 @@ def test_production_checkpoint_volume_edges_and_metadata(tmp_path, monkeypatch):
     assert metadata["scale_bar_cm"] is False
 
 
+def test_production_memory_profile_is_opt_in_and_preserves_pixels(
+    tmp_path, monkeypatch
+):
+    out, argv, _ = production_fixture(tmp_path, monkeypatch)
+    profile_type = production.RegionalMemoryProfile
+    monkeypatch.setattr(
+        production,
+        "RegionalMemoryProfile",
+        lambda *args: pytest.fail("profiling enabled by default"),
+    )
+    production.production_predict()
+    sidecar = next(out.glob("*_meta.json"))
+    store = next(out.glob("*.zarr"))
+    assert "memory_profile" not in json.loads(sidecar.read_text())
+    before = zarr.open_group(str(store), mode="r")["0"][:]
+
+    monkeypatch.setattr(production, "RegionalMemoryProfile", profile_type)
+    argv.append("--profile-memory")
+    production.production_predict()
+
+    profile = json.loads(sidecar.read_text())["memory_profile"]
+    assert profile["device"] == "cpu" and profile["units"] == "bytes"
+    assert [entry["phase"] for entry in profile["observations"]] == [
+        "before_models",
+        "models_loaded",
+        "inference_complete",
+        "metadata_ready",
+    ]
+    assert all(entry["process_rss_bytes"] > 0 for entry in profile["observations"])
+    assert all(entry["cuda"] is None for entry in profile["observations"])
+    np.testing.assert_array_equal(zarr.open_group(str(store), mode="r")["0"][:], before)
+
+
 @pytest.mark.parametrize(
     "option,value",
     [("--width", "4"), ("--stride", "9"), ("--batch-size", "0"), ("--x", "-1")],
@@ -219,7 +252,7 @@ def test_failed_production_metadata_install_leaves_no_previous_record(
     assert not list(out.glob(".*-*"))
 
 
-@pytest.mark.parametrize("artifact", ["zarr", "metadata"])
+@pytest.mark.parametrize("artifact", ["zarr", "metadata", "profile"])
 def test_failed_production_preparation_preserves_the_previous_run(
     tmp_path, monkeypatch, artifact
 ):
@@ -253,10 +286,23 @@ def test_failed_production_preparation_preserves_the_previous_run(
             raise OSError("stopped during metadata preparation")
         return write_text(path, data, *args, **kwargs)
 
+    sample = production.RegionalMemoryProfile.sample
+
+    def fail_at_metadata_ready(self, phase):
+        if phase == "metadata_ready":
+            assert list(out.glob(".prediction-zarr-*/new.zarr/0/.zarray"))
+            raise OSError("stopped during profile preparation")
+        sample(self, phase)
+
     if artifact == "zarr":
         monkeypatch.setattr(zarr.Array, "__setitem__", fail_after_chunk)
-    else:
+    elif artifact == "metadata":
         monkeypatch.setattr(Path, "write_text", fail_after_partial_record)
+    else:
+        argv.append("--profile-memory")
+        monkeypatch.setattr(
+            production.RegionalMemoryProfile, "sample", fail_at_metadata_ready
+        )
     with pytest.raises(OSError, match="stopped during .* preparation"):
         production.production_predict()
 

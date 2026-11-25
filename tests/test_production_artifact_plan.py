@@ -70,8 +70,9 @@ def _ome_volume(path):
 
 
 @pytest.mark.parametrize("ome", [False, True])
+@pytest.mark.parametrize("profile", [False, True])
 def test_dry_run_is_json_without_model_voxel_reads_or_writes(
-    tmp_path, monkeypatch, capsys, ome
+    tmp_path, monkeypatch, capsys, ome, profile
 ):
     out, argv, _ = production_fixture(tmp_path, monkeypatch)
     if ome:
@@ -79,11 +80,14 @@ def test_dry_run_is_json_without_model_voxel_reads_or_writes(
         _ome_volume(source)
         _set(argv, "--uri", source.as_uri())
     argv.extend(["--dry-run", "--artifact-stem", "comparison"])
+    if profile:
+        argv.append("--profile-memory")
 
     def forbidden(*args, **kwargs):
         pytest.fail("dry run must not construct a model, probe CUDA or read voxels")
 
     monkeypatch.setattr(production, "build_prediction_model", forbidden)
+    monkeypatch.setattr(production, "RegionalMemoryProfile", forbidden)
     monkeypatch.setattr(torch.cuda, "is_available", forbidden)
     monkeypatch.setattr(production.FastVesuviusVolume, "read_ct", forbidden)
     monkeypatch.setattr(production.FastVesuviusVolume, "get_raw_patch", forbidden)
@@ -103,6 +107,7 @@ def test_dry_run_is_json_without_model_voxel_reads_or_writes(
     assert result["model_weights_verified"] is False
     assert result["voxel_data_verified"] is False
     assert result["inference_performed"] is False
+    assert "memory_profile" not in result
     assert _tree(tmp_path) == before
     assert not out.exists()
 

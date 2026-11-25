@@ -1,4 +1,4 @@
-"""Opt-in observations for regional inference, not a capacity estimate.
+"""Opt-in inference memory observations.
 
 CPU high-water RSS belongs to the process lifetime. CUDA peaks belong to the
 selected device's PyTorch allocator since this profiler reset its counters;
