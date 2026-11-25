@@ -11,6 +11,8 @@ import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from shutil import copyfile
+from tempfile import TemporaryDirectory
 from urllib.parse import unquote, urlsplit
 
 # Both direct and -m launches must use this checkout's src; the shared editable
@@ -575,138 +577,146 @@ def predict():
     ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, predict_height, predict_width)[
         0
     ]
-    artifacts.validate_source_selection(args.uri)
-    # Protect the current checkpoint link target as well as the file we read.
-    artifacts.validate(checkpoint_aliases=(args.checkpoint,))
-    if args.uncertainty_export["status"] == "PLANNED":
-        validate_destination(
-            uncertainty_path, overwrite=True, sources=uncertainty_sources
-        )
-    os.makedirs(output_dir, exist_ok=True)
-    metadata_path = invalidate_prediction_metadata(
-        output_dir, base_name, str(artifacts.metadata)
-    )
-    np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
-    if has_fiber:
-        np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
-    if args.num_parts > 1:
-        args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
-        np.save(args.blend_weight_path, full_weight.cpu().numpy())
+    with TemporaryDirectory(prefix="regional-preview-") as directory:
+        staging = Path(directory)
+        with regional_preview_figure() as (figure, axes):
+            axes[0].imshow(ct_slice, cmap="gray")
+            axes[0].set_title(f"CT Slice (Z={z_mid})")
 
-    # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
-    from PIL import Image
+            if has_fiber:
+                axes[1].imshow(prob_fiber_final, cmap="magma")
+                axes[1].set_title("Fiber Context (Fused)")
+            else:
+                axes[1].imshow(np.zeros_like(prob_ink_final), cmap="gray", vmin=0, vmax=1)
+                axes[1].set_title("No fiber head")
 
-    ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
-    fiber_uint8 = (np.clip(prob_fiber_final, 0, 1) * 255).astype(np.uint8)
-    Image.fromarray(ink_uint8).save(os.path.join(output_dir, f"{base_name}_ink.png"))
-    if has_fiber:
-        Image.fromarray(fiber_uint8).save(
-            os.path.join(output_dir, f"{base_name}_fiber.png")
+            axes[2].imshow(ct_slice, cmap="gray")
+            axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
+            axes[2].set_title("Ink Overlay (Soft-Tiled)")
+
+            # Add Scale Bar — uses args.voxel_size_um (same source as the OME-Zarr
+            # metadata + per-axis scale) to avoid the previous ~1.1% scale-bar
+            # miscalibration (was hardcoded to 8.0 µm despite the rest of the file
+            # using 7.91 µm). Reviewers eyeball the PNG scale bar when judging prize
+            # submissions; the bar's label needs to match the voxel-size declared in
+            # the OME-Zarr metadata that ships alongside the PNG.
+            pixel_size_um = args.voxel_size_um
+            bar_px, bar_label = prediction_scale_bar(predict_width, pixel_size_um)
+
+            for ax in axes:
+                rect = Rectangle(
+                    (predict_width * 0.1, predict_height * 0.85),
+                    bar_px,
+                    max(0.5, predict_height * 0.02),
+                    facecolor="white",
+                    edgecolor="black",
+                )
+                ax.add_patch(rect)
+                ax.text(
+                    predict_width * 0.1,
+                    predict_height * 0.75,
+                    bar_label,
+                    color="white",
+                    fontsize=10,
+                    fontweight="bold",
+                )
+                ax.axis("off")
+
+            figure.tight_layout()
+            figure.savefig(
+                str(staging / artifacts.image.name), format=artifacts.image_format
+            )
+        preview_files = artifacts.preview_files(staging)
+        artifacts.validate_source_selection(args.uri)
+        # Protect the current checkpoint link target as well as the file we read.
+        artifacts.validate(
+            checkpoint_aliases=(args.checkpoint,), preview_paths=preview_files
         )
-    # Save as VC3D OME-Zarr
-    zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")
-    save_vc3d_zarr(
-        zarr_path,
-        ink_uint8,
-        name=f"Ink Prediction {base_name}",
-        voxel_size_um=args.voxel_size_um,
-        source_uri=args.uri,
-        origin_xyz=[int(args.x), int(args.y), int(args.z)],
-    )
-    fiber_zarr_path = None
-    if has_fiber:
-        fiber_zarr_path = os.path.join(output_dir, f"{base_name}_fiber.zarr")
+        if args.uncertainty_export["status"] == "PLANNED":
+            validate_destination(
+                uncertainty_path, overwrite=True, sources=uncertainty_sources
+            )
+        os.makedirs(output_dir, exist_ok=True)
+        metadata_path = invalidate_prediction_metadata(
+            output_dir, base_name, str(artifacts.metadata)
+        )
+        np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
+        if has_fiber:
+            np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
+        if args.num_parts > 1:
+            args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
+            np.save(args.blend_weight_path, full_weight.cpu().numpy())
+
+        # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
+        from PIL import Image
+
+        ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
+        fiber_uint8 = (np.clip(prob_fiber_final, 0, 1) * 255).astype(np.uint8)
+        Image.fromarray(ink_uint8).save(os.path.join(output_dir, f"{base_name}_ink.png"))
+        if has_fiber:
+            Image.fromarray(fiber_uint8).save(
+                os.path.join(output_dir, f"{base_name}_fiber.png")
+            )
+        # Save as VC3D OME-Zarr
+        zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")
         save_vc3d_zarr(
-            fiber_zarr_path,
-            fiber_uint8,
-            name=f"Fiber Prediction {base_name}",
+            zarr_path,
+            ink_uint8,
+            name=f"Ink Prediction {base_name}",
             voxel_size_um=args.voxel_size_um,
             source_uri=args.uri,
             origin_xyz=[int(args.x), int(args.y), int(args.z)],
         )
-
-    # Active Learning: optional proofreader export. Prize evidence generation
-    # should not fail if this auxiliary tool is not available.
-    if args.uncertainty_export["status"] == "PLANNED":
-        try:
-            from scripts.active_learning_sampler import (
-                export_for_proofreader,
-                identify_uncertain_patches,
-            )
-
-            uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
-            args.uncertainty_export = export_for_proofreader(
-                uncertain_mask,
-                uncertainty_path,
-                overwrite=True,
-                sources=uncertainty_sources,
-                metadata={
-                    "source_uri": args.uri,
-                    "position_xyz": [args.x, args.y, args.z],
-                    "voxel_size_um": args.voxel_size_um,
-                    "model_num_layers": num_layers,
-                    "artifact_stem": base_name,
-                    "checkpoint_sha256": args.checkpoint_sha256,
-                    "normalized_entropy_threshold": 0.2,
-                    "score_kind": "normalized_binary_entropy",
-                    "inference_recipe": args.inference_recipe,
-                    "coverage_fraction": args.coverage_fraction,
-                },
-            )
-            args.uncertainty_export["normalized_entropy_threshold"] = 0.2
-        except ImportError as exc:
-            args.uncertainty_export = {
-                "status": "UNAVAILABLE",
-                "path": None,
-                "reason": str(exc),
-            }
-            print(f"Warning: skipping active-learning export: {exc}")
-
-    with regional_preview_figure() as (figure, axes):
-        axes[0].imshow(ct_slice, cmap="gray")
-        axes[0].set_title(f"CT Slice (Z={z_mid})")
-
+        fiber_zarr_path = None
         if has_fiber:
-            axes[1].imshow(prob_fiber_final, cmap="magma")
-            axes[1].set_title("Fiber Context (Fused)")
-        else:
-            axes[1].imshow(np.zeros_like(prob_ink_final), cmap="gray", vmin=0, vmax=1)
-            axes[1].set_title("No fiber head")
-
-        axes[2].imshow(ct_slice, cmap="gray")
-        axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
-        axes[2].set_title("Ink Overlay (Soft-Tiled)")
-
-        # Add Scale Bar — uses args.voxel_size_um (same source as the OME-Zarr
-        # metadata + per-axis scale) to avoid the previous ~1.1% scale-bar
-        # miscalibration (was hardcoded to 8.0 µm despite the rest of the file
-        # using 7.91 µm). Reviewers eyeball the PNG scale bar when judging prize
-        # submissions; the bar's label needs to match the voxel-size declared in
-        # the OME-Zarr metadata that ships alongside the PNG.
-        pixel_size_um = args.voxel_size_um
-        bar_px, bar_label = prediction_scale_bar(predict_width, pixel_size_um)
-
-        for ax in axes:
-            rect = Rectangle(
-                (predict_width * 0.1, predict_height * 0.85),
-                bar_px,
-                max(0.5, predict_height * 0.02),
-                facecolor="white",
-                edgecolor="black",
+            fiber_zarr_path = os.path.join(output_dir, f"{base_name}_fiber.zarr")
+            save_vc3d_zarr(
+                fiber_zarr_path,
+                fiber_uint8,
+                name=f"Fiber Prediction {base_name}",
+                voxel_size_um=args.voxel_size_um,
+                source_uri=args.uri,
+                origin_xyz=[int(args.x), int(args.y), int(args.z)],
             )
-            ax.add_patch(rect)
-            ax.text(
-                predict_width * 0.1,
-                predict_height * 0.75,
-                bar_label,
-                color="white",
-                fontsize=10,
-                fontweight="bold",
-            )
-            ax.axis("off")
 
-        figure.tight_layout()
-        figure.savefig(out_path, format=artifacts.image_format)
+        # Active Learning: optional proofreader export. Prize evidence generation
+        # should not fail if this auxiliary tool is not available.
+        if args.uncertainty_export["status"] == "PLANNED":
+            try:
+                from scripts.active_learning_sampler import (
+                    export_for_proofreader,
+                    identify_uncertain_patches,
+                )
+
+                uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
+                args.uncertainty_export = export_for_proofreader(
+                    uncertain_mask,
+                    uncertainty_path,
+                    overwrite=True,
+                    sources=uncertainty_sources,
+                    metadata={
+                        "source_uri": args.uri,
+                        "position_xyz": [args.x, args.y, args.z],
+                        "voxel_size_um": args.voxel_size_um,
+                        "model_num_layers": num_layers,
+                        "artifact_stem": base_name,
+                        "checkpoint_sha256": args.checkpoint_sha256,
+                        "normalized_entropy_threshold": 0.2,
+                        "score_kind": "normalized_binary_entropy",
+                        "inference_recipe": args.inference_recipe,
+                        "coverage_fraction": args.coverage_fraction,
+                    },
+                )
+                args.uncertainty_export["normalized_entropy_threshold"] = 0.2
+            except ImportError as exc:
+                args.uncertainty_export = {
+                    "status": "UNAVAILABLE",
+                    "path": None,
+                    "reason": str(exc),
+                }
+                print(f"Warning: skipping active-learning export: {exc}")
+        for destination, staged in preview_files.items():
+            copyfile(staged, destination)
 
     def write_metadata(fiber_coherence=None):
         write_prediction_metadata(

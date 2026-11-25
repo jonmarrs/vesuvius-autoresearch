@@ -103,15 +103,27 @@ class RegionalArtifactPlan:
         if source != self.source or local_volume_array_path(source) != self.source_array:
             raise RuntimeError("CT source selection changed after regional output planning")
 
-    def validate(self, *, checkpoint_aliases=()):
+    def preview_files(self, staging):
+        """Map the main preview and any renderer companions to their destinations."""
+        files = {}
+        for source in sorted(staging.iterdir()):
+            validate_output_file(source, label="staged preview")
+            files[self.directory / source.name] = source
+        if self.image not in files:
+            raise ValueError("preview renderer did not produce the planned image")
+        return files
+
+    def validate(self, *, checkpoint_aliases=(), preview_paths=()):
         if os.path.lexists(self.directory) and not stat.S_ISDIR(
             self.directory.lstat().st_mode
         ):
             raise ValueError(
                 "prediction output directory must be a nonsymlink directory"
             )
+        paths = self.paths
+        paths.extend(path for path in preview_paths if path != self.image)
         validate_plan_paths(
-            [(path, f"prediction output {path.name}") for path in self.paths],
+            [(path, f"prediction output {path.name}") for path in paths],
             [
                 (self.source, "CT source"),
                 (self.source_array, "selected CT array"),
@@ -123,7 +135,7 @@ class RegionalArtifactPlan:
             self.directory / f"{self.stem}{suffix}"
             for suffix in ("_ink.zarr", "_fiber.zarr", "_uncertain")
         }
-        for path in self.paths:
+        for path in paths:
             if os.path.lexists(path):
                 if path in trees:
                     validate_output_tree(path)

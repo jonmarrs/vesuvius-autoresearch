@@ -2368,3 +2368,17 @@ The preview now closes its own figure on success or failure. Layout and saving
 use that figure directly. The interrupted-publication checks still exercise
 sidecar invalidation after arrays have been replaced. Staging runtime rendering
 before publication and measuring representative peak memory remain open.
+
+## Stage regional preview rendering before publication (2026-11-25 UTC)
+
+This pass starts from main `bc01ce5c`. A layout or save failure could still
+invalidate the old sidecar and replace arrays. Four reruns reproduced this;
+the save fixtures also wrote an incomplete preview at the final path.
+
+Both commands render in a private temporary directory with the planned
+filename and format. They validate the main preview and any regular sibling
+files emitted by the renderer before replacing outputs. Tests verify failed
+renders preserve prior files, published companions keep their names, and a
+companion that aliases metadata is refused. The sidecar still comes last;
+errors during publication can leave partial outputs. Representative peak
+memory measurements remain open.
