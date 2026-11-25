@@ -15,7 +15,6 @@ if not __package__:
     root = Path(__file__).resolve().parents[2]
     sys.path[:0] = [str(root), str(root / "src")]
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.patches import Rectangle
@@ -26,6 +25,7 @@ from scripts.inference.predict import (
     get_weight_window,
     invalidate_prediction_metadata,
     prediction_scale_bar,
+    regional_preview_figure,
     save_vc3d_zarr,
     write_prediction_metadata,
 )
@@ -298,41 +298,40 @@ def ensemble_predict():
         )
         exports.append(export)
 
-    figure, axes = plt.subplots(1, 3, figsize=(15, 5))
-    axes[0].imshow(ct_slice, cmap="gray")
-    axes[0].set_title(f"CT Slice (Z={z_mid})")
-    if has_fiber:
-        axes[1].imshow(fiber, cmap="magma")
-        axes[1].set_title("Ensemble Fiber Context")
-    else:
-        axes[1].imshow(np.zeros_like(ink), cmap="gray", vmin=0, vmax=1)
-        axes[1].set_title("No fiber head in every member")
-    axes[2].imshow(ct_slice, cmap="gray")
-    axes[2].imshow(ink, cmap="jet", alpha=0.5)
-    axes[2].set_title("Ensemble Ink Overlay")
-    bar_px, label = prediction_scale_bar(args.width, args.voxel_size_um)
-    for ax in axes:
-        ax.add_patch(
-            Rectangle(
-                (args.width * 0.1, args.height * 0.85),
-                bar_px,
-                max(0.5, args.height * 0.02),
-                facecolor="white",
-                edgecolor="black",
+    with regional_preview_figure() as (figure, axes):
+        axes[0].imshow(ct_slice, cmap="gray")
+        axes[0].set_title(f"CT Slice (Z={z_mid})")
+        if has_fiber:
+            axes[1].imshow(fiber, cmap="magma")
+            axes[1].set_title("Ensemble Fiber Context")
+        else:
+            axes[1].imshow(np.zeros_like(ink), cmap="gray", vmin=0, vmax=1)
+            axes[1].set_title("No fiber head in every member")
+        axes[2].imshow(ct_slice, cmap="gray")
+        axes[2].imshow(ink, cmap="jet", alpha=0.5)
+        axes[2].set_title("Ensemble Ink Overlay")
+        bar_px, label = prediction_scale_bar(args.width, args.voxel_size_um)
+        for ax in axes:
+            ax.add_patch(
+                Rectangle(
+                    (args.width * 0.1, args.height * 0.85),
+                    bar_px,
+                    max(0.5, args.height * 0.02),
+                    facecolor="white",
+                    edgecolor="black",
+                )
             )
-        )
-        ax.text(
-            args.width * 0.1,
-            args.height * 0.75,
-            label,
-            color="white",
-            fontsize=10,
-            fontweight="bold",
-        )
-        ax.axis("off")
-    figure.tight_layout()
-    figure.savefig(output_img, format=artifacts.image_format)
-    plt.close(figure)
+            ax.text(
+                args.width * 0.1,
+                args.height * 0.75,
+                label,
+                color="white",
+                fontsize=10,
+                fontweight="bold",
+            )
+            ax.axis("off")
+        figure.tight_layout()
+        figure.savefig(output_img, format=artifacts.image_format)
     write_prediction_metadata(
         metadata_path,
         args,
