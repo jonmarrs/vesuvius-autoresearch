@@ -31,7 +31,11 @@ from scripts.regional_prediction_artifacts import (
     RegionalArtifactPlan,
     validate_checkpoint_metadata,
 )
-from scripts.uncertainty_artifacts import mask_shape, validate_destination
+from scripts.uncertainty_artifacts import (
+    mask_shape,
+    stage_mask,
+    validate_destination,
+)
 from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 from vesuvius_autoresearch.core.file_modes import replacement_mode
 from vesuvius_autoresearch.core.inference import (
@@ -757,21 +761,62 @@ def predict():
             outputs["fiber"] = (prob_fiber_final, f"Fiber Prediction {base_name}")
         if args.num_parts > 1:
             args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
-        with stage_regional_outputs(
-            artifacts,
-            outputs,
-            preview_files,
-            blend_weights=full_weight.cpu().numpy() if args.num_parts > 1 else None,
-            voxel_size_um=args.voxel_size_um,
-            source_uri=args.uri,
-            origin_xyz=[int(args.x), int(args.y), int(args.z)],
-        ) as exports:
-            # Encoding can take place after a source link or destination changes.
+        export_uncertainty = args.uncertainty_export["status"] == "PLANNED"
+        with (
+            ExitStack() as pending_mask,
+            stage_regional_outputs(
+                artifacts,
+                outputs,
+                preview_files,
+                blend_weights=full_weight.cpu().numpy() if args.num_parts > 1 else None,
+                voxel_size_um=args.voxel_size_um,
+                source_uri=args.uri,
+                origin_xyz=[int(args.x), int(args.y), int(args.z)],
+            ) as exports,
+        ):
+            if export_uncertainty:
+                try:
+                    from scripts.active_learning_sampler import (
+                        identify_uncertain_patches,
+                    )
+
+                    mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
+                    args.uncertainty_export = pending_mask.enter_context(
+                        stage_mask(
+                            mask.detach().cpu().numpy(),
+                            uncertainty_path,
+                            overwrite=True,
+                            sources=uncertainty_sources,
+                            metadata={
+                                "source_uri": args.uri,
+                                "position_xyz": [args.x, args.y, args.z],
+                                "voxel_size_um": args.voxel_size_um,
+                                "model_num_layers": num_layers,
+                                "artifact_stem": base_name,
+                                "checkpoint_sha256": args.checkpoint_sha256,
+                                "normalized_entropy_threshold": 0.2,
+                                "score_kind": "normalized_binary_entropy",
+                                "inference_recipe": args.inference_recipe,
+                                "coverage_fraction": args.coverage_fraction,
+                            },
+                        )
+                    )
+                    del mask
+                    args.uncertainty_export["normalized_entropy_threshold"] = 0.2
+                except ImportError as exc:
+                    args.uncertainty_export = {
+                        "status": "UNAVAILABLE",
+                        "path": None,
+                        "reason": str(exc),
+                    }
+                    print(f"Warning: skipping active-learning export: {exc}")
+
+            # Recheck source selection and aliases after all preparation.
             artifacts.validate_source_selection(args.uri)
             artifacts.validate(
                 checkpoint_aliases=(args.checkpoint,), preview_paths=preview_files
             )
-            if args.uncertainty_export["status"] == "PLANNED":
+            if export_uncertainty:
                 validate_destination(
                     uncertainty_path, overwrite=True, sources=uncertainty_sources
                 )
@@ -780,43 +825,8 @@ def predict():
             )
         zarr_path = exports["ink"]
         fiber_zarr_path = exports.get("fiber")
-
-        # Active Learning: optional proofreader export. Prize evidence generation
-        # should not fail if this auxiliary tool is not available.
-        if args.uncertainty_export["status"] == "PLANNED":
-            try:
-                from scripts.active_learning_sampler import (
-                    export_for_proofreader,
-                    identify_uncertain_patches,
-                )
-
-                uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
-                args.uncertainty_export = export_for_proofreader(
-                    uncertain_mask,
-                    uncertainty_path,
-                    overwrite=True,
-                    sources=uncertainty_sources,
-                    metadata={
-                        "source_uri": args.uri,
-                        "position_xyz": [args.x, args.y, args.z],
-                        "voxel_size_um": args.voxel_size_um,
-                        "model_num_layers": num_layers,
-                        "artifact_stem": base_name,
-                        "checkpoint_sha256": args.checkpoint_sha256,
-                        "normalized_entropy_threshold": 0.2,
-                        "score_kind": "normalized_binary_entropy",
-                        "inference_recipe": args.inference_recipe,
-                        "coverage_fraction": args.coverage_fraction,
-                    },
-                )
-                args.uncertainty_export["normalized_entropy_threshold"] = 0.2
-            except ImportError as exc:
-                args.uncertainty_export = {
-                    "status": "UNAVAILABLE",
-                    "path": None,
-                    "reason": str(exc),
-                }
-                print(f"Warning: skipping active-learning export: {exc}")
+        if args.uncertainty_export["path"] is not None:
+            print(f"Exported uncertainty mask for proofreading: {uncertainty_path}")
 
     def write_metadata(fiber_coherence=None):
         write_prediction_metadata(

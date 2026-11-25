@@ -5,13 +5,14 @@ import math
 import os
 import re
 import stat
+from contextlib import contextmanager
 from itertools import product
 from pathlib import Path
 
 import numpy as np
 import zarr
 
-from scripts.candidate_artifacts import staged_directory
+from vesuvius_autoresearch.core.new_artifacts import staged_directory
 from vesuvius_autoresearch.core.prediction_artifacts import (
     validate_output_tree,
     validate_plan_paths,
@@ -86,7 +87,8 @@ def validate_destination(path, *, overwrite=False, sources=()):
     return path.absolute()
 
 
-def publish_mask(
+@contextmanager
+def stage_mask(
     mask,
     path,
     *,
@@ -95,7 +97,7 @@ def publish_mask(
     metadata=None,
     max_voxels=MAX_MASK_VOXELS,
 ):
-    """Publish a normalized float32 0/1 mask; keep a prior store on build failure.
+    """Prepare a normalized float32 0/1 mask and publish on successful exit.
 
     Existing stores require explicit replacement. Publication uses two renames
     with rollback, not a concurrent-reader or power-loss transaction.
@@ -129,7 +131,7 @@ def publish_mask(
         "uncertain_voxels": count,
         "source": provenance,
     }
-    with staged_directory(path) as staging:
+    with staged_directory(path, prefix=".uncertainty-") as staging:
         array = zarr.open(
             str(staging),
             mode="w",
@@ -150,13 +152,37 @@ def publish_mask(
                 if values[slices].any():
                     array[slices] = values[slices]
         array.attrs.update(attributes)
+        mask_voxels = int(values.size)
+        del values, mask
+        yield {
+            "status": "EXPORTED" if count else "EMPTY",
+            "path": str(path.resolve()),
+            "shape_zyx": list(shape),
+            "uncertain_voxels": count,
+            "mask_voxels": mask_voxels,
+        }
         validate_destination(path, overwrite=overwrite, sources=sources)
         if permissions is not None:
             staging.chmod(permissions)
-    return {
-        "status": "EXPORTED" if count else "EMPTY",
-        "path": str(path.resolve()),
-        "shape_zyx": list(shape),
-        "uncertain_voxels": count,
-        "mask_voxels": int(values.size),
-    }
+
+
+def publish_mask(
+    mask,
+    path,
+    *,
+    overwrite=False,
+    sources=(),
+    metadata=None,
+    max_voxels=MAX_MASK_VOXELS,
+):
+    """Prepare and publish a standalone proofreader mask."""
+    with stage_mask(
+        mask,
+        path,
+        overwrite=overwrite,
+        sources=sources,
+        metadata=metadata,
+        max_voxels=max_voxels,
+    ) as record:
+        pass
+    return record
