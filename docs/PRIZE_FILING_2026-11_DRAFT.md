@@ -1,4 +1,4 @@
-# November 2026 Progress Prize — DRAFT (started 2026-11-05; updated 2026-11-23; not submitted)
+# November 2026 Progress Prize — DRAFT (started 2026-11-05; updated 2026-11-24; not submitted)
 
 **The November round opened 2026-11-05 03:54 UTC (2026-11-04 Pacific)** with villa
 [#2301](https://github.com/ScrollPrize/villa/pull/2301) (merge `9c343a164`):
@@ -61,7 +61,7 @@ above only once it merges, with its date:
   refuse a coarse pyramid level whose depth contradicts its declared Z scale (fixes villa
   [#2107](https://github.com/ScrollPrize/villa/issues/2107)). The review pushed two fixes to the branch first: the
   downloader reports a bad level before it touches its output, and labelled discovery keeps its depth checks on the
-  planes it reads. This is the strongest of the three under #2450.
+  planes it reads. This is the stronger of the two still open under #2450.
   * **Its case in practice:** in 18 of the 33 surface volumes of the `scrollprize/datasets` `ink/` bucket, level 2
     holds only the first 17 of 65 depth slices while declaring a Z scale of 1 (#2107). On main, flat inference, the
     ink dataset and the 9 µm preparation open such a level as the whole sheet.
@@ -233,8 +233,8 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
     - **How:** their network and weights, re-implemented from their commit. The text's best window is one our version
       adds at each winding's end; without those windows the text ranks 9th.
     - **What it changes:** it orders where to look first in a band read. It does not separate text from texture: the
-      window ranked above the text and the windows just below it show no letters, and the scores are within a
-      fraction of a logit of each other.
+      window ranked above the text shows no letters, nor do the two below it that were looked at (3rd and 5th), and
+      the scores are within a fraction of a logit of each other.
     - **Credit:** the network is Liam Warner's and Nicola Bodill's; its code is MIT and its weights CC BY-NC 4.0.
   * **What it shows:** on one RTX 4090, the published recipe's unrefined fit finds the ink at a known text place, and
     with the winning reader it draws that place's letters. With the recipe's released readers it draws none, so the
@@ -285,6 +285,80 @@ RTX 4090. Whether to file it, and at what length, is the owner's decision. Scrip
 Not for this filing: anything made from a still-eligible scroll. That includes our band reads of eligible scrolls,
 their costs and geometry among them, and any ranking of their windows. PHerc. 211's prize was announced on
 2026-11-15, so its results may be described.
+
+## "What is your contribution?"
+
+A draft for the owner's review; paste from this file. Every number in this section and the next is one the sections
+above state from a report or record, and a test holds them to the same values.
+
+**(1) Which scroll data.**
+* PHerc. 211, at the place where its First Letters prize was won (announced 2026-11-15): the winner's published
+  surface, probability map and CT image (CC BY-NC 4.0), and our own band fit of the public CT, surface prediction,
+  lasagna and spiral tracks around it.
+* PHerc. 343: the First Letters recipe's published surface and windings, and our own fit of its band.
+* PHerc. 0841: the recipe team's three labelled surfaces.
+* villa: the lasagna FlowSnap presets and the fiber volume's seed planes.
+
+All of it on one RTX 4090, on a 4-core, 31 GB host.
+
+**(2) How it increases the probability of reading.**
+* **Merged into villa this month:**
+  * [villa #2463](https://github.com/ScrollPrize/villa/pull/2463), merged on 2026-11-24. Both lasagna FlowSnap presets
+    failed before optimizing with an unknown loss-term error (villa #2458). They are used by `fit.py` and offered in
+    VC3D's config picker, and now load.
+  * [villa #2258](https://github.com/ScrollPrize/villa/pull/2258), merged on 2026-11-01, keeps fractional seed planes on
+    the fiber volume's global grid. Its effect is small (seed counts change by at most 0.34%), so it is supporting
+    work.
+* **The First Letters route, end to end on one consumer GPU, checked at two places with known text.** Our unrefined
+  spiral fit, read by the winning reader (Studio), draws the winner's letters at PHerc. 211: r = 0.82 against the
+  winner's map, reversed planes −0.05. At PHerc. 343 our fit's windings give r = 0.90 and draw the same letters. With
+  the recipe's released readers the same place gives r = 0.53 and no readable letter, so the reader was the missing
+  piece, not the geometry.
+* **Choices for reading a band, each tested at the known place:**
+  * a fit declared to turn the wrong way reads the text as well as the published direction (r 0.841 against
+    0.8247), so a scroll whose winding direction is not published can still be read band by band;
+  * Studio reads best at the depth the band reads use, with no shift;
+  * subdividing and re-snapping the windings puts more of them on the sheet but reads no better;
+  * the PHerc. 306B team's glyph network ranks a window on the known text 2nd of 467 in a whole band read, so it can
+    order where to look first. It does not separate text from texture.
+* **Submission images:** our wrapper around the recipe's `make_submission_image.py` adds a reversed-plane control and
+  a flattening check. A defect in that script's reading orientation is reported upstream: on 36 of the 57 catalogued
+  volumes with both flags set, it would turn the image by 180 degrees.
+
+Left out on purpose: Studio's skip of windows that hold no CT. Its timings were measured on an eligible scroll's
+windings, and whether that item is filed is the owner's decision (above).
+
+**(3) What it enables that was not possible before.**
+* Reading a whole band of a scroll with the winning reader on one RTX 4090, with every step's cost published: at
+  PHerc. 211, a 1,500-slice band fitted in 3 h 32 min and 80 windings read.
+* Reading a band of a scroll whose winding direction is not published.
+* A short list of where to look first in a band read.
+
+**(4) Evidence.**
+* Registered studies were pre-registered before their data; checks added after a result are labelled as such.
+  Reports, records and scripts: https://github.com/jonmarrs/vesuvius-autoresearch (`reports/first_letters_0211_*.md`,
+  `reports/first_letters_343_*.md`, `reports/first_letters_0841_surface_control.md`,
+  `reports/studio_published_tiling.md`, `repro/first_letters/`).
+* Every figure in those reports is bound by a test to the record that produced it.
+* villa #2463's case: the review reproduced the error on main and loaded both presets at the PR's head.
+
+## Required disclosure — include it
+
+* **Predictions that failed this month**, as each report states:
+  * the reader control: `READER_PARTLY` predicted, `READER_AGREES` found;
+  * Reader V3: `V3_CLOSER` predicted, `V3_NO_CLOSER` found, short of its margin;
+  * Studio's published tiling: adoption predicted, the winner's tiling kept;
+  * the wrong-direction fit: a partial read predicted, an equal one found;
+  * the glyph network: a high rank on w035 predicted, 2nd found, on w033.
+* **Our own addition raised a rank:** the glyph network's best window on the text is one our version adds at each
+  winding's end. On the team's own window grid the text ranks 9th of 400.
+* **Licences:** Studio's weights and outputs and the glyph network's weights are CC BY-NC 4.0, used with the owner's
+  approval. Studio's training includes a fragment, PHerc0343P, that may come from the same roll as PHerc. 343.
+* **ScrollGT, inkdelta and inkagree** are evaluation tools and are not claimed here.
+
+## Do not add
+
+Anything made from a still-eligible scroll (above), and any claim the sections above do not state.
 
 ## Filing-day checklist
 
