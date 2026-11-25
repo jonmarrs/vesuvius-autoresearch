@@ -146,14 +146,14 @@ def save_regional_png(destination, array_uint8):
         Image.fromarray(array_uint8).save(temporary, format="PNG")
 
 
-def _retain_vc3d_entries(destination, staging):
+def _retain_vc3d_entries(destination, staging, metadata_files):
     """Keep entries outside the store's generated level and metadata."""
     validate_output_tree(destination)
     for entry in destination.iterdir():
         if entry.name == "0":
             if not entry.is_dir():
                 raise ValueError("existing VC3D level 0 must be a directory")
-        elif entry.name in {".zattrs", "meta.json"}:
+        elif entry.name in metadata_files:
             validate_output_file(entry)
         elif entry.is_dir():
             copytree(entry, staging / entry.name)
@@ -180,8 +180,12 @@ def save_vc3d_zarr(
 
     destination = Path(base_path)
     with staged_directory(destination, prefix=".prediction-zarr-") as staging:
+        metadata_files = [".zattrs", "meta.json"]
+        consolidated = os.path.lexists(destination / ".zmetadata")
+        if consolidated:
+            metadata_files.append(".zmetadata")
         if os.path.lexists(destination):
-            _retain_vc3d_entries(destination, staging)
+            _retain_vc3d_entries(destination, staging, metadata_files)
 
         # A resolution array plus .zattrs is not a Zarr group without .zgroup.
         zarr.open_group(str(staging), mode="a")
@@ -254,10 +258,12 @@ def save_vc3d_zarr(
         }
         with (staging / "meta.json").open("w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
+        if consolidated:
+            zarr.consolidate_metadata(str(staging))
 
         if os.path.lexists(destination):
             validate_output_tree(destination)
-            for filename in (".zattrs", "meta.json"):
+            for filename in metadata_files:
                 previous = destination / filename
                 if os.path.lexists(previous):
                     validate_output_file(previous)

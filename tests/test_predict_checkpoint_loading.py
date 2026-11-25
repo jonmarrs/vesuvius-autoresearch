@@ -44,21 +44,24 @@ def test_replacing_vc3d_level_zero_preserves_other_entries_and_modes(tmp_path):
     save_vc3d_zarr(out, np.full((3, 4), 17, dtype=np.uint8))
     group = zarr.open_group(str(out), mode="a")
     group.create_dataset("1", shape=(1, 2, 2), dtype="u1")[:] = 42
+    zarr.consolidate_metadata(str(out))
     notes = out / "notes.txt"
     notes.write_text("keep alongside the generated level")
     out.chmod(0o750)
     (out / ".zattrs").chmod(0o644)
+    (out / ".zmetadata").chmod(0o640)
     (out / "meta.json").chmod(0o640)
 
     save_vc3d_zarr(out, np.full((5, 6), 19, dtype=np.uint8))
 
-    group = zarr.open_group(str(out), mode="r")
+    group = zarr.open_consolidated(str(out), mode="r")
     assert group["0"].shape == (1, 5, 6)
     np.testing.assert_array_equal(group["0"][0], 19)
     np.testing.assert_array_equal(group["1"][0], 42)
     assert notes.read_text() == "keep alongside the generated level"
     assert S_IMODE(out.stat().st_mode) == 0o750
     assert S_IMODE((out / ".zattrs").stat().st_mode) == 0o644
+    assert S_IMODE((out / ".zmetadata").stat().st_mode) == 0o640
     assert S_IMODE((out / "meta.json").stat().st_mode) == 0o640
     assert list(tmp_path.iterdir()) == [out]
 

@@ -2436,6 +2436,11 @@ installation fails. Directory replacement uses two renames, and the regional
 output family still publishes separately. Representative peak memory remains
 open.
 
+PR review reproduced a stale level-0 shape when opening the replacement
+through a copied `.zmetadata` index. The staged writer regenerates that index
+for already-consolidated stores and preserves its permission mode. The fixture
+reads the new shape and the retained sibling level through the index.
+
 ## Atomic regional grayscale PNG replacement (2026-11-25 UTC)
 
 This pass starts from main `05aef8ab`. Four CPU reruns interrupted Pillow
