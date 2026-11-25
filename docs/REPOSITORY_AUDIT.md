@@ -2680,3 +2680,19 @@ Checkpoint metadata continues to identify the bytes captured for the run.
 These checks observe the filesystem at explicit points in the run. Keep
 input paths stable and serialize writers. Whole-run peak-memory measurements
 remain open.
+
+## Bind opened production inputs to the artifact plan (2026-11-25 UTC)
+
+This pass starts from main `35630d83`. The production command rechecked
+requested input paths before publication, but it accepted a CT reader or
+checkpoint capture whose resolved path differed from the plan. CPU fixtures
+substituted a reader for a different array and a checkpoint capture from a
+different file. In the dry-run fixture, the plan reported the original CT
+path alongside dimensions from the other array.
+
+Production now compares the captured checkpoint path before decoding and
+the opened CT array path before checking geometry or returning a dry-run
+plan. The three fixtures refuse the mismatch and preserve prior outputs.
+Keep paths and source data stable for the run. The checks compare resolved
+paths at the points where inputs are captured or opened. Whole-run
+peak-memory measurements remain open.

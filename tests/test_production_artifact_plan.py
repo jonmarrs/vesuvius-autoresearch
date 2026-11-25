@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -115,8 +116,8 @@ def test_dry_run_large_geometry_does_not_allocate_tile_lists(tmp_path, monkeypat
     class MetadataOnly:
         shape = (5, 10**11, 10**11)
 
-        def __init__(self, *args, **kwargs):
-            pass
+        def __init__(self, volume_uri, **kwargs):
+            self.vol = SimpleNamespace(path=Path(volume_uri))
 
     monkeypatch.setattr(production, "FastVesuviusVolume", MetadataOnly)
     monkeypatch.setattr(production, "tile_starts", lambda *a: pytest.fail("tile list"))
@@ -396,6 +397,55 @@ def test_the_run_reads_the_array_its_plan_protected(tmp_path, monkeypatch):
     result = production.production_predict([*argv[1:], "--dry-run"])
     assert result["source_array_path"] == str(planned.resolve())
     assert result["source_shape_zyx"] == [5, 20, 24]
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_production_refuses_a_reader_for_a_different_ct_array(
+    tmp_path, monkeypatch, dry_run
+):
+    out, argv, model = production_fixture(tmp_path, monkeypatch)
+    production.production_predict()
+    before = _tree(out)
+    model.batches.clear()
+    source = Path(argv[argv.index("--uri") + 1])
+    other = tmp_path / "other.zarr"
+    zarr.open(str(other), mode="w", shape=(5, 20, 32), dtype="u1")[:] = 128
+    open_volume = production.FastVesuviusVolume
+
+    def open_other(requested, **kwargs):
+        assert Path(requested) == source
+        return open_volume(other, **kwargs)
+
+    monkeypatch.setattr(production, "FastVesuviusVolume", open_other)
+    if dry_run:
+        argv.append("--dry-run")
+    with pytest.raises(RuntimeError, match="CT source selection changed while opening"):
+        production.production_predict()
+    assert not model.batches
+    assert _tree(out) == before
+
+
+def test_production_refuses_a_checkpoint_captured_from_a_different_path(
+    tmp_path, monkeypatch
+):
+    out, argv, model = production_fixture(tmp_path, monkeypatch)
+    production.production_predict()
+    before = _tree(out)
+    model.batches.clear()
+    checkpoint = Path(argv[argv.index("--checkpoint") + 1])
+    other = tmp_path / "other.pt"
+    other.write_bytes(checkpoint.read_bytes())
+    capture = production.capture_bytes
+
+    def capture_other(requested, limit):
+        assert requested == checkpoint
+        return capture(other, limit)
+
+    monkeypatch.setattr(production, "capture_bytes", capture_other)
+    with pytest.raises(RuntimeError, match="checkpoint path changed while capturing"):
+        production.production_predict()
+    assert not model.batches
+    assert _tree(out) == before
 
 
 @pytest.mark.parametrize("kind", ["oversize", "fifo"])

@@ -213,7 +213,8 @@ real directories and regular files without symbolic or hard links; metadata
 must also be a regular file without hard links. Inspection stops after 100,000
 entries in the existing group. An unsafe or oversized existing output is refused;
 choose a fresh output directory or stem. The source volume is not recursively
-scanned. Before replacement, the command checks that the requested CT still selects
+scanned. The opened CT array and captured checkpoint path must match the plan. Before
+replacement, the command checks that the requested CT still selects
 the planned group and array. It also checks the current checkpoint alias
 against both outputs. These checks run before and after staging. Keep source
 paths stable and serialize writers targeting the same artifacts.
