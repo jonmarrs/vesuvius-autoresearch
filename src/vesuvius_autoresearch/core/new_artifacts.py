@@ -1,4 +1,4 @@
-"""Publication of new local artifacts and rollback-safe directory replacement.
+"""Publication of local artifacts and rollback-safe directory replacement.
 
 Callers must serialize writers. Path checks and renames do not provide a
 multi-writer transaction or a power-loss guarantee.
@@ -88,20 +88,29 @@ def publish_new(output):
 
 
 @contextmanager
+def staged_file(output, *, suffix=""):
+    """Replace a local file by rename after writing its sibling successfully."""
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=output.parent, prefix=".staged-", suffix=suffix, delete=False
+        ) as stream:
+            staging = Path(stream.name)
+        yield staging
+        os.chmod(staging, replacement_mode(output))
+        staging.replace(output)
+    finally:
+        if staging is not None:
+            staging.unlink(missing_ok=True)
+
+
+@contextmanager
 def publish_new_file(output, *sources):
     """Publish one validated new file by rename; serialize writers."""
     output = new_output(output, *sources)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        dir=output.parent, prefix=f".{output.stem}-", suffix=output.suffix, delete=False
-    ) as stream:
-        staging = Path(stream.name)
-    try:
+    with staged_file(output, suffix=output.suffix) as staging:
         yield staging
         if output.exists() or output.is_symlink():
             raise ValueError(f"output appeared during processing: {output}")
-        # A new file's mode (the umask's), not the temporary file's 0600.
-        os.chmod(staging, replacement_mode(output))
-        staging.rename(output)
-    finally:
-        staging.unlink(missing_ok=True)

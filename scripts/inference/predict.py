@@ -47,9 +47,11 @@ from vesuvius_autoresearch.core.inference import (
     validate_region,
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
+from vesuvius_autoresearch.core.new_artifacts import staged_file
 from vesuvius_autoresearch.core.prediction_artifacts import (
     prediction_paths,
     prediction_stem,
+    validate_output_file,
 )
 from vesuvius_autoresearch.core.regional_memory import RegionalMemoryProfile
 from vesuvius_autoresearch.core.regional_resources import (
@@ -290,8 +292,11 @@ def write_prediction_metadata(
             raise ValueError("extra metadata must not overwrite prediction facts")
         metadata.update(extra_metadata)
     encoded = json.dumps(metadata, indent=2, allow_nan=False)
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(encoded + "\n")
+    output = Path(path)
+    with staged_file(output) as temporary:
+        temporary.write_text(encoded + "\n", encoding="utf-8")
+        if os.path.lexists(output):
+            validate_output_file(output)
 
 
 def _prediction_output(args):
