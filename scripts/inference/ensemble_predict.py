@@ -268,6 +268,10 @@ def ensemble_predict():
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
+
+    # The full preview can reach damaged chunks outside this shard's tiles.
+    z_mid = args.z + max_layers // 2
+    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, args.height, args.width)[0]
     artifacts.validate_source_selection(args.uri)
     artifacts.validate(checkpoint_aliases=args.checkpoints)
     os.makedirs(output_dir, exist_ok=True)
@@ -294,10 +298,6 @@ def ensemble_predict():
         )
         exports.append(export)
 
-    z_mid = args.z + max_layers // 2
-    # CT only: indexing a ridge-enabled volume would run the ridge filter on one
-    # slice, which it refuses with a spurious ridge-fallback warning.
-    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, args.height, args.width)[0]
     figure, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
     axes[0].set_title(f"CT Slice (Z={z_mid})")

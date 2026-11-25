@@ -2327,3 +2327,16 @@ Argument validation and lazy tile planning now run before CT setup. Only an
 omitted automatic Z is deferred, and the final region still uses the opened
 array's bounds. Both CPU fixtures reject the shard before opening CT or
 building a model. Representative GPU peak measurements remain open.
+
+## CT preview reads before regional publication (2026-11-25 UTC)
+
+This pass starts from main `cf9250f9`. A one-tile shard could finish inference
+and replace outputs before its full-width CT preview reached a malformed
+chunk outside the shard. CPU fixtures for both regional commands reproduced
+changed Zarr metadata and a removed shard sidecar on the failed rerun.
+
+Both commands capture the preview slice before the final source and output
+checks and any publication. The fixtures now preserve all prior output bytes.
+The float32 preview plane stays in memory during export. Publication still
+uses separate writes, and representative GPU and host memory measurements
+remain open.
