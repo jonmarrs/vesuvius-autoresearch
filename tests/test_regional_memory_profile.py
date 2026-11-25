@@ -209,15 +209,21 @@ def test_profile_includes_successful_optional_exports_and_coherence(
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
-def test_failed_measurement_does_not_publish_success_metadata(
-    tmp_path, monkeypatch, mode
-):
+def test_failed_measurement_preserves_the_previous_run(tmp_path, monkeypatch, mode):
     run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
-    argv.extend(["--profile_memory", "--artifact_stem", "region"])
+    argv.extend(["--artifact_stem", "region"])
+    run()
     directory = tmp_path / "out"
-    directory.mkdir()
-    sidecar = directory / "region_meta.json"
-    sidecar.write_text('{"old": true}')
+
+    def snapshot():
+        return {
+            path.relative_to(directory): path.read_bytes()
+            for path in directory.rglob("*")
+            if path.is_file()
+        }
+
+    before = snapshot()
+    argv.append("--profile_memory")
     sample = memory.RegionalMemoryProfile.sample
 
     def fail_at_metadata(self, phase):
@@ -228,8 +234,8 @@ def test_failed_measurement_does_not_publish_success_metadata(
     monkeypatch.setattr(memory.RegionalMemoryProfile, "sample", fail_at_metadata)
     with pytest.raises(OSError, match="measurement unavailable"):
         run()
-    assert (directory / "region_ink.npy").exists()
-    assert not sidecar.exists()
+    assert snapshot() == before
+    assert not list(directory.glob(".*-*"))
 
 
 # Added by the design review of 2026-11-17: the device a bare "cuda" names, the phase names, the clock and the
