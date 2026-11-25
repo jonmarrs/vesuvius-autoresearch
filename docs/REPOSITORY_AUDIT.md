@@ -2553,3 +2553,21 @@ Review added recovery checks for a failed restore in both commands. They
 verify the backup location in the error, the private directory mode and the
 original record's mode and bytes. The file-mode audit now lists this private
 workspace with the other temporary directories that never become outputs.
+
+## Reduce blend normalization allocations (2026-11-25 UTC)
+
+This pass starts from main `62f9705c`. A Torch CPU allocation trace on a
+4096-by-4096 float32 plane showed that both complete and partial
+normalization allocated 64 MiB for an all-ones fallback and another 64 MiB
+for the selected denominator. The division result also allocated 64 MiB.
+
+Complete predictions now divide by their validated weights directly. Shards
+use a four-byte scalar of the weights' dtype and device when constructing the
+denominator. In the repeated CPU trace, complete normalization dropped both
+64 MiB temporaries. Partial normalization replaced the 64 MiB fallback with
+the scalar and retained the denominator. The fixtures compare exactly with
+the previous formula on strided weights and verify both inputs are unchanged.
+
+These measurements describe operator allocations for one plane. The memory
+cap covers the same three persistent accumulators. Representative end-to-end
+GPU and host peak-memory measurements and ensemble residency remain open.

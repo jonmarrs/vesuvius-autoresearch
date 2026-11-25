@@ -276,6 +276,8 @@ def normalize_blend(values, weights, complete=True):
     if not torch.isfinite(values).all() or not torch.isfinite(weights).all():
         raise ValueError("prediction blend must be finite")
     covered = weights > 0
-    if complete and not covered.all():
-        raise ValueError("complete prediction has uncovered pixels")
-    return values / torch.where(covered, weights, torch.ones_like(weights))
+    if complete:
+        if not covered.all():
+            raise ValueError("complete prediction has uncovered pixels")
+        return values / weights
+    return values / torch.where(covered, weights, weights.new_ones(()))

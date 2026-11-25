@@ -27,6 +27,35 @@ from vesuvius_autoresearch.core.inference import (
 )
 
 
+@pytest.mark.parametrize("complete", [True, False])
+def test_blend_normalization_avoids_full_size_fallbacks(monkeypatch, complete):
+    weights = torch.tensor([[0.25, 0.75, 0.125], [0.5, 1.25, 1.0]]).T
+    if not complete:
+        weights[0, 0] = 0
+        weights[2, 1] = -0.25
+    values = torch.arange(6, dtype=torch.float32).reshape(weights.shape) / 16
+    original_weights = weights.clone()
+    original_values = values.clone()
+    where = torch.where
+    expected = values / where(weights > 0, weights, torch.ones_like(weights))
+    fallbacks = []
+
+    def observe_fallback(condition, covered, other):
+        fallbacks.append((other.shape, other.dtype, other.device))
+        return where(condition, covered, other)
+
+    monkeypatch.setattr(torch, "where", observe_fallback)
+    actual = inference_helpers.normalize_blend(values, weights, complete)
+
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    torch.testing.assert_close(weights, original_weights, rtol=0, atol=0)
+    torch.testing.assert_close(values, original_values, rtol=0, atol=0)
+    expected_fallbacks = (
+        [] if complete else [(torch.Size([]), weights.dtype, weights.device)]
+    )
+    assert fallbacks == expected_fallbacks
+
+
 def _fresh_coherence():
     path = Path(__file__).resolve().parents[1] / "scripts/compute_fiber_coherence.py"
     spec = importlib.util.spec_from_file_location("_coherence_source_probe", path)
