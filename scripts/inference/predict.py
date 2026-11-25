@@ -135,6 +135,14 @@ def save_regional_array(destination, array):
         np.save(temporary, array, allow_pickle=False)
 
 
+def save_regional_png(destination, array_uint8):
+    """Publish a complete grayscale PNG through a sibling temporary file."""
+    from PIL import Image
+
+    with _stage_prediction_file(destination) as temporary:
+        Image.fromarray(array_uint8).save(temporary, format="PNG")
+
+
 def save_vc3d_zarr(
     base_path,
     array_uint8,
@@ -673,14 +681,12 @@ def predict():
             save_regional_array(args.blend_weight_path, full_weight.cpu().numpy())
 
         # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
-        from PIL import Image
-
         ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
         fiber_uint8 = (np.clip(prob_fiber_final, 0, 1) * 255).astype(np.uint8)
-        Image.fromarray(ink_uint8).save(os.path.join(output_dir, f"{base_name}_ink.png"))
+        save_regional_png(os.path.join(output_dir, f"{base_name}_ink.png"), ink_uint8)
         if has_fiber:
-            Image.fromarray(fiber_uint8).save(
-                os.path.join(output_dir, f"{base_name}_fiber.png")
+            save_regional_png(
+                os.path.join(output_dir, f"{base_name}_fiber.png"), fiber_uint8
             )
         # Save as VC3D OME-Zarr
         zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")

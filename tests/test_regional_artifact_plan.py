@@ -261,6 +261,40 @@ def test_interrupted_array_save_preserves_the_previous_npy(
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("kind", ["ink", "fiber"])
+def test_interrupted_png_save_preserves_the_previous_export(
+    tmp_path, monkeypatch, mode, kind
+):
+    from PIL import Image
+
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    destination = output / f"region_{kind}.png"
+    before = destination.read_bytes()
+    assert (output / "region_meta.json").is_file()
+    save = Image.Image.save
+    grayscale_exports = []
+
+    def fail_after_partial_save(image, file, *args, **kwargs):
+        if image.mode == "L" and image.size == (13, 11):
+            grayscale_exports.append(Path(file))
+            if len(grayscale_exports) == (1 if kind == "ink" else 2):
+                Path(file).write_bytes(b"partial PNG")
+                raise OSError("interrupted PNG save")
+        return save(image, file, *args, **kwargs)
+
+    monkeypatch.setattr(Image.Image, "save", fail_after_partial_save)
+    with pytest.raises(OSError, match="interrupted PNG save"):
+        run()
+
+    assert destination.read_bytes() == before
+    assert all(not path.exists() for path in grayscale_exports)
+    assert not (output / "region_meta.json").exists()
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
 def test_shard_keeps_previous_outputs_when_only_the_ct_preview_read_fails(
     tmp_path, monkeypatch, mode
 ):

@@ -2421,3 +2421,15 @@ Each float32 NPY is written to a sibling temporary file and renamed over the
 destination after a final path check. An interrupted write preserves the
 targeted file and leaves no success sidecar for the current run. PNG and Zarr
 export writes and representative peak-memory measurements remain open.
+
+## Atomic regional grayscale PNG replacement (2026-11-25 UTC)
+
+This pass starts from main `05aef8ab`. Four CPU reruns interrupted Pillow
+after it wrote partial bytes for an ink or fiber PNG. Both regional commands
+left the targeted export truncated.
+
+The commands now stage each grayscale PNG beside its destination and pass
+the format explicitly to Pillow. The shared path check and rename publish
+the complete file with its output mode. The targeted file survives a failed
+encode, and the success sidecar stays absent after publication begins. Zarr
+export writes and representative peak-memory measurements remain open.
