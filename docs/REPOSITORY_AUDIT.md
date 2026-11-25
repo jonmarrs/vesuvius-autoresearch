@@ -2382,3 +2382,16 @@ renders preserve prior files, published companions keep their names, and a
 companion that aliases metadata is refused. The sidecar still comes last;
 errors during publication can leave partial outputs. Representative peak
 memory measurements remain open.
+
+## Atomic prediction sidecar publication (2026-11-25 UTC)
+
+This pass starts from main `9ac5af50`. An interrupted first sidecar write
+left truncated JSON. When the optional coherence update was interrupted,
+the command logged a warning and reported completion with its valid sidecar
+replaced by truncated JSON. Both single-model CPU fixtures reproduced this.
+
+The shared prediction writer now stages the JSON beside its destination and
+publishes it by rename after the write completes. An interrupted first write
+leaves no success record, and a failed optional update preserves the valid
+record without coherence. This protects the sidecar as an individual file.
+The output family still uses separate writes, and peak memory remains open.

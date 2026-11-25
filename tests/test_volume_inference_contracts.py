@@ -1200,6 +1200,42 @@ def test_predict_records_the_fiber_coherence_it_is_asked_for(tmp_path, monkeypat
     assert isinstance(metadata["fiber_coherence"], float)
 
 
+@pytest.mark.parametrize("enrichment", [False, True])
+def test_prediction_sidecar_never_exposes_an_interrupted_write(
+    tmp_path, monkeypatch, enrichment
+):
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    if enrichment:
+        coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+        argv.append("--compute_coherence")
+        monkeypatch.setattr(coherence, "compute_coherence", lambda *a, **k: 0.5)
+    metadata = tmp_path / "out/region_meta.json"
+    write_text = Path.write_text
+    attempts = []
+
+    def fail_after_partial_write(path, data, *args, **kwargs):
+        if '"prediction_complete"' in data:
+            has_coherence = json.loads(data)["fiber_coherence"] is not None
+            if has_coherence == enrichment:
+                attempts.append(path)
+                write_text(path, '{"prediction_complete": true', *args, **kwargs)
+                raise OSError("interrupted sidecar write")
+        return write_text(path, data, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", fail_after_partial_write)
+    if enrichment:
+        runner()
+        record = json.loads(metadata.read_text())
+        assert record["prediction_complete"] is True
+        assert record["fiber_coherence"] is None
+    else:
+        with pytest.raises(OSError, match="interrupted sidecar write"):
+            runner()
+        assert not metadata.exists()
+    assert len(attempts) == 1 and not attempts[0].exists()
+
+
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("cut_short", [False, True])
 def test_custom_metadata_rerun_invalidates_default_sidecar(
