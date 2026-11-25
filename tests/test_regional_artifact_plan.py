@@ -295,6 +295,38 @@ def test_interrupted_png_save_preserves_the_previous_export(
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("kind", ["ink", "fiber"])
+def test_interrupted_zarr_write_preserves_the_previous_store(
+    tmp_path, monkeypatch, mode, kind
+):
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    destination = output / f"region_{kind}.zarr"
+    before = _tree(destination)
+    assert (output / "region_meta.json").is_file()
+    write_chunk = zarr.Array.__setitem__
+    writes = []
+
+    def fail_after_changed_chunk(array, key, values):
+        if array.shape == (1, 11, 13):
+            writes.append(Path(array.store.path))
+            if len(writes) == (1 if kind == "ink" else 2):
+                write_chunk(array, key, np.full_like(values, 31))
+                raise OSError("interrupted Zarr array write")
+        return write_chunk(array, key, values)
+
+    monkeypatch.setattr(zarr.Array, "__setitem__", fail_after_changed_chunk)
+    with pytest.raises(OSError, match="interrupted Zarr array write"):
+        run()
+
+    assert _tree(destination) == before
+    assert all(not path.exists() for path in writes)
+    assert not (output / "region_meta.json").exists()
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
 def test_shard_keeps_previous_outputs_when_only_the_ct_preview_read_fails(
     tmp_path, monkeypatch, mode
 ):

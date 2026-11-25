@@ -2422,6 +2422,25 @@ destination after a final path check. An interrupted write preserves the
 targeted file and leaves no success sidecar for the current run. PNG and Zarr
 export writes and representative peak-memory measurements remain open.
 
+## Staged VC3D Zarr export replacement (2026-11-25 UTC)
+
+This pass starts from main `d963652b`. Four CPU reruns interrupted the writer
+after it changed the level-0 chunk of an ink or fiber export. Both regional
+commands left the previous Zarr directory with changed pixels.
+
+The shared VC3D writer now builds the array and metadata in a sibling staging
+directory before installing it. Existing sibling entries are copied, the
+destination is checked again, and replacement preserves the output root and
+metadata modes. The staged-directory publisher restores the old directory if
+installation fails. Directory replacement uses two renames, and the regional
+output family still publishes separately. Representative peak memory remains
+open.
+
+PR review reproduced a stale level-0 shape when opening the replacement
+through a copied `.zmetadata` index. The staged writer regenerates that index
+for already-consolidated stores and preserves its permission mode. The fixture
+reads the new shape and the retained sibling level through the index.
+
 ## Atomic regional grayscale PNG replacement (2026-11-25 UTC)
 
 This pass starts from main `05aef8ab`. Four CPU reruns interrupted Pillow
