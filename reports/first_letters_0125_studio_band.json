@@ -1,0 +1,2311 @@
+{
+ "finding": 139,
+ "registration": "docs/preregistration/2026-11-24_first_letters_0125_band_read.md",
+ "registration_commit": "2d801cbb",
+ "arm": "fulldense",
+ "quality_arm": "full",
+ "windings": 98,
+ "steps": {
+  "snap": {
+   "exit": 0,
+   "seconds": 1773
+  },
+  "orient": {
+   "exit": 0,
+   "seconds": 3
+  },
+  "summarise": {
+   "exit": 0,
+   "seconds": 196
+  },
+  "flatten": {
+   "attempted": 98,
+   "exited_zero": 98,
+   "failed": [],
+   "seconds_total": 5065,
+   "seconds_median": 42,
+   "seconds_max": 72
+  },
+  "render": {
+   "attempted": 98,
+   "exited_zero": 98,
+   "failed": [],
+   "seconds_total": 8354,
+   "seconds_median": 86,
+   "seconds_max": 143
+  },
+  "studio": {
+   "attempted": 98,
+   "exited_zero": 98,
+   "failed": [],
+   "seconds_total": 11050,
+   "seconds_median": 118,
+   "seconds_max": 176
+  }
+ },
+ "render_orientation": {
+  "flip": 0,
+  "keep": [
+   "w011",
+   "w014",
+   "w016",
+   "w017",
+   "w018",
+   "w020",
+   "w021",
+   "w022",
+   "w024",
+   "w025",
+   "w026",
+   "w028",
+   "w030",
+   "w032",
+   "w034",
+   "w036",
+   "w037",
+   "w039",
+   "w040",
+   "w041",
+   "w042",
+   "w043",
+   "w044",
+   "w045",
+   "w046",
+   "w047",
+   "w048",
+   "w050",
+   "w051",
+   "w052",
+   "w053",
+   "w054",
+   "w056",
+   "w057",
+   "w058",
+   "w059",
+   "w061",
+   "w063",
+   "w064",
+   "w066",
+   "w068",
+   "w069",
+   "w070",
+   "w071",
+   "w072",
+   "w073",
+   "w074",
+   "w075",
+   "w076",
+   "w077",
+   "w078",
+   "w079",
+   "w080",
+   "w081",
+   "w083",
+   "w084",
+   "w085",
+   "w086",
+   "w087",
+   "w088",
+   "w089",
+   "w090",
+   "w091",
+   "w092",
+   "w094",
+   "w095",
+   "w096",
+   "w097",
+   "w098",
+   "w099",
+   "w100",
+   "w101",
+   "w102",
+   "w103",
+   "w104",
+   "w105",
+   "w106",
+   "w107",
+   "w108",
+   "w109",
+   "w110",
+   "w111",
+   "w112",
+   "w113",
+   "w114",
+   "w115",
+   "w116",
+   "w117",
+   "w119",
+   "w120",
+   "w121",
+   "w122",
+   "w123",
+   "w124",
+   "w125",
+   "w126",
+   "w127",
+   "w128"
+  ],
+  "share_of_normals_pointing_inward": {
+   "median": 0.0485,
+   "min": 0.0081,
+   "max": 0.0991
+  }
+ },
+ "read": 98,
+ "reading_orientation": {
+  "unturned": 0,
+  "mirrored only": 0,
+  "upside down only": 0,
+  "both": 98
+ },
+ "ink_share": {
+  "median": 0.0498,
+  "min": 0.0093,
+  "max": 0.3972
+ },
+ "largest_tile_ink_share": {
+  "median": 0.3767,
+  "min": 0.047,
+  "max": 0.8658
+ },
+ "tiles_scored": 7751,
+ "windings_with_no_tile_scored": [],
+ "rendered_pixels": 1530651199,
+ "render_canvas_megapixels": {
+  "median": 32.639,
+  "min": 3.9324,
+  "max": 41.232
+ },
+ "bytes_on_disk": {
+  "renders": 36689218019,
+  "studio_maps": 11264394944
+ },
+ "inspection_order_first_ten": [
+  "w066",
+  "w068",
+  "w011",
+  "w016",
+  "w069",
+  "w017",
+  "w087",
+  "w057",
+  "w042",
+  "w058"
+ ],
+ "stacked": {
+  "line": 0.3,
+  "pairs": {
+   "w016-w017": 0.583,
+   "w017-w018": 0.5312,
+   "w020-w021": 0.3657,
+   "w021-w022": 0.4009,
+   "w024-w025": 0.0888,
+   "w025-w026": 0.0358,
+   "w036-w037": 0.4748,
+   "w039-w040": 0.6935,
+   "w040-w041": 0.2164,
+   "w041-w042": 0.3698,
+   "w042-w043": 0.1662,
+   "w043-w044": 0.1187,
+   "w044-w045": 0.0634,
+   "w045-w046": 0.0614,
+   "w046-w047": 0.1371,
+   "w047-w048": 0.2672,
+   "w050-w051": 0.1353,
+   "w051-w052": 0.074,
+   "w052-w053": 0.1039,
+   "w053-w054": 0.3832,
+   "w056-w057": 0.1125,
+   "w057-w058": 0.3456,
+   "w058-w059": 0.2606,
+   "w063-w064": 0.6329,
+   "w068-w069": 0.2753,
+   "w069-w070": 0.2122,
+   "w070-w071": 0.1328,
+   "w071-w072": 0.3287,
+   "w072-w073": 0.1096,
+   "w073-w074": 0.1184,
+   "w074-w075": 0.0515,
+   "w075-w076": 0.1869,
+   "w076-w077": 0.2823,
+   "w077-w078": 0.3773,
+   "w078-w079": 0.2848,
+   "w079-w080": 0.0806,
+   "w080-w081": 0.0872,
+   "w083-w084": 0.1086,
+   "w084-w085": 0.1645,
+   "w085-w086": 0.1775,
+   "w086-w087": 0.1437,
+   "w087-w088": 0.2204,
+   "w088-w089": 0.2096,
+   "w089-w090": 0.1936,
+   "w090-w091": 0.1798,
+   "w091-w092": 0.236,
+   "w094-w095": 0.2736,
+   "w095-w096": 0.1268,
+   "w096-w097": 0.1031,
+   "w097-w098": 0.2011,
+   "w098-w099": 0.1781,
+   "w099-w100": 0.2598,
+   "w100-w101": 0.1753,
+   "w101-w102": 0.1497,
+   "w102-w103": 0.1333,
+   "w103-w104": 0.1391,
+   "w104-w105": 0.2353,
+   "w105-w106": 0.1939,
+   "w106-w107": 0.2592,
+   "w107-w108": 0.2029,
+   "w108-w109": 0.1598,
+   "w109-w110": 0.1508,
+   "w110-w111": 0.1485,
+   "w111-w112": 0.2329,
+   "w112-w113": 0.3184,
+   "w113-w114": 0.3202,
+   "w114-w115": 0.3242,
+   "w115-w116": 0.2855,
+   "w116-w117": 0.2515,
+   "w119-w120": 0.372,
+   "w120-w121": 0.2574,
+   "w121-w122": 0.2643,
+   "w122-w123": 0.1565,
+   "w123-w124": 0.1496,
+   "w124-w125": 0.1458,
+   "w125-w126": 0.149,
+   "w126-w127": 0.1479,
+   "w127-w128": 0.1459
+  },
+  "stacked": [
+   "w016-w017",
+   "w017-w018",
+   "w020-w021",
+   "w021-w022",
+   "w036-w037",
+   "w039-w040",
+   "w041-w042",
+   "w053-w054",
+   "w057-w058",
+   "w063-w064",
+   "w071-w072",
+   "w077-w078",
+   "w112-w113",
+   "w113-w114",
+   "w114-w115",
+   "w119-w120"
+  ]
+ },
+ "geometry": {
+  "windings": 98,
+  "inward_against_axis": {
+   "median": 0.0485,
+   "min": 0.0081,
+   "max": 0.0991
+  },
+  "inward_against_band_centre_median": 0.0488,
+  "snapped_inward_against_axis_median": 0.0219,
+  "trusted_median": 0.7836,
+  "other_side_median": 0.0335,
+  "predicted_sheet_within_2_median": {
+   "snapped": 0.9018,
+   "final": 0.8434
+  },
+  "predicted_sheet_on_sheet_median": {
+   "snapped": 0.8036,
+   "final": 0.7327
+  },
+  "final_within_2_by_radius_tercile_median": [
+   0.9167,
+   0.8689,
+   0.751
+  ],
+  "on_snapped_triangles_median": 0.9998,
+  "rendered_against_the_axis_rule": []
+ },
+ "gpu_peak_mib_all_processes": null,
+ "gpu_samples": null,
+ "chain": {
+  "steps": {
+   "densify": {
+    "exit": 0,
+    "seconds": 16
+   },
+   "fetch_tracks": {
+    "exit": 0,
+    "seconds": 3
+   },
+   "fetch_volumes": {
+    "exit": 0,
+    "seconds": 72
+   },
+   "fit_full": {
+    "exit": 0,
+    "seconds": 10205
+   },
+   "fit_smoke": {
+    "exit": 0,
+    "seconds": 363
+   },
+   "make_dataset": {
+    "exit": 0,
+    "seconds": 0
+   },
+   "quality": {
+    "exit": 0,
+    "seconds": 360
+   },
+   "read": {
+    "exit": 0,
+    "seconds": 18353
+   },
+   "sdt": {
+    "exit": 0,
+    "seconds": 717
+   },
+   "select": {
+    "exit": 0,
+    "seconds": 0
+   }
+  },
+  "seconds": 30089,
+  "bytes_on_disk": {
+   "inputs": 8428363600,
+   "tracks": 22124962156
+  }
+ },
+ "fit": {
+  "steps": {
+   "setup/distance_field": {
+    "exit": 0,
+    "seconds": 717
+   },
+   "smoke/fit": {
+    "exit": 0,
+    "seconds": 363,
+    "steps": 300,
+    "gpu_peak_mib_all_processes": 9911
+   },
+   "full/fit": {
+    "exit": 0,
+    "seconds": 10205,
+    "steps": 30000,
+    "gpu_peak_mib_all_processes": 11530
+   }
+  },
+  "smoke": {
+   "windings": 120,
+   "windings_scored": 120,
+   "excess_median": 0.0013,
+   "excess_p10": -0.0082,
+   "excess_p90": 0.0119,
+   "share_of_windings_with_positive_excess": 0.55,
+   "on_sheet_median": 0.2499
+  },
+  "full": {
+   "windings": 120,
+   "windings_scored": 120,
+   "excess_median": 0.1269,
+   "excess_p10": -0.1006,
+   "excess_p90": 0.2889,
+   "share_of_windings_with_positive_excess": 0.8167,
+   "on_sheet_median": 0.3296
+  },
+  "p1": true,
+  "p2": true,
+  "verdict": "ON_SHEETS",
+  "full_by_index": [
+   {
+    "first": 10,
+    "last": 49,
+    "windings": 40,
+    "excess_median": 0.1007,
+    "positive": 0.675,
+    "at_least_p1_median": 25,
+    "on_sheet_median": 0.3231,
+    "nodes_scored_median": 11054
+   },
+   {
+    "first": 50,
+    "last": 89,
+    "windings": 40,
+    "excess_median": 0.1719,
+    "positive": 0.85,
+    "at_least_p1_median": 33,
+    "on_sheet_median": 0.3808,
+    "nodes_scored_median": 26084
+   },
+   {
+    "first": 90,
+    "last": 129,
+    "windings": 40,
+    "excess_median": 0.1099,
+    "positive": 0.925,
+    "at_least_p1_median": 25,
+    "on_sheet_median": 0.2616,
+    "nodes_scored_median": 40820
+   }
+  ]
+ },
+ "by_winding": {
+  "w011": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0947,
+   "excess": 0.2009,
+   "geometry": {
+    "trusted": 0.788,
+    "other_side": 0.0718,
+    "inward_against_axis": 0.0947,
+    "final_within_2": 0.8577
+   },
+   "read": true,
+   "render_canvas_megapixels": 3.9324,
+   "ink_share": 0.3972,
+   "largest_tile_ink_share": 0.8323,
+   "tiles_scored": 11,
+   "rendered_pixels": 2264293,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w014": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0747,
+   "excess": 0.231,
+   "geometry": {
+    "trusted": 0.7912,
+    "other_side": 0.0533,
+    "inward_against_axis": 0.0747,
+    "final_within_2": 0.8455
+   },
+   "read": true,
+   "render_canvas_megapixels": 4.8364,
+   "ink_share": 0.2824,
+   "largest_tile_ink_share": 0.5328,
+   "tiles_scored": 15,
+   "rendered_pixels": 2832693,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w016": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0597,
+   "excess": 0.0608,
+   "geometry": {
+    "trusted": 0.86,
+    "other_side": 0.0446,
+    "inward_against_axis": 0.0597,
+    "final_within_2": 0.9024
+   },
+   "read": true,
+   "render_canvas_megapixels": 5.3788,
+   "ink_share": 0.2507,
+   "largest_tile_ink_share": 0.7261,
+   "tiles_scored": 17,
+   "rendered_pixels": 3271398,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w017": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0605,
+   "excess": 0.0977,
+   "geometry": {
+    "trusted": 0.8789,
+    "other_side": 0.0457,
+    "inward_against_axis": 0.0605,
+    "final_within_2": 0.9211
+   },
+   "read": true,
+   "render_canvas_megapixels": 5.6952,
+   "ink_share": 0.1742,
+   "largest_tile_ink_share": 0.6912,
+   "tiles_scored": 18,
+   "rendered_pixels": 3448996,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w018": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0697,
+   "excess": 0.1189,
+   "geometry": {
+    "trusted": 0.8534,
+    "other_side": 0.0498,
+    "inward_against_axis": 0.0697,
+    "final_within_2": 0.9012
+   },
+   "read": true,
+   "render_canvas_megapixels": 6.3568,
+   "ink_share": 0.0558,
+   "largest_tile_ink_share": 0.154,
+   "tiles_scored": 19,
+   "rendered_pixels": 3774388,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w020": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.059,
+   "excess": 0.3779,
+   "geometry": {
+    "trusted": 0.872,
+    "other_side": 0.043,
+    "inward_against_axis": 0.059,
+    "final_within_2": 0.9148
+   },
+   "read": true,
+   "render_canvas_megapixels": 7.8892,
+   "ink_share": 0.0145,
+   "largest_tile_ink_share": 0.158,
+   "tiles_scored": 21,
+   "rendered_pixels": 4476093,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w021": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0685,
+   "excess": 0.0837,
+   "geometry": {
+    "trusted": 0.8406,
+    "other_side": 0.049,
+    "inward_against_axis": 0.0685,
+    "final_within_2": 0.8903
+   },
+   "read": true,
+   "render_canvas_megapixels": 8.9,
+   "ink_share": 0.0501,
+   "largest_tile_ink_share": 0.2486,
+   "tiles_scored": 23,
+   "rendered_pixels": 5038587,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w022": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0546,
+   "excess": 0.1361,
+   "geometry": {
+    "trusted": 0.8303,
+    "other_side": 0.0439,
+    "inward_against_axis": 0.0546,
+    "final_within_2": 0.8727
+   },
+   "read": true,
+   "render_canvas_megapixels": 9.5256,
+   "ink_share": 0.0682,
+   "largest_tile_ink_share": 0.2644,
+   "tiles_scored": 24,
+   "rendered_pixels": 5343573,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w024": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0325,
+   "excess": 0.2962,
+   "geometry": {
+    "trusted": 0.8773,
+    "other_side": 0.0243,
+    "inward_against_axis": 0.0325,
+    "final_within_2": 0.9002
+   },
+   "read": true,
+   "render_canvas_megapixels": 10.5156,
+   "ink_share": 0.0996,
+   "largest_tile_ink_share": 0.4924,
+   "tiles_scored": 27,
+   "rendered_pixels": 5863988,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w025": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0186,
+   "excess": 0.2903,
+   "geometry": {
+    "trusted": 0.9148,
+    "other_side": 0.0161,
+    "inward_against_axis": 0.0186,
+    "final_within_2": 0.9301
+   },
+   "read": true,
+   "render_canvas_megapixels": 10.8712,
+   "ink_share": 0.0471,
+   "largest_tile_ink_share": 0.3401,
+   "tiles_scored": 28,
+   "rendered_pixels": 6059797,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w026": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0105,
+   "excess": 0.2998,
+   "geometry": {
+    "trusted": 0.9222,
+    "other_side": 0.0078,
+    "inward_against_axis": 0.0105,
+    "final_within_2": 0.9288
+   },
+   "read": true,
+   "render_canvas_megapixels": 11.52,
+   "ink_share": 0.1204,
+   "largest_tile_ink_share": 0.3513,
+   "tiles_scored": 30,
+   "rendered_pixels": 6423595,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w028": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0101,
+   "excess": 0.5058,
+   "geometry": {
+    "trusted": 0.9266,
+    "other_side": 0.0069,
+    "inward_against_axis": 0.0101,
+    "final_within_2": 0.9315
+   },
+   "read": true,
+   "render_canvas_megapixels": 12.7968,
+   "ink_share": 0.0974,
+   "largest_tile_ink_share": 0.3244,
+   "tiles_scored": 33,
+   "rendered_pixels": 7033686,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w030": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.012,
+   "excess": 0.148,
+   "geometry": {
+    "trusted": 0.8316,
+    "other_side": 0.006,
+    "inward_against_axis": 0.012,
+    "final_within_2": 0.8373
+   },
+   "read": true,
+   "render_canvas_megapixels": 13.988,
+   "ink_share": 0.0691,
+   "largest_tile_ink_share": 0.4505,
+   "tiles_scored": 36,
+   "rendered_pixels": 7708394,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w032": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0092,
+   "excess": 0.2678,
+   "geometry": {
+    "trusted": 0.8936,
+    "other_side": 0.0066,
+    "inward_against_axis": 0.0092,
+    "final_within_2": 0.8998
+   },
+   "read": true,
+   "render_canvas_megapixels": 14.2848,
+   "ink_share": 0.0932,
+   "largest_tile_ink_share": 0.3486,
+   "tiles_scored": 39,
+   "rendered_pixels": 7999787,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w034": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0104,
+   "excess": 0.2198,
+   "geometry": {
+    "trusted": 0.8936,
+    "other_side": 0.0074,
+    "inward_against_axis": 0.0104,
+    "final_within_2": 0.9001
+   },
+   "read": true,
+   "render_canvas_megapixels": 14.616,
+   "ink_share": 0.0944,
+   "largest_tile_ink_share": 0.405,
+   "tiles_scored": 47,
+   "rendered_pixels": 8283591,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w036": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0081,
+   "excess": 0.092,
+   "geometry": {
+    "trusted": 0.912,
+    "other_side": 0.005,
+    "inward_against_axis": 0.0081,
+    "final_within_2": 0.9157
+   },
+   "read": true,
+   "render_canvas_megapixels": 15.25,
+   "ink_share": 0.0761,
+   "largest_tile_ink_share": 0.277,
+   "tiles_scored": 49,
+   "rendered_pixels": 8628895,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w037": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.01,
+   "excess": 0.2257,
+   "geometry": {
+    "trusted": 0.9495,
+    "other_side": 0.0082,
+    "inward_against_axis": 0.01,
+    "final_within_2": 0.9563
+   },
+   "read": true,
+   "render_canvas_megapixels": 15.1536,
+   "ink_share": 0.0991,
+   "largest_tile_ink_share": 0.266,
+   "tiles_scored": 48,
+   "rendered_pixels": 8700682,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w039": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0107,
+   "excess": 0.0856,
+   "geometry": {
+    "trusted": 0.934,
+    "other_side": 0.0072,
+    "inward_against_axis": 0.0107,
+    "final_within_2": 0.9404
+   },
+   "read": true,
+   "render_canvas_megapixels": 15.8916,
+   "ink_share": 0.1165,
+   "largest_tile_ink_share": 0.3897,
+   "tiles_scored": 49,
+   "rendered_pixels": 9211396,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w040": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0142,
+   "excess": 0.1325,
+   "geometry": {
+    "trusted": 0.9142,
+    "other_side": 0.0116,
+    "inward_against_axis": 0.0142,
+    "final_within_2": 0.9259
+   },
+   "read": true,
+   "render_canvas_megapixels": 16.236,
+   "ink_share": 0.0954,
+   "largest_tile_ink_share": 0.3439,
+   "tiles_scored": 50,
+   "rendered_pixels": 9423788,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w041": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0137,
+   "excess": 0.0519,
+   "geometry": {
+    "trusted": 0.9051,
+    "other_side": 0.0084,
+    "inward_against_axis": 0.0137,
+    "final_within_2": 0.9133
+   },
+   "read": true,
+   "render_canvas_megapixels": 16.4456,
+   "ink_share": 0.0589,
+   "largest_tile_ink_share": 0.1784,
+   "tiles_scored": 48,
+   "rendered_pixels": 9585896,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w042": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0156,
+   "excess": 0.1336,
+   "geometry": {
+    "trusted": 0.9069,
+    "other_side": 0.0119,
+    "inward_against_axis": 0.0156,
+    "final_within_2": 0.9178
+   },
+   "read": true,
+   "render_canvas_megapixels": 16.7772,
+   "ink_share": 0.099,
+   "largest_tile_ink_share": 0.6857,
+   "tiles_scored": 49,
+   "rendered_pixels": 9760496,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w043": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0163,
+   "excess": 0.1037,
+   "geometry": {
+    "trusted": 0.8701,
+    "other_side": 0.0103,
+    "inward_against_axis": 0.0163,
+    "final_within_2": 0.8804
+   },
+   "read": true,
+   "render_canvas_megapixels": 17.2692,
+   "ink_share": 0.0464,
+   "largest_tile_ink_share": 0.3487,
+   "tiles_scored": 60,
+   "rendered_pixels": 10121881,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w044": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0148,
+   "excess": 0.3506,
+   "geometry": {
+    "trusted": 0.8947,
+    "other_side": 0.0106,
+    "inward_against_axis": 0.0148,
+    "final_within_2": 0.9052
+   },
+   "read": true,
+   "render_canvas_megapixels": 18.0544,
+   "ink_share": 0.0295,
+   "largest_tile_ink_share": 0.1393,
+   "tiles_scored": 58,
+   "rendered_pixels": 10406990,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w045": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.017,
+   "excess": 0.2031,
+   "geometry": {
+    "trusted": 0.8843,
+    "other_side": 0.013,
+    "inward_against_axis": 0.017,
+    "final_within_2": 0.8971
+   },
+   "read": true,
+   "render_canvas_megapixels": 18.85,
+   "ink_share": 0.0524,
+   "largest_tile_ink_share": 0.4716,
+   "tiles_scored": 64,
+   "rendered_pixels": 10688384,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w046": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.013,
+   "excess": 0.1355,
+   "geometry": {
+    "trusted": 0.8756,
+    "other_side": 0.0113,
+    "inward_against_axis": 0.013,
+    "final_within_2": 0.8868
+   },
+   "read": true,
+   "render_canvas_megapixels": 19.8576,
+   "ink_share": 0.0271,
+   "largest_tile_ink_share": 0.1421,
+   "tiles_scored": 63,
+   "rendered_pixels": 11129192,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w047": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0155,
+   "excess": 0.0754,
+   "geometry": {
+    "trusted": 0.8736,
+    "other_side": 0.012,
+    "inward_against_axis": 0.0155,
+    "final_within_2": 0.8853
+   },
+   "read": true,
+   "render_canvas_megapixels": 20.6248,
+   "ink_share": 0.0581,
+   "largest_tile_ink_share": 0.681,
+   "tiles_scored": 59,
+   "rendered_pixels": 11484390,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w048": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0159,
+   "excess": 0.1671,
+   "geometry": {
+    "trusted": 0.8557,
+    "other_side": 0.012,
+    "inward_against_axis": 0.0159,
+    "final_within_2": 0.8682
+   },
+   "read": true,
+   "render_canvas_megapixels": 21.0312,
+   "ink_share": 0.0297,
+   "largest_tile_ink_share": 0.1797,
+   "tiles_scored": 60,
+   "rendered_pixels": 11738197,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w050": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.017,
+   "excess": 0.2313,
+   "geometry": {
+    "trusted": 0.8607,
+    "other_side": 0.0128,
+    "inward_against_axis": 0.017,
+    "final_within_2": 0.8736
+   },
+   "read": true,
+   "render_canvas_megapixels": 22.272,
+   "ink_share": 0.0217,
+   "largest_tile_ink_share": 0.1161,
+   "tiles_scored": 69,
+   "rendered_pixels": 12441768,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w051": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0224,
+   "excess": 0.1645,
+   "geometry": {
+    "trusted": 0.8608,
+    "other_side": 0.0175,
+    "inward_against_axis": 0.0224,
+    "final_within_2": 0.8772
+   },
+   "read": true,
+   "render_canvas_megapixels": 23.22,
+   "ink_share": 0.0416,
+   "largest_tile_ink_share": 0.2679,
+   "tiles_scored": 70,
+   "rendered_pixels": 12819680,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w052": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.027,
+   "excess": 0.2685,
+   "geometry": {
+    "trusted": 0.878,
+    "other_side": 0.0213,
+    "inward_against_axis": 0.027,
+    "final_within_2": 0.8993
+   },
+   "read": true,
+   "render_canvas_megapixels": 24.024,
+   "ink_share": 0.0472,
+   "largest_tile_ink_share": 0.252,
+   "tiles_scored": 67,
+   "rendered_pixels": 13173087,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w053": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.037,
+   "excess": 0.184,
+   "geometry": {
+    "trusted": 0.8507,
+    "other_side": 0.0267,
+    "inward_against_axis": 0.037,
+    "final_within_2": 0.8763
+   },
+   "read": true,
+   "render_canvas_megapixels": 24.544,
+   "ink_share": 0.045,
+   "largest_tile_ink_share": 0.2355,
+   "tiles_scored": 69,
+   "rendered_pixels": 13594585,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w054": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0436,
+   "excess": 0.0707,
+   "geometry": {
+    "trusted": 0.8235,
+    "other_side": 0.0299,
+    "inward_against_axis": 0.0436,
+    "final_within_2": 0.8539
+   },
+   "read": true,
+   "render_canvas_megapixels": 25.064,
+   "ink_share": 0.0657,
+   "largest_tile_ink_share": 0.4582,
+   "tiles_scored": 70,
+   "rendered_pixels": 13931478,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w056": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0573,
+   "excess": 0.374,
+   "geometry": {
+    "trusted": 0.85,
+    "other_side": 0.0379,
+    "inward_against_axis": 0.0573,
+    "final_within_2": 0.8877
+   },
+   "read": true,
+   "render_canvas_megapixels": 25.948,
+   "ink_share": 0.0251,
+   "largest_tile_ink_share": 0.2549,
+   "tiles_scored": 75,
+   "rendered_pixels": 14376385,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w057": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.064,
+   "excess": 0.1431,
+   "geometry": {
+    "trusted": 0.8413,
+    "other_side": 0.0463,
+    "inward_against_axis": 0.064,
+    "final_within_2": 0.8881
+   },
+   "read": true,
+   "render_canvas_megapixels": 26.724,
+   "ink_share": 0.0673,
+   "largest_tile_ink_share": 0.6877,
+   "tiles_scored": 74,
+   "rendered_pixels": 14692863,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w058": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0662,
+   "excess": 0.1067,
+   "geometry": {
+    "trusted": 0.8335,
+    "other_side": 0.0487,
+    "inward_against_axis": 0.0662,
+    "final_within_2": 0.8819
+   },
+   "read": true,
+   "render_canvas_megapixels": 27.0384,
+   "ink_share": 0.0645,
+   "largest_tile_ink_share": 0.6814,
+   "tiles_scored": 78,
+   "rendered_pixels": 14929914,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w059": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0682,
+   "excess": 0.2017,
+   "geometry": {
+    "trusted": 0.8037,
+    "other_side": 0.0493,
+    "inward_against_axis": 0.0682,
+    "final_within_2": 0.8529
+   },
+   "read": true,
+   "render_canvas_megapixels": 27.4576,
+   "ink_share": 0.0546,
+   "largest_tile_ink_share": 0.5372,
+   "tiles_scored": 76,
+   "rendered_pixels": 15214937,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w061": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0751,
+   "excess": 0.3091,
+   "geometry": {
+    "trusted": 0.8484,
+    "other_side": 0.0565,
+    "inward_against_axis": 0.0751,
+    "final_within_2": 0.9048
+   },
+   "read": true,
+   "render_canvas_megapixels": 27.872,
+   "ink_share": 0.0201,
+   "largest_tile_ink_share": 0.1703,
+   "tiles_scored": 81,
+   "rendered_pixels": 15347038,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w063": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0818,
+   "excess": 0.1024,
+   "geometry": {
+    "trusted": 0.8374,
+    "other_side": 0.06,
+    "inward_against_axis": 0.0818,
+    "final_within_2": 0.897
+   },
+   "read": true,
+   "render_canvas_megapixels": 28.3284,
+   "ink_share": 0.1077,
+   "largest_tile_ink_share": 0.5271,
+   "tiles_scored": 89,
+   "rendered_pixels": 15895923,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w064": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0875,
+   "excess": 0.2147,
+   "geometry": {
+    "trusted": 0.8379,
+    "other_side": 0.0636,
+    "inward_against_axis": 0.0875,
+    "final_within_2": 0.9011
+   },
+   "read": true,
+   "render_canvas_megapixels": 28.7928,
+   "ink_share": 0.101,
+   "largest_tile_ink_share": 0.4721,
+   "tiles_scored": 82,
+   "rendered_pixels": 16054053,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w066": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0903,
+   "excess": 0.2957,
+   "geometry": {
+    "trusted": 0.8299,
+    "other_side": 0.0651,
+    "inward_against_axis": 0.0903,
+    "final_within_2": 0.8942
+   },
+   "read": true,
+   "render_canvas_megapixels": 28.928,
+   "ink_share": 0.2338,
+   "largest_tile_ink_share": 0.8658,
+   "tiles_scored": 92,
+   "rendered_pixels": 16379348,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w068": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0908,
+   "excess": 0.262,
+   "geometry": {
+    "trusted": 0.8029,
+    "other_side": 0.0664,
+    "inward_against_axis": 0.0908,
+    "final_within_2": 0.8689
+   },
+   "read": true,
+   "render_canvas_megapixels": 29.696,
+   "ink_share": 0.1601,
+   "largest_tile_ink_share": 0.8586,
+   "tiles_scored": 88,
+   "rendered_pixels": 16810150,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w069": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0915,
+   "excess": 0.0874,
+   "geometry": {
+    "trusted": 0.797,
+    "other_side": 0.0698,
+    "inward_against_axis": 0.0915,
+    "final_within_2": 0.8659
+   },
+   "read": true,
+   "render_canvas_megapixels": 29.952,
+   "ink_share": 0.0891,
+   "largest_tile_ink_share": 0.7187,
+   "tiles_scored": 98,
+   "rendered_pixels": 17023986,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w070": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0913,
+   "excess": 0.1652,
+   "geometry": {
+    "trusted": 0.8134,
+    "other_side": 0.0678,
+    "inward_against_axis": 0.0913,
+    "final_within_2": 0.8797
+   },
+   "read": true,
+   "render_canvas_megapixels": 30.3104,
+   "ink_share": 0.0631,
+   "largest_tile_ink_share": 0.3006,
+   "tiles_scored": 96,
+   "rendered_pixels": 17169330,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w071": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0903,
+   "excess": 0.2999,
+   "geometry": {
+    "trusted": 0.8164,
+    "other_side": 0.066,
+    "inward_against_axis": 0.0903,
+    "final_within_2": 0.8812
+   },
+   "read": true,
+   "render_canvas_megapixels": 30.5152,
+   "ink_share": 0.07,
+   "largest_tile_ink_share": 0.4405,
+   "tiles_scored": 97,
+   "rendered_pixels": 17314902,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w072": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.091,
+   "excess": 0.0761,
+   "geometry": {
+    "trusted": 0.8213,
+    "other_side": 0.0651,
+    "inward_against_axis": 0.091,
+    "final_within_2": 0.8855
+   },
+   "read": true,
+   "render_canvas_megapixels": 30.8736,
+   "ink_share": 0.1247,
+   "largest_tile_ink_share": 0.4374,
+   "tiles_scored": 98,
+   "rendered_pixels": 17580958,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w073": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0906,
+   "excess": 0.2233,
+   "geometry": {
+    "trusted": 0.8086,
+    "other_side": 0.0669,
+    "inward_against_axis": 0.0906,
+    "final_within_2": 0.875
+   },
+   "read": true,
+   "render_canvas_megapixels": 31.3344,
+   "ink_share": 0.0837,
+   "largest_tile_ink_share": 0.5043,
+   "tiles_scored": 99,
+   "rendered_pixels": 17971470,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w074": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0924,
+   "excess": 0.2504,
+   "geometry": {
+    "trusted": 0.8106,
+    "other_side": 0.0636,
+    "inward_against_axis": 0.0924,
+    "final_within_2": 0.8727
+   },
+   "read": true,
+   "render_canvas_megapixels": 31.6928,
+   "ink_share": 0.0649,
+   "largest_tile_ink_share": 0.4,
+   "tiles_scored": 100,
+   "rendered_pixels": 18172497,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w075": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.096,
+   "excess": 0.2878,
+   "geometry": {
+    "trusted": 0.794,
+    "other_side": 0.0654,
+    "inward_against_axis": 0.096,
+    "final_within_2": 0.8584
+   },
+   "read": true,
+   "render_canvas_megapixels": 32.508,
+   "ink_share": 0.093,
+   "largest_tile_ink_share": 0.5358,
+   "tiles_scored": 100,
+   "rendered_pixels": 18701069,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w076": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0983,
+   "excess": 0.0196,
+   "geometry": {
+    "trusted": 0.7385,
+    "other_side": 0.0602,
+    "inward_against_axis": 0.0983,
+    "final_within_2": 0.799
+   },
+   "read": true,
+   "render_canvas_megapixels": 33.1788,
+   "ink_share": 0.075,
+   "largest_tile_ink_share": 0.3914,
+   "tiles_scored": 97,
+   "rendered_pixels": 19284579,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w077": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.099,
+   "excess": 0.0721,
+   "geometry": {
+    "trusted": 0.7711,
+    "other_side": 0.0605,
+    "inward_against_axis": 0.099,
+    "final_within_2": 0.8302
+   },
+   "read": true,
+   "render_canvas_megapixels": 32.512,
+   "ink_share": 0.0736,
+   "largest_tile_ink_share": 0.3606,
+   "tiles_scored": 97,
+   "rendered_pixels": 19205454,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w078": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0991,
+   "excess": 0.319,
+   "geometry": {
+    "trusted": 0.7834,
+    "other_side": 0.0623,
+    "inward_against_axis": 0.0991,
+    "final_within_2": 0.8441
+   },
+   "read": true,
+   "render_canvas_megapixels": 32.766,
+   "ink_share": 0.0537,
+   "largest_tile_ink_share": 0.3417,
+   "tiles_scored": 99,
+   "rendered_pixels": 19324724,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w079": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0959,
+   "excess": 0.1586,
+   "geometry": {
+    "trusted": 0.7838,
+    "other_side": 0.0631,
+    "inward_against_axis": 0.0959,
+    "final_within_2": 0.8458
+   },
+   "read": true,
+   "render_canvas_megapixels": 33.3248,
+   "ink_share": 0.0542,
+   "largest_tile_ink_share": 0.278,
+   "tiles_scored": 105,
+   "rendered_pixels": 19584032,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w080": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0947,
+   "excess": 0.1786,
+   "geometry": {
+    "trusted": 0.7751,
+    "other_side": 0.0658,
+    "inward_against_axis": 0.0947,
+    "final_within_2": 0.8396
+   },
+   "read": true,
+   "render_canvas_megapixels": 33.6804,
+   "ink_share": 0.045,
+   "largest_tile_ink_share": 0.3096,
+   "tiles_scored": 103,
+   "rendered_pixels": 19922933,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w081": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0937,
+   "excess": 0.2031,
+   "geometry": {
+    "trusted": 0.7834,
+    "other_side": 0.0599,
+    "inward_against_axis": 0.0937,
+    "final_within_2": 0.8427
+   },
+   "read": true,
+   "render_canvas_megapixels": 33.8328,
+   "ink_share": 0.0386,
+   "largest_tile_ink_share": 0.3231,
+   "tiles_scored": 107,
+   "rendered_pixels": 20155110,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w083": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0913,
+   "excess": 0.2752,
+   "geometry": {
+    "trusted": 0.7726,
+    "other_side": 0.0583,
+    "inward_against_axis": 0.0913,
+    "final_within_2": 0.8303
+   },
+   "read": true,
+   "render_canvas_megapixels": 34.272,
+   "ink_share": 0.0363,
+   "largest_tile_ink_share": 0.4041,
+   "tiles_scored": 106,
+   "rendered_pixels": 20526370,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w084": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.087,
+   "excess": 0.2255,
+   "geometry": {
+    "trusted": 0.7825,
+    "other_side": 0.0551,
+    "inward_against_axis": 0.087,
+    "final_within_2": 0.8369
+   },
+   "read": true,
+   "render_canvas_megapixels": 34.5744,
+   "ink_share": 0.0434,
+   "largest_tile_ink_share": 0.4613,
+   "tiles_scored": 106,
+   "rendered_pixels": 20688525,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w085": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0811,
+   "excess": 0.1299,
+   "geometry": {
+    "trusted": 0.7734,
+    "other_side": 0.0542,
+    "inward_against_axis": 0.0811,
+    "final_within_2": 0.827
+   },
+   "read": true,
+   "render_canvas_megapixels": 35.028,
+   "ink_share": 0.0514,
+   "largest_tile_ink_share": 0.5211,
+   "tiles_scored": 111,
+   "rendered_pixels": 21015730,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w086": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0807,
+   "excess": 0.2181,
+   "geometry": {
+    "trusted": 0.7827,
+    "other_side": 0.0537,
+    "inward_against_axis": 0.0807,
+    "final_within_2": 0.8361
+   },
+   "read": true,
+   "render_canvas_megapixels": 35.28,
+   "ink_share": 0.0637,
+   "largest_tile_ink_share": 0.4528,
+   "tiles_scored": 110,
+   "rendered_pixels": 21105741,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w087": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0754,
+   "excess": 0.2528,
+   "geometry": {
+    "trusted": 0.7811,
+    "other_side": 0.0505,
+    "inward_against_axis": 0.0754,
+    "final_within_2": 0.8315
+   },
+   "read": true,
+   "render_canvas_megapixels": 35.6832,
+   "ink_share": 0.0827,
+   "largest_tile_ink_share": 0.6893,
+   "tiles_scored": 119,
+   "rendered_pixels": 21338370,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w088": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0705,
+   "excess": 0.0888,
+   "geometry": {
+    "trusted": 0.7628,
+    "other_side": 0.0489,
+    "inward_against_axis": 0.0705,
+    "final_within_2": 0.8108
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.1872,
+   "ink_share": 0.0319,
+   "largest_tile_ink_share": 0.3849,
+   "tiles_scored": 119,
+   "rendered_pixels": 21704831,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w089": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0676,
+   "excess": 0.0936,
+   "geometry": {
+    "trusted": 0.7448,
+    "other_side": 0.0428,
+    "inward_against_axis": 0.0676,
+    "final_within_2": 0.787
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.4896,
+   "ink_share": 0.0287,
+   "largest_tile_ink_share": 0.3986,
+   "tiles_scored": 122,
+   "rendered_pixels": 22001584,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w090": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0668,
+   "excess": 0.2615,
+   "geometry": {
+    "trusted": 0.7767,
+    "other_side": 0.0458,
+    "inward_against_axis": 0.0668,
+    "final_within_2": 0.8223
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.4896,
+   "ink_share": 0.0579,
+   "largest_tile_ink_share": 0.4394,
+   "tiles_scored": 114,
+   "rendered_pixels": 21916771,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w091": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0611,
+   "excess": 0.1312,
+   "geometry": {
+    "trusted": 0.765,
+    "other_side": 0.0403,
+    "inward_against_axis": 0.0611,
+    "final_within_2": 0.8049
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.8928,
+   "ink_share": 0.0445,
+   "largest_tile_ink_share": 0.3116,
+   "tiles_scored": 119,
+   "rendered_pixels": 22184013,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w092": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0603,
+   "excess": 0.304,
+   "geometry": {
+    "trusted": 0.7794,
+    "other_side": 0.0396,
+    "inward_against_axis": 0.0603,
+    "final_within_2": 0.8194
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.3072,
+   "ink_share": 0.0363,
+   "largest_tile_ink_share": 0.3134,
+   "tiles_scored": 116,
+   "rendered_pixels": 22160167,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w094": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0613,
+   "excess": 0.0929,
+   "geometry": {
+    "trusted": 0.7702,
+    "other_side": 0.0424,
+    "inward_against_axis": 0.0613,
+    "final_within_2": 0.8127
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.6544,
+   "ink_share": 0.0595,
+   "largest_tile_ink_share": 0.5163,
+   "tiles_scored": 116,
+   "rendered_pixels": 22590807,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w095": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0576,
+   "excess": 0.2887,
+   "geometry": {
+    "trusted": 0.7728,
+    "other_side": 0.0424,
+    "inward_against_axis": 0.0576,
+    "final_within_2": 0.8151
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.8032,
+   "ink_share": 0.0586,
+   "largest_tile_ink_share": 0.68,
+   "tiles_scored": 116,
+   "rendered_pixels": 22677506,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w096": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0574,
+   "excess": 0.2174,
+   "geometry": {
+    "trusted": 0.7586,
+    "other_side": 0.0426,
+    "inward_against_axis": 0.0574,
+    "final_within_2": 0.8013
+   },
+   "read": true,
+   "render_canvas_megapixels": 36.7524,
+   "ink_share": 0.033,
+   "largest_tile_ink_share": 0.3735,
+   "tiles_scored": 119,
+   "rendered_pixels": 22756789,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w097": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0569,
+   "excess": 0.2039,
+   "geometry": {
+    "trusted": 0.7526,
+    "other_side": 0.0425,
+    "inward_against_axis": 0.0569,
+    "final_within_2": 0.7949
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.0476,
+   "ink_share": 0.0279,
+   "largest_tile_ink_share": 0.2657,
+   "tiles_scored": 123,
+   "rendered_pixels": 22945891,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w098": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0562,
+   "excess": 0.1422,
+   "geometry": {
+    "trusted": 0.7407,
+    "other_side": 0.0414,
+    "inward_against_axis": 0.0562,
+    "final_within_2": 0.7817
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.392,
+   "ink_share": 0.0351,
+   "largest_tile_ink_share": 0.2953,
+   "tiles_scored": 125,
+   "rendered_pixels": 23258806,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w099": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0576,
+   "excess": 0.0731,
+   "geometry": {
+    "trusted": 0.7159,
+    "other_side": 0.0419,
+    "inward_against_axis": 0.0576,
+    "final_within_2": 0.7578
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.3808,
+   "ink_share": 0.0434,
+   "largest_tile_ink_share": 0.4139,
+   "tiles_scored": 121,
+   "rendered_pixels": 23412533,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w100": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0525,
+   "excess": 0.2169,
+   "geometry": {
+    "trusted": 0.7314,
+    "other_side": 0.0368,
+    "inward_against_axis": 0.0525,
+    "final_within_2": 0.7675
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.5272,
+   "ink_share": 0.0604,
+   "largest_tile_ink_share": 0.5831,
+   "tiles_scored": 123,
+   "rendered_pixels": 23479408,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w101": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0509,
+   "excess": 0.1854,
+   "geometry": {
+    "trusted": 0.7416,
+    "other_side": 0.0355,
+    "inward_against_axis": 0.0509,
+    "final_within_2": 0.7761
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.8688,
+   "ink_share": 0.0459,
+   "largest_tile_ink_share": 0.5719,
+   "tiles_scored": 123,
+   "rendered_pixels": 23658971,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w102": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0512,
+   "excess": 0.1127,
+   "geometry": {
+    "trusted": 0.7304,
+    "other_side": 0.0344,
+    "inward_against_axis": 0.0512,
+    "final_within_2": 0.7637
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.064,
+   "ink_share": 0.0389,
+   "largest_tile_ink_share": 0.3147,
+   "tiles_scored": 122,
+   "rendered_pixels": 23763948,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w103": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.046,
+   "excess": 0.2587,
+   "geometry": {
+    "trusted": 0.7513,
+    "other_side": 0.0326,
+    "inward_against_axis": 0.046,
+    "final_within_2": 0.7824
+   },
+   "read": true,
+   "render_canvas_megapixels": 37.9456,
+   "ink_share": 0.0586,
+   "largest_tile_ink_share": 0.53,
+   "tiles_scored": 122,
+   "rendered_pixels": 23807096,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w104": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0431,
+   "excess": 0.1519,
+   "geometry": {
+    "trusted": 0.7238,
+    "other_side": 0.0291,
+    "inward_against_axis": 0.0431,
+    "final_within_2": 0.752
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.3328,
+   "ink_share": 0.0453,
+   "largest_tile_ink_share": 0.3654,
+   "tiles_scored": 123,
+   "rendered_pixels": 23958515,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w105": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0395,
+   "excess": 0.0827,
+   "geometry": {
+    "trusted": 0.7023,
+    "other_side": 0.0261,
+    "inward_against_axis": 0.0395,
+    "final_within_2": 0.7275
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.6716,
+   "ink_share": 0.0286,
+   "largest_tile_ink_share": 0.2504,
+   "tiles_scored": 121,
+   "rendered_pixels": 24169502,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w106": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0359,
+   "excess": 0.2188,
+   "geometry": {
+    "trusted": 0.6974,
+    "other_side": 0.0244,
+    "inward_against_axis": 0.0359,
+    "final_within_2": 0.72
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.448,
+   "ink_share": 0.0263,
+   "largest_tile_ink_share": 0.4036,
+   "tiles_scored": 124,
+   "rendered_pixels": 23916734,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w107": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0318,
+   "excess": 0.1249,
+   "geometry": {
+    "trusted": 0.6589,
+    "other_side": 0.0209,
+    "inward_against_axis": 0.0318,
+    "final_within_2": 0.6787
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.88,
+   "ink_share": 0.0308,
+   "largest_tile_ink_share": 0.2989,
+   "tiles_scored": 120,
+   "rendered_pixels": 24017695,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w108": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0319,
+   "excess": 0.107,
+   "geometry": {
+    "trusted": 0.5856,
+    "other_side": 0.0218,
+    "inward_against_axis": 0.0319,
+    "final_within_2": 0.6075
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.024,
+   "ink_share": 0.0127,
+   "largest_tile_ink_share": 0.3798,
+   "tiles_scored": 119,
+   "rendered_pixels": 23912549,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w109": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0318,
+   "excess": 0.1289,
+   "geometry": {
+    "trusted": 0.5638,
+    "other_side": 0.0214,
+    "inward_against_axis": 0.0318,
+    "final_within_2": 0.5853
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.6988,
+   "ink_share": 0.0404,
+   "largest_tile_ink_share": 0.5901,
+   "tiles_scored": 119,
+   "rendered_pixels": 23764186,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w110": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0296,
+   "excess": 0.0687,
+   "geometry": {
+    "trusted": 0.5672,
+    "other_side": 0.0197,
+    "inward_against_axis": 0.0296,
+    "final_within_2": 0.5876
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.704,
+   "ink_share": 0.0209,
+   "largest_tile_ink_share": 0.2428,
+   "tiles_scored": 121,
+   "rendered_pixels": 23779108,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w111": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0269,
+   "excess": 0.1426,
+   "geometry": {
+    "trusted": 0.6067,
+    "other_side": 0.0175,
+    "inward_against_axis": 0.0269,
+    "final_within_2": 0.6245
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.3652,
+   "ink_share": 0.0263,
+   "largest_tile_ink_share": 0.3869,
+   "tiles_scored": 120,
+   "rendered_pixels": 23853358,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w112": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0253,
+   "excess": 0.0671,
+   "geometry": {
+    "trusted": 0.6508,
+    "other_side": 0.0169,
+    "inward_against_axis": 0.0253,
+    "final_within_2": 0.6675
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.6984,
+   "ink_share": 0.0495,
+   "largest_tile_ink_share": 0.5875,
+   "tiles_scored": 117,
+   "rendered_pixels": 23801881,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w113": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0246,
+   "excess": 0.1633,
+   "geometry": {
+    "trusted": 0.675,
+    "other_side": 0.0159,
+    "inward_against_axis": 0.0246,
+    "final_within_2": 0.6906
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.0316,
+   "ink_share": 0.0585,
+   "largest_tile_ink_share": 0.517,
+   "tiles_scored": 111,
+   "rendered_pixels": 23680428,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w114": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0248,
+   "excess": 0.2219,
+   "geometry": {
+    "trusted": 0.6744,
+    "other_side": 0.0162,
+    "inward_against_axis": 0.0248,
+    "final_within_2": 0.6903
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.3172,
+   "ink_share": 0.0418,
+   "largest_tile_ink_share": 0.3167,
+   "tiles_scored": 106,
+   "rendered_pixels": 23436160,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w115": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0258,
+   "excess": 0.0279,
+   "geometry": {
+    "trusted": 0.5689,
+    "other_side": 0.0163,
+    "inward_against_axis": 0.0258,
+    "final_within_2": 0.5864
+   },
+   "read": true,
+   "render_canvas_megapixels": 41.232,
+   "ink_share": 0.0478,
+   "largest_tile_ink_share": 0.406,
+   "tiles_scored": 96,
+   "rendered_pixels": 22387035,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w116": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0239,
+   "excess": 0.0287,
+   "geometry": {
+    "trusted": 0.4729,
+    "other_side": 0.0151,
+    "inward_against_axis": 0.0239,
+    "final_within_2": 0.4911
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.8752,
+   "ink_share": 0.0284,
+   "largest_tile_ink_share": 0.5747,
+   "tiles_scored": 100,
+   "rendered_pixels": 20392502,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w117": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0201,
+   "excess": 0.0141,
+   "geometry": {
+    "trusted": 0.4201,
+    "other_side": 0.0135,
+    "inward_against_axis": 0.0201,
+    "final_within_2": 0.4376
+   },
+   "read": true,
+   "render_canvas_megapixels": 40.6224,
+   "ink_share": 0.011,
+   "largest_tile_ink_share": 0.3866,
+   "tiles_scored": 92,
+   "rendered_pixels": 19472946,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w119": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0117,
+   "excess": 0.115,
+   "geometry": {
+    "trusted": 0.5163,
+    "other_side": 0.0078,
+    "inward_against_axis": 0.0117,
+    "final_within_2": 0.532
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.216,
+   "ink_share": 0.0128,
+   "largest_tile_ink_share": 0.307,
+   "tiles_scored": 76,
+   "rendered_pixels": 17397503,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w120": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0115,
+   "excess": 0.1666,
+   "geometry": {
+    "trusted": 0.5089,
+    "other_side": 0.0071,
+    "inward_against_axis": 0.0115,
+    "final_within_2": 0.5258
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.1704,
+   "ink_share": 0.0148,
+   "largest_tile_ink_share": 0.154,
+   "tiles_scored": 72,
+   "rendered_pixels": 16740194,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w121": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0112,
+   "excess": 0.0123,
+   "geometry": {
+    "trusted": 0.4482,
+    "other_side": 0.0071,
+    "inward_against_axis": 0.0112,
+    "final_within_2": 0.4675
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.6264,
+   "ink_share": 0.0106,
+   "largest_tile_ink_share": 0.1439,
+   "tiles_scored": 53,
+   "rendered_pixels": 15762292,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w122": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0125,
+   "excess": 0.0944,
+   "geometry": {
+    "trusted": 0.3581,
+    "other_side": 0.0069,
+    "inward_against_axis": 0.0125,
+    "final_within_2": 0.3778
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.3692,
+   "ink_share": 0.0093,
+   "largest_tile_ink_share": 0.0589,
+   "tiles_scored": 45,
+   "rendered_pixels": 13955675,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w123": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0104,
+   "excess": 0.0178,
+   "geometry": {
+    "trusted": 0.2613,
+    "other_side": 0.0058,
+    "inward_against_axis": 0.0104,
+    "final_within_2": 0.2798
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.4144,
+   "ink_share": 0.0471,
+   "largest_tile_ink_share": 0.061,
+   "tiles_scored": 31,
+   "rendered_pixels": 10899941,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w124": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0091,
+   "excess": 0.0463,
+   "geometry": {
+    "trusted": 0.2252,
+    "other_side": 0.0054,
+    "inward_against_axis": 0.0091,
+    "final_within_2": 0.2439
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.1552,
+   "ink_share": 0.0129,
+   "largest_tile_ink_share": 0.0862,
+   "tiles_scored": 25,
+   "rendered_pixels": 8812611,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w125": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0097,
+   "excess": 0.0212,
+   "geometry": {
+    "trusted": 0.2013,
+    "other_side": 0.0056,
+    "inward_against_axis": 0.0097,
+    "final_within_2": 0.2235
+   },
+   "read": true,
+   "render_canvas_megapixels": 38.9832,
+   "ink_share": 0.0108,
+   "largest_tile_ink_share": 0.0592,
+   "tiles_scored": 25,
+   "rendered_pixels": 7848079,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w126": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0108,
+   "excess": 0.027,
+   "geometry": {
+    "trusted": 0.1887,
+    "other_side": 0.0056,
+    "inward_against_axis": 0.0108,
+    "final_within_2": 0.2152
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.2496,
+   "ink_share": 0.0155,
+   "largest_tile_ink_share": 0.1034,
+   "tiles_scored": 20,
+   "rendered_pixels": 7218481,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w127": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0109,
+   "excess": 0.0039,
+   "geometry": {
+    "trusted": 0.1673,
+    "other_side": 0.0039,
+    "inward_against_axis": 0.0109,
+    "final_within_2": 0.195
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.6936,
+   "ink_share": 0.02,
+   "largest_tile_ink_share": 0.0836,
+   "tiles_scored": 21,
+   "rendered_pixels": 6709962,
+   "flip_lr": true,
+   "flip_ud": true
+  },
+  "w128": {
+   "render": "keep",
+   "share_of_normals_pointing_inward": 0.0104,
+   "excess": 0.0341,
+   "geometry": {
+    "trusted": 0.1622,
+    "other_side": 0.003,
+    "inward_against_axis": 0.0104,
+    "final_within_2": 0.1933
+   },
+   "read": true,
+   "render_canvas_megapixels": 39.738,
+   "ink_share": 0.012,
+   "largest_tile_ink_share": 0.047,
+   "tiles_scored": 21,
+   "rendered_pixels": 5994706,
+   "flip_lr": true,
+   "flip_ud": true
+  }
+ }
+}
