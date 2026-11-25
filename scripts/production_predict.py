@@ -12,7 +12,7 @@ import json
 import math
 import sys
 import time
-from contextlib import nullcontext, redirect_stdout
+from contextlib import ExitStack, nullcontext, redirect_stdout
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +43,7 @@ from vesuvius_autoresearch.core.inference import (
     tile_starts,
     validate_model_settings,
 )
+from vesuvius_autoresearch.core.regional_memory import RegionalMemoryProfile
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -70,6 +71,11 @@ def production_predict(argv=None):
         "--dry-run",
         action="store_true",
         help="print a JSON plan without model construction, voxel reads or output writes",
+    )
+    parser.add_argument(
+        "--profile-memory",
+        action="store_true",
+        help="record process RSS and selected-device PyTorch peaks during inference",
     )
     parser.add_argument(
         "--max-checkpoint-bytes",
@@ -205,9 +211,12 @@ def production_predict(argv=None):
         return result
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
     model = build_prediction_model(config_dict, args, use_ridges=use_ridges)
     model.load_state_dict(state, strict=True)
     model = model.to(device).eval()
+    if memory_profile is not None:
+        memory_profile.sample("models_loaded")
     ys = tile_starts(args.height, size, args.stride)
     xs = tile_starts(args.width, size, args.stride)
     full_prob = torch.zeros((args.height, args.width), device=device)
@@ -262,27 +271,15 @@ def production_predict(argv=None):
                     flush()
         flush()
         final_prob = normalize_blend(full_prob, full_count).cpu().numpy()
+    if memory_profile is not None:
+        memory_profile.sample("inference_complete")
     args.tiles_total = args.tiles_processed = len(ys) * len(xs)
     final_uint8 = quantize_probabilities(final_prob)
     print(f"Inference complete in {time.time() - start:.1f}s")
 
     plan.validate(source_uri=args.uri, checkpoint_alias=requested_checkpoint)
-    # Enter metadata first so it is installed after the prepared store.
     with (
-        stage_prediction_metadata(
-            plan.metadata_path,
-            args,
-            config_dict,
-            plan.zarr_path,
-            None,
-            {"mean": float(final_prob.mean()), "max": float(final_prob.max())},
-            extra_metadata={
-                "artifact_stem": plan.stem,
-                "checkpoint_size_bytes": args.checkpoint_size_bytes,
-                "source_local_path": str(plan.source),
-                "source_array_path": str(plan.source_array),
-            },
-        ),
+        ExitStack() as pending_metadata,
         stage_vc3d_zarr(
             plan.zarr_path,
             final_uint8,
@@ -292,6 +289,25 @@ def production_predict(argv=None):
             origin_xyz=[args.x, args.y, args.z],
         ),
     ):
+        # Take the final observation after store preparation. The outer stack
+        # installs the completion record after the store.
+        pending_metadata.enter_context(
+            stage_prediction_metadata(
+                plan.metadata_path,
+                args,
+                config_dict,
+                plan.zarr_path,
+                None,
+                {"mean": float(final_prob.mean()), "max": float(final_prob.max())},
+                extra_metadata={
+                    "artifact_stem": plan.stem,
+                    "checkpoint_size_bytes": args.checkpoint_size_bytes,
+                    "source_local_path": str(plan.source),
+                    "source_array_path": str(plan.source_array),
+                },
+                memory_profile=memory_profile,
+            )
+        )
         plan.validate(source_uri=args.uri, checkpoint_alias=requested_checkpoint)
         invalidate_prediction_metadata(plan.directory, plan.stem)
     print(f"Saved production results to {args.out_dir}")
