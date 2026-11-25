@@ -8,6 +8,7 @@ Ensembling does not guarantee the absence of hallucinations or establish accurac
 
 import os
 import sys
+from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -26,8 +27,8 @@ from scripts.inference.predict import (
     invalidate_prediction_metadata,
     prediction_scale_bar,
     regional_preview_figure,
+    stage_prediction_metadata,
     stage_regional_outputs,
-    write_prediction_metadata,
 )
 from scripts.regional_prediction_artifacts import (
     RegionalArtifactPlan,
@@ -320,15 +321,50 @@ def ensemble_predict():
             outputs["fiber"] = (fiber, "Ensemble fiber")
         if args.num_parts > 1:
             args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
-        with stage_regional_outputs(
-            artifacts,
-            outputs,
-            preview_files,
-            blend_weights=weights.cpu().numpy() if args.num_parts > 1 else None,
-            voxel_size_um=args.voxel_size_um,
-            source_uri=args.uri,
-            origin_xyz=[args.x, args.y, args.z],
-        ) as exports:
+        with (
+            ExitStack() as pending_metadata,
+            stage_regional_outputs(
+                artifacts,
+                outputs,
+                preview_files,
+                blend_weights=weights.cpu().numpy() if args.num_parts > 1 else None,
+                voxel_size_um=args.voxel_size_um,
+                source_uri=args.uri,
+                origin_xyz=[args.x, args.y, args.z],
+            ) as exports,
+        ):
+            pending_metadata.enter_context(
+                stage_prediction_metadata(
+                    artifacts.metadata,
+                    args,
+                    configs[0],
+                    exports["ink"],
+                    output_img,
+                    {
+                        "mean": float(ink.mean()),
+                        "std": float(ink.std()),
+                        "max": float(ink.max()),
+                    },
+                    fiber_zarr_path=exports.get("fiber"),
+                    fiber_stats={
+                        "mean": float(fiber.mean()),
+                        "std": float(fiber.std()),
+                        "max": float(fiber.max()),
+                    }
+                    if has_fiber
+                    else None,
+                    extra_metadata={
+                        "ensemble_checkpoints": [
+                            str(path) for path in checkpoint_paths
+                        ],
+                        "ensemble_model_configs": configs,
+                        "ensemble_max_layers": max_layers,
+                        "model_config_scope": "first_ensemble_member",
+                        "ensemble_task_heads": member_heads,
+                    },
+                    memory_profile=memory_profile,
+                )
+            )
             artifacts.validate_source_selection(args.uri)
             artifacts.validate(
                 checkpoint_aliases=args.checkpoints, preview_paths=preview_files
@@ -337,30 +373,6 @@ def ensemble_predict():
                 output_dir, base, str(artifacts.metadata)
             )
 
-    write_prediction_metadata(
-        metadata_path,
-        args,
-        configs[0],
-        exports["ink"],
-        output_img,
-        {"mean": float(ink.mean()), "std": float(ink.std()), "max": float(ink.max())},
-        fiber_zarr_path=exports.get("fiber"),
-        fiber_stats={
-            "mean": float(fiber.mean()),
-            "std": float(fiber.std()),
-            "max": float(fiber.max()),
-        }
-        if has_fiber
-        else None,
-        extra_metadata={
-            "ensemble_checkpoints": [str(path) for path in checkpoint_paths],
-            "ensemble_model_configs": configs,
-            "ensemble_max_layers": max_layers,
-            "model_config_scope": "first_ensemble_member",
-            "ensemble_task_heads": member_heads,
-        },
-        memory_profile=memory_profile,
-    )
     print(
         f"Ensemble prediction {'complete' if args.num_parts == 1 else 'shard complete (partial region)'}. Metadata: {metadata_path}"
     )

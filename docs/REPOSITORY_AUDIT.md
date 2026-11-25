@@ -2512,3 +2512,21 @@ GPU and host peak-memory measurements remain open.
 Review reproduced a filename-length error for a valid 239-character stem.
 The mask now uses a short staging prefix, and the regression opens the mask
 at its final path and checks the completion record and staging cleanup.
+
+## Prepare regional completion metadata before publication (2026-11-25 UTC)
+
+This pass starts from main `65a9cd01`. Four CPU reruns with changed weights
+interrupted JSON encoding or a temporary metadata write. Both commands had
+already removed the old completion record and installed the new payloads.
+
+Both commands now serialize and write the completion record while the
+regional outputs are staged. A final source and artifact check precedes
+invalidation. The completed record installs after the payloads. The four
+regressions compare the entire previous output tree. Optional memory
+profiling now collects its initial metadata observation after output
+preparation and before installation, and a failed observation preserves
+the prior run. Optional coherence still adds a later observation.
+
+After installation starts, the individual replacements remain separate.
+The completion record is absent if an installation fails before it can be
+published. Representative GPU and host peak-memory measurements remain open.

@@ -333,6 +333,45 @@ def test_interrupted_zarr_write_preserves_the_previous_run(
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("stage", ["encode", "write"])
+def test_completion_sidecar_preparation_failure_preserves_previous_run(
+    tmp_path, monkeypatch, mode, stage
+):
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    before = _tree(output)
+    assert json.loads(before["region_meta.json"])["prediction_complete"]
+    _change_fixture_weights(checkpoints[0])
+    dumps = json.dumps
+    write_text = Path.write_text
+
+    def fail_to_encode(value, **kwargs):
+        if isinstance(value, dict) and "prediction_complete" in value:
+            raise TypeError("completion record encoding failed")
+        return dumps(value, **kwargs)
+
+    def fail_after_partial_write(path, data, *args, **kwargs):
+        if '"prediction_complete"' in data:
+            write_text(path, '{"prediction_complete":', *args, **kwargs)
+            raise OSError("completion record write failed")
+        return write_text(path, data, *args, **kwargs)
+
+    if stage == "encode":
+        monkeypatch.setattr(json, "dumps", fail_to_encode)
+        with pytest.raises(TypeError, match="completion record encoding failed"):
+            run()
+    else:
+        monkeypatch.setattr(Path, "write_text", fail_after_partial_write)
+        with pytest.raises(OSError, match="completion record write failed"):
+            run()
+
+    assert _tree(output) == before
+    assert not list(output.glob(".*-*"))
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
 def test_shard_keeps_previous_outputs_when_only_the_ct_preview_read_fails(
     tmp_path, monkeypatch, mode
 ):

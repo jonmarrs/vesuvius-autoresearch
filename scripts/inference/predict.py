@@ -344,7 +344,8 @@ def invalidate_prediction_metadata(output_dir, base_name, metadata_out=None):
     return selected
 
 
-def write_prediction_metadata(
+@contextmanager
+def stage_prediction_metadata(
     path,
     args,
     config_dict,
@@ -357,6 +358,7 @@ def write_prediction_metadata(
     extra_metadata=None,
     memory_profile=None,
 ):
+    """Prepare the prediction record and install it on successful exit."""
     voxel_size_um = float(
         config_dict.get(
             "voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)
@@ -416,6 +418,37 @@ def write_prediction_metadata(
     encoded = json.dumps(metadata, indent=2, allow_nan=False)
     with _stage_prediction_file(path) as temporary:
         temporary.write_text(encoded + "\n", encoding="utf-8")
+        yield
+
+
+def write_prediction_metadata(
+    path,
+    args,
+    config_dict,
+    zarr_path,
+    output_img,
+    ink_stats,
+    fiber_zarr_path=None,
+    fiber_stats=None,
+    fiber_coherence=None,
+    extra_metadata=None,
+    memory_profile=None,
+):
+    """Prepare and publish the record for standalone writers."""
+    with stage_prediction_metadata(
+        path,
+        args,
+        config_dict,
+        zarr_path,
+        output_img,
+        ink_stats,
+        fiber_zarr_path=fiber_zarr_path,
+        fiber_stats=fiber_stats,
+        fiber_coherence=fiber_coherence,
+        extra_metadata=extra_metadata,
+        memory_profile=memory_profile,
+    ):
+        pass
 
 
 def _prediction_output(args):
@@ -696,6 +729,31 @@ def predict():
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
+    def stage_metadata(exports, fiber_coherence=None):
+        return stage_prediction_metadata(
+            artifacts.metadata,
+            args,
+            config_dict,
+            exports["ink"],
+            out_path,
+            {
+                "mean": float(prob_ink_final.mean()),
+                "std": float(prob_ink_final.std()),
+                "max": float(prob_ink_final.max()),
+            },
+            fiber_zarr_path=exports.get("fiber"),
+            fiber_stats={
+                "mean": float(prob_fiber_final.mean()),
+                "std": float(prob_fiber_final.std()),
+                "max": float(prob_fiber_final.max()),
+            }
+            if has_fiber
+            else None,
+            fiber_coherence=fiber_coherence,
+            extra_metadata={"task_heads": heads},
+            memory_profile=memory_profile,
+        )
+
     # The full preview can reach damaged chunks outside this shard's tiles.
     z_mid = args.z + num_layers // 2
     ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, predict_height, predict_width)[
@@ -763,6 +821,7 @@ def predict():
             args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
         export_uncertainty = args.uncertainty_export["status"] == "PLANNED"
         with (
+            ExitStack() as pending_metadata,
             ExitStack() as pending_mask,
             stage_regional_outputs(
                 artifacts,
@@ -811,6 +870,8 @@ def predict():
                     }
                     print(f"Warning: skipping active-learning export: {exc}")
 
+            pending_metadata.enter_context(stage_metadata(exports))
+
             # Recheck source selection and aliases after all preparation.
             artifacts.validate_source_selection(args.uri)
             artifacts.validate(
@@ -823,37 +884,8 @@ def predict():
             metadata_path = invalidate_prediction_metadata(
                 output_dir, base_name, str(artifacts.metadata)
             )
-        zarr_path = exports["ink"]
-        fiber_zarr_path = exports.get("fiber")
         if args.uncertainty_export["path"] is not None:
             print(f"Exported uncertainty mask for proofreading: {uncertainty_path}")
-
-    def write_metadata(fiber_coherence=None):
-        write_prediction_metadata(
-            metadata_path,
-            args,
-            config_dict,
-            zarr_path,
-            out_path,
-            {
-                "mean": float(prob_ink_final.mean()),
-                "std": float(prob_ink_final.std()),
-                "max": float(prob_ink_final.max()),
-            },
-            fiber_zarr_path=fiber_zarr_path,
-            fiber_stats={
-                "mean": float(prob_fiber_final.mean()),
-                "std": float(prob_fiber_final.std()),
-                "max": float(prob_fiber_final.max()),
-            }
-            if has_fiber
-            else None,
-            fiber_coherence=fiber_coherence,
-            extra_metadata={"task_heads": heads},
-            memory_profile=memory_profile,
-        )
-
-    write_metadata()
 
     # Automated Fiber Coherence Evaluation (Villa ST): the structure tensor of the
     # CT slice shown in the figure, independent of the model's heads.
@@ -864,7 +896,8 @@ def predict():
             print("Computing Fiber Coherence score (Villa ST)...", flush=True)
             fiber_coherence = compute_coherence(ct_slice, device=str(device))
             print(f"Fiber Coherence Score: {fiber_coherence:.6f}")
-            write_metadata(fiber_coherence)
+            with stage_metadata(exports, fiber_coherence):
+                pass
         except Exception as exc:
             print(f"Warning: fiber coherence evaluation failed: {exc}")
 

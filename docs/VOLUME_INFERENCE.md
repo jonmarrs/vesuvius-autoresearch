@@ -151,7 +151,7 @@ GPU name/capacity when using CUDA, units and chronological observations:
 | `before_models` | After the first checkpoint/configuration preflight, before model construction. |
 | `models_loaded` | The model is loaded; all members are resident for an ensemble. |
 | `inference_complete` | Tiling, blend normalization and host probability copies have completed. |
-| `metadata_ready` | Array, image, Zarr and preview exports and scalar statistics are ready, before metadata JSON encoding/writing. |
+| `metadata_ready` | Exports are staged and scalar statistics are ready, before the initial JSON write and installation. Optional coherence records a later observation. |
 
 Each observation contains current process RSS from psutil and the OS-reported
 process-lifetime high-water RSS from `getrusage`. Linux KiB and macOS bytes are
@@ -175,8 +175,8 @@ peak counters for the selected device; use a dedicated process/device session.
 Successful optional coherence
 evaluation rewrites metadata with a later `metadata_ready` observation. The
 profile ends at the latest recorded observation, not at process exit. Failed or
-interrupted runs may have no completed profile; a metadata-collection failure
-during primary publication cannot publish a success sidecar.
+interrupted runs may have no completed profile. If metadata collection fails
+during preparation, the prior published artifacts and sidecar survive.
 
 The CPU smoke checks validate the recording path and unchanged outputs, including
 a two-model ensemble. No real 4090 capacity, full-scroll peak or throughput result
