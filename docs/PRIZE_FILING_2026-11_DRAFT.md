@@ -79,6 +79,12 @@ above only once it merges, with its date:
   branch and checked all 80 volume headers. It is documentation, weak under #2450 on its own, and belongs in a
   bundle.
 
+**Open, posted 2026-11-25, not yet reviewed:**
+* [villa #2711](https://github.com/ScrollPrize/villa/pull/2711): the fiber generator's seam trim, the trim alone, with
+  the Scroll 1 and 5 figures. Its measurements are the seam trim's, below. It touches the same test file as another
+  contributor's open #2434, so whichever lands second rebases one hunk. It counts for November only if it merges by
+  the deadline.
+
 ## Queued, not posted
 
 * **The seed-heading fix** ([draft](VILLA_DRAFT_volume_seed_heading.md)).
@@ -105,8 +111,8 @@ above only once it merges, with its date:
   * **The measurement:** on eight held-out Scroll-3 cubes run in 8 blocks, trimming the cut ends raised ERLpen on
     every cube, a median +12.8% at tolerance 4 and +7.1% at tolerance 2, with merges 439 → 386 at tolerance 2. Lost
     face crossings rise, 172 → 278 of 1,304.
-  * **Form:** a PR, since it fixes villa's own active code. villa's limits (three open PRs, two code fixes a week)
-    rule it out before about 11-13, and whether to post it is the owner's decision.
+  * **Form:** a PR, since it fixes villa's own active code. **Posted 2026-11-25 as villa #2711** (above), on the
+    owner's decision: the trim alone, with finding 109's Scroll 1 and 5 figures.
   * **Its case in practice** is [finding 107](../reports/afv_generator_default_zone.md) (`BITES_AT_DEFAULTS`): one
     1024³ zone of the Scroll-3 scan at villa's default block size of 512. VC3D's default zone is one block, where the
     trim changes nothing.
