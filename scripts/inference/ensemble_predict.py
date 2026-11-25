@@ -77,7 +77,7 @@ class EnsembleArgs(Tap):
     num_parts: int = 1
     part_id: int = 0
     gaussian_blend: bool = True
-    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Byte cap for the three float32 blend planes; not peak RAM/VRAM
+    max_accumulator_bytes: int = MAX_ACCUMULATOR_BYTES  # Blend-plane budget in bytes
     profile_memory: bool = False  # Record process RSS and selected-device PyTorch allocator peaks in metadata
 
     def configure(self):
@@ -230,7 +230,8 @@ def ensemble_predict():
     full_ink = torch.zeros(
         (args.height, args.width), device=device, dtype=torch.float32
     )
-    full_fiber, weights = torch.zeros_like(full_ink), torch.zeros_like(full_ink)
+    full_fiber = torch.zeros_like(full_ink) if has_fiber else None
+    weights = torch.zeros_like(full_ink)
     if args.gaussian_blend:
         from vesuvius_autoresearch.core.villa_inference import GaussianBlender
 
@@ -249,25 +250,32 @@ def ensemble_predict():
             batch = prepare_volume_input(
                 dataset.normalize(block), use_ridges_any, max_layers, patch_size, device
             )
-            ink_sum, fiber_sum = torch.zeros_like(window), torch.zeros_like(window)
+            ink_sum = torch.zeros_like(window)
+            fiber_sum = torch.zeros_like(window) if full_fiber is not None else None
             for model, use_ridges, layers in models:
                 model_input = batch[:, : 2 if use_ridges else 1, :layers]
                 ink, fiber = multitask_probabilities(
                     model, model_input, args.disable_tta
                 )
                 ink_sum += ink[0]
-                fiber_sum += fiber[0]
+                if fiber_sum is not None:
+                    fiber_sum += fiber[0]
             full_ink[y : y + patch_size, x : x + patch_size] += (
                 ink_sum / len(models) * window
             )
-            full_fiber[y : y + patch_size, x : x + patch_size] += (
-                fiber_sum / len(models) * window
-            )
+            if full_fiber is not None and fiber_sum is not None:
+                full_fiber[y : y + patch_size, x : x + patch_size] += (
+                    fiber_sum / len(models) * window
+                )
             weights[y : y + patch_size, x : x + patch_size] += window
 
     complete = args.num_parts == 1
     ink = normalize_blend(full_ink, weights, complete).cpu().numpy()
-    fiber = normalize_blend(full_fiber, weights, complete).cpu().numpy()
+    fiber = (
+        normalize_blend(full_fiber, weights, complete).cpu().numpy()
+        if full_fiber is not None
+        else None
+    )
     args.coverage_fraction = blend_coverage_fraction(weights, complete=complete)
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
@@ -280,7 +288,7 @@ def ensemble_predict():
         with regional_preview_figure() as (figure, axes):
             axes[0].imshow(ct_slice, cmap="gray")
             axes[0].set_title(f"CT Slice (Z={z_mid})")
-            if has_fiber:
+            if fiber is not None:
                 axes[1].imshow(fiber, cmap="magma")
                 axes[1].set_title("Ensemble Fiber Context")
             else:
@@ -319,7 +327,7 @@ def ensemble_predict():
             checkpoint_aliases=args.checkpoints, preview_paths=preview_files
         )
         outputs = {"ink": (ink, "Ensemble ink")}
-        if has_fiber:
+        if fiber is not None:
             outputs["fiber"] = (fiber, "Ensemble fiber")
         if args.num_parts > 1:
             args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
@@ -353,7 +361,7 @@ def ensemble_predict():
                         "std": float(fiber.std()),
                         "max": float(fiber.max()),
                     }
-                    if has_fiber
+                    if fiber is not None
                     else None,
                     extra_metadata={
                         "ensemble_checkpoints": [

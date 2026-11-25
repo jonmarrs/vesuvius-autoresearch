@@ -2610,3 +2610,21 @@ original formula applied to the saved NumPy planes.
 These figures are for one CPU conversion, with the source excluded from the
 trace. Representative whole-run CPU and GPU peaks and ensemble residency
 remain open.
+
+## Skip unused regional fiber accumulators (2026-11-25 UTC)
+
+This pass starts from main `b0695294`. Three CPU fixtures traced a full
+float32 fiber allocation even when the run published ink alone. They cover
+single-model and ensemble models without a fiber head and a mixed ensemble.
+Each old 11-by-13 fixture allocated a 572-byte fiber plane alongside ink and
+weights and then normalized and copied a fiber result that was discarded.
+
+Both commands now accumulate and normalize regional fiber only when the
+run publishes it. The fixtures confirm that the only full-size zeroed copy
+of the ink plane is for blend weights. Omitting one float32 accumulator
+saves 64 MiB of persistent storage at 4096 by 4096. Models still go through
+the same output validation and the no-fiber preview retains its placeholder.
+
+The preflight policy and recorded resource plan continue to budget for
+three planes before model construction. Representative whole-run CPU and
+GPU peak-memory measurements and ensemble residency remain open.
