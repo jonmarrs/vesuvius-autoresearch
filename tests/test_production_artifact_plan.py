@@ -288,6 +288,53 @@ def test_output_plan_is_rechecked_after_inference(tmp_path, monkeypatch):
     assert not (out / f"{BASE}_meta.json").exists()
 
 
+@pytest.mark.parametrize("alias", ["ct_group", "ct_level", "checkpoint"])
+def test_production_rechecks_requested_input_links_after_staging(
+    tmp_path, monkeypatch, alias
+):
+    out, argv, _ = production_fixture(tmp_path, monkeypatch)
+    store = out / f"{BASE}.zarr"
+    metadata = out / f"{BASE}_meta.json"
+    if alias == "checkpoint":
+        option = "--checkpoint"
+        requested = link = tmp_path / "selected.pt"
+        target = metadata
+    elif alias == "ct_group":
+        option = "--uri"
+        requested = link = tmp_path / "selected.zarr"
+        target = store
+    else:
+        option = "--uri"
+        requested = tmp_path / "selected.zarr"
+        requested.mkdir()
+        link = requested / "0"
+        target = store / "0"
+    input_path = Path(argv[argv.index(option) + 1])
+    link.symlink_to(input_path, target_is_directory=alias != "checkpoint")
+    _set(argv, option, requested)
+    production.production_predict()
+    before = _tree(out)
+    assert metadata.is_file()
+    write = zarr.Array.__setitem__
+
+    def repoint_while_staging(array, key, values):
+        write(array, key, values)
+        if array.chunks == (1, 256, 256):
+            link.unlink()
+            link.symlink_to(target, target_is_directory=alias != "checkpoint")
+
+    monkeypatch.setattr(zarr.Array, "__setitem__", repoint_while_staging)
+    if alias == "checkpoint":
+        with pytest.raises(ValueError, match="artifact collision"):
+            production.production_predict()
+    else:
+        with pytest.raises(RuntimeError, match="CT source selection changed"):
+            production.production_predict()
+    assert link.resolve() == target
+    assert _tree(out) == before
+    assert not list(out.glob(".*-*"))
+
+
 def test_metadata_hash_describes_captured_checkpoint_despite_later_replacement(
     tmp_path, monkeypatch
 ):

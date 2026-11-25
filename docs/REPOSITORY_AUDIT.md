@@ -2662,3 +2662,21 @@ fixture confirms a failed final metadata rename leaves the record absent.
 Preparation needs space for the replacement store alongside the previous
 one. The store and completion record still install separately. Production
 and regional whole-run peak-memory measurements remain open.
+
+## Recheck production input aliases before publication (2026-11-25 UTC)
+
+This pass starts from main `8fb90d88` and extends the regional input
+safety checks to production. Three CPU reruns retargeted the requested CT
+group link, its level-0 link, or the checkpoint link during export staging.
+The existing plan still described the original resolved inputs and accepted
+publication over the newly selected Zarr or metadata path.
+
+Production now verifies the requested CT group and array selection and
+checks the current checkpoint alias for output collisions before staging and
+again before installation. All three fixtures refuse the changed selection
+or collision, preserve the previous outputs byte-for-byte, and clean staging.
+Checkpoint metadata continues to identify the bytes captured for the run.
+
+These checks observe the filesystem at explicit points in the run. Keep
+input paths stable and serialize writers. Whole-run peak-memory measurements
+remain open.

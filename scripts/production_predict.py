@@ -95,6 +95,7 @@ def production_predict(argv=None):
 
     # A project checkpoint is a zip of tensors plus plain config values. NumPy
     # scalars recorded beside those tensors are allowlisted; nothing else is.
+    requested_checkpoint = args.checkpoint
     checkpoint_path, checkpoint_bytes = capture_bytes(
         plan.checkpoint, args.max_checkpoint_bytes
     )
@@ -259,7 +260,7 @@ def production_predict(argv=None):
     final_uint8 = quantize_probabilities(final_prob)
     print(f"Inference complete in {time.time() - start:.1f}s")
 
-    plan.validate()
+    plan.validate(source_uri=args.uri, checkpoint_alias=requested_checkpoint)
     # Enter metadata first so it is installed after the prepared store.
     with (
         stage_prediction_metadata(
@@ -285,7 +286,7 @@ def production_predict(argv=None):
             origin_xyz=[args.x, args.y, args.z],
         ),
     ):
-        plan.validate()
+        plan.validate(source_uri=args.uri, checkpoint_alias=requested_checkpoint)
         invalidate_prediction_metadata(plan.directory, plan.stem)
     print(f"Saved production results to {args.out_dir}")
 

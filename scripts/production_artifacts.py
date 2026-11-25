@@ -56,23 +56,35 @@ class ProductionArtifactPlan:
     def metadata_path(self):
         return self.directory / f"{self.stem}_meta.json"
 
-    def validate(self):
+    def validate(self, *, source_uri=None, checkpoint_alias=None):
+        if source_uri is not None:
+            current = local_volume_path(source_uri).resolve()
+            if (
+                current != self.source
+                or local_volume_array_path(current) != self.source_array
+            ):
+                raise RuntimeError(
+                    "CT source selection changed after production output planning"
+                )
         if os.path.lexists(self.directory) and not stat.S_ISDIR(
             self.directory.lstat().st_mode
         ):
             raise ValueError(
                 f"production output directory must be a nonsymlink directory: {self.directory}"
             )
+        sources = [
+            (self.source, "CT source"),
+            (self.source_array, "selected CT array"),
+            (self.checkpoint, "checkpoint"),
+        ]
+        if checkpoint_alias is not None:
+            sources.append((Path(checkpoint_alias), "current checkpoint target"))
         validate_plan_paths(
             [
                 (self.zarr_path, "production Zarr"),
                 (self.metadata_path, "production metadata"),
             ],
-            [
-                (self.source, "CT source"),
-                (self.source_array, "selected CT array"),
-                (self.checkpoint, "checkpoint"),
-            ],
+            sources,
         )
         if os.path.lexists(self.zarr_path):
             _zarr_tree(self.zarr_path)
