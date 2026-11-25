@@ -384,6 +384,7 @@ def test_image_destination_cannot_hide_a_protected_appended_path(
         ("view", "png", "view.png"),
         ("view", "svg", "view.svg"),
         ("view...", "png", "view.png"),
+        ("...", "png", ".png"),
         ("view.pdf", "png", "view.pdf"),
         ("view.PNG", "svg", "view.PNG"),
     ],
@@ -416,6 +417,33 @@ def test_image_destination_matches_actual_writer_and_allows_regular_replacement(
         "weights.sentinel",
         expected,
     }
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("use_default_format", [False, True])
+def test_unsupported_preview_format_preserves_previous_prediction(
+    tmp_path, monkeypatch, mode, use_default_format
+):
+    import matplotlib as mpl
+
+    run, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    run()
+    output = tmp_path / "out"
+    assert (output / "region_meta.json").is_file()
+    before = _tree(output)
+    models.clear()
+
+    extension = "unregistered-preview"
+    name = "preview" if use_default_format else f"preview.{extension}"
+    argv[argv.index("--output_img") + 1] = str(output / name)
+    default_format = extension if use_default_format else "png"
+    with mpl.rc_context({"savefig.format": default_format}):
+        with pytest.raises(ValueError, match=f"Format '{extension}' is not supported"):
+            run()
+
+    assert _tree(output) == before
+    assert not models
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])

@@ -2340,3 +2340,16 @@ checks and any publication. The fixtures now preserve all prior output bytes.
 The float32 preview plane stays in memory during export. Publication still
 uses separate writes, and representative GPU and host memory measurements
 remain open.
+
+## Regional preview format preflight (2026-11-25 UTC)
+
+This pass starts from main `b1d9e8c3`. Both regional commands accepted an
+unsupported preview format from the filename or Matplotlib's default. They
+replaced artifacts and removed the old sidecar before savefig reported the
+format error. Four CPU reruns reproduced the lost sidecar and changed outputs.
+
+The shared output plan now checks the format before model construction and
+passes it separately from the filename. Dot-only names still resolve to the
+default extension, and the explicit format lets savefig write that dotfile.
+The failed reruns preserve prior outputs. Runtime rendering failures and
+representative GPU and host memory measurements remain open.

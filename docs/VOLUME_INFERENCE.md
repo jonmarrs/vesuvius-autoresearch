@@ -87,8 +87,9 @@ settings must serialize as finite JSON before inference begins.
 An extensionless `--output_img` is resolved to Matplotlib's current default
 format during planning (for example, `view` becomes `view.png`). Trailing dots
 follow the same rule. That actual destination is checked against protected
-inputs and sibling artifacts, and the writer uses the planned format explicitly
-so a later default change cannot redirect publication.
+inputs and sibling artifacts. Unsupported preview formats fail during planning
+before model setup. The writer uses the planned format explicitly so a later
+default change cannot redirect publication.
 
 Existing artifact files must be regular files without symbolic or hard links.
 Existing Zarr/uncertainty trees have the same requirements, with a 100,000-entry
