@@ -163,7 +163,7 @@ def _retain_vc3d_entries(destination, staging, metadata_files):
 
 
 @contextmanager
-def _stage_vc3d_zarr(
+def stage_vc3d_zarr(
     base_path,
     array_uint8,
     name="prediction",
@@ -285,7 +285,7 @@ def save_vc3d_zarr(
     origin_xyz=None,
 ):
     """Build and publish one standalone VC3D store."""
-    with _stage_vc3d_zarr(
+    with stage_vc3d_zarr(
         base_path, array_uint8, name, voxel_size_um, source_uri, origin_xyz
     ):
         pass
@@ -325,7 +325,7 @@ def stage_regional_outputs(
 
             destination = f"{base}.zarr"
             stores.enter_context(
-                _stage_vc3d_zarr(
+                stage_vc3d_zarr(
                     destination,
                     image,
                     name=label,

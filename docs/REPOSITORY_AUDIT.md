@@ -2645,3 +2645,20 @@ aspect ratios and two interpolation settings, including a scale-bar patch.
 
 These figures cover the empty panel's construction. Whole-run CPU and GPU
 peak-memory measurements and ensemble residency remain open.
+
+## Prepare production prediction artifacts before installation (2026-11-25 UTC)
+
+This pass starts from main `e105b766`. An interrupted production Zarr
+chunk write removed the previous completion record. An interrupted JSON
+write also left the new Zarr installed. Both failures were reproduced in
+CPU reruns with changed checkpoint weights.
+
+Production now uses the regional writers' staging contexts for both the
+Zarr and completion record. It rechecks the output plan after staging and
+installs the completion record last. Both preparation-failure fixtures
+preserve the prior output tree byte-for-byte. The installation-failure
+fixture confirms a failed final metadata rename leaves the record absent.
+
+Preparation needs space for the replacement store alongside the previous
+one. The store and completion record still install separately. Production
+and regional whole-run peak-memory measurements remain open.

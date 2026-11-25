@@ -2,6 +2,7 @@
 
 import json
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -196,18 +197,68 @@ def test_production_uses_checkpoint_ridge_sigma(tmp_path, monkeypatch):
     assert next(out.glob("*.zarr")).exists()
 
 
-def test_a_production_run_cut_short_leaves_no_previous_metadata(tmp_path, monkeypatch):
-    """Each run for a region reuses its names: a run stopped after its zarr left
-    the previous run's metadata describing the new map."""
+def test_failed_production_metadata_install_leaves_no_previous_record(
+    tmp_path, monkeypatch
+):
     out, _, _ = production_fixture(tmp_path, monkeypatch)
     production.production_predict()
     metadata = next(out.glob("*_meta.json"))
+    replace = Path.replace
 
-    def stopped(*args, **kwargs):
-        raise RuntimeError("stopped before the metadata")
+    def stopped(path, target):
+        if Path(target) == metadata:
+            assert not metadata.exists()
+            raise OSError("stopped during metadata installation")
+        return replace(path, target)
 
-    monkeypatch.setattr(production, "write_prediction_metadata", stopped)
-    with pytest.raises(RuntimeError, match="stopped"):
+    monkeypatch.setattr(Path, "replace", stopped)
+    with pytest.raises(OSError, match="stopped during metadata installation"):
         production.production_predict()
     assert list(out.glob("*.zarr"))
     assert not metadata.exists()
+    assert not list(out.glob(".*-*"))
+
+
+@pytest.mark.parametrize("artifact", ["zarr", "metadata"])
+def test_failed_production_preparation_preserves_the_previous_run(
+    tmp_path, monkeypatch, artifact
+):
+    out, argv, _ = production_fixture(tmp_path, monkeypatch)
+    production.production_predict()
+
+    def snapshot():
+        return {
+            path.relative_to(out): path.read_bytes()
+            for path in out.rglob("*")
+            if path.is_file()
+        }
+
+    before = snapshot()
+    assert next(out.glob("*_meta.json")).is_file()
+    checkpoint_path = argv[argv.index("--checkpoint") + 1]
+    checkpoint = torch.load(checkpoint_path, weights_only=True)
+    checkpoint["model_state_dict"]["bias"].fill_(2)
+    torch.save(checkpoint, checkpoint_path)
+    write_chunk = zarr.Array.__setitem__
+    write_text = Path.write_text
+
+    def fail_after_chunk(array, key, values):
+        write_chunk(array, key, values)
+        if array.chunks == (1, 256, 256):
+            raise OSError("stopped during Zarr preparation")
+
+    def fail_after_partial_record(path, data, *args, **kwargs):
+        if '"prediction_complete"' in data:
+            write_text(path, '{"prediction_complete":', *args, **kwargs)
+            raise OSError("stopped during metadata preparation")
+        return write_text(path, data, *args, **kwargs)
+
+    if artifact == "zarr":
+        monkeypatch.setattr(zarr.Array, "__setitem__", fail_after_chunk)
+    else:
+        monkeypatch.setattr(Path, "write_text", fail_after_partial_record)
+    with pytest.raises(OSError, match="stopped during .* preparation"):
+        production.production_predict()
+
+    assert snapshot() == before
+    assert not list(out.glob(".*-*"))
