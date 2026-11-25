@@ -283,26 +283,26 @@ def stage_regional_outputs(
     """Prepare regional files and stores, then publish on successful exit."""
     from PIL import Image
 
-    with ExitStack() as pending:
-        # Enter previews first so they publish after the prediction payloads.
+    # Exit order installs numeric files, then stores, then previews.
+    with ExitStack() as previews, ExitStack() as stores, ExitStack() as arrays:
         for destination, source in preview_files.items():
-            temporary = pending.enter_context(_stage_prediction_file(destination))
+            temporary = previews.enter_context(_stage_prediction_file(destination))
             copyfile(source, temporary)
 
         zarr_paths = {}
         for kind, (probability, label) in outputs.items():
             base = artifacts.directory / f"{artifacts.stem}_{kind}"
-            npy = pending.enter_context(
+            npy = arrays.enter_context(
                 _stage_prediction_file(f"{base}.npy", suffix=".npy")
             )
             np.save(npy, probability, allow_pickle=False)
 
             image = (np.clip(probability, 0, 1) * 255).astype(np.uint8)
-            png = pending.enter_context(_stage_prediction_file(f"{base}.png"))
+            png = arrays.enter_context(_stage_prediction_file(f"{base}.png"))
             Image.fromarray(image).save(png, format="PNG")
 
             destination = f"{base}.zarr"
-            pending.enter_context(
+            stores.enter_context(
                 _stage_vc3d_zarr(
                     destination,
                     image,
@@ -317,7 +317,7 @@ def stage_regional_outputs(
 
         if blend_weights is not None:
             destination = artifacts.directory / f"{artifacts.stem}_weight.npy"
-            npy = pending.enter_context(
+            npy = arrays.enter_context(
                 _stage_prediction_file(destination, suffix=".npy")
             )
             np.save(npy, blend_weights, allow_pickle=False)

@@ -1255,24 +1255,32 @@ def test_custom_metadata_rerun_invalidates_default_sidecar(
     argv += ["--metadata_out", str(custom)]
     monkeypatch.setattr(ConstantHeads, "task_heads", frozenset())
 
-    original_save = np.save
+    original_replace = Path.replace
+    publications = []
 
-    def check_sidecars_before_writing(*args, **kwargs):
+    def check_sidecars_before_replacing(source, destination):
+        destination = Path(destination)
+        if destination.parent != output or destination == custom:
+            return original_replace(source, destination)
         assert not default.exists()
         assert not custom.exists()
-        original_save(*args, **kwargs)
+        replaced = original_replace(source, destination)
+        publications.append(destination)
         if cut_short:
-            raise RuntimeError("stopped after array write")
+            raise RuntimeError("stopped after prediction file replacement")
+        return replaced
 
-    monkeypatch.setattr(np, "save", check_sidecars_before_writing)
+    monkeypatch.setattr(Path, "replace", check_sidecars_before_replacing)
     if cut_short:
-
-        with pytest.raises(RuntimeError, match="stopped after array write"):
+        with pytest.raises(
+            RuntimeError, match="stopped after prediction file replacement"
+        ):
             runner()
         assert not custom.exists()
     else:
         runner()
         assert json.loads(custom.read_text())["fiber_stats"] == {}
+    assert publications
     assert not default.exists()
     # An old fiber file may remain, but has no authoritative sidecar now.
     assert list(output.glob("*_fiber.npy"))

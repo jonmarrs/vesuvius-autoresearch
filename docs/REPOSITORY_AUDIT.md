@@ -2486,3 +2486,7 @@ Staged payloads need additional disk space alongside the previous run. After
 publication begins, each artifact still installs separately and metadata
 comes last. Optional proofreader export and representative GPU and host
 peak-memory measurements remain outside this verification.
+
+Review moved the four stale-sidecar checks to the final file replacement.
+The tests confirm both canonical and custom records are invalidated before a
+new prediction file appears, including when installation stops after a rename.
