@@ -102,15 +102,23 @@ def compare(root: Path, windings: list[str], base: str, dense: str, field=None) 
             return None
         return round(float(np.median(numbers)), 4)
 
+    def all_measured(values) -> float | None:
+        # The gain, and each arm's sheet share, count every winding. Dropping a missing
+        # one would publish a median for a comparison the verdict refuses.
+        values = list(values)
+        if any(value is None for value in values):
+            return None
+        return med(values)
+
     return {
         "finding": 130,
         "arms": [base, dense],
         "windings": rows,
         "steps": {g.stem: json.loads(g.read_text()) for g in gates},
         "summary": {
-            "gain_median": med(gains),
+            "gain_median": all_measured(gains),
             "final_within_2_median": {
-                a: med(r[a]["final_within_2"] for r in rows.values())
+                a: all_measured(r[a]["final_within_2"] for r in rows.values())
                 for a in (base, dense)
             },
             "snapped_within_2_median": {

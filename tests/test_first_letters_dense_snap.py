@@ -312,6 +312,32 @@ def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
     assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] is None
 
 
+class _OnTheCirclePast1100:
+    """On the 1000-voxel circle inside the field; no distance at radius 1100 and beyond."""
+
+    def at(self, xyz):
+        radius = np.hypot(xyz[:, 0] - AXIS[0], xyz[:, 1] - AXIS[1])
+        return np.where(radius < 1100.0, np.abs(radius - 1000.0) - 1.0, np.nan)
+
+
+def test_a_missing_gain_is_left_out_of_the_summary(tmp_path):
+    # w020 is measured. w030 is outside the field, so a median of the measured winding
+    # alone would disagree with DOES_NOT_RUN.
+    on_sheet, off_sheet = _ring(1000.0, 16), _ring(1005.0, 16)
+    r = _band(tmp_path, {"base": (off_sheet, off_sheet), "dense": (on_sheet, on_sheet)})
+    missing = _ring(1300.0, 16)
+    for arm in ("base", "dense"):
+        _write(r / "work" / f"snap_{arm}" / "w030", missing)
+        _write(r / "work" / f"final_{arm}" / "w030.tifxyz", missing)
+    out = ds.compare(r, ["w020", "w030"], "base", "dense", field=_OnTheCirclePast1100())
+    assert out["windings"]["w020"]["gain"] > 0.5
+    assert out["windings"]["w020"]["dense"]["final_within_2"] == 1.0
+    assert out["windings"]["w030"]["gain"] is None
+    assert out["summary"]["gain_median"] is None
+    assert out["summary"]["final_within_2_median"] == {"base": None, "dense": None}
+    assert out["verdict"] == "DOES_NOT_RUN"
+
+
 class _OutsideTheField:
     """No finite distance anywhere, so the sheet share itself is absent."""
 
