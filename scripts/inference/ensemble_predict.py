@@ -19,7 +19,6 @@ if not __package__:
 import numpy as np
 import torch
 from matplotlib.patches import Rectangle
-from PIL import Image
 from tap import Tap
 
 from scripts.inference.predict import (
@@ -29,6 +28,7 @@ from scripts.inference.predict import (
     publish_regional_previews,
     regional_preview_figure,
     save_regional_array,
+    save_regional_png,
     save_vc3d_zarr,
     write_prediction_metadata,
 )
@@ -330,7 +330,7 @@ def ensemble_predict():
         for name, array in outputs:
             save_regional_array(os.path.join(output_dir, f"{base}_{name}.npy"), array)
             image = (np.clip(array, 0, 1) * 255).astype(np.uint8)
-            Image.fromarray(image).save(os.path.join(output_dir, f"{base}_{name}.png"))
+            save_regional_png(os.path.join(output_dir, f"{base}_{name}.png"), image)
             export = os.path.join(output_dir, f"{base}_{name}.zarr")
             save_vc3d_zarr(
                 export,
