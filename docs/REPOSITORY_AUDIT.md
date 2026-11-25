@@ -2508,3 +2508,7 @@ The published files, stores and completion record still install separately.
 Staging the mask also requires space for its replacement alongside the old
 store. Proofreader coordinate alignment, training ingestion and representative
 GPU and host peak-memory measurements remain open.
+
+Review reproduced a filename-length error for a valid 239-character stem.
+The mask now uses a short staging prefix, and the regression opens the mask
+at its final path and checks the completion record and staging cleanup.

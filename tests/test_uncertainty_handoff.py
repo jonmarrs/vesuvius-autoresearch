@@ -142,7 +142,7 @@ def test_failed_install_restores_previous_directory(tmp_path, monkeypatch):
     with pytest.raises(OSError, match="install failed"):
         export_for_proofreader(np.zeros((3, 4)), path, overwrite=True)
     np.testing.assert_array_equal(zarr.open(str(path), mode="r")[:], 1)
-    assert not list(tmp_path.glob(".mask-*"))
+    assert not list(tmp_path.glob(".uncertainty-*"))
 
 
 @pytest.mark.parametrize(
@@ -171,7 +171,7 @@ def test_unsafe_existing_destinations_are_refused(tmp_path, damage):
     with pytest.raises(ValueError):
         export_for_proofreader(np.zeros((3, 4)), path, overwrite=True)
     assert outside.read_bytes() == b"source must survive"
-    assert not list(tmp_path.glob(".mask-*"))
+    assert not list(tmp_path.glob(".uncertainty-*"))
 
 
 def test_source_overlap_and_late_alias_block_publication(tmp_path, monkeypatch):
@@ -333,6 +333,22 @@ def test_prediction_mask_preparation_failure_preserves_previous_run(
         run()
 
     assert snapshot() == before
+    assert not list(output.glob(".*-*/"))
+
+
+def test_long_regional_stem_can_publish_its_proofreader_mask(tmp_path, monkeypatch):
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    argv.remove("--skip_active_learning")
+    stem = "r" * 239
+    argv.extend(["--artifact_stem", stem, "--disable_tta"])
+    run()
+
+    output = tmp_path / "out"
+    record = json.loads((output / f"{stem}_meta.json").read_text())
+    assert record["uncertainty_export"]["status"] == "EXPORTED"
+    path = output / f"{stem}_uncertain"
+    assert record["uncertainty_export"]["path"] == str(path)
+    np.testing.assert_array_equal(zarr.open(str(path), mode="r")[:], 1)
     assert not list(output.glob(".*-*/"))
 
 

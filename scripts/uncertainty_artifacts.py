@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import zarr
 
-from scripts.candidate_artifacts import staged_directory
+from vesuvius_autoresearch.core.new_artifacts import staged_directory
 from vesuvius_autoresearch.core.prediction_artifacts import (
     validate_output_tree,
     validate_plan_paths,
@@ -131,7 +131,7 @@ def stage_mask(
         "uncertain_voxels": count,
         "source": provenance,
     }
-    with staged_directory(path) as staging:
+    with staged_directory(path, prefix=".uncertainty-") as staging:
         array = zarr.open(
             str(staging),
             mode="w",
