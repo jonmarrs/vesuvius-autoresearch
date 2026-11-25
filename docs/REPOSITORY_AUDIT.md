@@ -2548,3 +2548,8 @@ payload bytes after the injected failure.
 Once payload installation starts, each replacement still runs separately.
 The new completion record is installed only after the payloads succeed.
 Representative GPU and host peak-memory measurements remain open.
+
+Review added recovery checks for a failed restore in both commands. They
+verify the backup location in the error, the private directory mode and the
+original record's mode and bytes. The file-mode audit now lists this private
+workspace with the other temporary directories that never become outputs.
