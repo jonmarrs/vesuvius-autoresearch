@@ -17,12 +17,12 @@ if not __package__:
     root = Path(__file__).resolve().parents[2]
     sys.path[:0] = [str(root), str(root / "src")]
 
-import numpy as np
 import torch
 from matplotlib.patches import Rectangle
 from tap import Tap
 
 from scripts.inference.predict import (
+    draw_empty_fiber_panel,
     get_weight_window,
     invalidate_prediction_metadata,
     prediction_scale_bar,
@@ -292,7 +292,7 @@ def ensemble_predict():
                 axes[1].imshow(fiber, cmap="magma")
                 axes[1].set_title("Ensemble Fiber Context")
             else:
-                axes[1].imshow(np.zeros_like(ink), cmap="gray", vmin=0, vmax=1)
+                draw_empty_fiber_panel(axes[1], args.width, args.height)
                 axes[1].set_title("No fiber head in every member")
             axes[2].imshow(ct_slice, cmap="gray")
             axes[2].imshow(ink, cmap="jet", alpha=0.5)

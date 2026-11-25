@@ -123,6 +123,22 @@ def regional_preview_figure():
         plt.close(figure)
 
 
+def draw_empty_fiber_panel(axis, width, height):
+    """Draw one black pixel across the regional panel's source coordinates."""
+    origin = plt.rcParams["image.origin"]
+    bottom, top = -0.5, height - 0.5
+    if origin == "upper":
+        bottom, top = top, bottom
+    return axis.imshow(
+        np.zeros((1, 1), dtype=np.float32),
+        cmap="gray",
+        vmin=0,
+        vmax=1,
+        origin=origin,
+        extent=(-0.5, width - 0.5, bottom, top),
+    )
+
+
 @contextmanager
 def _stage_prediction_file(destination, *, suffix=""):
     with staged_file(destination, suffix=suffix) as temporary:
@@ -805,7 +821,7 @@ def predict():
                 axes[1].imshow(prob_fiber_final, cmap="magma")
                 axes[1].set_title("Fiber Context (Fused)")
             else:
-                axes[1].imshow(np.zeros_like(prob_ink_final), cmap="gray", vmin=0, vmax=1)
+                draw_empty_fiber_panel(axes[1], predict_width, predict_height)
                 axes[1].set_title("No fiber head")
 
             axes[2].imshow(ct_slice, cmap="gray")
