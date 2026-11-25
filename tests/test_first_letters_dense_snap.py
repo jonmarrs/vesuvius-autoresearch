@@ -214,6 +214,14 @@ def test_the_verdict_at_its_other_edges():
     assert ds.verdict([], [], True) == "DOES_NOT_RUN"
     assert ds.verdict([None], [0.99], True) == "DOES_NOT_RUN"
     assert ds.verdict([0.2, None], [0.99, 0.99], True) == "DOES_NOT_RUN"
+    # a measured zero is not a missing gain
+    assert ds.verdict([0.0], [0.99], True) == "DENSE_SNAP_NO_GAIN"
+    # four windings, including a zero. The median of the two middle values sits on
+    # both thresholds; their mean does not, and neither value is past its threshold.
+    assert (
+        ds.verdict([-0.25, 0.0, 0.1, 0.1], [0.0, 0.9, 1.0, 1.0], True)
+        == "DENSE_SNAP_HELPS"
+    )
     assert (
         ds.verdict([0.05, 0.05, 0.05], [0.95, 0.95, 0.99], True) == "DENSE_SNAP_HELPS"
     )
@@ -299,6 +307,17 @@ class _OuterThirdOutside:
         return np.where(radius < 1033.0, 0.0, np.nan)
 
 
+def _strip(lo, hi, columns=30):
+    radii = np.linspace(lo, hi, columns)
+    zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
+    return np.stack([AXIS[0] + rr, np.full_like(rr, AXIS[1]), zz], -1)
+
+
+def _put(root, arm, name, xyz):
+    _write(root / "work" / f"snap_{arm}" / name, xyz)
+    _write(root / "work" / f"final_{arm}" / f"{name}.tifxyz", xyz)
+
+
 def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
     radii = np.linspace(900.0, 1100.0, 30)
     zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
@@ -310,6 +329,30 @@ def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
     )
     assert out["summary"]["final_within_2_by_radius_tercile_median"]["dense"][2] is None
     assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] is None
+
+
+def test_a_tercile_missing_on_one_of_two_windings_is_left_out_of_its_median(tmp_path):
+    # w020's outer third is outside the field. w030 is inside it, so the median
+    # sees [None, 1.0] and the comparison still has a gain for every winding.
+    wide = _strip(900.0, 1100.0)
+    inside = _strip(900.0, 1000.0)
+    r = _band(tmp_path, {"base": (wide, wide), "dense": (wide, wide)})
+    for arm in ("base", "dense"):
+        _put(r, arm, "w030", inside)
+    out = ds.compare(r, ["w020", "w030"], "base", "dense", field=_OuterThirdOutside())
+    assert (
+        out["windings"]["w020"]["dense"]["final_within_2_by_radius_tercile"][2] is None
+    )
+    assert out["windings"]["w030"]["dense"]["final_within_2_by_radius_tercile"] == [
+        1.0,
+        1.0,
+        1.0,
+    ]
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["dense"][2] == 1.0
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] == 1.0
+    assert out["windings"]["w020"]["gain"] == 0.0
+    assert out["windings"]["w030"]["gain"] == 0.0
+    assert out["verdict"] != "DOES_NOT_RUN"
 
 
 class _OnTheCirclePast1100:
@@ -336,6 +379,43 @@ def test_a_missing_gain_is_left_out_of_the_summary(tmp_path):
     assert out["summary"]["gain_median"] is None
     assert out["summary"]["final_within_2_median"] == {"base": None, "dense": None}
     assert out["verdict"] == "DOES_NOT_RUN"
+    # only the gain and the sheet shares are gated. The snapped share and the one
+    # tercile this ring fills stay the measured winding's.
+    assert out["summary"]["snapped_within_2_median"] == {"base": 0.0, "dense": 1.0}
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["dense"][2] == 1.0
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] == 0.0
+
+
+@pytest.mark.parametrize("missing_arm", ["base", "dense"])
+def test_one_missing_arm_is_left_out_of_its_median(tmp_path, missing_arm):
+    # w030 is measured on one arm and outside the field on the other. The present
+    # arm's median still counts both windings; the missing arm is absent.
+    on_sheet, off_sheet = _strip(998.0, 1002.0), _strip(1006.0, 1080.0)
+    outside = _strip(1200.0, 1400.0)
+    present = "dense" if missing_arm == "base" else "base"
+    r = _band(tmp_path, {"base": (off_sheet, off_sheet), "dense": (on_sheet, on_sheet)})
+    _put(r, "base", "w030", outside if missing_arm == "base" else on_sheet)
+    _put(r, "dense", "w030", outside if missing_arm == "dense" else on_sheet)
+    out = ds.compare(r, ["w020", "w030"], "base", "dense", field=_OnTheCirclePast1100())
+    assert out["windings"]["w020"]["gain"] == 1.0
+    assert out["windings"]["w030"][missing_arm]["final_within_2"] is None
+    assert out["windings"]["w030"][present]["final_within_2"] == 1.0
+    assert out["windings"]["w030"]["gain"] is None
+    assert out["summary"]["gain_median"] is None
+    assert out["summary"]["final_within_2_median"][missing_arm] is None
+    present_shares = [
+        out["windings"][name][present]["final_within_2"] for name in ("w020", "w030")
+    ]
+    assert out["summary"]["final_within_2_median"][present] == round(
+        float(np.median(present_shares)), 4
+    )
+    assert out["verdict"] == "DOES_NOT_RUN"
+    for arm in ("base", "dense"):
+        assert out["summary"]["snapped_within_2_median"][arm] is not None
+        assert all(
+            value is not None
+            for value in out["summary"]["final_within_2_by_radius_tercile_median"][arm]
+        )
 
 
 class _OutsideTheField:
