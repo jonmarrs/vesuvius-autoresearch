@@ -213,18 +213,19 @@ real directories and regular files without symbolic or hard links; metadata
 must also be a regular file without hard links. Inspection stops after 100,000
 entries in the existing group. An unsafe or oversized existing output is refused;
 choose a fresh output directory or stem. The source volume is not recursively
-scanned. These are path checks at two points in time, not locks: keep source
-paths stable and serialize writers targeting the same artifacts.
+scanned. The command rechecks paths after staging. Keep source paths stable and
+serialize writers targeting the same artifacts.
 
 Without `--artifact-stem`, names remain
 `prod_pred_<z>_<y>_<x>_<width>x<height>.zarr` and the matching `_meta.json`.
 The override is a single filename stem, without directory components or control
-characters. Use distinct stems or directories for scrolls and model comparisons;
-coordinates alone do not identify a source. A safe rerun replaces the existing
-outputs, invalidating the old metadata before writing the Zarr and writing new
-metadata last. Publication is not transactional: interruption can leave an
-incomplete Zarr without a sidecar. Pre-inference failures leave previous results
-in place and do not make them current.
+characters. Use distinct stems or directories for scrolls and model comparisons.
+Coordinates alone can refer to multiple sources. A rerun stages the Zarr
+and new metadata on the destination filesystem while the previous artifacts
+remain available. It then invalidates the previous metadata, installs the
+store, and publishes metadata last. A preparation failure preserves the
+previous outputs. If installation fails after invalidation, the completion
+record stays absent.
 
 Checkpoint loading and hashing use the same captured bytes. The default capture
 limit is 4 GiB; use `--max-checkpoint-bytes N` to set a positive byte limit below

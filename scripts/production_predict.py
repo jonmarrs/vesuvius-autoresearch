@@ -10,7 +10,6 @@ import hashlib
 import io
 import json
 import math
-import os
 import sys
 import time
 from contextlib import nullcontext, redirect_stdout
@@ -26,8 +25,8 @@ from tqdm.auto import tqdm
 from scripts.inference.predict import (
     build_prediction_model,
     invalidate_prediction_metadata,
-    save_vc3d_zarr,
-    write_prediction_metadata,
+    stage_prediction_metadata,
+    stage_vc3d_zarr,
 )
 from scripts.production_artifacts import ProductionArtifactPlan
 from scripts.text_snapshot import capture_bytes
@@ -261,33 +260,33 @@ def production_predict(argv=None):
     print(f"Inference complete in {time.time() - start:.1f}s")
 
     plan.validate()
-    os.makedirs(plan.directory, exist_ok=True)
-    zarr_path = str(plan.zarr_path)
-    # Each run for a region reuses its names; a run cut short after the zarr
-    # must not leave the previous run's metadata describing it.
-    metadata_path = invalidate_prediction_metadata(plan.directory, plan.stem)
-    save_vc3d_zarr(
-        zarr_path,
-        final_uint8,
-        name="ink",
-        voxel_size_um=args.voxel_size_um,
-        source_uri=args.uri,
-        origin_xyz=[args.x, args.y, args.z],
-    )
-    write_prediction_metadata(
-        metadata_path,
-        args,
-        config_dict,
-        zarr_path,
-        None,
-        {"mean": float(final_prob.mean()), "max": float(final_prob.max())},
-        extra_metadata={
-            "artifact_stem": plan.stem,
-            "checkpoint_size_bytes": args.checkpoint_size_bytes,
-            "source_local_path": str(plan.source),
-            "source_array_path": str(plan.source_array),
-        },
-    )
+    # Enter metadata first so it is installed after the prepared store.
+    with (
+        stage_prediction_metadata(
+            plan.metadata_path,
+            args,
+            config_dict,
+            plan.zarr_path,
+            None,
+            {"mean": float(final_prob.mean()), "max": float(final_prob.max())},
+            extra_metadata={
+                "artifact_stem": plan.stem,
+                "checkpoint_size_bytes": args.checkpoint_size_bytes,
+                "source_local_path": str(plan.source),
+                "source_array_path": str(plan.source_array),
+            },
+        ),
+        stage_vc3d_zarr(
+            plan.zarr_path,
+            final_uint8,
+            name="ink",
+            voxel_size_um=args.voxel_size_um,
+            source_uri=args.uri,
+            origin_xyz=[args.x, args.y, args.z],
+        ),
+    ):
+        plan.validate()
+        invalidate_prediction_metadata(plan.directory, plan.stem)
     print(f"Saved production results to {args.out_dir}")
 
 
