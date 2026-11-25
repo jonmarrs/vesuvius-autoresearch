@@ -9,7 +9,6 @@ Ensembling does not guarantee the absence of hallucinations or establish accurac
 import os
 import sys
 from pathlib import Path
-from shutil import copyfile
 from tempfile import TemporaryDirectory
 
 # "src" too: the shared .venv's editable install may point at another checkout.
@@ -27,6 +26,7 @@ from scripts.inference.predict import (
     get_weight_window,
     invalidate_prediction_metadata,
     prediction_scale_bar,
+    publish_regional_previews,
     regional_preview_figure,
     save_vc3d_zarr,
     write_prediction_metadata,
@@ -340,8 +340,7 @@ def ensemble_predict():
                 origin_xyz=[args.x, args.y, args.z],
             )
             exports.append(export)
-        for destination, staged in preview_files.items():
-            copyfile(staged, destination)
+        publish_regional_previews(preview_files)
 
     write_prediction_metadata(
         metadata_path,

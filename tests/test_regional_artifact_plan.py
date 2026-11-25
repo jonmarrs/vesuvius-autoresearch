@@ -479,6 +479,50 @@ def test_preview_companions_are_published_only_to_distinct_paths(
     assert len(staging_paths) == 1 and not staging_paths[0].exists()
 
 
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("companion", [False, True])
+def test_interrupted_preview_copy_preserves_the_previous_file(
+    tmp_path, monkeypatch, mode, companion
+):
+    from shutil import copyfile
+
+    from matplotlib.figure import Figure
+
+    from scripts.inference import predict
+
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    name = "prediction-img0.png" if companion else "prediction.png"
+    if companion:
+        savefig = Figure.savefig
+
+        def save_with_companion(figure, destination, **kwargs):
+            savefig(figure, destination, **kwargs)
+            Path(destination).with_name(name).write_bytes(b"renderer companion")
+
+        monkeypatch.setattr(Figure, "savefig", save_with_companion)
+    run()
+    output = tmp_path / "out"
+    destination = output / name
+    before = destination.read_bytes()
+    attempts = []
+
+    def fail_after_partial_copy(source, target):
+        if Path(source).name != name:
+            return copyfile(source, target)
+        attempts.append(Path(target))
+        Path(target).write_bytes(b"partial preview")
+        raise OSError("interrupted preview copy")
+
+    monkeypatch.setattr(predict, "copyfile", fail_after_partial_copy)
+    with pytest.raises(OSError, match="interrupted preview copy"):
+        run()
+
+    assert destination.read_bytes() == before
+    assert len(attempts) == 1 and not attempts[0].exists()
+    assert not (output / "region_meta.json").exists()
+
+
 def test_preview_format_registered_when_active_backend_loads(tmp_path, monkeypatch):
     from matplotlib import backend_bases
     from matplotlib.backends.backend_agg import FigureCanvasAgg
