@@ -2468,3 +2468,25 @@ weights and verify the full prior output tree survives each encoding failure.
 The regional output family still publishes separately. Preparing both stores
 can require disk space for both staged copies at once. Representative GPU and
 host peak-memory measurements remain open.
+
+## Prepare regional NumPy, PNG and preview files before publication (2026-11-25 UTC)
+
+This pass starts from main `b6d89ab4`. Interrupted array saves, PNG encodes
+and preview copies preserved the particular file being written, but removed
+the prior completion record in all 14 single-model and ensemble reruns.
+Later failures also left files from two different runs in the output folder.
+
+Both commands now prepare the NumPy arrays, grayscale PNGs, preview files
+and VC3D stores on the destination filesystem before invalidating the prior
+sidecar. They recheck the source and output plan after staging. The reruns
+use changed weights and confirm that all previous output bytes survive a
+preparation failure. The four existing interrupted-Zarr cases still pass.
+
+Staged payloads need additional disk space alongside the previous run. After
+publication begins, each artifact still installs separately and metadata
+comes last. Optional proofreader export and representative GPU and host
+peak-memory measurements remain outside this verification.
+
+Review moved the four stale-sidecar checks to the final file replacement.
+The tests confirm both canonical and custom records are invalidated before a
+new prediction file appears, including when installation stops after a rename.
