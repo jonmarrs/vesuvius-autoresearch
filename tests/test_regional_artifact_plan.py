@@ -22,6 +22,12 @@ def _tree(root):
     }
 
 
+def _change_fixture_weights(path):
+    checkpoint = torch.load(path, weights_only=True)
+    checkpoint["model_state_dict"]["bias"].fill_(2)
+    torch.save(checkpoint, path)
+
+
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("collision", ["checkpoint", "ink_array"])
 def test_custom_metadata_cannot_replace_an_input_or_prediction(
@@ -227,17 +233,17 @@ def test_output_plan_is_rechecked_before_invalidating_old_metadata(
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("kind", ["ink", "fiber", "weight"])
-def test_interrupted_array_save_preserves_the_previous_npy(
+def test_interrupted_array_save_preserves_the_previous_run(
     tmp_path, monkeypatch, mode, kind
 ):
-    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
     argv.extend(["--artifact_stem", "region", "--num_parts", "2", "--disable_tta"])
     run()
     output = tmp_path / "out"
-    destination = output / f"region_part0of2_{kind}.npy"
-    before = destination.read_bytes()
+    before = _tree(output)
+    _change_fixture_weights(checkpoints[0])
     assert (output / "region_part0of2_meta.json").is_file()
-    order = ("ink", "fiber", "weight") if mode == "single" else ("weight", "ink", "fiber")
+    order = ("ink", "fiber", "weight")
     save = np.save
     count = 0
     attempts = []
@@ -255,24 +261,24 @@ def test_interrupted_array_save_preserves_the_previous_npy(
     with pytest.raises(OSError, match="interrupted array save"):
         run()
 
-    assert destination.read_bytes() == before
     assert len(attempts) == 1 and not attempts[0].exists()
-    assert not (output / "region_part0of2_meta.json").exists()
+    assert not list(output.glob(".prediction-zarr-*"))
+    assert _tree(output) == before
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("kind", ["ink", "fiber"])
-def test_interrupted_png_save_preserves_the_previous_export(
+def test_interrupted_png_save_preserves_the_previous_run(
     tmp_path, monkeypatch, mode, kind
 ):
     from PIL import Image
 
-    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
     argv.extend(["--artifact_stem", "region", "--disable_tta"])
     run()
     output = tmp_path / "out"
-    destination = output / f"region_{kind}.png"
-    before = destination.read_bytes()
+    before = _tree(output)
+    _change_fixture_weights(checkpoints[0])
     assert (output / "region_meta.json").is_file()
     save = Image.Image.save
     grayscale_exports = []
@@ -289,9 +295,9 @@ def test_interrupted_png_save_preserves_the_previous_export(
     with pytest.raises(OSError, match="interrupted PNG save"):
         run()
 
-    assert destination.read_bytes() == before
     assert all(not path.exists() for path in grayscale_exports)
-    assert not (output / "region_meta.json").exists()
+    assert not list(output.glob(".prediction-zarr-*"))
+    assert _tree(output) == before
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
@@ -305,9 +311,7 @@ def test_interrupted_zarr_write_preserves_the_previous_run(
     output = tmp_path / "out"
     before = _tree(output)
     assert (output / "region_meta.json").is_file()
-    checkpoint = torch.load(checkpoints[0], weights_only=True)
-    checkpoint["model_state_dict"]["bias"].fill_(2)
-    torch.save(checkpoint, checkpoints[0])
+    _change_fixture_weights(checkpoints[0])
     write_chunk = zarr.Array.__setitem__
     writes = []
 
@@ -585,7 +589,7 @@ def test_preview_companions_are_published_only_to_distinct_paths(
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("companion", [False, True])
-def test_interrupted_preview_copy_preserves_the_previous_file(
+def test_interrupted_preview_copy_preserves_the_previous_run(
     tmp_path, monkeypatch, mode, companion
 ):
     from shutil import copyfile
@@ -594,7 +598,7 @@ def test_interrupted_preview_copy_preserves_the_previous_file(
 
     from scripts.inference import predict
 
-    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    run, argv, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, mode)
     argv.extend(["--artifact_stem", "region", "--disable_tta"])
     name = "prediction-img0.png" if companion else "prediction.png"
     if companion:
@@ -607,8 +611,9 @@ def test_interrupted_preview_copy_preserves_the_previous_file(
         monkeypatch.setattr(Figure, "savefig", save_with_companion)
     run()
     output = tmp_path / "out"
-    destination = output / name
-    before = destination.read_bytes()
+    before = _tree(output)
+    assert name in before
+    _change_fixture_weights(checkpoints[0])
     attempts = []
 
     def fail_after_partial_copy(source, target):
@@ -622,9 +627,9 @@ def test_interrupted_preview_copy_preserves_the_previous_file(
     with pytest.raises(OSError, match="interrupted preview copy"):
         run()
 
-    assert destination.read_bytes() == before
     assert len(attempts) == 1 and not attempts[0].exists()
-    assert not (output / "region_meta.json").exists()
+    assert not list(output.glob(".prediction-zarr-*"))
+    assert _tree(output) == before
 
 
 def test_preview_format_registered_when_active_backend_loads(tmp_path, monkeypatch):

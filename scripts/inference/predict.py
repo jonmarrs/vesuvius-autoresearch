@@ -125,27 +125,6 @@ def _stage_prediction_file(destination, *, suffix=""):
             validate_output_file(destination)
 
 
-def publish_regional_previews(preview_files):
-    """Replace each preview file after copying it completely beside its destination."""
-    for destination, source in preview_files.items():
-        with _stage_prediction_file(destination) as temporary:
-            copyfile(source, temporary)
-
-
-def save_regional_array(destination, array):
-    """Publish a complete numeric NPY through a sibling temporary file."""
-    with _stage_prediction_file(destination, suffix=".npy") as temporary:
-        np.save(temporary, array, allow_pickle=False)
-
-
-def save_regional_png(destination, array_uint8):
-    """Publish a complete grayscale PNG through a sibling temporary file."""
-    from PIL import Image
-
-    with _stage_prediction_file(destination) as temporary:
-        Image.fromarray(array_uint8).save(temporary, format="PNG")
-
-
 def _retain_vc3d_entries(destination, staging, metadata_files):
     """Keep entries outside the store's generated level and metadata."""
     validate_output_tree(destination)
@@ -262,6 +241,7 @@ def _stage_vc3d_zarr(
         if consolidated:
             zarr.consolidate_metadata(str(staging))
 
+        del array_uint8
         yield
 
         if os.path.lexists(destination):
@@ -290,15 +270,38 @@ def save_vc3d_zarr(
 
 
 @contextmanager
-def stage_regional_zarr(
-    output_dir, stem, outputs, *, voxel_size_um, source_uri, origin_xyz
+def stage_regional_outputs(
+    artifacts,
+    outputs,
+    preview_files,
+    *,
+    blend_weights,
+    voxel_size_um,
+    source_uri,
+    origin_xyz,
 ):
-    """Build all regional stores before yielding their paths and PNG pixels."""
+    """Prepare regional files and stores, then publish on successful exit."""
+    from PIL import Image
+
     with ExitStack() as pending:
-        exports = {}
+        # Enter previews first so they publish after the prediction payloads.
+        for destination, source in preview_files.items():
+            temporary = pending.enter_context(_stage_prediction_file(destination))
+            copyfile(source, temporary)
+
+        zarr_paths = {}
         for kind, (probability, label) in outputs.items():
+            base = artifacts.directory / f"{artifacts.stem}_{kind}"
+            npy = pending.enter_context(
+                _stage_prediction_file(f"{base}.npy", suffix=".npy")
+            )
+            np.save(npy, probability, allow_pickle=False)
+
             image = (np.clip(probability, 0, 1) * 255).astype(np.uint8)
-            destination = os.path.join(output_dir, f"{stem}_{kind}.zarr")
+            png = pending.enter_context(_stage_prediction_file(f"{base}.png"))
+            Image.fromarray(image).save(png, format="PNG")
+
+            destination = f"{base}.zarr"
             pending.enter_context(
                 _stage_vc3d_zarr(
                     destination,
@@ -309,8 +312,18 @@ def stage_regional_zarr(
                     origin_xyz=origin_xyz,
                 )
             )
-            exports[kind] = (destination, image)
-        yield exports
+            zarr_paths[kind] = destination
+            del image
+
+        if blend_weights is not None:
+            destination = artifacts.directory / f"{artifacts.stem}_weight.npy"
+            npy = pending.enter_context(
+                _stage_prediction_file(destination, suffix=".npy")
+            )
+            np.save(npy, blend_weights, allow_pickle=False)
+            del blend_weights
+
+        yield zarr_paths
 
 
 def invalidate_prediction_metadata(output_dir, base_name, metadata_out=None):
@@ -742,10 +755,13 @@ def predict():
         outputs = {"ink": (prob_ink_final, f"Ink Prediction {base_name}")}
         if has_fiber:
             outputs["fiber"] = (prob_fiber_final, f"Fiber Prediction {base_name}")
-        with stage_regional_zarr(
-            output_dir,
-            base_name,
+        if args.num_parts > 1:
+            args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
+        with stage_regional_outputs(
+            artifacts,
             outputs,
+            preview_files,
+            blend_weights=full_weight.cpu().numpy() if args.num_parts > 1 else None,
             voxel_size_um=args.voxel_size_um,
             source_uri=args.uri,
             origin_xyz=[int(args.x), int(args.y), int(args.z)],
@@ -762,21 +778,8 @@ def predict():
             metadata_path = invalidate_prediction_metadata(
                 output_dir, base_name, str(artifacts.metadata)
             )
-            for kind, (probability, _) in outputs.items():
-                save_regional_array(
-                    os.path.join(output_dir, f"{base_name}_{kind}.npy"), probability
-                )
-            if args.num_parts > 1:
-                args.blend_weight_path = os.path.join(
-                    output_dir, f"{base_name}_weight.npy"
-                )
-                save_regional_array(args.blend_weight_path, full_weight.cpu().numpy())
-            for kind, (_, image) in exports.items():
-                save_regional_png(
-                    os.path.join(output_dir, f"{base_name}_{kind}.png"), image
-                )
-        zarr_path = exports["ink"][0]
-        fiber_zarr_path = exports["fiber"][0] if has_fiber else None
+        zarr_path = exports["ink"]
+        fiber_zarr_path = exports.get("fiber")
 
         # Active Learning: optional proofreader export. Prize evidence generation
         # should not fail if this auxiliary tool is not available.
@@ -814,7 +817,6 @@ def predict():
                     "reason": str(exc),
                 }
                 print(f"Warning: skipping active-learning export: {exc}")
-        publish_regional_previews(preview_files)
 
     def write_metadata(fiber_coherence=None):
         write_prediction_metadata(
