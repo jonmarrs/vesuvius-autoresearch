@@ -2409,3 +2409,15 @@ The reruns preserve the particular file whose copy failed, remove the temporary
 file and leave the completion sidecar absent after publication has begun.
 The output family still uses separate writes. Peak-memory measurements remain
 open.
+
+## Atomic regional NumPy array replacement (2026-11-25 UTC)
+
+This pass starts from main `7b39a255`. Six CPU shard reruns interrupted the
+NumPy writer while replacing ink, fiber or blend weights. Both regional
+commands left the targeted NPY truncated in all three cases.
+
+The commands now use the same guarded staging as their sidecars and previews.
+Each float32 NPY is written to a sibling temporary file and renamed over the
+destination after a final path check. An interrupted write preserves the
+targeted file and leaves no success sidecar for the current run. PNG and Zarr
+export writes and representative peak-memory measurements remain open.
