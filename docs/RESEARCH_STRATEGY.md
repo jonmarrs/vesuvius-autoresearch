@@ -504,6 +504,16 @@ of 467 (`TRIAGE_FINDS_THE_TEXT`); on the team's own window grid, 9th of 400. The
 below show no letters, and their scores lie within a fraction of a logit of the text's: the ranking orders a look, it
 does not detect text. As registered, the eligible bands' pages get their windows in glyph order, the first 10 first.
 
+**PHerc. 0125's band, declared clockwise, fits on the sheets, and the images wait for the owner (November 25).** Its
+winding direction is not published, so the recipe's fit of z 10250 to 11750 was declared clockwise, villa's default,
+as finding 137 allowed. It is `ON_SHEETS` by finding 112's table (median excess 0.1269, 0.8167 of windings positive)
+([report](../reports/first_letters_0125_studio_band.md), finding 139), which says nothing about the direction: the
+score is blind to it. The 98 windings with positive excess were read by Studio with no failure, in 8 h 21 min.
+Described from the geometry alone: 16 of 78 neighbouring pairs are stacked, more than at the other bands; and at the
+band's middle slice the papyrus ends near w110 to w115, so the outermost windings read lie past it. Memory pressure
+peaked at 49.84%, under systemd-oomd's line. No automatic verdict was registered: the images stay on this machine and
+the owner reads them, with a look-first page in the glyph network's order.
+
 **Kill criterion.** If three scrolls show nothing by the end of February 2027 with the positive control
 reproduced, stop, publish the nulls and meshes, and reassess.
 
