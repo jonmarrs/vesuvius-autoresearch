@@ -1,6 +1,9 @@
 # Draft: villa's fiber generator writes a fiber twice where a block border bends both blocks' copies
 
-**NOT POSTED.** Prepared 2026-11-07 from [finding 106](../reports/afv_generator_block_seams.md), whose registered
+**POSTED 2026-11-25 as [villa #2711](https://github.com/ScrollPrize/villa/pull/2711)**, on the owner's decision: the
+trim alone (finding 108's change not bundled), with finding 109's Scroll 1 and 5 figures added to the proof, the
+owner-approved motivation paragraph, and the verification box left for the owner. Rebuilt on villa main `9c1afbb1b`,
+where the patch applies and no commit has touched the generator since `7e6b82164`. Prepared 2026-11-07 from [finding 106](../reports/afv_generator_block_seams.md), whose registered
 verdict is `SUPPORTED`. Its case at villa's defaults is [finding 107](../reports/afv_generator_default_zone.md)
 (2026-11-09, `BITES_AT_DEFAULTS`). Its confirmation on Scrolls 1 and 5 is
 [finding 109](../reports/afv_generator_seam_confirmation.md) (2026-11-10, `CONFIRMED`). Whether to post, and in what
