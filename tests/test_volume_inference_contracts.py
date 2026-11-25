@@ -598,15 +598,25 @@ def test_bare_image_and_nested_metadata_paths(tmp_path, monkeypatch, mode):
     assert not (tmp_path / "predictions").exists()
 
 
-@pytest.mark.parametrize("mode", ["single", "ensemble"])
-def test_empty_shard_is_rejected(tmp_path, monkeypatch, mode):
+@pytest.mark.parametrize(
+    ("mode", "auto_z"), [("single", False), ("single", True), ("ensemble", False)]
+)
+def test_empty_shard_is_rejected_before_ct_and_model_setup(
+    tmp_path, monkeypatch, mode, auto_z
+):
     runner, argv, models, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    if auto_z:
+        start = argv.index("--z")
+        del argv[start : start + 2]
     argv += ["--num_parts", "7", "--part_id", "6"]
+    monkeypatch.setattr(
+        single if mode == "single" else ensemble,
+        "FastVesuviusVolume",
+        lambda *a, **k: pytest.fail("empty shard opened the CT reader"),
+    )
     with pytest.raises(ValueError, match="no tiles"):
         runner()
-    if mode == "ensemble":
-        assert not models
-    assert not any(model.inputs for model in models)
+    assert not models
     assert not (tmp_path / "out").exists()
 
 

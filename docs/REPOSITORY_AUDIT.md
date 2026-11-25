@@ -2315,3 +2315,15 @@ PR review found that automatic Z could accept a changed group link when both
 groups pointed to the same array. The fixture overwrote the original group's
 `.zattrs`. The command now binds the group as well as the array before opening
 the reader, so this case stops before model setup and preserves the attributes.
+
+## Single-model empty shard preflight (2026-11-25 UTC)
+
+This pass starts from main `1095695d`. The empty-shard check added for the
+ensemble also applies to single-model inference. The single-model fixtures
+reached the CT reader before detecting an in-range shard with no assigned
+tiles, with either an explicit Z or automatic depth selection.
+
+Argument validation and lazy tile planning now run before CT setup. Only an
+omitted automatic Z is deferred, and the final region still uses the opened
+array's bounds. Both CPU fixtures reject the shard before opening CT or
+building a model. Representative GPU peak measurements remain open.

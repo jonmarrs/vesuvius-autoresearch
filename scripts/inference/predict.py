@@ -409,6 +409,8 @@ def predict():
         patch_size if args.height is None else args.height,
         args.max_accumulator_bytes,
     )
+    validate_region(args, patch_size, num_layers, allow_auto_z=True)
+    my_chunks = region_tiles(args, patch_size)
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     volume_options = {
         "use_ridges": use_ridges,
@@ -433,7 +435,6 @@ def predict():
         else:
             centre = depth
         args.z = min(max(0, (centre - num_layers) // 2), max(0, depth - num_layers))
-    validate_region(args, patch_size, num_layers)
     base_name, out_path, output_dir = _prediction_output(args)
     artifacts = RegionalArtifactPlan.create(
         base_name,
@@ -513,9 +514,6 @@ def predict():
     print(
         f"Starting Soft-Tiling Inference: {predict_width}x{predict_height} (stride={stride})..."
     )
-
-    # Tiling Loop Setup
-    my_chunks = region_tiles(args, patch_size)
 
     if args.num_parts > 1:
         print(

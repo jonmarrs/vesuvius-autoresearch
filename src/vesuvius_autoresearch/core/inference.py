@@ -89,8 +89,8 @@ def validate_model_settings(config, patch_size, num_layers, base_feat):
     return positive_number(config.get("ridge_sigma", 2.0), "checkpoint ridge_sigma")
 
 
-def validate_region(args, patch_size, num_layers, shape=None):
-    """Resolve explicit defaults and require a complete in-bounds source region."""
+def validate_region(args, patch_size, num_layers, shape=None, *, allow_auto_z=False):
+    """Resolve region defaults, optionally deferring Z until a source is opened."""
     positive_integer(patch_size, "patch_size")
     positive_integer(num_layers, "num_layers")
     explicit_region = args.width is not None or args.height is not None
@@ -105,8 +105,10 @@ def validate_region(args, patch_size, num_layers, shape=None):
     positive_integer(args.stride, "stride")
     if args.stride > patch_size:
         raise ValueError("stride must be <= patch_size to avoid gaps")
-    for name in ("x", "y", "z", "part_id"):
+    for name in ("x", "y", "part_id"):
         positive_integer(getattr(args, name), name, minimum=0)
+    if args.z is not None or not allow_auto_z or shape is not None:
+        positive_integer(args.z, "z", minimum=0)
     positive_integer(args.num_parts, "num_parts")
     if args.part_id >= args.num_parts:
         raise ValueError("part_id must be smaller than num_parts")
