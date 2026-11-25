@@ -539,3 +539,63 @@ def test_the_wrong_hand_entry_quotes_its_record():
     )
     assert f"a net {net[0]} to {net[-1]} sheets a turn" in entry
     assert "PHerc. 0125" not in DRAFT  # an eligible scroll: not named in this filing
+
+
+def test_the_form_answers_quote_only_numbers_the_draft_states_above():
+    """The paste-ready sections repeat numbers; each must already be stated above, where the other tests bind it to
+    its record. A number that appears only in the answers has no test behind it."""
+    head = '\n## "What is your contribution?"\n'
+    body, rest = DRAFT.split(head, 1)
+    answers = head + rest.split("\n## Filing-day checklist\n", 1)[0]
+    for name in (
+        '"What is your contribution?"',
+        "Required disclosure — include it",
+        "Do not add",
+    ):
+        assert f"\n## {name}\n" in answers
+    number = re.compile(r"(?<![\w.])[−-]?\d+(?:,\d{3})*(?:\.\d+)?")
+    flat_body = " ".join(body.split())
+    missing = sorted({n for n in number.findall(answers) if n not in flat_body})
+    assert missing == [], missing
+    for heading in ("**(1) Which scroll data.**", "**(2) How it increases the probability of reading.**",
+                    "**(3) What it enables that was not possible before.**", "**(4) Evidence.**"):  # fmt: skip
+        assert heading in answers
+    # the skip's timings were measured on an eligible scroll's windings: not quoted in the answers
+    assert "0.5918" not in answers and "0.5781" not in answers
+    # the evidence points at the known places' reports only, not at a glob that takes in eligible bands' reports
+    assert (
+        "`reports/first_letters_*.md`" not in answers
+        and "`reports/studio_*.md`" not in answers
+    )
+    for path in re.findall(r"`(reports/[\w*]+\.md)`", answers):
+        assert not any(s in path for s in ("0826", "0358", "0813", "0800", "0125")), (
+            path
+        )
+        assert list(ROOT.glob(path)), path
+    # nothing of a still-eligible scroll, by name
+    for scroll in ("0826", "0358", "0813", "0800", "0125", "0191", "0257", "0268"):
+        assert f"PHerc. {scroll}" not in answers and f"PHerc{scroll}" not in answers
+
+
+def test_the_disclosure_lists_the_failed_predictions_as_the_reports_state_them():
+    disclosure = " ".join(_section("Required disclosure — include it").split())
+    for report, predicted, found in (
+        ("first_letters_0211_reader_control", "`READER_PARTLY`", "`READER_AGREES`"),
+        ("first_letters_0211_reader_v3", "`V3_CLOSER`", "`V3_NO_CLOSER`"),
+    ):
+        text = " ".join((ROOT / f"reports/{report}.md").read_text().split())
+        assert f"I had predicted {predicted}" in text and f"**Verdict {found}**" in text
+        assert f"{predicted} predicted, {found} found" in disclosure
+    tiling = " ".join((ROOT / "reports/studio_published_tiling.md").read_text().split())
+    assert "not as predicted (I predicted `PUBLISHED_TILING_ADOPTED`" in tiling
+    assert "**Verdict `WINNERS_TILING_KEPT`**" in tiling
+    wrong = json.loads(
+        (ROOT / "reports/first_letters_0211_wrong_hand.json").read_text()
+    )
+    assert wrong["verdict"] == "WRONG_HAND_READS_ALIKE"
+    triage = json.loads(
+        (ROOT / "reports/first_letters_0211_band_triage.json").read_text()
+    )
+    assert triage["predictions"]["2_best_place_window_on_w035"]["result"] == "w033"
+    assert triage["audit_after_the_result"]["grid_only"]["best_place_rank"] == 9
+    assert "a high rank on w035 predicted, 2nd found, on w033" in disclosure
