@@ -39,6 +39,7 @@ from scripts.uncertainty_artifacts import (
 from vesuvius_autoresearch.core.checkpoint_tools import load_checkpoint
 from vesuvius_autoresearch.core.file_modes import replacement_mode
 from vesuvius_autoresearch.core.inference import (
+    blend_coverage_fraction,
     depth_band_for,
     hann2d,
     multitask_inference_recipe,
@@ -749,9 +750,10 @@ def predict():
             )
 
     # Normalize by weights
-    full_prob_ink = normalize_blend(full_prob_ink, full_weight, args.num_parts == 1)
-    full_prob_fiber = normalize_blend(full_prob_fiber, full_weight, args.num_parts == 1)
-    args.coverage_fraction = int((full_weight > 0).sum().item()) / full_weight.numel()
+    complete = args.num_parts == 1
+    full_prob_ink = normalize_blend(full_prob_ink, full_weight, complete)
+    full_prob_fiber = normalize_blend(full_prob_fiber, full_weight, complete)
+    args.coverage_fraction = blend_coverage_fraction(full_weight, complete=complete)
 
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()

@@ -2571,3 +2571,23 @@ the previous formula on strided weights and verify both inputs are unchanged.
 These measurements describe operator allocations for one plane. The memory
 cap covers the same three persistent accumulators. Representative end-to-end
 GPU and host peak-memory measurements and ensemble residency remain open.
+
+## Reduce regional coverage-count allocations (2026-11-25 UTC)
+
+This pass starts from main `a8ef90e2`. The coverage statistic for a
+4096-by-4096 float32 weight plane allocated a 16 MiB boolean mask and cast it
+to a 128 MiB int64 tensor in the Torch CPU trace. Complete predictions had
+already validated that every weight was positive, so their count was
+redundant.
+
+Both regional commands now report full coverage after successful complete
+normalization. Shards count nonzero entries in the positive-weight mask
+directly, retaining the same fraction. The repeated CPU trace recorded no
+tensor allocation for complete coverage reporting. The shard kept its
+16 MiB mask and eliminated the 128 MiB conversion. The synthetic count
+agreed exactly for a plane containing positive, zero and negative weights.
+
+The ten complete-region and shard CLI fixtures guard against summing a
+region-sized boolean tensor and still verify the published coverage. These
+measurements describe the CPU coverage operation. Representative end-to-end
+GPU and host peak-memory measurements and ensemble residency remain open.

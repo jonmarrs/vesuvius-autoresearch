@@ -281,3 +281,10 @@ def normalize_blend(values, weights, complete=True):
             raise ValueError("complete prediction has uncovered pixels")
         return values / weights
     return values / torch.where(covered, weights, weights.new_ones(()))
+
+
+def blend_coverage_fraction(weights, *, complete):
+    """Report coverage after normalization has validated a complete region."""
+    if complete:
+        return 1.0
+    return int(torch.count_nonzero(weights > 0).item()) / weights.numel()
