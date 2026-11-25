@@ -212,6 +212,8 @@ def test_a_winding_without_a_recorded_scale_takes_the_fits_default(tmp_path):
 
 def test_the_verdict_at_its_other_edges():
     assert ds.verdict([], [], True) == "DOES_NOT_RUN"
+    assert ds.verdict([None], [0.99], True) == "DOES_NOT_RUN"
+    assert ds.verdict([0.2, None], [0.99, 0.99], True) == "DOES_NOT_RUN"
     assert (
         ds.verdict([0.05, 0.05, 0.05], [0.95, 0.95, 0.99], True) == "DENSE_SNAP_HELPS"
     )
@@ -297,12 +299,6 @@ class _OuterThirdOutside:
         return np.where(radius < 1033.0, 0.0, np.nan)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=TypeError,
-    reason="a tercile with no finite distance is None in its winding's row, and the summary's median of the "
-    "windings' values raises on it",
-)
 def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
     radii = np.linspace(900.0, 1100.0, 30)
     zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
@@ -312,3 +308,27 @@ def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
     assert (
         out["windings"]["w020"]["dense"]["final_within_2_by_radius_tercile"][2] is None
     )
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["dense"][2] is None
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] is None
+
+
+class _OutsideTheField:
+    """No finite distance anywhere, so the sheet share itself is absent."""
+
+    def at(self, xyz):
+        return np.full(len(xyz), np.nan)
+
+
+def test_a_winding_outside_the_field_does_not_stop_the_comparison(tmp_path):
+    radii = np.linspace(900.0, 1100.0, 30)
+    zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
+    strip = np.stack([AXIS[0] + rr, np.full_like(rr, AXIS[1]), zz], -1)
+    r = _band(tmp_path, {"base": (strip, strip), "dense": (strip, strip)})
+    out = ds.compare(r, ["w020"], "base", "dense", field=_OutsideTheField())
+    row = out["windings"]["w020"]
+    assert (
+        row["dense"]["final_within_2"] is None and row["base"]["final_within_2"] is None
+    )
+    assert row["gain"] is None
+    assert out["summary"]["gain_median"] is None
+    assert out["verdict"] == "DOES_NOT_RUN"
