@@ -254,9 +254,13 @@ def test_single_releases_normalized_tensors_after_last_device_use(
     sample = memory.RegionalMemoryProfile.sample
     original_cpu = torch.Tensor.cpu
     score = active_learning_sampler.identify_uncertain_patches
+    stage_mask = single.stage_mask
     normalized = []
     normalized_storage = []
     copied_to_host = []
+    mask_storage = []
+    staged_masks = []
+    host_masks = []
     observations = {}
 
     def capture_normalized(*args, **kwargs):
@@ -265,11 +269,13 @@ def test_single_releases_normalized_tensors_after_last_device_use(
         normalized_storage.append(ref(plane.untyped_storage()))
         return plane
 
-    def copy_normalized_to_host(tensor, *args, **kwargs):
+    def copy_to_host(tensor, *args, **kwargs):
         result = original_cpu(tensor, *args, **kwargs)
         if any(plane() is tensor for plane in normalized):
             # A CUDA-to-CPU transfer owns distinct storage.
             copied_to_host.append(tensor.shape)
+            return result.clone()
+        if mask_storage and mask_storage[0]() is tensor.untyped_storage():
             return result.clone()
         return result
 
@@ -278,6 +284,8 @@ def test_single_releases_normalized_tensors_after_last_device_use(
             observations[phase] = [
                 storage() is not None for storage in normalized_storage
             ]
+        if phase == "metadata_ready":
+            assert all(mask() is None for mask in host_masks)
         sample(self, phase)
 
     def observe_score(plane, **kwargs):
@@ -285,17 +293,26 @@ def test_single_releases_normalized_tensors_after_last_device_use(
         observations["score"] = [
             storage() is not None for storage in normalized_storage
         ]
-        return score(plane, **kwargs)
+        mask = score(plane, **kwargs)
+        mask_storage.append(ref(mask.untyped_storage()))
+        return mask
+
+    def observe_mask_stage(mask, *args, **kwargs):
+        staged_masks.append(mask_storage[0]() is not None)
+        host_masks.append(ref(mask))
+        return stage_mask(mask, *args, **kwargs)
 
     monkeypatch.setattr(single, "normalize_blend", capture_normalized)
-    monkeypatch.setattr(torch.Tensor, "cpu", copy_normalized_to_host)
+    monkeypatch.setattr(torch.Tensor, "cpu", copy_to_host)
     monkeypatch.setattr(memory.RegionalMemoryProfile, "sample", observe_phase)
     monkeypatch.setattr(
         active_learning_sampler, "identify_uncertain_patches", observe_score
     )
+    monkeypatch.setattr(single, "stage_mask", observe_mask_stage)
     run()
 
     assert copied_to_host == [(11, 13)] * 2
+    assert staged_masks == ([False] if mask_mode == "score" else [])
     expected = {
         "inference_complete": [mask_mode == "score", False],
         "metadata_ready": [False, False],
