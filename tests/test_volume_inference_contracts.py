@@ -509,36 +509,47 @@ def test_ensemble_handles_ct_and_ridge_models_with_different_depths(
     assert metadata["ensemble_model_configs"] == configs
 
 
+@pytest.mark.parametrize("mode,depths", [("single", (2,)), ("ensemble", (2, 3))])
 @pytest.mark.parametrize("shard", [False, True])
-def test_ensemble_releases_members_before_blend_normalization(
-    tmp_path, monkeypatch, shard
+def test_regional_predictors_release_models_before_blend_normalization(
+    tmp_path, monkeypatch, mode, depths, shard
 ):
     configs = [
-        {"patch_size": 8, "num_layers": layers, "base_feat": 4} for layers in (2, 3)
+        {"patch_size": 8, "num_layers": layers, "base_feat": 4} for layers in depths
     ]
-    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "ensemble", configs)
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode, configs)
     argv.extend(["--artifact_stem", "region", "--disable_tta"])
     if shard:
         argv.extend(["--num_parts", "2", "--part_id", "0"])
     members = []
     observed = []
 
-    def build_member(**config):
-        model = ConstantHeads(config["num_layers"], config["use_ridges"])
-        members.append((ref(model), ref(model.bias)))
+    def build_member(config):
+        model = ConstantHeads(config["num_layers"], config.get("use_ridges", False))
+        members.append((ref(model), ref(model.bias.untyped_storage())))
         return model
 
-    normalize = ensemble.normalize_blend
+    target = single if mode == "single" else ensemble
+    normalize = target.normalize_blend
 
     def observe_normalization(*args):
-        observed.append([(model() is None, bias() is None) for model, bias in members])
+        observed.append(
+            [(model() is None, storage() is None) for model, storage in members]
+        )
         return normalize(*args)
 
-    monkeypatch.setattr(ensemble, "build_inference_model", build_member)
-    monkeypatch.setattr(ensemble, "normalize_blend", observe_normalization)
+    if mode == "single":
+        monkeypatch.setattr(
+            single, "build_prediction_model", lambda config, *_: build_member(config)
+        )
+    else:
+        monkeypatch.setattr(
+            ensemble, "build_inference_model", lambda **config: build_member(config)
+        )
+    monkeypatch.setattr(target, "normalize_blend", observe_normalization)
     runner()
 
-    assert observed == [[(True, True), (True, True)]] * 2
+    assert observed == [[(True, True)] * len(depths)] * 2
     output = tmp_path / "out"
     stem = "region_part0of2" if shard else "region"
     if shard:

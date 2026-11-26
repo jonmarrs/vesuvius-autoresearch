@@ -116,13 +116,12 @@ example, `--max_accumulator_bytes 805306368` after checking available capacity.
 The cap covers the planned blend planes. Checkpoint capture/deserialization,
 resident ensemble models, activations, normalization temporaries, tile inputs,
 host copies, exports and CT decoding consume additional memory. Ensemble
-members reside together during tiled prediction. The ensemble command releases
-them before blend normalization and export. Both commands release the raw
-blend buffers before rendering the preview. Shards keep the blend weights as
-a host array for downstream weighted merging. Representative 4090
-measurements and streaming accumulators remain open work. Production planning
-has its own contract below. This option applies only to the two regional
-commands.
+members reside together during tiled prediction. Both commands release their
+models before blend normalization and the raw blend buffers before rendering
+the preview. Shards keep the blend weights as a host array for downstream
+weighted merging. Representative 4090 measurements and streaming accumulators
+remain open work. Production planning has its own contract below. This option
+applies only to the two regional commands.
 
 ## Regional memory observations
 
@@ -154,7 +153,7 @@ GPU name/capacity when using CUDA, units and chronological observations:
 | --- | --- |
 | `before_models` | After the first checkpoint/configuration preflight, before model construction. |
 | `models_loaded` | The model is loaded; all members are resident for an ensemble. |
-| `inference_complete` | Tiling, blend normalization and host copies of probabilities and any shard weights have completed. The ensemble command has released its members. |
+| `inference_complete` | Models have been released. Tiling, blend normalization and host copies of probabilities and any shard weights have completed. |
 | `metadata_ready` | Exports are staged and scalar statistics are ready, before the initial JSON write and installation. Optional coherence records a later observation. |
 
 Each observation contains current process RSS from psutil and the OS-reported
@@ -215,7 +214,8 @@ memory observation schema in the completion record. The observations span
 model construction, inference and output preparation through the staged
 Zarr store. Production discards unused checkpoint entries before opening
 the CT and releases the saved weights after strict loading, before
-moving the model to the inference device. It releases both blend accumulators
+moving the model to the inference device. After the last batch, production
+releases the model before blend normalization and both blend accumulators
 before sampling `inference_complete` and converting the result to uint8.
 A dry run with this flag still returns the metadata-only plan.
 See [the memory observation fields](#regional-memory-observations) for the
