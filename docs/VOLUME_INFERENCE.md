@@ -321,9 +321,9 @@ requested shape. Supported stored CT is uint8, uint16 or floating point;
 booleans and other integer/complex encodings are rejected rather than guessed
 with a `/255` fallback. uint8 and uint16 retain their `/255` and `/65535` scales,
 including nonnative byte order. The reader scales the native float32 cast in
-place. Floating CT passes through as float32 and must remain finite and
-representable at that precision. This does not establish that the floating
-source's intensity calibration is appropriate for a checkpoint.
+place. Strict reads use the extrema of floating CT to enforce finite float32
+limits before casting. Intensity calibration depends on the floating source
+and the checkpoint.
 
 Python callers can opt into the same boundary:
 

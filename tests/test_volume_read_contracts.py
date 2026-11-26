@@ -120,6 +120,31 @@ def test_integer_ct_normalization_reuses_the_float32_cast(
     np.testing.assert_array_equal(source, original)
 
 
+@pytest.mark.parametrize("dtype", ["u1", ">u2", "f4", ">f8"])
+def test_strict_ct_validation_avoids_full_chunk_temporaries(
+    tmp_path, monkeypatch, dtype
+):
+    volume = _volume(tmp_path)
+    values = np.arange(512, dtype=np.float64).reshape(4, 8, 16).astype(dtype)[..., ::2]
+    values.setflags(write=False)
+    full_chunk_operations = []
+
+    def observe(operation):
+        def track(array, *args, **kwargs):
+            if isinstance(array, np.ndarray) and array.size == values.size:
+                full_chunk_operations.append(operation.__name__)
+            return operation(array, *args, **kwargs)
+
+        return track
+
+    monkeypatch.setattr(volume.vol, "get_chunk", lambda *args: values)
+    monkeypatch.setattr(np, "isfinite", observe(np.isfinite))
+    monkeypatch.setattr(np, "abs", observe(np.abs))
+
+    assert volume._read_chunk(0, 0, 0, 4, 8, 8) is values
+    assert full_chunk_operations == []
+
+
 @pytest.mark.parametrize(
     "dtype,value", [("i2", 510), ("u4", 65535), ("bool", True), ("c8", 1j)]
 )
@@ -137,11 +162,36 @@ def test_strict_readers_reject_unsupported_ct_encodings(
     assert "ct_unknown_dtype" not in loader.warning_counts()
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), 1e300])
-def test_strict_readers_reject_nonfinite_or_unrepresentable_ct(tmp_path, value):
-    volume = _volume(tmp_path, "f8", value)
+@pytest.mark.parametrize(
+    "value",
+    [
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        np.nextafter(float(np.finfo(np.float32).max), np.inf),
+        np.nextafter(-float(np.finfo(np.float32).max), -np.inf),
+    ],
+)
+def test_strict_readers_reject_nonfinite_or_unrepresentable_ct(
+    tmp_path, monkeypatch, value
+):
+    volume = _volume(tmp_path)
+    values = np.zeros((4, 8, 8), dtype=">f8")
+    values[-1, -1, -1] = value
+    monkeypatch.setattr(volume.vol, "get_chunk", lambda *args: values)
     with pytest.raises(ValueError, match="CT values must remain finite as float32"):
         volume.read_ct(0, 0, 0, 4, 8, 8)
+
+
+def test_strict_ct_accepts_exact_float32_limits(tmp_path, monkeypatch):
+    volume = _volume(tmp_path)
+    limit = float(np.finfo(np.float32).max)
+    values = np.zeros((4, 8, 8), dtype=">f8")
+    values[0, 0, 0], values[-1, -1, -1] = -limit, limit
+    monkeypatch.setattr(volume.vol, "get_chunk", lambda *args: values)
+
+    actual = volume.read_ct(0, 0, 0, 4, 8, 8)
+    np.testing.assert_array_equal(actual, values.astype(np.float32), strict=True)
 
 
 @pytest.mark.parametrize("method", ["read_ct", "get_raw_patch"])
