@@ -119,10 +119,13 @@ host copies, exports and CT decoding consume additional memory. Ensemble
 members reside together during tiled prediction. Both commands release their
 models before blend normalization and the raw blend buffers before rendering
 the preview. Both clear the rendered figure's image arrays before staging
-numeric exports. Shards keep the blend weights as a host array for downstream
-weighted merging. Representative 4090 measurements and streaming accumulators
-remain open work. Production planning has its own contract below. This option
-applies only to the two regional commands.
+numeric exports. Ensemble and default single-model prediction also release
+the original CT slice at that point. When requested, coherence scores that
+slice and releases it before updating metadata. Shards keep the blend weights
+as a host array for downstream weighted merging. Representative 4090
+measurements and streaming accumulators remain open work. Production planning
+has its own contract below. This option applies only to the two regional
+commands.
 
 ## Regional memory observations
 

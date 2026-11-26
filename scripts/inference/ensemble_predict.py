@@ -328,6 +328,7 @@ def ensemble_predict():
             figure.savefig(
                 str(staging / artifacts.image.name), format=artifacts.image_format
             )
+        del ct_slice
         preview_files = artifacts.preview_files(staging)
         artifacts.validate_source_selection(args.uri)
         artifacts.validate(

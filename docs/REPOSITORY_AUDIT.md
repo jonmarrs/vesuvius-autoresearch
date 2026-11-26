@@ -2845,3 +2845,19 @@ during uncertainty mask generation peaked at 256 MiB before the change
 and 128 MiB afterward. The input was already resident and the masks matched
 exactly. These figures describe mask generation. Representative GPU and
 whole-process peaks remain open.
+
+## Release the preview CT slice after its last use (2026-11-26 UTC)
+
+This pass starts from main `28c735ee` and follows up on regional preview
+array cleanup. Both regional commands kept the original CT slice through
+numeric export after rendering released the figure's image copies.
+Single-model prediction also held it while staging the coherence metadata
+after scoring.
+
+Ensemble and default single-model prediction now release the slice before
+numeric staging. With optional coherence enabled, single-model prediction
+uses the original slice for scoring and releases it before staging the
+updated metadata. The fixtures observe the slice's backing array and verify
+one full-slice read, the original scoring input and the published score.
+A 4096-by-4096 float32 slice accounts for 64 MiB of host array storage.
+Representative whole-process and GPU peaks remain open.
