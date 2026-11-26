@@ -52,8 +52,12 @@ def measure(work: Path, arm: str, name: str, field, on_axis) -> dict:
     }  # fmt: skip
 
 
-def verdict(gains: list[float], dense_on_triangles: list[float], steps_ok: bool) -> str:
-    if not steps_ok or not gains:
+def verdict(
+    gains: list[float | None], dense_on_triangles: list[float], steps_ok: bool
+) -> str:
+    # A missing share is not a measured gain. Scoring the others would publish a verdict
+    # for a comparison that did not finish.
+    if not steps_ok or not gains or any(gain is None for gain in gains):
         return "DOES_NOT_RUN"
     if (
         float(np.median(gains)) >= GAIN
@@ -79,14 +83,32 @@ def compare(root: Path, windings: list[str], base: str, dense: str, field=None) 
         rows[name] = {
             arm: measure(work, arm, name, field, on_axis) for arm in (base, dense)
         }
-        rows[name]["gain"] = round(
-            rows[name][dense]["final_within_2"] - rows[name][base]["final_within_2"], 4
+        dense_share = rows[name][dense]["final_within_2"]
+        base_share = rows[name][base]["final_within_2"]
+        # No finite distance is not a share of zero, so it is not a gain either.
+        rows[name]["gain"] = (
+            None
+            if dense_share is None or base_share is None
+            else round(dense_share - base_share, 4)
         )
     gains = [r["gain"] for r in rows.values()]
     on_tri = [r[dense]["on_snapped_triangles"] for r in rows.values()]
 
-    def med(values) -> float:
-        return round(float(np.median(list(values))), 4)
+    def med(values) -> float | None:
+        # A tercile with no finite distance is None. Leave it out of the median; if every
+        # winding is outside the field there, the median is absent rather than a crash.
+        numbers = [value for value in values if value is not None]
+        if not numbers:
+            return None
+        return round(float(np.median(numbers)), 4)
+
+    def all_measured(values) -> float | None:
+        # The gain, and each arm's sheet share, count every winding. Dropping a missing
+        # one would publish a median for a comparison the verdict refuses.
+        values = list(values)
+        if any(value is None for value in values):
+            return None
+        return med(values)
 
     return {
         "finding": 130,
@@ -94,9 +116,9 @@ def compare(root: Path, windings: list[str], base: str, dense: str, field=None) 
         "windings": rows,
         "steps": {g.stem: json.loads(g.read_text()) for g in gates},
         "summary": {
-            "gain_median": med(gains),
+            "gain_median": all_measured(gains),
             "final_within_2_median": {
-                a: med(r[a]["final_within_2"] for r in rows.values())
+                a: all_measured(r[a]["final_within_2"] for r in rows.values())
                 for a in (base, dense)
             },
             "snapped_within_2_median": {

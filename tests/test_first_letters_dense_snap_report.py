@@ -25,7 +25,9 @@ def _load():
 ds = _load()
 
 
-def _signed(x: float) -> str:
+def _signed(x: float | None) -> str:
+    if x is None:
+        return "absent"
     return f"+{x}" if x >= 0 else str(x)
 
 
@@ -92,6 +94,12 @@ def test_the_described_numbers_are_the_records():
         3,
     )
     assert f"rose by +{rise}" in FLAT
+
+
+def test_a_missing_median_is_not_signed_as_a_number():
+    assert _signed(None) == "absent"
+    assert _signed(0.0697) == "+0.0697"
+    assert _signed(-0.1) == "-0.1"
 
 
 def test_the_costs_are_the_records():

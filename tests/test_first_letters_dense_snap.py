@@ -212,6 +212,16 @@ def test_a_winding_without_a_recorded_scale_takes_the_fits_default(tmp_path):
 
 def test_the_verdict_at_its_other_edges():
     assert ds.verdict([], [], True) == "DOES_NOT_RUN"
+    assert ds.verdict([None], [0.99], True) == "DOES_NOT_RUN"
+    assert ds.verdict([0.2, None], [0.99, 0.99], True) == "DOES_NOT_RUN"
+    # a measured zero is not a missing gain
+    assert ds.verdict([0.0], [0.99], True) == "DENSE_SNAP_NO_GAIN"
+    # four values, including a zero. An even count's median is the mean of the
+    # middle pair: 0.05 and 0.95, on each threshold. The mean of all four is not.
+    assert (
+        ds.verdict([-0.25, 0.0, 0.1, 0.1], [0.0, 0.9, 1.0, 1.0], True)
+        == "DENSE_SNAP_HELPS"
+    )
     assert (
         ds.verdict([0.05, 0.05, 0.05], [0.95, 0.95, 0.99], True) == "DENSE_SNAP_HELPS"
     )
@@ -297,12 +307,26 @@ class _OuterThirdOutside:
         return np.where(radius < 1033.0, 0.0, np.nan)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=TypeError,
-    reason="a tercile with no finite distance is None in its winding's row, and the summary's median of the "
-    "windings' values raises on it",
-)
+def _patch(radii):
+    """Two rows at these column radii, so each column is two nodes of one share."""
+    theta = np.linspace(0.2, 0.8, len(radii))
+    z = np.array([9000.0, 9100.0])
+    tt, zz = np.meshgrid(theta, z)
+    rr = np.asarray(radii, dtype=float)[None, :]
+    return np.stack([AXIS[0] + rr * np.cos(tt), AXIS[1] + rr * np.sin(tt), zz], -1)
+
+
+def _strip(lo, hi, columns=30):
+    radii = np.linspace(lo, hi, columns)
+    zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
+    return np.stack([AXIS[0] + rr, np.full_like(rr, AXIS[1]), zz], -1)
+
+
+def _put(root, arm, name, xyz):
+    _write(root / "work" / f"snap_{arm}" / name, xyz)
+    _write(root / "work" / f"final_{arm}" / f"{name}.tifxyz", xyz)
+
+
 def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
     radii = np.linspace(900.0, 1100.0, 30)
     zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
@@ -312,3 +336,132 @@ def test_a_tercile_outside_the_field_does_not_stop_the_comparison(tmp_path):
     assert (
         out["windings"]["w020"]["dense"]["final_within_2_by_radius_tercile"][2] is None
     )
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["dense"][2] is None
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] is None
+
+
+def test_a_tercile_missing_on_one_of_two_windings_is_left_out_of_its_median(tmp_path):
+    # w020's outer third is outside the field. w030 is inside it, so the median
+    # sees [None, 1.0] and the comparison still has a gain for every winding.
+    wide = _strip(900.0, 1100.0)
+    inside = _strip(900.0, 1000.0)
+    r = _band(tmp_path, {"base": (wide, wide), "dense": (wide, wide)})
+    for arm in ("base", "dense"):
+        _put(r, arm, "w030", inside)
+    out = ds.compare(r, ["w020", "w030"], "base", "dense", field=_OuterThirdOutside())
+    assert (
+        out["windings"]["w020"]["dense"]["final_within_2_by_radius_tercile"][2] is None
+    )
+    assert out["windings"]["w030"]["dense"]["final_within_2_by_radius_tercile"] == [
+        1.0,
+        1.0,
+        1.0,
+    ]
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["dense"][2] == 1.0
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] == 1.0
+    assert out["windings"]["w020"]["gain"] == 0.0
+    assert out["windings"]["w030"]["gain"] == 0.0
+    assert out["verdict"] != "DOES_NOT_RUN"
+
+
+class _OnTheCirclePast1100:
+    """On the 1000-voxel circle inside the field; no distance at radius 1100 and beyond."""
+
+    def at(self, xyz):
+        radius = np.hypot(xyz[:, 0] - AXIS[0], xyz[:, 1] - AXIS[1])
+        return np.where(radius < 1100.0, np.abs(radius - 1000.0) - 1.0, np.nan)
+
+
+def test_a_missing_gain_is_left_out_of_the_summary(tmp_path):
+    # w020 is measured. w030 is outside the field, so a median of the measured winding
+    # alone would disagree with DOES_NOT_RUN.
+    on_sheet, off_sheet = _ring(1000.0, 16), _ring(1005.0, 16)
+    r = _band(tmp_path, {"base": (off_sheet, off_sheet), "dense": (on_sheet, on_sheet)})
+    missing = _ring(1300.0, 16)
+    for arm in ("base", "dense"):
+        _write(r / "work" / f"snap_{arm}" / "w030", missing)
+        _write(r / "work" / f"final_{arm}" / "w030.tifxyz", missing)
+    out = ds.compare(r, ["w020", "w030"], "base", "dense", field=_OnTheCirclePast1100())
+    assert out["windings"]["w020"]["gain"] > 0.5
+    assert out["windings"]["w020"]["dense"]["final_within_2"] == 1.0
+    assert out["windings"]["w030"]["gain"] is None
+    assert out["summary"]["gain_median"] is None
+    assert out["summary"]["final_within_2_median"] == {"base": None, "dense": None}
+    assert out["verdict"] == "DOES_NOT_RUN"
+    # only the gain and the sheet shares are gated. The snapped share and the one
+    # tercile this ring fills stay the measured winding's.
+    assert out["summary"]["snapped_within_2_median"] == {"base": 0.0, "dense": 1.0}
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["dense"][2] == 1.0
+    assert out["summary"]["final_within_2_by_radius_tercile_median"]["base"][2] == 0.0
+
+
+@pytest.mark.parametrize("missing_arm", ["base", "dense"])
+def test_one_missing_arm_is_left_out_of_its_median(tmp_path, missing_arm):
+    # w030 is measured on one arm and outside the field on the other. The present
+    # arm's median still counts both windings; the missing arm is absent.
+    on_sheet, off_sheet = _strip(998.0, 1002.0), _strip(1006.0, 1080.0)
+    outside = _strip(1200.0, 1400.0)
+    present = "dense" if missing_arm == "base" else "base"
+    r = _band(tmp_path, {"base": (off_sheet, off_sheet), "dense": (on_sheet, on_sheet)})
+    _put(r, "base", "w030", outside if missing_arm == "base" else on_sheet)
+    _put(r, "dense", "w030", outside if missing_arm == "dense" else on_sheet)
+    out = ds.compare(r, ["w020", "w030"], "base", "dense", field=_OnTheCirclePast1100())
+    assert out["windings"]["w020"]["gain"] == 1.0
+    assert out["windings"]["w030"][missing_arm]["final_within_2"] is None
+    assert out["windings"]["w030"][present]["final_within_2"] == 1.0
+    assert out["windings"]["w030"]["gain"] is None
+    assert out["summary"]["gain_median"] is None
+    assert out["summary"]["final_within_2_median"][missing_arm] is None
+    present_shares = [
+        out["windings"][name][present]["final_within_2"] for name in ("w020", "w030")
+    ]
+    assert out["summary"]["final_within_2_median"][present] == round(
+        float(np.median(present_shares)), 4
+    )
+    assert out["verdict"] == "DOES_NOT_RUN"
+    for arm in ("base", "dense"):
+        assert out["summary"]["snapped_within_2_median"][arm] is not None
+        assert all(
+            value is not None
+            for value in out["summary"]["final_within_2_by_radius_tercile_median"][arm]
+        )
+
+
+def test_four_windings_pin_the_median_against_the_mean(tmp_path):
+    # gains 0, 0, 0, 0.2. Their median is 0; their mean is 0.05.
+    on = _patch([1000.0] * 5)
+    mostly = _patch([1000.0, 1000.0, 1000.0, 1000.0, 1010.0])
+    r = _band(tmp_path, {"base": (on, on), "dense": (on, on)})
+    for name in ("w030", "w040"):
+        for arm in ("base", "dense"):
+            _put(r, arm, name, on)
+    _put(r, "base", "w050", mostly)
+    _put(r, "dense", "w050", on)
+    names = ["w020", "w030", "w040", "w050"]
+    out = ds.compare(r, names, "base", "dense", field=_Sheet(1000.0))
+    gains = [out["windings"][name]["gain"] for name in names]
+    assert gains == [0.0, 0.0, 0.0, 0.2]
+    assert out["summary"]["gain_median"] == 0.0
+    assert round(float(np.mean(gains)), 4) == 0.05
+
+
+class _OutsideTheField:
+    """No finite distance anywhere, so the sheet share itself is absent."""
+
+    def at(self, xyz):
+        return np.full(len(xyz), np.nan)
+
+
+def test_a_winding_outside_the_field_does_not_stop_the_comparison(tmp_path):
+    radii = np.linspace(900.0, 1100.0, 30)
+    zz, rr = np.meshgrid(np.linspace(9000, 9100, 6), radii, indexing="ij")
+    strip = np.stack([AXIS[0] + rr, np.full_like(rr, AXIS[1]), zz], -1)
+    r = _band(tmp_path, {"base": (strip, strip), "dense": (strip, strip)})
+    out = ds.compare(r, ["w020"], "base", "dense", field=_OutsideTheField())
+    row = out["windings"]["w020"]
+    assert (
+        row["dense"]["final_within_2"] is None and row["base"]["final_within_2"] is None
+    )
+    assert row["gain"] is None
+    assert out["summary"]["gain_median"] is None
+    assert out["verdict"] == "DOES_NOT_RUN"
