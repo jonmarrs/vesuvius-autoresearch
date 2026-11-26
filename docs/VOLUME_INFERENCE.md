@@ -117,9 +117,12 @@ The cap covers the planned blend planes. Checkpoint capture/deserialization,
 resident ensemble models, activations, normalization temporaries, tile inputs,
 host copies, exports and CT decoding consume additional memory. Ensemble
 members reside together during tiled prediction. The ensemble command releases
-them before blend normalization and export. Representative 4090 measurements
-and streaming accumulators remain open work. Production planning has its own
-contract below. This option applies only to the two regional commands.
+them before blend normalization and export. Both commands release the raw
+blend buffers before rendering the preview. Shards keep the blend weights as
+a host array for downstream weighted merging. Representative 4090
+measurements and streaming accumulators remain open work. Production planning
+has its own contract below. This option applies only to the two regional
+commands.
 
 ## Regional memory observations
 
@@ -151,7 +154,7 @@ GPU name/capacity when using CUDA, units and chronological observations:
 | --- | --- |
 | `before_models` | After the first checkpoint/configuration preflight, before model construction. |
 | `models_loaded` | The model is loaded; all members are resident for an ensemble. |
-| `inference_complete` | Tiling, blend normalization and host probability copies have completed. The ensemble command has released its members. |
+| `inference_complete` | Tiling, blend normalization and host copies of probabilities and any shard weights have completed. The ensemble command has released its members. |
 | `metadata_ready` | Exports are staged and scalar statistics are ready, before the initial JSON write and installation. Optional coherence records a later observation. |
 
 Each observation contains current process RSS from psutil and the OS-reported

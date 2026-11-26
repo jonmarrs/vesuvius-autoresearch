@@ -2742,3 +2742,24 @@ are gone at that point and compare every saved ink and fiber value with the
 expected result. Shards still export their blend weights. All members remain
 resident during tiled prediction. Representative GPU allocator and process
 peaks still need measurement.
+
+## Release regional blend buffers before preview rendering (2026-11-26 UTC)
+
+This pass starts from main `68b57123`. Four CPU fixtures found that both
+regional commands still held their blend-weight tensors at the
+`inference_complete` observation. The ensemble also retained both raw
+probability accumulators at that point. Single-model prediction had
+already replaced its raw probability buffers during normalization.
+
+The ensemble now releases each raw probability accumulator after copying
+its normalized result to the host. Both commands drop the weight tensor
+after reporting coverage. Only shards retain a host array of weights for
+export. The fixtures check the reference lifetimes before preview rendering
+and compare saved probabilities and shard weights exactly.
+
+Each float32 plane accounts for 64 MiB of storage at 4096 by 4096. Complete
+ensemble runs with a fiber head release three such buffers before the
+preview, and complete single-model runs release one additional buffer. On
+CPU, a shard's weight array shares the original weight storage. On CUDA,
+shards transfer their weights to host memory before the preview rather
+than during export. Representative GPU and whole-process peaks remain open.

@@ -274,12 +274,16 @@ def ensemble_predict():
     del models, model
     complete = args.num_parts == 1
     ink = normalize_blend(full_ink, weights, complete).cpu().numpy()
+    del full_ink
     fiber = (
         normalize_blend(full_fiber, weights, complete).cpu().numpy()
         if full_fiber is not None
         else None
     )
+    del full_fiber
     args.coverage_fraction = blend_coverage_fraction(weights, complete=complete)
+    blend_weights = None if complete else weights.cpu().numpy()
+    del weights
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
@@ -340,7 +344,7 @@ def ensemble_predict():
                 artifacts,
                 outputs,
                 preview_files,
-                blend_weights=weights.cpu().numpy() if args.num_parts > 1 else None,
+                blend_weights=blend_weights,
                 voxel_size_um=args.voxel_size_um,
                 source_uri=args.uri,
                 origin_xyz=[args.x, args.y, args.z],
