@@ -2925,3 +2925,22 @@ traced CPU allocations for normalization fell from 128 MiB to 64 MiB
 for uint8 and native uint16, and from 160 MiB to 64 MiB for nonnative
 uint16. Every normalized sample matched. These figures cover conversion
 and scaling. Representative whole-process and GPU peaks remain open.
+
+## Remove full-chunk temporaries from strict CT validation (2026-11-26 UTC)
+
+This pass starts from main `f608fd59` and follows up on CT normalization
+memory. Strict reads previously allocated an array-wide finiteness
+check for every accepted dtype. Floating-point reads also allocated a
+full absolute-value array and comparison mask.
+
+The dtype check already establishes that uint8 and uint16 values are
+finite and fit within float32. Floating-point reads now check the
+minimum and maximum, which propagate NaN. Exact float32 endpoints still
+pass, and a single NaN, infinity or out-of-range value still fails.
+The fixtures verify this behavior on strided and nonnative inputs.
+
+For a 4096-by-4096 read with decoded input already resident, traced CPU
+validation allocations fell from about 16 MiB for uint8 and nonnative
+uint16, 80 MiB for float32, and 144 MiB for nonnative float64 to at most
+0.13 MiB across those cases. This measures decoded-chunk validation.
+Representative whole-process and GPU peaks remain open.

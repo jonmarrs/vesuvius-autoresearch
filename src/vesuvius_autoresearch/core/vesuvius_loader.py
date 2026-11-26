@@ -414,10 +414,13 @@ class FastVesuviusVolume:
                 raise ValueError(
                     f"{self.uri}: unsupported CT dtype {ct.dtype}; strict reads require uint8, uint16 or floating CT"
                 )
-            if not np.isfinite(ct).all() or (
-                ct.dtype.kind == "f" and np.any(np.abs(ct) > np.finfo(np.float32).max)
-            ):
-                raise ValueError(f"{self.uri}: CT values must remain finite as float32")
+            if ct.dtype.kind == "f":
+                limit = np.finfo(np.float32).max
+                # The reductions propagate NaN, which fails the range comparison.
+                if not (-limit <= ct.min() and ct.max() <= limit):
+                    raise ValueError(
+                        f"{self.uri}: CT values must remain finite as float32"
+                    )
         return ct
 
     def _init_vol(self):
