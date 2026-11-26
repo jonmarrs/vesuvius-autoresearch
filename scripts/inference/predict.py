@@ -773,6 +773,8 @@ def predict():
     if full_prob_fiber is not None:
         full_prob_fiber = normalize_blend(full_prob_fiber, full_weight, complete)
     args.coverage_fraction = blend_coverage_fraction(full_weight, complete=complete)
+    blend_weights = None if complete else full_weight.cpu().numpy()
+    del full_weight
 
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = (
@@ -879,7 +881,7 @@ def predict():
                 artifacts,
                 outputs,
                 preview_files,
-                blend_weights=full_weight.cpu().numpy() if args.num_parts > 1 else None,
+                blend_weights=blend_weights,
                 voxel_size_um=args.voxel_size_um,
                 source_uri=args.uri,
                 origin_xyz=[int(args.x), int(args.y), int(args.z)],

@@ -3,6 +3,7 @@
 import json
 import sys
 from types import SimpleNamespace
+from weakref import ref
 
 import numpy as np
 import psutil
@@ -172,6 +173,66 @@ def test_profile_is_opt_in_and_preserves_predictions(tmp_path, monkeypatch, mode
         np.testing.assert_array_equal(
             np.load(tmp_path / f"out/region_{name}.npy"), before
         )
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("shard", [False, True])
+def test_release_regional_blend_buffers_before_preview(
+    tmp_path, monkeypatch, mode, shard
+):
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "region", "--profile_memory"])
+    if shard:
+        argv.extend(["--num_parts", "2", "--part_id", "0"])
+    module = single if mode == "single" else ensemble
+    normalize = module.normalize_blend
+    sample = memory.RegionalMemoryProfile.sample
+    raw_probability_storage = []
+    raw_weights = None
+    weight_storage = None
+    expected_weights = None
+    observations = []
+
+    def observe_blend(values, weights, complete):
+        nonlocal raw_weights, weight_storage, expected_weights
+        raw_probability_storage.append(ref(values.untyped_storage()))
+        if raw_weights is None:
+            raw_weights = ref(weights)
+            weight_storage = ref(weights.untyped_storage())
+            if shard:
+                expected_weights = weights.numpy().copy()
+        return normalize(values, weights, complete)
+
+    def observe_phase(self, phase):
+        if phase == "inference_complete":
+            assert raw_weights is not None and weight_storage is not None
+            observations.append(
+                (
+                    raw_weights() is None,
+                    weight_storage() is None,
+                    [storage() is None for storage in raw_probability_storage],
+                )
+            )
+        sample(self, phase)
+
+    monkeypatch.setattr(module, "normalize_blend", observe_blend)
+    monkeypatch.setattr(memory.RegionalMemoryProfile, "sample", observe_phase)
+    run()
+
+    assert observations == [(True, not shard, [True, True])]
+    output = tmp_path / "out"
+    stem = "region_part0of2" if shard else "region"
+    weight_file = output / f"{stem}_weight.npy"
+    if shard:
+        np.testing.assert_array_equal(
+            np.load(weight_file), expected_weights, strict=True
+        )
+        expected = np.where(expected_weights > 0, 0.5, 0.0)
+    else:
+        assert not weight_file.exists()
+        expected = np.full((11, 13), 0.5)
+    for task in ("ink", "fiber"):
+        np.testing.assert_array_equal(np.load(output / f"{stem}_{task}.npy"), expected)
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
