@@ -216,8 +216,8 @@ def test_the_verdict_at_its_other_edges():
     assert ds.verdict([0.2, None], [0.99, 0.99], True) == "DOES_NOT_RUN"
     # a measured zero is not a missing gain
     assert ds.verdict([0.0], [0.99], True) == "DENSE_SNAP_NO_GAIN"
-    # four windings, including a zero. The median of the two middle values sits on
-    # both thresholds; their mean does not, and neither value is past its threshold.
+    # four values, including a zero. An even count's median is the mean of the
+    # middle pair: 0.05 and 0.95, on each threshold. The mean of all four is not.
     assert (
         ds.verdict([-0.25, 0.0, 0.1, 0.1], [0.0, 0.9, 1.0, 1.0], True)
         == "DENSE_SNAP_HELPS"
@@ -305,6 +305,15 @@ class _OuterThirdOutside:
     def at(self, xyz):
         radius = np.hypot(xyz[:, 0] - AXIS[0], xyz[:, 1] - AXIS[1])
         return np.where(radius < 1033.0, 0.0, np.nan)
+
+
+def _patch(radii):
+    """Two rows at these column radii, so each column is two nodes of one share."""
+    theta = np.linspace(0.2, 0.8, len(radii))
+    z = np.array([9000.0, 9100.0])
+    tt, zz = np.meshgrid(theta, z)
+    rr = np.asarray(radii, dtype=float)[None, :]
+    return np.stack([AXIS[0] + rr * np.cos(tt), AXIS[1] + rr * np.sin(tt), zz], -1)
 
 
 def _strip(lo, hi, columns=30):
@@ -416,6 +425,24 @@ def test_one_missing_arm_is_left_out_of_its_median(tmp_path, missing_arm):
             value is not None
             for value in out["summary"]["final_within_2_by_radius_tercile_median"][arm]
         )
+
+
+def test_four_windings_pin_the_median_against_the_mean(tmp_path):
+    # gains 0, 0, 0, 0.2. Their median is 0; their mean is 0.05.
+    on = _patch([1000.0] * 5)
+    mostly = _patch([1000.0, 1000.0, 1000.0, 1000.0, 1010.0])
+    r = _band(tmp_path, {"base": (on, on), "dense": (on, on)})
+    for name in ("w030", "w040"):
+        for arm in ("base", "dense"):
+            _put(r, arm, name, on)
+    _put(r, "base", "w050", mostly)
+    _put(r, "dense", "w050", on)
+    names = ["w020", "w030", "w040", "w050"]
+    out = ds.compare(r, names, "base", "dense", field=_Sheet(1000.0))
+    gains = [out["windings"][name]["gain"] for name in names]
+    assert gains == [0.0, 0.0, 0.0, 0.2]
+    assert out["summary"]["gain_median"] == 0.0
+    assert round(float(np.mean(gains)), 4) == 0.05
 
 
 class _OutsideTheField:
