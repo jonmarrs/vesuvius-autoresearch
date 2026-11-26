@@ -94,6 +94,44 @@ def test_uint8_255_mask_and_gradient_tensor_are_supported(tmp_path):
     )
 
 
+@pytest.mark.parametrize("foreground", [1, 255])
+def test_proofreader_mask_validates_in_bounded_blocks(
+    tmp_path, monkeypatch, foreground
+):
+    # The stride and byte order exercise buffered iteration without a dense copy.
+    backing = np.zeros((513, 1026), dtype=">f4")
+    mask = backing[:, ::2]
+    mask[0, 0] = mask[-1, -1] = foreground
+    isin = np.isin
+    checked_sizes = []
+
+    def track_values(values, *args, **kwargs):
+        checked_sizes.append(values.size)
+        return isin(values, *args, **kwargs)
+
+    monkeypatch.setattr(np, "isin", track_values)
+    path = tmp_path / "mask"
+    record = export_for_proofreader(mask, path)
+
+    assert checked_sizes and max(checked_sizes) <= 262_144
+    assert record["uncertain_voxels"] == 2
+    np.testing.assert_array_equal(zarr.open(str(path), mode="r")[:], (mask != 0)[None])
+
+
+def test_mixed_mask_encodings_across_blocks_preserve_existing_store(tmp_path):
+    path = tmp_path / "mask"
+    original = np.ones((2, 3), dtype=np.bool_)
+    export_for_proofreader(original, path)
+    mixed = np.zeros((513, 513), dtype=np.uint8)
+    mixed[0, 0], mixed[-1, -1] = 1, 255
+
+    with pytest.raises(ValueError, match="finite binary"):
+        export_for_proofreader(mixed, path, overwrite=True)
+
+    np.testing.assert_array_equal(zarr.open(str(path), mode="r")[:], original[None])
+    assert list(tmp_path.iterdir()) == [path]
+
+
 @pytest.mark.parametrize(
     "values",
     [
