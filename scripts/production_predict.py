@@ -152,6 +152,7 @@ def production_predict(argv=None):
     if not math.isfinite(args.voxel_size_um) or args.voxel_size_um <= 0:
         parser.error("voxel size must be finite and positive")
     state = ckpt.get("model_state_dict", ckpt.get("model"))
+    del ckpt
     if not isinstance(state, dict) or not state:
         raise ValueError(
             "checkpoint must contain model_state_dict (or legacy model weights)"
@@ -214,6 +215,7 @@ def production_predict(argv=None):
     memory_profile = RegionalMemoryProfile(device) if args.profile_memory else None
     model = build_prediction_model(config_dict, args, use_ridges=use_ridges)
     model.load_state_dict(state, strict=True)
+    del state
     model = model.to(device).eval()
     if memory_profile is not None:
         memory_profile.sample("models_loaded")

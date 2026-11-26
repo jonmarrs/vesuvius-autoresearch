@@ -101,6 +101,49 @@ def test_production_checkpoint_volume_edges_and_metadata(tmp_path, monkeypatch):
     assert metadata["scale_bar_cm"] is False
 
 
+@pytest.mark.parametrize("state_key", ["model_state_dict", "model"])
+def test_production_releases_saved_checkpoint_storage(tmp_path, monkeypatch, state_key):
+    out, _, model = production_fixture(tmp_path, monkeypatch)
+    checkpoint_path = tmp_path / "trained.pt"
+    checkpoint = torch.load(checkpoint_path, weights_only=True)
+    checkpoint.pop("model_state_dict")
+    checkpoint[state_key] = {"bias": torch.tensor(1.0)}
+    checkpoint["optimizer"] = {"unused": torch.zeros(64)}
+    torch.save(checkpoint, checkpoint_path)
+
+    load = production.load_checkpoint
+    open_volume = production.FastVesuviusVolume
+    transfer = model.to
+    storage = {}
+    observed = []
+
+    def track_checkpoint(*args, **kwargs):
+        loaded = load(*args, **kwargs)
+        storage["weights"] = ref(loaded[state_key]["bias"].untyped_storage())
+        storage["optimizer"] = ref(loaded["optimizer"]["unused"].untyped_storage())
+        return loaded
+
+    def track_volume(*args, **kwargs):
+        observed.append(("open CT", storage["optimizer"]() is None))
+        return open_volume(*args, **kwargs)
+
+    def track_transfer(*args, **kwargs):
+        observed.append(("transfer model", storage["weights"]() is None))
+        return transfer(*args, **kwargs)
+
+    monkeypatch.setattr(production, "load_checkpoint", track_checkpoint)
+    monkeypatch.setattr(production, "FastVesuviusVolume", track_volume)
+    monkeypatch.setattr(model, "to", track_transfer)
+    production.production_predict()
+
+    assert observed == [("open CT", True), ("transfer model", True)]
+    assert model.batches == [4, 2]
+    store = next(out.glob("*.zarr"))
+    pixels = zarr.open_group(str(store), mode="r")["0"][:]
+    expected = int(torch.sigmoid(torch.tensor(1.0)).item() * 255)
+    np.testing.assert_array_equal(pixels, np.full((1, 11, 13), expected, np.uint8))
+
+
 def test_production_releases_blend_planes_before_export(tmp_path, monkeypatch):
     out, _, _ = production_fixture(tmp_path, monkeypatch)
     normalize = production.normalize_blend
