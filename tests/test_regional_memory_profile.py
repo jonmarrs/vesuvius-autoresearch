@@ -11,6 +11,7 @@ import pytest
 import torch
 from test_volume_inference_contracts import setup_prediction
 
+from scripts import active_learning_sampler
 from scripts.inference import ensemble_predict as ensemble, predict as single
 from vesuvius_autoresearch.core import regional_memory as memory
 
@@ -233,6 +234,89 @@ def test_release_regional_blend_buffers_before_preview(
         expected = np.full((11, 13), 0.5)
     for task in ("ink", "fiber"):
         np.testing.assert_array_equal(np.load(output / f"{stem}_{task}.npy"), expected)
+
+
+@pytest.mark.parametrize(
+    "mask_mode,mask_status",
+    [("skip", "SKIPPED"), ("score", "EXPORTED"), ("shard", "INCOMPLETE")],
+)
+def test_single_releases_normalized_tensors_after_last_device_use(
+    tmp_path, monkeypatch, mask_mode, mask_status
+):
+    run, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    argv.extend(["--artifact_stem", "region", "--profile_memory"])
+    if mask_mode != "skip":
+        argv.remove("--skip_active_learning")
+    if mask_mode == "shard":
+        argv.extend(["--num_parts", "2", "--part_id", "0"])
+
+    normalize = single.normalize_blend
+    sample = memory.RegionalMemoryProfile.sample
+    original_cpu = torch.Tensor.cpu
+    score = active_learning_sampler.identify_uncertain_patches
+    normalized = []
+    normalized_storage = []
+    copied_to_host = []
+    observations = {}
+
+    def capture_normalized(*args, **kwargs):
+        plane = normalize(*args, **kwargs)
+        normalized.append(ref(plane))
+        normalized_storage.append(ref(plane.untyped_storage()))
+        return plane
+
+    def copy_normalized_to_host(tensor, *args, **kwargs):
+        result = original_cpu(tensor, *args, **kwargs)
+        if any(plane() is tensor for plane in normalized):
+            # A CUDA-to-CPU transfer owns distinct storage.
+            copied_to_host.append(tensor.shape)
+            return result.clone()
+        return result
+
+    def observe_phase(self, phase):
+        if phase in ("inference_complete", "metadata_ready"):
+            observations[phase] = [
+                storage() is not None for storage in normalized_storage
+            ]
+        sample(self, phase)
+
+    def observe_score(plane, **kwargs):
+        assert plane is normalized[0]()
+        observations["score"] = [
+            storage() is not None for storage in normalized_storage
+        ]
+        return score(plane, **kwargs)
+
+    monkeypatch.setattr(single, "normalize_blend", capture_normalized)
+    monkeypatch.setattr(torch.Tensor, "cpu", copy_normalized_to_host)
+    monkeypatch.setattr(memory.RegionalMemoryProfile, "sample", observe_phase)
+    monkeypatch.setattr(
+        active_learning_sampler, "identify_uncertain_patches", observe_score
+    )
+    run()
+
+    assert copied_to_host == [(11, 13)] * 2
+    expected = {
+        "inference_complete": [mask_mode == "score", False],
+        "metadata_ready": [False, False],
+    }
+    if mask_mode == "score":
+        expected["score"] = [True, False]
+    assert observations == expected
+
+    output = tmp_path / "out"
+    stem = "region_part0of2" if mask_mode == "shard" else "region"
+    metadata = json.loads((output / f"{stem}_meta.json").read_text())
+    assert metadata["uncertainty_export"]["status"] == mask_status
+    if mask_mode == "shard":
+        weights = np.load(output / f"{stem}_weight.npy")
+        expected_plane = np.where(weights > 0, 0.5, 0.0)
+    else:
+        expected_plane = np.full((11, 13), 0.5)
+    for task in ("ink", "fiber"):
+        np.testing.assert_array_equal(
+            np.load(output / f"{stem}_{task}.npy"), expected_plane
+        )
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])

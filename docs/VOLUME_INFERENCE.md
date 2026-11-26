@@ -127,6 +127,11 @@ measurements and streaming accumulators remain open work. Production planning
 has its own contract below. This option applies only to the two regional
 commands.
 
+After copying its normalized probabilities to the host, single-model
+prediction holds the original ink tensor only for requested uncertainty
+scoring. It releases that tensor as soon as scoring ends. With CPU
+inference, the host arrays share the normalized tensor storage.
+
 ## Regional memory observations
 
 Add `--profile_memory` to either regional command to record observed memory in

@@ -780,9 +780,13 @@ def predict():
     del full_weight
 
     prob_ink_final = full_prob_ink.cpu().numpy()
+    export_uncertainty = args.uncertainty_export["status"] == "PLANNED"
+    uncertainty_input = full_prob_ink if export_uncertainty else None
+    del full_prob_ink
     prob_fiber_final = (
         full_prob_fiber.cpu().numpy() if full_prob_fiber is not None else None
     )
+    del full_prob_fiber
     if memory_profile is not None:
         memory_profile.sample("inference_complete")
 
@@ -878,7 +882,6 @@ def predict():
             outputs["fiber"] = (prob_fiber_final, f"Fiber Prediction {base_name}")
         if args.num_parts > 1:
             args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
-        export_uncertainty = args.uncertainty_export["status"] == "PLANNED"
         with (
             ExitStack() as pending_metadata,
             ExitStack() as pending_mask,
@@ -892,13 +895,14 @@ def predict():
                 origin_xyz=[int(args.x), int(args.y), int(args.z)],
             ) as exports,
         ):
-            if export_uncertainty:
+            if uncertainty_input is not None:
                 try:
                     from scripts.active_learning_sampler import (
                         identify_uncertain_patches,
                     )
 
-                    mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
+                    mask = identify_uncertain_patches(uncertainty_input, threshold=0.2)
+                    uncertainty_input = None
                     args.uncertainty_export = pending_mask.enter_context(
                         stage_mask(
                             mask.detach().cpu().numpy(),
@@ -922,6 +926,7 @@ def predict():
                     del mask
                     args.uncertainty_export["normalized_entropy_threshold"] = 0.2
                 except ImportError as exc:
+                    uncertainty_input = None
                     args.uncertainty_export = {
                         "status": "UNAVAILABLE",
                         "path": None,
