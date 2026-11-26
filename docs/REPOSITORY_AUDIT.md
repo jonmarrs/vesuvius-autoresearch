@@ -2907,3 +2907,21 @@ metadata staging. The fixture checks the lifetimes, published statistics
 and exact output pixels. At 4096 by 4096 the float32 and uint8 arrays
 account for 64 MiB and 16 MiB of host storage, respectively.
 Representative whole-process and GPU peaks remain open.
+
+## Reduce CT normalization allocations (2026-11-26 UTC)
+
+This pass starts from main `7d0cd1c6` and follows up on regional peak
+memory. The CT reader allocated a float32 conversion and a separate
+scaled array. Nonnative uint16 CT also used a full byte-order copy.
+
+The reader now classifies the dtype in native byte order, casts the
+samples directly to native float32 and scales that output in place.
+The regression covers read-only strided uint8 and uint16 inputs in both
+byte orders and verifies exact values and unchanged source bytes.
+The strict-read checks and legacy normalization fallback still apply.
+
+For a 4096-by-4096 slice with decoded input already resident, peak
+traced CPU allocations for normalization fell from 128 MiB to 64 MiB
+for uint8 and native uint16, and from 160 MiB to 64 MiB for nonnative
+uint16. Every normalized sample matched. These figures cover conversion
+and scaling. Representative whole-process and GPU peaks remain open.

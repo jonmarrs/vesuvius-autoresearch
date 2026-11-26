@@ -3,6 +3,7 @@
 import pickle
 from collections import defaultdict
 from types import SimpleNamespace
+from weakref import ref
 
 import numpy as np
 import pytest
@@ -90,6 +91,33 @@ def test_strict_readers_preserve_supported_ct_scaling(tmp_path, dtype, value, ex
     raw = volume.get_raw_patch(0, 0, 0, 4, 8, 8)
     assert raw.isfinite().all() and raw.shape == (4, 8, 8)
     assert float(raw.flatten()[0]) == value
+
+
+@pytest.mark.parametrize(
+    "dtype,scale", [("u1", 255.0), ("<u2", 65535.0), (">u2", 65535.0)]
+)
+def test_integer_ct_normalization_reuses_the_float32_cast(
+    tmp_path, monkeypatch, dtype, scale
+):
+    volume = _volume(tmp_path)
+    source = np.linspace(0, scale, 512).astype(dtype).reshape(4, 8, 16)[..., ::2]
+    original = source.copy()
+    expected = source.astype(np.float32) / scale
+    source.setflags(write=False)
+    casts = []
+
+    class TrackCast(np.ndarray):
+        def astype(self, *args, **kwargs):
+            converted = super().astype(*args, **kwargs)
+            casts.append(ref(converted))
+            return converted
+
+    monkeypatch.setattr(volume, "_read_chunk", lambda *args: source.view(TrackCast))
+    normalized = volume.read_ct(0, 0, 0, 4, 8, 8)
+
+    assert len(casts) == 1 and casts[0]() is normalized
+    np.testing.assert_array_equal(normalized, expected, strict=True)
+    np.testing.assert_array_equal(source, original)
 
 
 @pytest.mark.parametrize(
