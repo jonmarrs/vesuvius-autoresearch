@@ -2763,3 +2763,18 @@ preview, and complete single-model runs release one additional buffer. On
 CPU, a shard's weight array shares the original weight storage. On CUDA,
 shards transfer their weights to host memory before the preview rather
 than during export. Representative GPU and whole-process peaks remain open.
+
+## Release production checkpoint storage after loading (2026-11-26 UTC)
+
+This pass starts from main `ef623869` and applies the regional
+checkpoint lifetime fix to production. CPU fixtures for both
+`model_state_dict` and the legacy `model` entry found that production
+held unused optimizer storage when it opened the CT and still held the
+saved weight storage when it transferred the initialized model.
+
+Production now keeps only the configuration and selected weights after
+checkpoint preflight. After strict weight loading it drops the saved state
+before moving the model to the inference device. The fixtures track actual
+tensor storage and confirm that the loaded weights produce the expected
+pixels, including the remainder batch. The memory saved depends on the
+checkpoint contents. Representative GPU and whole-process peaks remain open.
