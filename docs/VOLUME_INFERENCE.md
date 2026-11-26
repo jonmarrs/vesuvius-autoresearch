@@ -320,9 +320,10 @@ at nonnegative integer coordinates. The returned array must have the exact
 requested shape. Supported stored CT is uint8, uint16 or floating point;
 booleans and other integer/complex encodings are rejected rather than guessed
 with a `/255` fallback. uint8 and uint16 retain their `/255` and `/65535` scales,
-including nonnative byte order. Floating CT passes through as float32 and must
-remain finite and representable at that precision. This does not establish that
-the floating source's intensity calibration is appropriate for a checkpoint.
+including nonnative byte order. The reader scales the native float32 cast in
+place. Floating CT passes through as float32 and must remain finite and
+representable at that precision. This does not establish that the floating
+source's intensity calibration is appropriate for a checkpoint.
 
 Python callers can opt into the same boundary:
 

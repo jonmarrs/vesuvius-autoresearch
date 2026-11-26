@@ -464,21 +464,23 @@ class FastVesuviusVolume:
         # Fetch raw CT data through the Volume Cartographer-aligned local
         # OME-Zarr compatibility layer.
         ct = self._read_chunk(z, y, x, d, h, w)
-        if not ct.dtype.isnative:  # a big-endian uint16 is not == np.uint16
-            ct = ct.astype(ct.dtype.newbyteorder("="))
-        # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
-        # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
-        if ct.dtype == np.uint8:
-            return ct.astype(np.float32) / 255.0
-        if ct.dtype == np.uint16:
-            return ct.astype(np.float32) / 65535.0
-        if np.issubdtype(ct.dtype, np.floating):
+        # Classify in native byte order. The float32 cast also converts the data
+        # to native byte order, so scaling can reuse that copy.
+        dtype = ct.dtype.newbyteorder("=")
+        if np.issubdtype(dtype, np.floating):
             return ct.astype(np.float32)
-        _warn_limited(
-            "ct_unknown_dtype",
-            f"unknown CT dtype {ct.dtype} for {self.uri}; falling back to /255.0 normalization.",
-        )
-        return ct.astype(np.float32) / 255.0
+        if dtype == np.uint16:
+            scale = 65535.0
+        else:
+            scale = 255.0
+            if dtype != np.uint8:
+                _warn_limited(
+                    "ct_unknown_dtype",
+                    f"unknown CT dtype {dtype} for {self.uri}; falling back to /255.0 normalization.",
+                )
+        normalized = ct.astype(np.float32)
+        normalized /= scale
+        return normalized
 
     def __getitem__(self, key) -> torch.Tensor:
         """
