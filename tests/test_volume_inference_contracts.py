@@ -1306,6 +1306,37 @@ def test_an_ensemble_exports_fiber_only_when_every_member_has_the_head(
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_preview_releases_image_arrays_before_export(tmp_path, monkeypatch, mode):
+    from matplotlib.axes import Axes
+    from PIL import Image
+
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.append("--disable_tta")
+    module = single if mode == "single" else ensemble
+    imshow = Axes.imshow
+    stage = module.stage_regional_outputs
+    image_arrays = []
+    observations = []
+
+    def observe_image(axis, *args, **kwargs):
+        image = imshow(axis, *args, **kwargs)
+        image_arrays.append(ref(image.get_array()))
+        return image
+
+    def observe_export(*args, **kwargs):
+        observations.append([array() is None for array in image_arrays])
+        return stage(*args, **kwargs)
+
+    monkeypatch.setattr(Axes, "imshow", observe_image)
+    monkeypatch.setattr(module, "stage_regional_outputs", observe_export)
+    runner()
+
+    assert observations == [[True] * 4]
+    with Image.open(tmp_path / "out" / "prediction.png") as preview:
+        preview.verify()
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("step", ["tight_layout", "savefig"])
 def test_failed_preview_render_preserves_prior_outputs_and_closes_figure(
     tmp_path, monkeypatch, mode, step

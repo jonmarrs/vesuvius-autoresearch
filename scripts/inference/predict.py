@@ -115,10 +115,12 @@ def prediction_scale_bar(width, voxel_size_um):
 
 @contextmanager
 def regional_preview_figure():
-    """Close this command's preview on success or rendering failure."""
+    """Release rendered preview data and close the figure."""
     figure = plt.figure(figsize=(15, 5))
     try:
         yield figure, figure.subplots(1, 3)
+        # Closing the window alone leaves image arrays attached to its axes.
+        figure.clear()
     finally:
         plt.close(figure)
 
