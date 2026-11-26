@@ -226,7 +226,7 @@ def production_predict(argv=None):
     window = hann2d(size, size, device=device)
     patches, coords = [], []
 
-    def flush(full_prob, full_count):
+    def flush(model, full_prob, full_count):
         if not patches:
             return
         batch = torch.stack(patches).to(device)
@@ -270,8 +270,9 @@ def production_predict(argv=None):
                 patches.append(patch)
                 coords.append((y, x))
                 if len(patches) >= args.batch_size:
-                    flush(full_prob, full_count)
-        flush(full_prob, full_count)
+                    flush(model, full_prob, full_count)
+        flush(model, full_prob, full_count)
+        del model
         final_prob = normalize_blend(full_prob, full_count).cpu().numpy()
     # Quantization and export only use the normalized host array.
     del full_prob, full_count

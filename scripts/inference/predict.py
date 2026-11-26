@@ -767,7 +767,8 @@ def predict():
                 weight_window
             )
 
-    # Normalize by weights
+    # Blend normalization only needs the accumulated predictions.
+    del model
     complete = args.num_parts == 1
     full_prob_ink = normalize_blend(full_prob_ink, full_weight, complete)
     if full_prob_fiber is not None:

@@ -171,6 +171,36 @@ def test_production_releases_blend_planes_before_export(tmp_path, monkeypatch):
     np.testing.assert_array_equal(pixels, np.full((1, 11, 13), 127, np.uint8))
 
 
+def test_production_releases_model_before_blend_normalization(tmp_path, monkeypatch):
+    out, _, _ = production_fixture(tmp_path, monkeypatch)
+    normalize = production.normalize_blend
+    model_refs = []
+    batch_sizes = []
+    observed = []
+
+    def build_model(*args, **kwargs):
+        model = ConstantModel()
+        model_refs.extend((ref(model), ref(model.bias.untyped_storage())))
+        model.register_forward_pre_hook(
+            lambda _module, inputs: batch_sizes.append(len(inputs[0]))
+        )
+        return model
+
+    def observe_normalization(*args):
+        observed.append([value() is None for value in model_refs])
+        return normalize(*args)
+
+    monkeypatch.setattr(production, "build_prediction_model", build_model)
+    monkeypatch.setattr(production, "normalize_blend", observe_normalization)
+    production.production_predict()
+
+    assert observed == [[True, True]]
+    assert batch_sizes == [4, 2]
+    store = next(out.glob("*.zarr"))
+    pixels = zarr.open_group(str(store), mode="r")["0"][:]
+    np.testing.assert_array_equal(pixels, np.full((1, 11, 13), 127, np.uint8))
+
+
 def test_production_memory_profile_is_opt_in_and_preserves_pixels(
     tmp_path, monkeypatch
 ):
