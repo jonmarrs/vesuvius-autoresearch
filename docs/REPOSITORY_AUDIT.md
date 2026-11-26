@@ -2714,3 +2714,17 @@ pixels and preservation of the previous result if final sampling fails.
 The available tests exercise production on CPU and use the shared profiler's
 mocked CUDA coverage. Representative 4090 and full-scroll measurements,
 including ensemble residency, remain open.
+
+## Release production blend planes before export (2026-11-26 UTC)
+
+This pass starts from main `7dcaa085`. A CPU fixture tracked both production
+blend accumulators through normalization using weak references. They were
+still live when uint8 conversion started, even though the normalized host
+array was the only result needed by export.
+
+Production now drops both accumulator references after creating the host
+array and before the `inference_complete` observation. The fixture verifies
+that neither tensor is still resident as quantization starts and compares
+every exported pixel with the existing expected value. Two float32 planes
+at 4096 by 4096 account for 128 MiB of storage. Representative GPU allocator
+peaks and whole-run process peaks remain open.
