@@ -282,6 +282,8 @@ def production_predict(argv=None):
     final_uint8 = quantize_probabilities(final_prob)
     print(f"Inference complete in {time.time() - start:.1f}s")
 
+    ink_stats = {"mean": float(final_prob.mean()), "max": float(final_prob.max())}
+    del final_prob
     plan.validate(source_uri=args.uri, checkpoint_alias=requested_checkpoint)
     with (
         ExitStack() as pending_metadata,
@@ -294,6 +296,7 @@ def production_predict(argv=None):
             origin_xyz=[args.x, args.y, args.z],
         ),
     ):
+        del final_uint8
         # Take the final observation after store preparation. The outer stack
         # installs the completion record after the store.
         pending_metadata.enter_context(
@@ -303,7 +306,7 @@ def production_predict(argv=None):
                 config_dict,
                 plan.zarr_path,
                 None,
-                {"mean": float(final_prob.mean()), "max": float(final_prob.max())},
+                ink_stats,
                 extra_metadata={
                     "artifact_stem": plan.stem,
                     "checkpoint_size_bytes": args.checkpoint_size_bytes,
