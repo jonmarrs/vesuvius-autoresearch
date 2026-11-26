@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from weakref import ref
 
 import numpy as np
 import pytest
@@ -98,6 +99,33 @@ def test_production_checkpoint_volume_edges_and_metadata(tmp_path, monkeypatch):
     assert metadata["position_xyz"] == [3, 2, 1]
     assert metadata["output_image_path"] is None
     assert metadata["scale_bar_cm"] is False
+
+
+def test_production_releases_blend_planes_before_export(tmp_path, monkeypatch):
+    out, _, _ = production_fixture(tmp_path, monkeypatch)
+    normalize = production.normalize_blend
+    quantize = production.quantize_probabilities
+    blend_planes = []
+    resident_at_quantization = []
+
+    def remember_blend_planes(values, weights):
+        blend_planes.extend((ref(values), ref(weights)))
+        return normalize(values, weights)
+
+    def check_planes_at_quantization(values):
+        resident_at_quantization.extend(plane() is not None for plane in blend_planes)
+        return quantize(values)
+
+    monkeypatch.setattr(production, "normalize_blend", remember_blend_planes)
+    monkeypatch.setattr(
+        production, "quantize_probabilities", check_planes_at_quantization
+    )
+    production.production_predict()
+
+    assert resident_at_quantization == [False, False]
+    store = next(out.glob("*.zarr"))
+    pixels = zarr.open_group(str(store), mode="r")["0"][:]
+    np.testing.assert_array_equal(pixels, np.full((1, 11, 13), 127, np.uint8))
 
 
 def test_production_memory_profile_is_opt_in_and_preserves_pixels(

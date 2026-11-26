@@ -208,7 +208,9 @@ options; a later invocation reads and validates its inputs again.
 For a production inference run, add `--profile-memory` to save the same
 memory observation schema in the completion record. The observations span
 model construction, inference and output preparation through the staged
-Zarr store. A dry run with this flag still returns the metadata-only plan.
+Zarr store. Production releases both blend accumulators before sampling
+`inference_complete` and converting the result to uint8. A dry run with
+this flag still returns the metadata-only plan.
 See [the memory observation fields](#regional-memory-observations) for the
 measurement scope and CUDA synchronization overhead.
 
