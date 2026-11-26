@@ -43,7 +43,11 @@ def calculate_entropy(probs):
         raise ValueError("probabilities must be finite in [0,1]")
     # 1e-8 underflows in float16, making endpoint terms 0 * log(0) = NaN.
     # xlogy defines those terms as zero; promote low-precision maps for scoring.
-    return -torch.xlogy(probs, probs) - torch.xlogy(1 - probs, 1 - probs)
+    complement = 1 - probs
+    complement_term = torch.xlogy(complement, complement)
+    del complement
+    entropy = torch.xlogy(probs, probs).neg_()
+    return entropy.sub_(complement_term)
 
 
 def minimum_distance(value):
@@ -239,7 +243,9 @@ def identify_uncertain_patches(probs, threshold=0.2):
     entropy /= max_entropy
     entropy.clamp_(0, 1)
 
-    return (entropy > threshold).float()
+    uncertain = entropy > threshold
+    del entropy
+    return uncertain.float()
 
 
 def export_for_proofreader(

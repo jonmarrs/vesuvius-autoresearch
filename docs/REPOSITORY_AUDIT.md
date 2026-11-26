@@ -2826,3 +2826,22 @@ A sparse 4096-by-4096 float32 mask staged on CPU peaked at approximately
 with the input already allocated. The exported Zarr store matched byte
 for byte. These figures cover mask staging. Coordinate alignment,
 training ingestion and representative whole-run peaks remain open.
+
+## Reduce uncertainty entropy allocations (2026-11-26 UTC)
+
+This pass starts from main `669e51f3` and follows the proofreader mask
+staging review back to the entropy calculation. The previous formula
+formed two identical probability complements and allocated separate
+full-size entropy negation and subtraction results.
+
+The scorer now uses one complement and reuses the fresh entropy output
+for negation and subtraction. Mask generation releases the entropy tensor
+after thresholding and before converting the mask to float32. The formula,
+endpoint behavior and input validation are preserved. Fixtures compare
+strided float32 and float64 inputs exactly and check the gradients.
+
+For a 4096-by-4096 float32 CPU probability map, PyTorch's allocator trace
+during uncertainty mask generation peaked at 256 MiB before the change
+and 128 MiB afterward. The input was already resident and the masks matched
+exactly. These figures describe mask generation. Representative GPU and
+whole-process peaks remain open.
