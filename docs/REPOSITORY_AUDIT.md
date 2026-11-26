@@ -2808,3 +2808,21 @@ after the previous cleanup. All four image arrays and their backing
 arrays were released after the change, and the PNG matched byte for byte.
 The CLI fixtures check the release before export. Representative process
 and GPU peaks remain open.
+
+## Bound proofreader mask staging allocations (2026-11-26 UTC)
+
+This pass starts from main `03bca83f` and follows up on proofreader mask
+staging. Both supported encodings reproduced a full numeric copy and
+whole-mask validation before construction of the boolean publication snapshot.
+
+The writer now captures and validates at most 262,144 elements at a time.
+It writes each block into one boolean snapshot and tracks which encoding
+remains valid across the complete mask. Noncontiguous arrays and both
+encodings produce the same decoded voxels, and a mixture across blocks
+still preserves the prior store.
+
+A sparse 4096-by-4096 float32 mask staged on CPU peaked at approximately
+97 MiB of traced allocations before the change and 18 MiB afterward,
+with the input already allocated. The exported Zarr store matched byte
+for byte. These figures cover mask staging. Coordinate alignment,
+training ingestion and representative whole-run peaks remain open.

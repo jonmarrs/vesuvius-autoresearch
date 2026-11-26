@@ -20,6 +20,7 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
 
 MAX_MASK_VOXELS = 128 * 1024**2
 MAX_OUTPUT_ENTRIES = 100_000
+_MASK_BLOCK_ELEMENTS = 262_144
 
 
 def mask_shape(shape, max_voxels=MAX_MASK_VOXELS):
@@ -87,6 +88,30 @@ def validate_destination(path, *, overwrite=False, sources=()):
     return path.absolute()
 
 
+def _binary_mask_snapshot(mask, shape):
+    """Validate bounded blocks while building the boolean publication snapshot."""
+    values = np.empty(shape, dtype=np.bool_)
+    allow_one = allow_255 = True
+    with np.nditer(
+        [np.asarray(mask).reshape(shape), values],
+        flags=["external_loop", "buffered"],
+        op_flags=[["readonly"], ["writeonly"]],
+        order="C",
+        buffersize=_MASK_BLOCK_ELEMENTS,
+    ) as blocks:
+        for source, destination in blocks:
+            # Validate and convert the same captured values, even for direct views.
+            captured = source.copy()
+            allow_one = allow_one and bool(np.isin(captured, [0, 1]).all())
+            allow_255 = allow_255 and bool(np.isin(captured, [0, 255]).all())
+            if not (allow_one or allow_255):
+                raise ValueError(
+                    "proofreader mask must contain finite binary 0/1 or 0/255 values"
+                )
+            np.not_equal(captured, 0, out=destination)
+    return values
+
+
 @contextmanager
 def stage_mask(
     mask,
@@ -107,12 +132,7 @@ def stage_mask(
     shape = mask_shape(mask.shape, max_voxels)
     if mask.dtype.kind not in "buif":
         raise ValueError("proofreader mask must contain real binary values")
-    values = np.array(mask, copy=True).reshape(shape)
-    if not (np.isin(values, [0, 1]).all() or np.isin(values, [0, 255]).all()):
-        raise ValueError(
-            "proofreader mask must contain finite binary 0/1 or 0/255 values"
-        )
-    values = values != 0
+    values = _binary_mask_snapshot(mask, shape)
     if metadata is not None and not isinstance(metadata, dict):
         raise ValueError("mask metadata must be a finite JSON object")
     try:
