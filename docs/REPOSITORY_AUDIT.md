@@ -2879,3 +2879,17 @@ Each 4096-by-4096 float32 plane accounts for 64 MiB of storage when the
 device and host copies are distinct. On CPU the NumPy outputs continue
 to share the normalized tensor storage. Representative GPU allocator
 and whole-process peaks remain open.
+
+## Release the uncertainty mask tensor before Zarr staging (2026-11-26 UTC)
+
+This pass starts from main `c77ea39c` and follows up on device tensor
+lifetime during regional uncertainty export. A CPU fixture simulated a
+host transfer with distinct storage. The original mask tensor remained
+live during proofreader Zarr staging, which reads only the host array.
+
+Single-model prediction now releases the mask tensor after the transfer.
+The fixture verifies release before staging and release of the host array
+before completion metadata is prepared. A 4096-by-4096 float32 mask
+occupies 64 MiB on the inference device when host and device storage are
+distinct. CPU inference still shares the storage through the NumPy array.
+Representative GPU allocator and whole-process peaks remain open.

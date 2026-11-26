@@ -129,8 +129,9 @@ commands.
 
 After copying its normalized probabilities to the host, single-model
 prediction holds the original ink tensor only for requested uncertainty
-scoring. It releases that tensor as soon as scoring ends. With CPU
-inference, the host arrays share the normalized tensor storage.
+scoring. It releases that tensor as soon as scoring ends, then releases
+the uncertainty mask tensor after copying it to the host and before staging
+its Zarr store. With CPU inference, the NumPy arrays share the tensor storage.
 
 ## Regional memory observations
 

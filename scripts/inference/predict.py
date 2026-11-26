@@ -901,11 +901,15 @@ def predict():
                         identify_uncertain_patches,
                     )
 
-                    mask = identify_uncertain_patches(uncertainty_input, threshold=0.2)
+                    device_mask = identify_uncertain_patches(
+                        uncertainty_input, threshold=0.2
+                    )
                     uncertainty_input = None
+                    host_mask = device_mask.detach().cpu().numpy()
+                    del device_mask
                     args.uncertainty_export = pending_mask.enter_context(
                         stage_mask(
-                            mask.detach().cpu().numpy(),
+                            host_mask,
                             uncertainty_path,
                             overwrite=True,
                             sources=uncertainty_sources,
@@ -923,10 +927,11 @@ def predict():
                             },
                         )
                     )
-                    del mask
+                    del host_mask
                     args.uncertainty_export["normalized_entropy_threshold"] = 0.2
                 except ImportError as exc:
                     uncertainty_input = None
+                    host_mask = None
                     args.uncertainty_export = {
                         "status": "UNAVAILABLE",
                         "path": None,
