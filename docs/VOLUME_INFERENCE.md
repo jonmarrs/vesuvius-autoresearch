@@ -115,10 +115,11 @@ example, `--max_accumulator_bytes 805306368` after checking available capacity.
 
 The cap covers the planned blend planes. Checkpoint capture/deserialization,
 resident ensemble models, activations, normalization temporaries, tile inputs,
-host copies, exports and CT decoding consume additional memory. All ensemble
-members still reside together. Representative 4090 measurements and streaming
-accumulators remain open work. Production planning has its own contract below;
-this option applies only to the two regional commands.
+host copies, exports and CT decoding consume additional memory. Ensemble
+members reside together during tiled prediction. The ensemble command releases
+them before blend normalization and export. Representative 4090 measurements
+and streaming accumulators remain open work. Production planning has its own
+contract below. This option applies only to the two regional commands.
 
 ## Regional memory observations
 
@@ -150,7 +151,7 @@ GPU name/capacity when using CUDA, units and chronological observations:
 | --- | --- |
 | `before_models` | After the first checkpoint/configuration preflight, before model construction. |
 | `models_loaded` | The model is loaded; all members are resident for an ensemble. |
-| `inference_complete` | Tiling, blend normalization and host probability copies have completed. |
+| `inference_complete` | Tiling, blend normalization and host probability copies have completed. The ensemble command has released its members. |
 | `metadata_ready` | Exports are staged and scalar statistics are ready, before the initial JSON write and installation. Optional coherence records a later observation. |
 
 Each observation contains current process RSS from psutil and the OS-reported
@@ -181,7 +182,8 @@ during preparation, the prior published artifacts and sidecar survive.
 The CPU smoke checks validate the recording path and unchanged outputs, including
 a two-model ensemble. No real 4090 capacity, full-scroll peak or throughput result
 has been measured here. Collect representative profiles before deciding whether
-to stream accumulators, change ensemble residency or raise the memory cap.
+to stream accumulators, load ensemble members sequentially or raise the memory
+cap.
 
 ## Production planning
 

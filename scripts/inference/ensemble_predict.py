@@ -269,6 +269,9 @@ def ensemble_predict():
                 )
             weights[y : y + patch_size, x : x + patch_size] += window
 
+    # Normalization and publication use only the accumulated predictions.
+    # The loop also leaves a reference to the final member.
+    del models, model
     complete = args.num_parts == 1
     ink = normalize_blend(full_ink, weights, complete).cpu().numpy()
     fiber = (
