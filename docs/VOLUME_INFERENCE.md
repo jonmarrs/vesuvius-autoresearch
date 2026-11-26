@@ -227,6 +227,9 @@ the CT and releases the saved weights after strict loading, before
 moving the model to the inference device. After the last batch, production
 releases the model before blend normalization and both blend accumulators
 before sampling `inference_complete` and converting the result to uint8.
+Production computes the probability statistics and releases the normalized
+array before Zarr staging. It releases the uint8 image before
+`metadata_ready`, once the store is staged.
 A dry run with this flag still returns the metadata-only plan.
 See [the memory observation fields](#regional-memory-observations) for the
 measurement scope and CUDA synchronization overhead.

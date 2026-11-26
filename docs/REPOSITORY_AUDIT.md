@@ -2893,3 +2893,17 @@ before completion metadata is prepared. A 4096-by-4096 float32 mask
 occupies 64 MiB on the inference device when host and device storage are
 distinct. CPU inference still shares the storage through the NumPy array.
 Representative GPU allocator and whole-process peaks remain open.
+
+## Release production export arrays after their last use (2026-11-26 UTC)
+
+This pass starts from main `1cf3a9ea` and follows up on production blend
+buffer lifetime. A CPU fixture observed the normalized probability array
+and quantized image still live when completion metadata was staged.
+
+Production now computes the mean and maximum from the normalized array
+before preparing the Zarr store and drops that array after computing the
+statistics. It releases the uint8 image after store preparation, before
+metadata staging. The fixture checks the lifetimes, published statistics
+and exact output pixels. At 4096 by 4096 the float32 and uint8 arrays
+account for 64 MiB and 16 MiB of host storage, respectively.
+Representative whole-process and GPU peaks remain open.

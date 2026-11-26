@@ -171,6 +171,40 @@ def test_production_releases_blend_planes_before_export(tmp_path, monkeypatch):
     np.testing.assert_array_equal(pixels, np.full((1, 11, 13), 127, np.uint8))
 
 
+def test_production_releases_host_arrays_after_their_last_use(tmp_path, monkeypatch):
+    out, _, _ = production_fixture(tmp_path, monkeypatch)
+    quantize = production.quantize_probabilities
+    stage_zarr = production.stage_vc3d_zarr
+    stage_metadata = production.stage_prediction_metadata
+    arrays = []
+    observations = {}
+
+    def trace_quantization(probabilities):
+        pixels = quantize(probabilities)
+        arrays.extend((ref(probabilities), ref(pixels)))
+        return pixels
+
+    def trace_zarr(*args, **kwargs):
+        observations["store"] = [array() is not None for array in arrays]
+        return stage_zarr(*args, **kwargs)
+
+    def trace_metadata(*args, **kwargs):
+        observations["metadata"] = [array() is not None for array in arrays]
+        return stage_metadata(*args, **kwargs)
+
+    monkeypatch.setattr(production, "quantize_probabilities", trace_quantization)
+    monkeypatch.setattr(production, "stage_vc3d_zarr", trace_zarr)
+    monkeypatch.setattr(production, "stage_prediction_metadata", trace_metadata)
+    production.production_predict()
+
+    assert observations == {"store": [False, True], "metadata": [False, False]}
+    store = next(out.glob("*.zarr"))
+    pixels = zarr.open_group(str(store), mode="r")["0"][:]
+    np.testing.assert_array_equal(pixels, np.full((1, 11, 13), 127, np.uint8))
+    metadata = json.loads(next(out.glob("*_meta.json")).read_text())
+    assert metadata["ink_stats"] == {"mean": 0.5, "max": 0.5}
+
+
 def test_production_releases_model_before_blend_normalization(tmp_path, monkeypatch):
     out, _, _ = production_fixture(tmp_path, monkeypatch)
     normalize = production.normalize_blend
