@@ -2861,3 +2861,21 @@ updated metadata. The fixtures observe the slice's backing array and verify
 one full-slice read, the original scoring input and the published score.
 A 4096-by-4096 float32 slice accounts for 64 MiB of host array storage.
 Representative whole-process and GPU peaks remain open.
+
+## Release normalized regional tensors after their last device use (2026-11-26 UTC)
+
+This pass starts from main `9ffd963c` and follows up on regional blend
+buffer lifetime. Three CPU fixtures simulated host transfers with distinct
+storage and found that the single-model command held both normalized
+probability tensors through metadata staging.
+
+The command drops the fiber tensor after copying it to the host. It holds
+the original ink tensor only when uncertainty scoring is planned, then
+drops it before mask staging or after a handled import failure. The fixtures
+cover skipped uncertainty, a complete mask, and a shard. They verify the
+original scoring tensor and exact saved probabilities.
+
+Each 4096-by-4096 float32 plane accounts for 64 MiB of storage when the
+device and host copies are distinct. On CPU the NumPy outputs continue
+to share the normalized tensor storage. Representative GPU allocator
+and whole-process peaks remain open.
