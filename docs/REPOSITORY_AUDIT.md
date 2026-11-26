@@ -2792,3 +2792,19 @@ The fixtures verify release for complete and sharded regional predictions
 and batched production. Saved probabilities, production pixels and the
 remainder batch are checked, alongside the existing two-model ensemble
 cases. Representative GPU and whole-process peaks remain open.
+
+## Release rendered preview image arrays before export (2026-11-26 UTC)
+
+This pass starts from main `15b8dad4` and follows up on preview figure
+cleanup. CPU fixtures for both regional commands found that Matplotlib
+still held the four image arrays when numeric artifact staging began.
+Closing the figure removed it from pyplot while the local axes still
+held the images.
+
+The preview context now clears the figure after rendering and closes
+it on both success and failure. In a 2048-by-2048 Agg render, the two CT
+images and the ink and fiber images held 64 MiB of float32 array storage
+after the previous cleanup. All four image arrays and their backing
+arrays were released after the change, and the PNG matched byte for byte.
+The CLI fixtures check the release before export. Representative process
+and GPU peaks remain open.
