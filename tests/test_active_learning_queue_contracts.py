@@ -51,6 +51,44 @@ def test_entropy_handles_exact_endpoints_in_every_float_dtype(dtype):
     assert values[1].item() == pytest.approx(math.log(2), abs=1e-6)
 
 
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_entropy_reuses_complement_and_preserves_probabilities(monkeypatch, dtype):
+    probabilities = torch.linspace(0, 1, 99, dtype=dtype).reshape(9, 11).T
+    original = probabilities.clone()
+    xlogy = torch.xlogy
+    expected = -xlogy(probabilities, probabilities) - xlogy(
+        1 - probabilities, 1 - probabilities
+    )
+    reused = []
+
+    def observe_xlogy(left, right):
+        reused.append(left is right)
+        return xlogy(left, right)
+
+    monkeypatch.setattr(torch, "xlogy", observe_xlogy)
+    actual = active.calculate_entropy(probabilities)
+
+    assert reused == [True, True]
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    torch.testing.assert_close(probabilities, original, rtol=0, atol=0)
+
+
+def test_entropy_preserves_gradients_inside_probability_range():
+    probabilities = torch.linspace(
+        0.01, 0.99, 127, dtype=torch.float64
+    ).requires_grad_()
+    expected = -torch.xlogy(probabilities, probabilities) - torch.xlogy(
+        1 - probabilities, 1 - probabilities
+    )
+    expected_gradient = torch.autograd.grad(expected.sum(), probabilities)[0]
+
+    actual = active.calculate_entropy(probabilities)
+    gradient = torch.autograd.grad(actual.sum(), probabilities)[0]
+
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    torch.testing.assert_close(gradient, expected_gradient, rtol=1e-12, atol=1e-12)
+
+
 @pytest.fixture
 def command(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
