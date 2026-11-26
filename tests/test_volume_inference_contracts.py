@@ -8,6 +8,7 @@ from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 from types import ModuleType
+from weakref import ref
 
 import numpy as np
 import pytest
@@ -506,6 +507,48 @@ def test_ensemble_handles_ct_and_ridge_models_with_different_depths(
     metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
     assert metadata["ensemble_checkpoints"] == checkpoints
     assert metadata["ensemble_model_configs"] == configs
+
+
+@pytest.mark.parametrize("shard", [False, True])
+def test_ensemble_releases_members_before_blend_normalization(
+    tmp_path, monkeypatch, shard
+):
+    configs = [
+        {"patch_size": 8, "num_layers": layers, "base_feat": 4} for layers in (2, 3)
+    ]
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "ensemble", configs)
+    argv.extend(["--artifact_stem", "region", "--disable_tta"])
+    if shard:
+        argv.extend(["--num_parts", "2", "--part_id", "0"])
+    members = []
+    observed = []
+
+    def build_member(**config):
+        model = ConstantHeads(config["num_layers"], config["use_ridges"])
+        members.append((ref(model), ref(model.bias)))
+        return model
+
+    normalize = ensemble.normalize_blend
+
+    def observe_normalization(*args):
+        observed.append([(model() is None, bias() is None) for model, bias in members])
+        return normalize(*args)
+
+    monkeypatch.setattr(ensemble, "build_inference_model", build_member)
+    monkeypatch.setattr(ensemble, "normalize_blend", observe_normalization)
+    runner()
+
+    assert observed == [[(True, True), (True, True)]] * 2
+    output = tmp_path / "out"
+    stem = "region_part0of2" if shard else "region"
+    if shard:
+        covered = np.load(output / f"{stem}_weight.npy") > 0
+        assert covered.any() and not covered.all()
+        expected = np.where(covered, 0.5, 0.0)
+    else:
+        expected = np.full((11, 13), 0.5)
+    for task in ("ink", "fiber"):
+        np.testing.assert_array_equal(np.load(output / f"{stem}_{task}.npy"), expected)
 
 
 @pytest.mark.parametrize(
