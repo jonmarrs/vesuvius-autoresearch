@@ -1370,6 +1370,60 @@ def test_failed_preview_render_preserves_prior_outputs_and_closes_figure(
     assert after == before
 
 
+@pytest.mark.parametrize(
+    "mode,compute_coherence", [("single", False), ("ensemble", False), ("single", True)]
+)
+def test_preview_ct_lifetime_follows_last_consumer(
+    tmp_path, monkeypatch, mode, compute_coherence
+):
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--disable_tta", "--artifact_stem", "region"])
+    module = single if mode == "single" else ensemble
+    read_ct = vesuvius_loader.FastVesuviusVolume.read_ct
+    stage_outputs = module.stage_regional_outputs
+    stage_metadata = module.stage_prediction_metadata
+    preview_reads = []
+    observations = []
+
+    def observe_read(dataset, z, y, x, d, h, w):
+        data = read_ct(dataset, z, y, x, d, h, w)
+        if (d, h, w) == (1, 11, 13):
+            preview_reads.append(ref(data))
+        return data
+
+    def observe_outputs(*args, **kwargs):
+        observations.append(("export", preview_reads[0]() is not None))
+        return stage_outputs(*args, **kwargs)
+
+    def observe_metadata(*args, **kwargs):
+        if kwargs.get("fiber_coherence") is not None:
+            observations.append(("enrichment", preview_reads[0]() is not None))
+        return stage_metadata(*args, **kwargs)
+
+    monkeypatch.setattr(vesuvius_loader.FastVesuviusVolume, "read_ct", observe_read)
+    monkeypatch.setattr(module, "stage_regional_outputs", observe_outputs)
+    monkeypatch.setattr(module, "stage_prediction_metadata", observe_metadata)
+    if compute_coherence:
+        argv.append("--compute_coherence")
+        coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+
+        def score_preview(ct, **kwargs):
+            assert np.shares_memory(ct, preview_reads[0]())
+            return 0.25
+
+        monkeypatch.setattr(coherence, "compute_coherence", score_preview)
+
+    runner()
+
+    assert len(preview_reads) == 1
+    expected = [("export", compute_coherence)]
+    if compute_coherence:
+        expected.append(("enrichment", False))
+    assert observations == expected
+    metadata = json.loads((tmp_path / "out" / "region_meta.json").read_text())
+    assert metadata["fiber_coherence"] == (0.25 if compute_coherence else None)
+
+
 def test_fiber_coherence_tells_oriented_structure_from_noise():
     """It called compute_st and layout, which villa's StructureTensorComputer
     does not have: every --compute_coherence run failed, as a printed warning.

@@ -865,6 +865,8 @@ def predict():
             figure.savefig(
                 str(staging / artifacts.image.name), format=artifacts.image_format
             )
+        coherence_slice = ct_slice if args.compute_coherence else None
+        del ct_slice
         preview_files = artifacts.preview_files(staging)
         artifacts.validate_source_selection(args.uri)
         # Protect the current checkpoint link target as well as the file we read.
@@ -946,12 +948,13 @@ def predict():
 
     # Automated Fiber Coherence Evaluation (Villa ST): the structure tensor of the
     # CT slice shown in the figure, independent of the model's heads.
-    if args.compute_coherence:
+    if coherence_slice is not None:
         try:
             from scripts.compute_fiber_coherence import compute_coherence
 
             print("Computing Fiber Coherence score (Villa ST)...", flush=True)
-            fiber_coherence = compute_coherence(ct_slice, device=str(device))
+            fiber_coherence = compute_coherence(coherence_slice, device=str(device))
+            del coherence_slice
             print(f"Fiber Coherence Score: {fiber_coherence:.6f}")
             with stage_metadata(exports, fiber_coherence):
                 pass
