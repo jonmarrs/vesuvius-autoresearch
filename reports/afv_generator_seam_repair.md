@@ -183,4 +183,35 @@ The last column is the share of the trim's gain over main at τ = 4 that the rep
 
 ## Addendum 1: finding 107's 1024³ zone (described)
 
-Pending: the zone run started at 12:33:19 PST on 11-27, at 6313e162, where the addendum was registered.
+Registered at 6313e162 (pushed 12:33:11 PST on 11-27), before the zone ran. The run went from 12:33:19 to 13:04:03 PST,
+on the CPU at nice 10, in its own systemd user unit. It used finding 107's cached per-block fields and its scan
+(sha256 `63865b83…`), so nothing was predicted. Results: `reports/afv_generator_seam_repair_zone.json`.
+
+The gate passed: main and finding 107's zone trim each reproduced finding 107's recorded row exactly.
+
+One 1024³ zone of the Scroll-3 scan, at villa's default `--block-size 512` (8 blocks), centred on the held-out cube
+`s3_04494_00994_01494_512`. The zone's three inner faces cross the cube.
+
+| | main | trim | repaired |
+|---|---|---|---|
+| zone: fibers written | 5,766 | 5,326 | 5,555 |
+| zone: written length, voxels | 1,031,976 | 972,804 | 1,009,458 |
+| zone: written length beside a same-family copy | 0.120 | 0.052 | 0.078 |
+| cube: fibers written inside | 1,052 | 904 | 1,004 |
+| cube: written length beside a same-family copy | 0.247 | 0.099 | 0.175 |
+| cube: ERLpen, τ = 4 | 35.79 | 41.51 | 39.44 |
+| cube: ERLpen, τ = 2 | 15.11 | 15.95 | 15.93 |
+| cube: merges, τ = 4 | 300 | 269 | 292 |
+| cube: merges, τ = 2 | 92 | 82 | 92 |
+| cube: coverage, τ = 4 | 0.4296 | 0.4138 | 0.4323 |
+| cube: coverage, τ = 2 | 0.3406 | 0.3273 | 0.3418 |
+
+In the cube, the repair raises ERLpen over main by +10.2% at τ = 4 and +5.4% at τ = 2 (the trim: +16.0% and +5.6%),
+with merges at τ = 2 equal to main's and coverage at τ = 4 +0.6% (the trim: −3.7%). Over the zone, the repair
+removes 0.62 of the written-twice length the trim removes. The pattern is the one on the eighteen cubes: joins and
+coverage stay main's, most of the gain remains, and some seam copies remain.
+
+After the record, villa #2711's local branch gained `53baea280`, which changes only `test_stitch.py`. It adds the
+review's two cases at the default block size: main's join of copies at x 100–537 and 507–770, and a 125-voxel trace
+only block 0 detects along its face at x 535. Both pass with the repair. With finding 106's trim, the first gives two
+fibers and the second loses the trace. The measured `extend/stitch.py` is unchanged.

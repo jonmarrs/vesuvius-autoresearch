@@ -623,7 +623,9 @@ Not verified for this review: how PHerc. 306B was won, and the organizers' First
   crossings lost against main's 172 (the posted trim: 278): `REPAIR_KEEPS_THE_GAIN`. Coverage was main's to within
   0.7% on all eighteen cubes. On Scrolls 1 and 5 the gain was 10 of 10, median +11.7%. The repair keeps a median 0.72
   and 0.57 of the trim's gain, and more same-family copies (written-twice share 0.176 on Scroll 3; P3's 0.15 failed).
-  On a multi-block zone, VC3D's live previews wait until a block's neighbours are fitted. Pushing the repair to #2711
+  Addendum 1 (described) ran finding 107's 1024³ zone at the default block size. The cube's ERLpen at τ = 4 rose
+  +10.2% (the trim: +16.0%), and the zone's written-twice share fell from 0.120 to 0.078 (the trim: 0.052). On a
+  multi-block zone, VC3D's live previews wait until a block's neighbours are fitted. Pushing the repair to #2711
   and replying to the review are the owner's decisions.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so

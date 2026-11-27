@@ -275,3 +275,98 @@ def test_the_predictions_table_is_the_registration_applied_to_the_record():
         True,
         True,
     ]
+
+
+def test_the_zone_addendum_is_its_record():
+    z = json.loads((ROOT / "reports/afv_generator_seam_repair_zone.json").read_text())
+    f107 = json.loads((ROOT / "reports/afv_generator_default_zone.json").read_text())[
+        "result"
+    ]
+    t = flat().split("## Addendum 1", 1)[1]
+    assert (
+        z["reproduced"]
+        and z["problems"] == []
+        and (z["finding"], z["addendum"]) == (140, 1)
+    )
+    for v in ("main", "patched"):
+        assert z["rows"][v] == f107["rows"][v]
+    assert (
+        z["sha256"]["context"] == f107["context_sha256"]
+        and f"sha256 `{z['sha256']['context'][:8]}…`" in t
+    )
+    assert z["sha256"]["repaired_stitch"].startswith("62eddc21")
+    R = [z["rows"][v] for v in ("main", "patched", "repaired")]
+
+    def line(label, f):
+        return f"| {label} | " + " | ".join(f(r) for r in R) + " |"
+
+    for label, f in (
+        ("zone: fibers written", lambda r: f"{r['zone']['written']:,}"),
+        ("zone: written length, voxels", lambda r: f"{round(r['zone']['length']):,}"),
+        (
+            "zone: written length beside a same-family copy",
+            lambda r: f"{r['zone']['duplicated_share']:.3f}",
+        ),
+        ("cube: fibers written inside", lambda r: f"{r['cube']['written_inside']:,}"),
+        (
+            "cube: written length beside a same-family copy",
+            lambda r: f"{r['cube']['duplicated_share']:.3f}",
+        ),
+        (
+            "cube: ERLpen, τ = 4",
+            lambda r: str(r["cube"]["tol4"]["erl_merge_penalized"]),
+        ),
+        (
+            "cube: ERLpen, τ = 2",
+            lambda r: str(r["cube"]["tol2"]["erl_merge_penalized"]),
+        ),
+        ("cube: merges, τ = 4", lambda r: str(r["cube"]["tol4"]["merges"])),
+        ("cube: merges, τ = 2", lambda r: str(r["cube"]["tol2"]["merges"])),
+        ("cube: coverage, τ = 4", lambda r: f"{r['cube']['tol4']['coverage']:.4f}"),
+        ("cube: coverage, τ = 2", lambda r: f"{r['cube']['tol2']['coverage']:.4f}"),
+    ):
+        assert line(label, f) in t, label
+    m, p, q = (r["cube"] for r in R)
+
+    def g(a, tol):
+        return pct(a[tol]["erl_merge_penalized"] / m[tol]["erl_merge_penalized"] - 1)
+
+    def cov(a):
+        return pct(a["tol4"]["coverage"] / m["tol4"]["coverage"] - 1)
+
+    assert (
+        f"by {g(q, 'tol4')} at τ = 4 and {g(q, 'tol2')} at τ = 2 (the trim: {g(p, 'tol4')} and {g(p, 'tol2')})"
+        in t
+    )
+    assert (
+        f"coverage at τ = 4 {cov(q)} (the trim: {cov(p)})" in t
+        and q["tol2"]["merges"] == m["tol2"]["merges"]
+    )
+    zm, zp, zq = (r["zone"]["duplicated_share"] for r in R)
+    assert (
+        f"removes {(zm - zq) / (zm - zp):.2f} of the written-twice length the trim removes"
+        in t
+    )
+
+
+def test_the_strategy_paragraph_states_the_zone_addendum():
+    z = json.loads((ROOT / "reports/afv_generator_seam_repair_zone.json").read_text())[
+        "rows"
+    ]
+    t = (
+        flat(ROOT / "docs/RESEARCH_STRATEGY.md")
+        .split("[Finding 140]", 1)[1]
+        .split("- [Finding", 1)[0]
+    )
+    m, p, q = (z[v] for v in ("main", "patched", "repaired"))
+
+    def g(a):
+        return pct(
+            a["cube"]["tol4"]["erl_merge_penalized"]
+            / m["cube"]["tol4"]["erl_merge_penalized"]
+            - 1
+        )
+
+    assert f"rose {g(q)} (the trim: {g(p)})" in t
+    assert (f"fell from {m['zone']['duplicated_share']:.3f} to {q['zone']['duplicated_share']:.3f} "
+            f"(the trim: {p['zone']['duplicated_share']:.3f})") in t  # fmt: skip
