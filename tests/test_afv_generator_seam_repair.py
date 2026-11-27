@@ -97,6 +97,19 @@ def test_the_verdict_lines_are_the_registrations():
     )
 
 
+def test_the_zone_addendum_gates_on_finding_107s_own_trim():
+    import afv_generator_default_zone as dz
+
+    assert (
+        "Addendum 1 (2026-11-27, after the eighteen cubes, before the 1024³ zone runs)"
+        in REG
+    )
+    assert "must equal finding 107's recorded rows" in REG
+    # finding 107's zone trim is the zone form finding 109 and this finding's Scrolls 1 and 5 used
+    assert dz.PATCHED_STITCH_SHA256.startswith("362b78b12b2abf1b")
+    assert (dz.ZONE, dz.BLOCK, dz.MARGIN) == (1024, 512, 32)
+
+
 def test_the_summary_compares_each_arm_with_main():
     s = sr.summary(_results([0.1] * 8))
     assert s["lost_crossings"] == {"main": 40, "trim": 40, "repaired": 16}

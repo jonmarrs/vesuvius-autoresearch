@@ -82,3 +82,13 @@ The ten Scroll-1 and -5 cubes are described beside it, not part of the verdict.
 ## Cost
 
 CPU only, from the cached fields: spline fitting, stitching and scoring, about three runs of each cube. A few hours.
+
+## Addendum 1 (2026-11-27, after the eighteen cubes, before the 1024³ zone runs)
+
+The registered verdict is in (`REPAIR_KEEPS_THE_GAIN`); this adds only the measurement limit 2 promised. Finding 107's
+1024³ Scroll-3 zone in 8 blocks of 512 (villa's default `--block-size`), from its cached per-block fields
+(`prob_block_0..7.npy`) and scan, so nothing is predicted. Three arms, each scored exactly as finding 107 scored its
+two: `main` and `patched` (finding 107's zone trim) must equal finding 107's recorded rows, or nothing is reported as a
+result; `repaired` is the new trim, each block against the untrimmed splines of the blocks whose read box meets its own
+(all eight meet at the zone's centre). Reported, without a verdict: the zone's written fibers, length and written-twice
+share, and inside the hand-traced cube the written-twice share and ScrollGT scores at τ = 2 and 4.

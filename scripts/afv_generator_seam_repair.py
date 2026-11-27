@@ -11,6 +11,8 @@ Usage (the generator's venv, CPU):
   python -I scripts/afv_generator_seam_repair.py run SET CUBE --fields DIR --out DIR --pr PR_SRC --old-first PATH \
       --old-zone PATH --repaired PATH
   python -I scripts/afv_generator_seam_repair.py verdict --out DIR --record RECORD
+  python -I scripts/afv_generator_seam_repair.py zone --work F107_WORK --out DIR --pr PR_SRC --old-zone PATH \
+      --repaired PATH   (addendum 1: finding 107's 1024³ zone, described)
 SET is scroll3 (finding 106's eight cubes) or confirm (finding 109's ten).
 """
 
@@ -201,6 +203,99 @@ def run(args) -> None:
     print(f"{args.cube}: {problems or 'reproduced'}", flush=True)
 
 
+def zone_row(fibers, families, skel, dz) -> dict:
+    """Finding 107's row for one variant of its 1024³ zone (`afv_generator_default_zone.run`'s, unchanged)."""
+    import afv_to_labels
+    from scrollgt.fibers.eval_trace import score_tracing
+
+    lo, hi = np.full(3, dz.PAD), np.full(3, dz.PAD + dz.SIZE)
+    labels = afv_to_labels.rasterize({k: afv_to_labels.to_cube_zyx(v, (dz.PAD,) * 3) for k, v in enumerate(fibers)},
+                                     (dz.SIZE,) * 3)  # fmt: skip
+    inside = [bs.dense(f)[0] for f in fibers]
+    inside = [p[np.all((p >= lo) & (p < hi), axis=1)] for p in inside]
+    return {
+        "zone": {
+            "written": len(fibers),
+            "length": round(float(sum(bs.dense(f)[1][-1] for f in fibers)), 1),
+            "duplicated_share": round(bs.duplicated_share(fibers, families), 4),
+        },
+        "cube": {
+            "written_inside": sum(len(p) > 0 for p in inside),
+            "duplicated_share": round(dz.duplicated_share_in(fibers, families, lo, hi), 4),
+            **{f"tol{int(t)}": score_tracing(skel, labels, tolerance=t).as_row() for t in bs.TOLS},
+        },
+    }  # fmt: skip
+
+
+def zone(args) -> None:
+    """Addendum 1: finding 107's 1024³ zone from its cached fields, main and its trim gated on its recorded rows."""
+    import afv_generator_default_zone as dz
+
+    out_file = args.out / "zone" / "result.json"
+    if out_file.exists():
+        raise SystemExit(f"{out_file} exists: the zone runs once")
+    work = args.work  # finding 107's work directory, read only
+    recorded = json.loads((work / "result.json").read_text())
+    missing = [i for i in range(8) if not (work / f"prob_block_{i}.npy").exists()]
+    if (
+        missing
+        or recorded["identity_problems"]
+        or sha(args.old_zone) != dz.PATCHED_STITCH_SHA256
+    ):
+        raise SystemExit(f"gate failed: fields missing {missing}, identity {recorded['identity_problems']}, "
+                         f"zone trim {sha(args.old_zone)[:16]}")  # fmt: skip
+    bs.load(args.pr, args.old_zone)
+    sc.scrollgt_on_path()
+    from scrollgt.fibers.target import load_fiber_target
+    from vesuvius.afv_spline_generator import cli
+    from vesuvius.afv_spline_generator.cleanup import ExteriorBlack
+    from vesuvius.afv_spline_generator.extend.catalog import Catalog
+
+    old, repaired = (
+        module(args.old_zone, "stitch_zone"),
+        module(args.repaired, "stitch_repaired"),
+    )
+    ct = np.load(work / "context.npy", mmap_mode="r")
+    if dz.file_sha256(work / "context.npy") != recorded["context_sha256"]:
+        raise SystemExit("gate failed: the scan is not finding 107's")
+    shape_xyz = np.asarray(ct.shape[::-1])
+    reach_low, reach_high = dz.read_box(shape_xyz)
+    blocks = []
+    for i, (origin, size, low, high) in enumerate(dz.block_crops(cli, shape_xyz)):
+        sl = tuple(
+            slice(int(a), int(b)) for a, b in zip(low[::-1], high[::-1], strict=True)
+        )
+        blocks.append((low, high, origin, size, np.asarray(ct[sl]),
+                       (lambda i=i: np.load(work / f"prob_block_{i}.npy"))))  # fmt: skip
+    skel, _, _ = load_fiber_target(bs.SG / "data" / f"fibers_{dz.CUBE}")
+    rows = {}
+    for variant, make in (
+        ("main", lambda: xd.stitch_blocks(blocks, sc.untrimmed, reach_low, reach_high,
+                                          ExteriorBlack(reach_low, reach_high), Catalog)),
+        ("patched", lambda: xd.stitch_blocks(blocks, old.trim_cut_ends, reach_low, reach_high,
+                                             ExteriorBlack(reach_low, reach_high), Catalog)),
+        ("repaired", lambda: stitch_repaired(blocks, repaired.trim_cut_ends, reach_low, reach_high,
+                                             ExteriorBlack(reach_low, reach_high))),
+    ):  # fmt: skip
+        traces = make()
+        fibers = [np.asarray(t["points"], np.float64) for t in traces]
+        families = [int(t["family"]) for t in traces]
+        rows[variant] = zone_row(fibers, families, skel, dz)
+        z, c = rows[variant]["zone"], rows[variant]["cube"]
+        print(f"{variant:8s} zone written {z['written']} dup {z['duplicated_share']:.3f} | cube dup "
+              f"{c['duplicated_share']:.3f} t2 {c['tol2']['erl_merge_penalized']} m{c['tol2']['merges']} "
+              f"t4 {c['tol4']['erl_merge_penalized']} m{c['tol4']['merges']}", flush=True)  # fmt: skip
+    problems = [f"{v} does not reproduce finding 107's row" for v in ("main", "patched")
+                if json.loads(json.dumps(rows[v])) != recorded["rows"][v]]  # fmt: skip
+    out = {"finding": 140, "addendum": 1, "cube": dz.CUBE, "zone": dz.ZONE, "block": dz.BLOCK, "rows": rows,
+           "reproduced": not problems, "problems": problems,
+           "sha256": {"old_zone": sha(args.old_zone), "repaired_stitch": sha(args.repaired),
+                      "context": recorded["context_sha256"]}}  # fmt: skip
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    out_file.write_text(json.dumps(out, indent=1))
+    print(f"zone: {problems or 'reproduced'}", flush=True)
+
+
 def gain(row, base, tol="tol4") -> float:
     return row[tol]["erl_merge_penalized"] / base[tol]["erl_merge_penalized"] - 1
 
@@ -274,12 +369,18 @@ def main() -> None:
         "--repaired",
     ):
         r.add_argument(name, type=Path, required=True)
+    z = sub.add_parser("zone")
+    for name in ("--work", "--out", "--pr", "--old-zone", "--repaired"):
+        z.add_argument(name, type=Path, required=True)
     v = sub.add_parser("verdict")
     v.add_argument("--out", type=Path, required=True)
     v.add_argument("--record", type=Path, required=True)
     a = ap.parse_args()
     if a.cmd == "run":
         run(a)
+        return
+    if a.cmd == "zone":
+        zone(a)
         return
     results = {s: {p.parent.name: json.loads(p.read_text()) for p in sorted((a.out / s).glob("*/result.json"))}
                for s in SETS}  # fmt: skip
