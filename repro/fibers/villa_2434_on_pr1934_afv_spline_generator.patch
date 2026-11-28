@@ -1,0 +1,79 @@
+commit 22570d2bf10e323db39d655c55a428be1714d10f
+Author: Christos Vasilopoulos <ch.vasilo@gmail.com>
+Date:   Wed Nov 25 23:59:34 2026 +0200
+
+    fiber_spline_generator: join fiber splines that meet at a shared end point (#2434)
+    
+    * fiber_spline_generator: join splines that meet at a shared end point
+    
+    The catalogue only proposed gap joins between end points 0.25 to 30 voxels
+    apart, so two halves of a chain split by fit_portions, which keep the cut
+    vertex, were never joined, while the same pieces half a voxel apart were.
+    Below 0.25 voxels the join direction now comes from the end-point tangent.
+    
+    * Reject backward spline bridges and apply angle cleanup to coincident joins
+    
+    ---------
+    
+    Co-authored-by: villa-review[bot] <339717352+villa-review[bot]@users.noreply.github.com>
+
+diff --git a/src/vesuvius/afv_spline_generator/cleanup.py b/src/vesuvius/afv_spline_generator/cleanup.py
+index 51a1a1366..1ebd35a88 100644
+--- a/src/vesuvius/afv_spline_generator/cleanup.py
++++ b/src/vesuvius/afv_spline_generator/cleanup.py
+@@ -59,7 +59,8 @@ def cut_sharp_joins(traces: Sequence[dict[str, Any]], max_angle: float) -> list[
+             continue
+         for start, end in zip([0] + [high for _, high in cuts], [low for low, _ in cuts] + [len(points) - 1]):
+             if end > start:
+-                kept = [[low - start, high - start] for low, high in gaps if start <= low and high <= end]
++                kept = [[low - start, high - start] for low, high in gaps
++                        if start <= low and high <= end and (low, high) not in cuts]
+                 result.append(dict(trace, points=points[start:end + 1], gaps=kept))
+     return result
+ 
+diff --git a/src/vesuvius/afv_spline_generator/extend/catalog.py b/src/vesuvius/afv_spline_generator/extend/catalog.py
+index c9fbbbb20..daf2a103c 100644
+--- a/src/vesuvius/afv_spline_generator/extend/catalog.py
++++ b/src/vesuvius/afv_spline_generator/extend/catalog.py
+@@ -263,9 +263,13 @@ class Catalog:
+             for eb in (0,1):
+                 delta = np.asarray(tb[eb]['point']) - ta[ea]['point']
+                 distance = float(np.linalg.norm(delta))
+-                if not .25 <= distance <= GAP_CAP:
++                if distance > GAP_CAP:
+                     continue
+-                direction = delta / distance
++                # Too short to give a direction, but the bridge must not step back along either end segment.
++                if distance < .25 and (np.dot(delta, pa[-1]-pa[-2] if ea else pa[0]-pa[1]) < 0 or
++                                       np.dot(delta, pb[-1]-pb[-2] if eb else pb[0]-pb[1]) > 0):
++                    continue
++                direction = delta / distance if distance >= .25 else np.asarray(ta[ea]['tangent'])
+                 ca = float(np.dot(ta[ea]['tangent'], direction))
+                 cb = float(np.dot(tb[eb]['tangent'], -direction))
+                 cosine = min(ca, cb)
+diff --git a/src/vesuvius/afv_spline_generator/extend/expander.py b/src/vesuvius/afv_spline_generator/extend/expander.py
+index 6fde66f35..b5b183173 100644
+--- a/src/vesuvius/afv_spline_generator/extend/expander.py
++++ b/src/vesuvius/afv_spline_generator/extend/expander.py
+@@ -283,7 +283,7 @@ class Expander:
+                     continue
+                 _,at=_project(np.asarray(gap['points'])[ [0,-1] ],p,s)
+                 begin,end=max(low,float(min(at))),min(high,float(max(at)))
+-                if end>begin+1e-6:
++                if end>=begin:
+                     gaps.append(dict(gap,points=_at(p,s,[begin,end]).tolist(),lengthVoxels=end-begin))
+         for step in self.steps:
+             gaps.append(dict(kind='overlap-seam' if step.get('kind')=='overlap' else 'gap',
+diff --git a/src/vesuvius/afv_spline_generator/extend/stitch.py b/src/vesuvius/afv_spline_generator/extend/stitch.py
+index b540d1754..df9f91026 100644
+--- a/src/vesuvius/afv_spline_generator/extend/stitch.py
++++ b/src/vesuvius/afv_spline_generator/extend/stitch.py
+@@ -149,7 +149,5 @@ def _gap_ranges(curve, points):
+     ranges = []
+     for gap in curve.get('gaps', []):
+         if gap.get('kind') == 'gap' and len(gap.get('points', [])) >= 2:
+-            a, b = sorted(map(int, tree.query(np.asarray(gap['points'])[[0, -1]])[1]))
+-            if a != b:
+-                ranges.append([a, b])
++            ranges.append(sorted(map(int, tree.query(np.asarray(gap['points'])[[0, -1]])[1])))
+     return ranges
