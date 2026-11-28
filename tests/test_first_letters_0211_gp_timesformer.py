@@ -718,39 +718,9 @@ def test_a_malicious_zip_is_refused_at_the_weights_only_false_sites(tmp_path):
         )
     assert not marker.exists()
 
-    # The fiber loader builds the network from plans, then audits the zip.
-    semantic = importlib.import_module("vesuvius_autoresearch.fibers.semantic")
-    bundle = tmp_path / "bundle"
-    (bundle / "fold_0").mkdir(parents=True)
-    (bundle / "plans.json").write_text(
-        '{"configurations":{"3d_fullres":{"patch_size":[4,4,4],'
-        '"normalization_schemes":["ZScoreNormalization"],'
-        '"use_mask_for_norm":[false],'
-        '"architecture":{"network_class_name":"test.Network",'
-        '"arch_kwargs":{"strides":[[1,1,1]]}}}}}'
-    )
-    import json
-
-    labels = {name: index for index, name in semantic.LABELS.items()}
-    (bundle / "dataset.json").write_text(
-        json.dumps({"channel_names": {"0": "CT"}, "labels": labels})
-    )
-
-    # torch is the module pytest.importorskip returned, so mypy cannot resolve the base class
-    class BundleNetwork(torch.nn.Module):  # type: ignore[name-defined]
-        def __init__(self, **kwargs):
-            super().__init__()
-            self.encoder = torch.nn.Linear(1, 1)
-
-    original_import = semantic._import_by_path
-    semantic._import_by_path = lambda name: BundleNetwork
-    torch.save(Touch(), bundle / "fold_0" / "checkpoint_final.pth")
-    try:
-        with pytest.raises(ValueError, match="posix.system"):
-            semantic.load_model(bundle, device="cpu")
-    finally:
-        semantic._import_by_path = original_import
-    assert not marker.exists()
+    # The fiber loader is no longer one of these sites: since #546 it loads weights-only, and torch's own
+    # unpickler refuses the same zip (tests/test_fiber_workflow_contracts.py::
+    # test_semantic_still_refuses_a_malicious_bundle).
 
     path = ROOT / "repro" / "gp_winner" / "infer_resenc.py"
     source = path.read_text()

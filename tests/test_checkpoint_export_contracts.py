@@ -300,14 +300,17 @@ def test_export_failure_cleans_staging_and_preserves_input(
 
         monkeypatch.setattr(export.torch, "save", fail_save)
     else:
-        original = Path.rename
+        # The publisher moves the staged file into place with Path.replace (since #579) or
+        # Path.rename: fail whichever one targets the output.
+        for method in ("rename", "replace"):
+            original = getattr(Path, method)
 
-        def fail_rename(path, destination):
-            if Path(destination) == output:
-                raise OSError("injected publication failure")
-            return original(path, destination)
+            def fail_publication(path, destination, original=original):
+                if Path(destination) == output:
+                    raise OSError("injected publication failure")
+                return original(path, destination)
 
-        monkeypatch.setattr(Path, "rename", fail_rename)
+            monkeypatch.setattr(Path, method, fail_publication)
     with pytest.raises(export.CHECKPOINT_ERRORS):
         export.export_checkpoint(source, output)
     assert sha(source) == before

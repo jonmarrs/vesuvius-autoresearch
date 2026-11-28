@@ -90,6 +90,19 @@ def publish_new(output):
             raise ValueError(f"output appeared during processing: {output}")
 
 
+STAGING_STEM_LIMIT = 64
+
+
+def staging_prefix(output):
+    """``.{stem}-`` for a staged sibling of ``output``, the stem cut to 64 characters.
+
+    Named after the output, so a leftover is recognisable beside it (and the tests'
+    ``glob(".{stem}-*")`` checks find one); cut short, so a long stem still leaves
+    room for the random part and suffix under the filesystem's 255-byte name limit.
+    """
+    return f".{Path(output).stem[:STAGING_STEM_LIMIT]}-"
+
+
 @contextmanager
 def staged_file(output, *, suffix=""):
     """Replace a local file by rename after writing its sibling successfully."""
@@ -98,7 +111,10 @@ def staged_file(output, *, suffix=""):
     staging = None
     try:
         with tempfile.NamedTemporaryFile(
-            dir=output.parent, prefix=".staged-", suffix=suffix, delete=False
+            dir=output.parent,
+            prefix=staging_prefix(output),
+            suffix=suffix,
+            delete=False,
         ) as stream:
             staging = Path(stream.name)
         yield staging
