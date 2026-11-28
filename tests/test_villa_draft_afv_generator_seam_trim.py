@@ -187,7 +187,9 @@ def test_the_change_is_the_amended_patch():
 
 def test_the_owners_parts_are_left_to_the_owner_and_nothing_is_signed():
     text = DRAFT.read_text()
-    assert text.startswith("# Draft:") and "**NOT POSTED.**" in text
+    assert (
+        text.startswith("# Draft:") and "**POSTED 2026-11-25 as [villa #2711]" in text
+    )
     assert "- [ ] I personally verified" in text and "- [x]" not in text.lower()
     assert "[The owner's own words:" in text
     internal, postable = text.split("\n---\n", 1)

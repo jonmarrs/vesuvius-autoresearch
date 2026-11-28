@@ -1,4 +1,4 @@
-# November 2026 Progress Prize — DRAFT (started 2026-11-05; updated 2026-11-24; not submitted)
+# November 2026 Progress Prize — DRAFT (started 2026-11-05; updated 2026-11-27; not submitted)
 
 **The November round opened 2026-11-05 03:54 UTC (2026-11-04 Pacific)** with villa
 [#2301](https://github.com/ScrollPrize/villa/pull/2301) (merge `9c343a164`):
@@ -79,11 +79,16 @@ above only once it merges, with its date:
   branch and checked all 80 volume headers. It is documentation, weak under #2450 on its own, and belongs in a
   bundle.
 
-**Open, posted 2026-11-25, not yet reviewed:**
-* [villa #2711](https://github.com/ScrollPrize/villa/pull/2711): the fiber generator's seam trim, the trim alone, with
-  the Scroll 1 and 5 figures. Its measurements are the seam trim's, below. It touches the same test file as another
-  contributor's open #2434, so whichever lands second rebases one hunk. It counts for November only if it merges by
-  the deadline.
+**Open, posted 2026-11-25, revised 2026-11-27 after villa's review:**
+* [villa #2711](https://github.com/ScrollPrize/villa/pull/2711): the fiber generator's seam trim.
+  * **The review** (2026-11-25) found two regressions: a trim could take a valid overlap below the catalogue's 24
+    voxels, so main's one fiber became two, and a trace only one block detects in the cut band was dropped. It
+    recommended merging once both are repaired.
+  * **The revision** (pushed and answered 2026-11-27 Pacific, head `8a7f76803`) is
+    [finding 140](../reports/afv_generator_seam_repair.md) (`REPAIR_KEEPS_THE_GAIN`). A cut end is trimmed only
+    where a neighbouring block holds a matching copy and the join survives. The review's two cases are tests in the
+    PR. The branch also merges villa main after #2434, which landed 2026-11-25; the figures predate #2434.
+  * It counts for November only if it merges by the deadline.
 
 ## Queued, not posted
 
@@ -113,6 +118,11 @@ above only once it merges, with its date:
     face crossings rise, 172 → 278 of 1,304.
   * **Form:** a PR, since it fixes villa's own active code. **Posted 2026-11-25 as villa #2711** (above), on the
     owner's decision: the trim alone, with finding 109's Scroll 1 and 5 figures.
+  * **Revised 2026-11-27** after villa's review, as [finding 140](../reports/afv_generator_seam_repair.md) measured
+    it. On the same eight Scroll-3 cubes, ERLpen rose on every cube, a median +9.0% at tolerance 4. Lost face
+    crossings were 178 against main's 172 (the first version's 278), and coverage at tolerance 4 moved a median +0.1%.
+    The median share of written length beside a same-family copy fell 0.246 → 0.176. On finding 107's zone that share
+    fell 0.120 → 0.078, and the hand-traced cube's ERLpen rose +10.2% at tolerance 4.
   * **Its case in practice** is [finding 107](../reports/afv_generator_default_zone.md) (`BITES_AT_DEFAULTS`): one
     1024³ zone of the Scroll-3 scan at villa's default block size of 512. VC3D's default zone is one block, where the
     trim changes nothing.

@@ -32,6 +32,7 @@ FINDINGS = {
     107: "afv_generator_default_zone",
     108: "afv_generator_cross_block_duplicates",
     109: "afv_generator_seam_confirmation",
+    140: "afv_generator_seam_repair",
 }
 
 
@@ -308,6 +309,26 @@ def test_the_seam_trim_case_in_practice_is_finding_107s_record():
     assert (f"ERLpen rises {g[0]:+.1f}% at tolerance 4 and {g[1]:+.1f}% at tolerance 2, with merges "
             f"{m['cube']['tol2']['merges']} → {p['cube']['tol2']['merges']} at tolerance 2 and coverage "
             f"{c:.1f}% at tolerance 4").replace("coverage -", "coverage −") in section  # fmt: skip
+
+
+def test_the_seam_trim_revision_is_finding_140s_record():
+    r = json.loads((ROOT / f"reports/{FINDINGS[140]}.json").read_text())
+    z = json.loads((ROOT / "reports/afv_generator_seam_repair_zone.json").read_text())["rows"]  # fmt: skip
+    s, section = r["scroll3"], " ".join(_section("Queued, not posted").split())
+    assert (
+        r["verdict"] == "REPAIR_KEEPS_THE_GAIN" and "(`REPAIR_KEEPS_THE_GAIN`)" in TEXT
+    )
+    assert s["up_tol4"] == s["cubes"] == 8 and "Scroll-3 cubes, ERLpen rose on every cube" in section  # fmt: skip
+    assert f"a median {100 * s['median_gain_tol4']:+.1f}% at tolerance 4" in section
+    lost, d = s["lost_crossings"], s["duplicated_share_median"]
+    assert (f"Lost face crossings were {lost['repaired']} against main's {lost['main']} (the first version's "
+            f"{lost['trim']})") in section  # fmt: skip
+    assert f"moved a median {100 * s['coverage_tol4_median_change']['repaired']:+.1f}%" in section  # fmt: skip
+    assert f"same-family copy fell {d['main']:.3f} → {d['repaired']:.3f}" in section
+    m, p = z["main"], z["repaired"]
+    g = 100 * (p["cube"]["tol4"]["erl_merge_penalized"] / m["cube"]["tol4"]["erl_merge_penalized"] - 1)  # fmt: skip
+    assert (f"that share fell {m['zone']['duplicated_share']:.3f} → {p['zone']['duplicated_share']:.3f}, and the "
+            f"hand-traced cube's ERLpen rose {g:+.1f}% at tolerance 4") in section  # fmt: skip
 
 
 def test_the_rest_of_the_seam_defect_is_finding_108s_record():
