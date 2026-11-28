@@ -2,8 +2,10 @@
 
 **REVISED 2026-11-27 after villa's review**, which found two regressions in the first version. On the owner's
 approval the repair ([finding 140](../reports/afv_generator_seam_repair.md), `REPAIR_KEEPS_THE_GAIN`) was pushed as
-head `8a7f76803`, which also merges villa main after #2434, with a new PR body and a reply to the review. This draft
-describes the first version.
+head `8a7f76803`, which also merges villa main after #2434, with a new PR body and a reply to the review. On
+2026-11-28, on the owner's approval, the body's figures became finding 140's addendum 2 (`GAIN_HOLDS_AFTER_2434`, both
+arms with #2434): six figures moved, and the "not in any figure above" caveat on #2434 was replaced. No reply was
+posted. This draft describes the first version.
 
 **POSTED 2026-11-25 as [villa #2711](https://github.com/ScrollPrize/villa/pull/2711)**, on the owner's decision: the
 trim alone (finding 108's change not bundled), with finding 109's Scroll 1 and 5 figures added to the proof, the
