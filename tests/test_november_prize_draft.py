@@ -620,3 +620,12 @@ def test_the_disclosure_lists_the_failed_predictions_as_the_reports_state_them()
     assert triage["predictions"]["2_best_place_window_on_w035"]["result"] == "w033"
     assert triage["audit_after_the_result"]["grid_only"]["best_place_rank"] == 9
     assert "a high rank on w035 predicted, 2nd found, on w033" in disclosure
+
+
+def test_the_seam_trim_revision_states_finding_140s_addendum_2():
+    d = json.loads((ROOT / f"reports/{FINDINGS[140]}_after_2434.json").read_text())
+    text = " ".join(TEXT.split())
+    assert (
+        d["verdict"] == "GAIN_HOLDS_AFTER_2434" and "(`GAIN_HOLDS_AFTER_2434`)" in text
+    )
+    assert "16 of the 22 figures the PR quotes are the same" in text

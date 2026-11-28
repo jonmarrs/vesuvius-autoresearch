@@ -215,3 +215,101 @@ After the record, villa #2711's local branch gained `53baea280`, which changes o
 review's two cases at the default block size: main's join of copies at x 100–537 and 507–770, and a 125-voxel trace
 only block 0 detects along its face at x 535. Both pass with the repair. With finding 106's trim, the first gives two
 fibers and the second loses the trace. The measured `extend/stitch.py` is unchanged.
+
+## Addendum 2: with villa #2434 in both arms (decided)
+
+Registered at afdc78dc (pushed 00:11:19 PST on 11-28), before any run with #2434. The run went from 00:24:01 to
+02:13:01 PST on 11-28, on the CPU at nice 10, in its own systemd user unit. It was run by the commands that
+`repro/fibers/run_afv_generator_seam_repair_after_2434.sh` records. Results:
+`reports/afv_generator_seam_repair_after_2434.json`, written once by the runner's record step.
+
+villa merged #2434 (joins at a shared end point, `22570d2bf`) on 11-25, after finding 140's base `9c1afbb1b`. It
+changes the catalogue, `cleanup.cut_sharp_joins` and `stitch._gap_ranges`, and both arms run through all three.
+Inputs:
+* #1934's head package with #2434's diff applied (`repro/fibers/villa_2434_on_pr1934_afv_spline_generator.patch`,
+  sha256 `d4f47ea8…`). Its four changed files are `cleanup.py` (`8a488f15…`), `extend/catalog.py` (`5310073b…`),
+  `extend/expander.py` (`b575b5d7…`) and `extend/stitch.py` (`ddd4cfd9…`). The last three are byte-identical to
+  villa `ee9198c85`'s.
+* The repaired trim, from `extend/stitch.py` at #2711's head `8a7f76803` (sha256 `60d4bc10…`).
+* Finding 140's cached fields, blocks and scoring.
+
+The gates passed. The first Scroll-3 cube (`s3_00994_00494_01994_512`) ran again as finding 140 ran it, and main,
+trim and repaired each reproduced its recorded row (ERLpen at τ = 4 37.67, 46.5 and 44.18). Before each of the
+nineteen runs (the eighteen cubes and the zone), the package and the repaired file had their registered sha256, and
+the loaded stitcher chained two splines that meet at one shared end point into one fiber, #2434's own test case.
+
+**Decision `GAIN_HOLDS_AFTER_2434`.** On Scroll 3, with #2434 in both arms, ERLpen at τ = 4 rose over main on 8 of 8
+cubes, by a median +9.0%, and 178 crossings were lost against main's 172 (the line: 190). By the registered rule, the
+"figures predate #2434" caveat can come off #2711, with these numbers. Editing the PR body or telling the review is
+the owner's decision.
+
+**#2434 changed 4 of the eighteen cubes, none by more than 0.34% in ERLpen at τ = 4.** On the other fourteen, both arms' rows equal
+finding 140's in every field. No face crossing changed on any cube.
+
+| cube | ERLpen τ = 4, main: finding 140 → with #2434 | fibers written, main | ERLpen τ = 4, repaired | fibers written, repaired | repaired over main, τ = 4 |
+|---|---|---|---|---|---|
+| `s3_00994_00494_01994_512` | 37.67 → 37.72 (+0.13%) | 639 → 640 | 44.18 → 44.23 (+0.11%) | 592 → 593 | +17.3% → +17.3% |
+| `s3_00994_02494_01494_512` | 29.72 → 29.82 (+0.34%) | 786 → 786 | 32.25 → 32.36 (+0.34%) | 745 → 745 | +8.5% → +8.5% |
+| `s1_02494_01494_03994_512` | 34.31 → 34.31 (+0.00%) | 707 → 708 | 37.93 → 37.93 (+0.00%) | 675 → 676 | +10.6% → +10.6% |
+| `s1_08994_02494_03494_512` | 46.96 → 46.86 (−0.21%) | 748 → 747 | 54.58 → 54.48 (−0.18%) | 689 → 688 | +16.2% → +16.3% |
+
+Per cube, the repair's gain over main moved by under 0.04 percentage points.
+
+**The figures villa #2711 quotes, before and with #2434**
+
+These are the figures #2711's body gives for main and the repair. The first version's figures, which it quotes for
+comparison, were not measured again.
+
+| figure, as #2711 quotes it | finding 140 | with #2434 | |
+|---|---|---|---|
+| zone: written-twice share | 0.120 → 0.078 | 0.120 → 0.078 | same |
+| zone: fibers written | 5,766 → 5,555 | 5,770 → 5,559 | moved |
+| zone's cube: ERLpen gain, τ = 4 and τ = 2 | +10.2% and +5.4% | +10.2% and +5.4% | same |
+| zone's cube: merges, τ = 2 | 92 → 92 | 92 → 92 | same |
+| zone's cube: coverage, τ = 4 | +0.6% | +0.6% | same |
+| Scroll 3: ERLpen gain, τ = 4 | +9.0% (+3.6% to +17.3%), up on 8 of 8 | +9.0% (+3.6% to +17.3%), up on 8 of 8 | same |
+| Scroll 3: ERLpen gain, τ = 2 | +5.8% (+3.2% to +14.2%), up on 8 of 8 | +5.8% (+3.2% to +14.2%), up on 8 of 8 | same |
+| Scroll 3: merges, τ = 2, summed | 439 → 433 | 439 → 433 | same |
+| Scroll 3: written-twice share, median | 0.246 → 0.176 | 0.246 → 0.176 | same |
+| Scroll 3: face crossings whole / broken / lost | 853 / 279 / 172 → 958 / 168 / 178 | 853 / 279 / 172 → 958 / 168 / 178 | same |
+| Scroll 3: coverage, τ = 4, median | 0.3287 → 0.3291 | 0.3290 → 0.3294 | moved |
+| Scroll 3: fibers written, summed | 5,236 → 4,943 | 5,237 → 4,944 | moved |
+| Scrolls 1 and 5, the four 512³ cubes: ERLpen gain, τ = 4 | +10.2% (+4.5% to +16.2%), up on 4 of 4 | +10.2% (+4.5% to +16.3%), up on 4 of 4 | moved |
+| Scrolls 1 and 5, the four 512³ cubes: ERLpen gain, τ = 2, median | +5.0% | +5.0% | same |
+| Scrolls 1 and 5, the four 512³ cubes: merges, τ = 2, summed | 277 → 277 | 278 → 278 | moved |
+| Scrolls 1 and 5, the four 512³ cubes: written-twice share, median | 0.251 → 0.180 | 0.251 → 0.180 | same |
+| Scrolls 1 and 5, all ten: ERLpen gain, τ = 4 | +11.7% (+4.5% to +19.5%), up on 10 of 10 | +11.7% (+4.5% to +19.5%), up on 10 of 10 | same |
+| Scrolls 1 and 5, all ten: ERLpen gain, τ = 2, median | +7.2% | +7.2% | same |
+| Scrolls 1 and 5, all ten: merges, τ = 2, summed | 325 → 322 | 326 → 323 | moved |
+| Scrolls 1 and 5, all ten: face crossings lost | 84 → 86 | 84 → 86 | same |
+| Scrolls 1 and 5, all ten: coverage, τ = 4, largest change | 0.6% | 0.6% | same |
+| all eighteen: most crossings lost beyond main's, per cube | 3 | 3 | same |
+
+#2711 says coverage is main's "to within 0.7%" on the ten cubes; the largest change is 0.6% in both runs.
+
+Of the 22 figures, 16 are the same at the precision #2711 quotes. Of the six that moved:
+* three summed counts rose by 1 in both arms: Scroll 3's fibers written, and merges at τ = 2 on the four 512³ cubes
+  and on all ten;
+* the zone writes 4 more fibers in each arm;
+* Scroll 3's median coverage at τ = 4 rose by 0.00025 in each arm (the table's four-place values differ by 0.0003);
+* the top of the four 512³ cubes' range crossed a rounding boundary (`s1_08994_02494_03494_512`: +16.23% → +16.26%).
+
+| prediction | registered | measured | held |
+|---|---|---|---|
+| P1 (moderate to high) | `GAIN_HOLDS_AFTER_2434` | `GAIN_HOLDS_AFTER_2434` | yes |
+| P2 (moderate) | median gain at τ = 4 on Scroll 3 within 2 percentage points of finding 140's +9.0% | +9.0% (finding 140: +9.0%) | yes |
+| P3 (low to moderate) | #2434 moves main's ERLpen at τ = 4 by under 2% at the median over the eight Scroll-3 cubes | +0.0%; 6 of 8 unchanged, the largest +0.34% | yes |
+| P4 (moderate) | the zone's written-twice share with the repaired trim at most 0.09 | 0.078 | yes |
+
+**What it shows**
+1. **On these cubes, #2434 leaves the repair's gain where it was.** P1's reason was that #2434 joins pieces whose
+   ends coincide, while the trim acts on copies that overlap. With #2434, the repair's gain over main moves by under
+   0.04 percentage points on every cube. The record does not count the joins #2434 made, so why it touches only four cubes is not measured here. The
+   gate shows its join was live in every run.
+2. **#2711's figures for main and the repair stand.** Sixteen are unchanged. The six that move change by 1 to 4 in a
+   count, or by under 0.0004 in a share or a gain. None of the six bears on a conclusion #2711 draws.
+
+**Limits**
+1. The trim as first posted (finding 106) was not run again, so the first version's figures still predate #2434.
+2. Finding 140's limits otherwise: cached fields from #1934's head, blocks of 256 and 128 (the zone at 512), and one
+   hand tracing per cube. #2434's `expander.py` change runs only with `--extend`, which no arm uses.
