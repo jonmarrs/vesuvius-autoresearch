@@ -1,0 +1,296 @@
+diff --git a/vesuvius/src/vesuvius/fiber_spline_generator/cli.py b/vesuvius/src/vesuvius/fiber_spline_generator/cli.py
+index d728f47bf..6e8de973b 100644
+--- a/vesuvius/src/vesuvius/fiber_spline_generator/cli.py
++++ b/vesuvius/src/vesuvius/fiber_spline_generator/cli.py
+@@ -332,7 +332,7 @@ def generate(args: argparse.Namespace, report: Reporter) -> dict[str, Any]:
+     network, patch = load_network(folder, device)
+     mirror = args.mirror
+ 
+-    from .extend.stitch import Stitcher
++    from .extend.stitch import Stitcher, trim_cut_ends
+ 
+     generator = {
+         "name": "vesuvius.fiber_spline_generator",
+@@ -367,13 +367,40 @@ def generate(args: argparse.Namespace, report: Reporter) -> dict[str, Any]:
+ 
+     names = {"V": "vertical", "H": "horizontal"}
+     count = len(blocks)
++    # The box the zone's blocks read together.
++    reach_low = np.maximum(np.asarray(args.origin) - BLOCK_MARGIN, 0)
++    reach_high = np.minimum(np.asarray(args.origin) + np.asarray(args.size) + BLOCK_MARGIN, shape_xyz)
+     black = None
+     if args.black_distance > 0:
+-        black = ExteriorBlack(np.maximum(np.asarray(args.origin) - BLOCK_MARGIN, 0),
+-                              np.minimum(np.asarray(args.origin) + np.asarray(args.size) + BLOCK_MARGIN, shape_xyz))
++        black = ExteriorBlack(reach_low, reach_high)
++    # Each block's splines wait, untrimmed, until every block whose read box meets its own has been
++    # fitted: trim_cut_ends drops a bent end only against a neighbour's copy of the fiber.
++    boxes = [(np.maximum(np.asarray(o) - BLOCK_MARGIN, 0), np.minimum(np.asarray(o) + np.asarray(s) + BLOCK_MARGIN, shape_xyz))
++             for o, s in blocks]
++    meets = [[j for j, (lo2, hi2) in enumerate(boxes) if j != i and np.all(lo2 < hi) and np.all(lo < hi2)]
++             for i, (lo, hi) in enumerate(boxes)]
++    ready_after = [max([i, *m]) for i, m in enumerate(meets)]
++    fitted: dict[int, list] = {}
+     with tempfile.TemporaryDirectory(prefix="afv-stitch-") as scratch:
+         stitcher = Stitcher(scratch)
++
++        def release(i: int) -> None:
++            low, high = boxes[i]
++            neighbours = [(family, np.asarray(points) + boxes[j][0][::-1], boxes[j][0][::-1], boxes[j][1][::-1])
++                          for j in meets[i] for family, points in fitted[j]]
++            traces = trim_cut_ends(fitted[i], low[::-1], high[::-1], reach_low[::-1], reach_high[::-1], neighbours)
++            report.emit("block", index=i, state="stitching")
++            stitcher.add_block(f"block-{i}", low.tolist(), (high - low).tolist(), traces,
++                               (np.asarray(blocks[i][0]), np.asarray(blocks[i][0]) + np.asarray(blocks[i][1])))
++            report.emit("block", index=i, state="stitched")
++            if args.preview_dir is not None:
++                preview = args.preview_dir.expanduser().absolute() / f"preview-{i + 1:04d}.vcobj"
++                shown = clean(stitcher.stitched(), args.max_join_angle, args.min_length)
++                write(preview, shown)
++                report.emit("preview", path=str(preview), fibers=len(shown))
++
+         try:
++            released = 0
+             for index, (origin, size) in enumerate(blocks):
+                 label = f"Block {index + 1} of {count}"
+ 
+@@ -403,18 +430,15 @@ def generate(args: argparse.Namespace, report: Reporter) -> dict[str, Any]:
+                     part = (0 if family == "V" else 1) + (done / total if total else 1)
+                     step(0.85 + 0.05 * part, f"fitting {names[family]} fibers · {done} of {total} pieces")
+ 
+-                traces = extract_splines(probabilities, threshold, spline_progress)
++                fitted[index] = extract_splines(probabilities, threshold, spline_progress)
+                 del probabilities
+-                report.emit("block", index=index, state="stitching")
+-                step(0.95, f"joining {len(traces)} fibers to the neighbouring blocks")
+-                stitcher.add_block(f"block-{index}", low.tolist(), (high - low).tolist(), traces,
+-                                   (np.asarray(origin), np.asarray(origin) + np.asarray(size)))
+-                report.emit("block", index=index, state="stitched")
+-                if args.preview_dir is not None:
+-                    preview = args.preview_dir.expanduser().absolute() / f"preview-{index + 1:04d}.vcobj"
+-                    shown = clean(stitcher.stitched(), args.max_join_angle, args.min_length)
+-                    write(preview, shown)
+-                    report.emit("preview", path=str(preview), fibers=len(shown))
++                step(0.95, f"joining {len(fitted[index])} fibers to the neighbouring blocks")
++                while released < count and ready_after[released] <= index:
++                    release(released)
++                    released += 1
++                    for j in range(released):  # splines no block still waiting needs
++                        if j in fitted and all(k < released for k in [j, *meets[j]]):
++                            del fitted[j]
+             del network
+             if device.type == "cuda":
+                 torch.cuda.empty_cache()
+diff --git a/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py b/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py
+index b540d1754..42c5f629f 100644
+--- a/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py
++++ b/vesuvius/src/vesuvius/fiber_spline_generator/extend/stitch.py
+@@ -17,18 +17,117 @@ from scipy.spatial import cKDTree
+ from .candidates import bridge, collect
+ from .catalog import Catalog, point_count
+ from .expander import Expander
++from .overlap import MIN_OVERLAP
+ 
+ RADIUS = 40
+ MIN_SCORE = .9
+ MIN_MARGIN = .15
+ MIN_LENGTH = 8.
+ FAMILIES = {"V": 0, "H": 1}
++# A block's splines bend over their last few voxels where its border cuts a
++# fiber, enough to fail the overlap and duplicate tests of the catalogue.
++# Such an end is dropped where another block of the zone reads past the
++# border and has its own copy of the fiber there: a spline of the same family
++# within MATCH_RADIUS voxels of MATCH_SHARE of the dropped points. The end is
++# kept when no other block has such a copy, and when dropping the cut ends of
++# both copies would leave them less than KEEP_OVERLAP voxels of shared length,
++# so the trim never removes geometry or a join that main keeps. CUT_END is half
++# the CLI's 32-voxel block margin.
++CUT_END = 16.
++MATCH_RADIUS = 3.
++MATCH_SHARE = .8
++SHARED_RADIUS = 2.
++KEEP_OVERLAP = MIN_OVERLAP + 4.
+ 
+ 
+ def _length(points):
+     return float(np.linalg.norm(np.diff(points, axis=0), axis=1).sum())
+ 
+ 
++def _kept_range(absolute, low, high, reach_low, reach_high, distance):
++    """First and end index of the points kept when both cut ends of a spline read
++    from ``low`` to ``high`` (absolute ZYX) are dropped. An end at the zone's reach is kept."""
++    cut = np.zeros(len(absolute), dtype=bool)
++    outer = np.zeros(len(absolute), dtype=bool)
++    for axis in range(3):
++        if low[axis] > reach_low[axis]:
++            cut |= absolute[:, axis] - low[axis] < distance
++        else:
++            outer |= absolute[:, axis] - reach_low[axis] < 2
++        if high[axis] < reach_high[axis]:
++            cut |= high[axis] - 1 - absolute[:, axis] < distance
++        else:
++            outer |= reach_high[axis] - 1 - absolute[:, axis] < 2
++    kept = np.flatnonzero(~cut)
++    first = 0 if not cut[0] or outer[0] else (kept[0] if len(kept) else len(absolute))
++    last = len(absolute) if not cut[-1] or outer[-1] else (kept[-1] + 1 if len(kept) else 0)
++    return first, last
++
++
++def _shared_length(points, tree):
++    """Length of the polyline ``points`` whose segments lie within SHARED_RADIUS of ``tree``'s points."""
++    if len(points) < 2:
++        return 0.
++    near = np.isfinite(tree.query(points, distance_upper_bound=SHARED_RADIUS)[0])
++    steps = np.linalg.norm(np.diff(points, axis=0), axis=1)
++    return float(steps[near[:-1] & near[1:]].sum())
++
++
++def trim_cut_ends(traces: Iterable[tuple[str, np.ndarray]], low_zyx: Sequence[int], high_zyx: Sequence[int],
++                  reach_low_zyx: Sequence[int], reach_high_zyx: Sequence[int],
++                  neighbours: Iterable[tuple[str, np.ndarray, Sequence[int], Sequence[int]]] = (),
++                  distance: float = CUT_END) -> list[tuple[str, np.ndarray]]:
++    """``traces`` of a block read from ``low_zyx`` to ``high_zyx``, in block-local ZYX points, with
++    the ends a border of the block bends dropped where a neighbouring block has its own copy (see
++    CUT_END). ``neighbours`` are the untrimmed splines of the zone's other blocks, each as family,
++    absolute ZYX points and the low and high ZYX corners of the box its block reads. The zone's
++    blocks read from ``reach_low_zyx`` to ``reach_high_zyx`` together. A trimmed spline left shorter
++    than MIN_LENGTH is kept whole."""
++    low, high, reach_low, reach_high = (np.asarray(v, dtype=float)
++                                        for v in (low_zyx, high_zyx, reach_low_zyx, reach_high_zyx))
++    others = {}
++    for family, points, other_low, other_high in neighbours:
++        points = np.asarray(points, dtype=np.float64)
++        first, last = _kept_range(points, np.asarray(other_low, float), np.asarray(other_high, float),
++                                  reach_low, reach_high, distance)
++        others.setdefault(family, []).append((points, points[first:last]))
++    trees = {}
++    for family, rows in others.items():
++        owner = np.concatenate([np.full(len(p), i) for i, (p, _) in enumerate(rows)])
++        trees[family] = (cKDTree(np.concatenate([p for p, _ in rows])), owner)
++    result = []
++    for family, line in traces:
++        points = np.asarray(line, dtype=np.float64)
++        absolute = points + low
++        first, last = _kept_range(absolute, low, high, reach_low, reach_high, distance)
++        if family not in trees or last - first < 2 or _length(points[first:last]) < MIN_LENGTH:
++            result.append((family, points))
++            continue
++        tree, owner = trees[family]
++        kept_tree = cKDTree(absolute[first:last])
++        keep = []
++        for dropped in (absolute[:first], absolute[last:][::-1]):
++            if len(dropped) == 0:
++                keep.append(False)
++                continue
++            dist, index = tree.query(dropped, distance_upper_bound=MATCH_RADIUS)
++            hit = np.isfinite(dist)
++            copy = False
++            for candidate in np.unique(owner[index[hit]]):
++                if np.mean(hit & (owner[np.minimum(index, len(owner) - 1)] == candidate)) < MATCH_SHARE:
++                    continue
++                _, other_kept = others[family][candidate]
++                if len(other_kept) >= 2 and min(_shared_length(other_kept, kept_tree),
++                                                _shared_length(absolute[first:last], cKDTree(other_kept))) >= KEEP_OVERLAP:
++                    copy = True
++                    break
++            keep.append(not copy)
++        start = 0 if keep[0] else first
++        stop = len(points) if keep[1] else last
++        result.append((family, points[start:stop]))
++    return result
++
++
+ class _Frozen:
+     """Read access to a catalogue that no longer changes, decoding each chain and source once."""
+ 
+diff --git a/vesuvius/tests/fiber_spline_generator/test_stitch.py b/vesuvius/tests/fiber_spline_generator/test_stitch.py
+index bebc6086f..45b918801 100644
+--- a/vesuvius/tests/fiber_spline_generator/test_stitch.py
++++ b/vesuvius/tests/fiber_spline_generator/test_stitch.py
+@@ -3,7 +3,7 @@ import numpy as np
+ from vesuvius.fiber_spline_generator.cli import GAP_MODEL
+ from vesuvius.fiber_spline_generator.extend.ct_support import CTSupport
+ from vesuvius.fiber_spline_generator.extend.gap_model import Predictor, geometry_features
+-from vesuvius.fiber_spline_generator.extend.stitch import Stitcher
++from vesuvius.fiber_spline_generator.extend.stitch import Stitcher, trim_cut_ends
+ 
+ SHAPE_XYZ = (320, 96, 96)
+ 
+@@ -56,6 +56,77 @@ def test_overlapping_splines_of_neighbouring_blocks_become_one_fiber(tmp_path):
+     assert np.abs(points[:, 1:] - 48).max() < 1e-3
+ 
+ 
++def hooked(points, x, offset=1.6, over=4.):
++    """``points`` bent sideways over their last ``over`` voxels before ``x``, as a block border bends a spline."""
++    bent = points.copy()
++    bent[:, 1] += offset * np.clip(1 - np.abs(bent[:, 2] - x) / over, 0, None) ** 2
++    return bent
++
++
++# Two blocks of a zone filling the 320-voxel volume along x: block 0 owns x < 160 and reads x 0..192, block 1 owns
++# x >= 160 and reads x 128..320. Each block's splines are block-local ZYX; neighbours are absolute.
++READS = {"block-0": ((0, 0, 0), (96, 96, 192)), "block-1": ((0, 0, 128), (96, 96, 320))}
++REACH = ((0, 0, 0), (96, 96, 320))
++
++
++def trimmed(name, spline, other_name, other_spline):
++    """``spline`` (absolute ZYX) of block ``name``, trimmed against ``other_spline`` of the other block."""
++    low, high = READS[name]
++    other_low, other_high = READS[other_name]
++    (family, kept), = trim_cut_ends([("V", spline - np.asarray(low))], low, high, *REACH,
++                                    [("V", other_spline, other_low, other_high)])
++    return kept + np.asarray(low)
++
++
++def stitch(tmp_path, block0, block1):
++    stitcher = Stitcher(tmp_path)
++    try:
++        stitcher.add_block("block-0", [0, 0, 0], [192, 96, 96], [("V", block0)], (np.zeros(3), np.array([160, 96, 96])))
++        stitcher.add_block("block-1", [128, 0, 0], [192, 96, 96], [("V", block1 - [0, 0, 128])],
++                           (np.array([160, 0, 0]), np.array([320, 96, 96])))
++        return list(stitcher.chains())
++    finally:
++        stitcher.close()
++
++
++def test_a_fiber_bent_at_both_block_borders_becomes_one_fiber_once_the_cut_ends_are_trimmed(tmp_path):
++    a, b = hooked(line(20, 191), 191), hooked(line(129, 298), 129)
++    assert len(stitch(tmp_path / "main", a, b)) == 2
++    a2, b2 = trimmed("block-0", a, "block-1", b), trimmed("block-1", b, "block-0", a)
++    assert np.isclose(a2[:, 2].max(), 175) and np.isclose(b2[:, 2].min(), 144)
++    fibers = stitch(tmp_path / "trimmed", a2, b2)
++    assert len(fibers) == 1
++    assert np.isclose(fibers[0]["points"][:, 0].min(), 20) and np.isclose(fibers[0]["points"][:, 0].max(), 298)
++
++
++def test_an_end_is_kept_when_trimming_would_leave_the_copies_too_little_overlap(tmp_path):
++    # Block 1's copy starts late, at x 160: untrimmed, the copies share 28 voxels and join, as on main. Trimming
++    # block 0's end at x 176 would leave them 15.5, under the catalogue's 24, so the end is kept.
++    a, b = line(20, 188), line(160, 298)
++    assert np.array_equal(trimmed("block-0", a, "block-1", b), a)
++    assert np.array_equal(trimmed("block-1", b, "block-0", a), b)
++    assert len(stitch(tmp_path, a, b)) == 1
++
++
++def test_an_end_no_neighbouring_block_detects_is_kept():
++    # Only block 0 sees this fiber's end in the cut band: block 1's spline runs 20 voxels away.
++    a, elsewhere = line(20, 190), line(130, 298, y=68.0)
++    assert np.array_equal(trimmed("block-0", a, "block-1", elsewhere), a)
++    # A trace lying wholly in the cut band, along the block face, is kept whatever the neighbour holds.
++    along = np.stack([np.full(125, 48.0), np.linspace(-0.5, 61.5, 125) + 17, np.full(125, 185.0)], axis=1)
++    assert np.array_equal(trimmed("block-0", along, "block-1", line(130, 298)), along)
++
++
++def test_only_ends_cut_by_a_border_another_block_reads_past_are_trimmed():
++    # Block 1's low x end has block 0's copy beside it: trimmed. Its high x end lies at the volume's border: kept.
++    b = trimmed("block-1", line(129, 319), "block-0", line(20, 191))
++    assert np.isclose(b[:, 2].min(), 144) and np.isclose(b[:, 2].max(), 319)
++    # A one-block zone at x 64..192 of a 320-voxel volume reads x 32..224: no other block reads past either border.
++    low, high = (0, 0, 32), (96, 96, 224)
++    (_, kept), = trim_cut_ends([("V", line(1, 191))], low, high, reach_low_zyx=low, reach_high_zyx=high)
++    assert np.array_equal(kept, line(1, 191))
++
++
+ def test_a_short_aligned_gap_is_joined_by_the_catalogue(tmp_path):
+     fibers = whole(tmp_path, [("V", line(10, 130)), ("V", line(146, 290))], np.zeros(SHAPE_XYZ[::-1], np.uint8))
+     assert len(fibers) == 1 and fibers[0]["gaps"] == [[240, 241]]

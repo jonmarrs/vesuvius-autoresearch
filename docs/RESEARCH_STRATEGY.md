@@ -616,6 +616,17 @@ Not verified for this review: how PHerc. 306B was won, and the organizers' First
   size are the comparable figure. Coverage at τ = 4 is below main's on all ten, by a median 2.3%, and more face
   crossings are lost than on main (125 against 84 of 910). No cube ran at villa's default block size of 512, and
   nothing here measures reading. Any villa PR is the owner's decision.
+- [Finding 140](../reports/afv_generator_seam_repair.md) (2026-11-27, registered) measured the seam trim repaired as
+  villa's review of #2711 asked. A cut end is dropped only against a neighbouring block's matching copy, and only if
+  the two copies keep the catalogue's overlap. The measurement used findings 106's and 109's cached fields. On Scroll
+  3, ERLpen at τ = 4 rose over main on 8 of 8 cubes, by a median +9.0% (the posted trim: +12.8%), with 178 face
+  crossings lost against main's 172 (the posted trim: 278): `REPAIR_KEEPS_THE_GAIN`. Coverage was main's to within
+  0.7% on all eighteen cubes. On Scrolls 1 and 5 the gain was 10 of 10, median +11.7%. The repair keeps a median 0.72
+  and 0.57 of the trim's gain, and more same-family copies (written-twice share 0.176 on Scroll 3; P3's 0.15 failed).
+  Addendum 1 (described) ran finding 107's 1024³ zone at the default block size. The cube's ERLpen at τ = 4 rose
+  +10.2% (the trim: +16.0%), and the zone's written-twice share fell from 0.120 to 0.078 (the trim: 0.052). On a
+  multi-block zone, VC3D's live previews wait until a block's neighbours are fitted. Pushing the repair to #2711
+  and replying to the review are the owner's decisions.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013
