@@ -1,7 +1,7 @@
 """``staged_file`` names its staging sibling after the output, and short enough for any valid name.
 
 #579 renamed every staged file ``.staged-*``. The leftover checks that look for ``.{stem}-*`` beside an output
-then matched nothing, and 21 tests in six files stopped checking cleanup. A full-length stem, the name before
+then matched nothing, and 20 tests in five files stopped checking cleanup. A full-length stem, the name before
 #579, breaks a 239-character artifact stem (errno 36): the prefix keeps the stem's first 64 characters.
 """
 
