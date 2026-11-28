@@ -244,7 +244,17 @@ def test_mesh_failure_leaves_no_partial_file(tmp_path, monkeypatch, failure):
     elif failure == "metadata":
         monkeypatch.setattr(mesher.json, "dumps", fail)
     elif failure == "rename":
-        monkeypatch.setattr(Path, "rename", fail)
+        # The publisher moves the staged mesh into place with Path.replace (since #579) or
+        # Path.rename: fail whichever one targets the output.
+        for method in ("rename", "replace"):
+            original = getattr(Path, method)
+
+            def fail_publication(path, destination, original=original):
+                if Path(destination) == output:
+                    raise OSError("injected failure")
+                return original(path, destination)
+
+            monkeypatch.setattr(Path, method, fail_publication)
     else:
         original_open = Path.open
 
