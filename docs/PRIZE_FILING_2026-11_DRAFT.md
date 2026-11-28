@@ -87,7 +87,9 @@ above only once it merges, with its date:
   * **The revision** (pushed and answered 2026-11-27 Pacific, head `8a7f76803`) is
     [finding 140](../reports/afv_generator_seam_repair.md) (`REPAIR_KEEPS_THE_GAIN`). A cut end is trimmed only
     where a neighbouring block holds a matching copy and the join survives. The review's two cases are tests in the
-    PR. The branch also merges villa main after #2434, which landed 2026-11-25; the figures predate #2434.
+    PR. The branch also merges villa main after #2434, which landed 2026-11-25. The figures were measured before
+    #2434; finding 140's addendum 2 measured both arms again with it (`GAIN_HOLDS_AFTER_2434`), and 16 of the 22
+    figures the PR quotes are the same, while six move by 1 to 4 in a count or by under 0.0004.
   * It counts for November only if it merges by the deadline.
 
 ## Queued, not posted

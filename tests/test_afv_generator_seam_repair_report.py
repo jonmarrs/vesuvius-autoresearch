@@ -370,3 +370,261 @@ def test_the_strategy_paragraph_states_the_zone_addendum():
     assert f"rose {g(q)} (the trim: {g(p)})" in t
     assert (f"fell from {m['zone']['duplicated_share']:.3f} to {q['zone']['duplicated_share']:.3f} "
             f"(the trim: {p['zone']['duplicated_share']:.3f})") in t  # fmt: skip
+
+
+# Addendum 2: main and the repair again, with villa #2434 in both arms.
+
+AFTER = ROOT / "reports/afv_generator_seam_repair_after_2434.json"
+ZONE = ROOT / "reports/afv_generator_seam_repair_zone.json"
+PAIR = ("main", "repaired")
+
+
+def after() -> dict:
+    return json.loads(AFTER.read_text())
+
+
+def addendum2() -> str:
+    return flat().split("## Addendum 2", 1)[1]
+
+
+def body_figures(cubes: dict, zone: dict) -> dict[str, str]:
+    """Each figure villa #2711's body quotes for main and the repair, from one record's cubes and zone rows."""
+    s3, cf = cubes["scroll3"], cubes["confirm"]
+    big = {c: r for c, r in cf.items() if r["size"] == 512}
+    med = statistics.median
+
+    def g(cs, tol="tol4"):
+        return [gain(r["rows"], "repaired", "main", tol) for r in cs.values()]
+
+    def spread_up(cs, tol):
+        x = g(cs, tol)
+        return f"{pct(med(x))} ({pct(min(x))} to {pct(max(x))}), up on {sum(v > 0 for v in x)} of {len(x)}"
+
+    def arrow(f):
+        return " → ".join(f(a) for a in PAIR)
+
+    def total(cs, f):
+        return arrow(lambda a: f"{sum(f(r['rows'][a]) for r in cs.values()):,}")
+
+    def cov(cs):
+        return [r["rows"]["repaired"]["tol4"]["coverage"] / r["rows"]["main"]["tol4"]["coverage"] - 1
+                for r in cs.values()]  # fmt: skip
+
+    zc = {a: zone[a]["cube"] for a in PAIR}
+    lost = [r["rows"]["repaired"]["crossings"]["lost"] - r["rows"]["main"]["crossings"]["lost"]
+            for s in (s3, cf) for r in s.values()]  # fmt: skip
+    return {
+        "zone: written-twice share": arrow(lambda a: f"{zone[a]['zone']['duplicated_share']:.3f}"),
+        "zone: fibers written": arrow(lambda a: f"{zone[a]['zone']['written']:,}"),
+        "zone's cube: ERLpen gain, τ = 4 and τ = 2": " and ".join(
+            pct(zc["repaired"][t]["erl_merge_penalized"] / zc["main"][t]["erl_merge_penalized"] - 1)
+            for t in ("tol4", "tol2")),
+        "zone's cube: merges, τ = 2": arrow(lambda a: str(zc[a]["tol2"]["merges"])),
+        "zone's cube: coverage, τ = 4": pct(zc["repaired"]["tol4"]["coverage"] / zc["main"]["tol4"]["coverage"] - 1),
+        "Scroll 3: ERLpen gain, τ = 4": spread_up(s3, "tol4"),
+        "Scroll 3: ERLpen gain, τ = 2": spread_up(s3, "tol2"),
+        "Scroll 3: merges, τ = 2, summed": total(s3, lambda r: r["tol2"]["merges"]),
+        "Scroll 3: written-twice share, median": arrow(
+            lambda a: f"{med(r['rows'][a]['duplicated_share'] for r in s3.values()):.3f}"),
+        "Scroll 3: face crossings whole / broken / lost": arrow(lambda a: " / ".join(
+            str(sum(r["rows"][a]["crossings"][k] for r in s3.values())) for k in ("whole", "broken", "lost"))),
+        "Scroll 3: coverage, τ = 4, median": arrow(
+            lambda a: f"{med(r['rows'][a]['tol4']['coverage'] for r in s3.values()):.4f}"),
+        "Scroll 3: fibers written, summed": total(s3, lambda r: r["written"]),
+        "Scrolls 1 and 5, the four 512³ cubes: ERLpen gain, τ = 4": spread_up(big, "tol4"),
+        "Scrolls 1 and 5, the four 512³ cubes: ERLpen gain, τ = 2, median": pct(med(g(big, "tol2"))),
+        "Scrolls 1 and 5, the four 512³ cubes: merges, τ = 2, summed": total(big, lambda r: r["tol2"]["merges"]),
+        "Scrolls 1 and 5, the four 512³ cubes: written-twice share, median": arrow(
+            lambda a: f"{med(r['rows'][a]['duplicated_share'] for r in big.values()):.3f}"),
+        "Scrolls 1 and 5, all ten: ERLpen gain, τ = 4": spread_up(cf, "tol4"),
+        "Scrolls 1 and 5, all ten: ERLpen gain, τ = 2, median": pct(med(g(cf, "tol2"))),
+        "Scrolls 1 and 5, all ten: merges, τ = 2, summed": total(cf, lambda r: r["tol2"]["merges"]),
+        "Scrolls 1 and 5, all ten: face crossings lost": total(cf, lambda r: r["crossings"]["lost"]),
+        "Scrolls 1 and 5, all ten: coverage, τ = 4, largest change": f"{100 * max(abs(v) for v in cov(cf)):.1f}%",
+        "all eighteen: most crossings lost beyond main's, per cube": str(max(lost)),
+    }  # fmt: skip
+
+
+def figure_pairs() -> list[tuple[str, str, str]]:
+    f140 = record()["cubes"]
+    zone = json.loads(ZONE.read_text())["rows"]
+    d = after()
+    old, new = body_figures(f140, zone), body_figures(d["cubes"], d["zone"])
+    return [(k, old[k], new[k]) for k in old]
+
+
+def changed_cubes() -> dict[str, dict[str, tuple]]:
+    f140, d = record()["cubes"], after()["cubes"]
+    return {c: {a: (f140[s][c]["rows"][a], r["rows"][a]) for a in PAIR}
+            for s in d for c, r in d[s].items()
+            if any(f140[s][c]["rows"][a] != r["rows"][a] for a in PAIR)}  # fmt: skip
+
+
+def test_addendum_2_verdict_is_the_registered_rule_applied_to_its_record():
+    d, f140, t = after(), record(), addendum2()
+    assert (d["finding"], d["addendum"]) == (140, 2)
+    assert d["problems"] == [] and d["missing"] == []
+    assert d["verdict"] == sr.verdict2434(d["scroll3"]) == "GAIN_HOLDS_AFTER_2434"
+    for s in ("scroll3", "confirm"):
+        assert set(d["cubes"][s]) == set(sr.SETS[s][0])
+        assert d[s] == sr.summary2434(d["cubes"][s], f140["cubes"][s])
+    assert d["lines"] == {"up": sr.UP_LINE, "keep_median": sr.KEEP_MEDIAN, "lose_median": sr.LOSE_MEDIAN,
+                          "lost_margin": sr.LOST_MARGIN} == {"up": 7, "keep_median": 0.06, "lose_median": 0.03,
+                                                             "lost_margin": 18}  # fmt: skip
+    package = {"repaired_stitch": sr.REPAIRED_HEAD_SHA256, **sr.PACKAGE_2434_SHA256}
+    assert d["sha256"] == {"patch_2434": sr.PATCH_2434_SHA256, **package}
+    for s in d["cubes"].values():
+        for r in s.values():
+            assert r["addendum"] == 2 and r["sha256"] == package
+    for short in (
+        sr.PATCH_2434_SHA256,
+        sr.REPAIRED_HEAD_SHA256,
+        *sr.PACKAGE_2434_SHA256.values(),
+    ):
+        assert f"`{short[:8]}…`" in t
+    s3 = d["scroll3"]
+    assert f"**Decision `{d['verdict']}`.**" in t
+    assert (f"ERLpen at τ = 4 rose over main on {s3['up_tol4']} of 8 cubes, by a median {pct(s3['median_gain_tol4'])}, "
+            f"and {s3['lost_crossings']['repaired']} crossings were lost against main's {s3['lost_crossings']['main']} "
+            f"(the line: {s3['lost_crossings']['main'] + sr.LOST_MARGIN})") in t  # fmt: skip
+
+
+def test_addendum_2_gate_cube_reproduced_finding_140s_rows():
+    t = addendum2()
+    rows = record()["cubes"]["scroll3"][sr.GATE_CUBE]["rows"]
+    erl = ", ".join(str(rows[a]["tol4"]["erl_merge_penalized"]) for a in ARMS)
+    assert f"(`{sr.GATE_CUBE}`) ran again as finding 140 ran it" in t
+    assert f"ERLpen at τ = 4 {erl.rsplit(', ', 1)[0]} and {erl.rsplit(', ', 1)[1]}" in t
+
+
+def test_addendum_2_changed_cubes_are_the_two_records():
+    t, changed = addendum2(), changed_cubes()
+    assert (
+        len(changed) == 4 and f"#2434 changed {len(changed)} of the eighteen cubes" in t
+    )
+    biggest = max(abs(new["tol4"]["erl_merge_penalized"] / old["tol4"]["erl_merge_penalized"] - 1)
+                  for arms in changed.values() for old, new in arms.values())  # fmt: skip
+    assert 0.0033 < biggest < 0.0035 and "none by more than 0.34%" in t
+    assert all(
+        old["crossings"] == new["crossings"]
+        for arms in changed.values()
+        for old, new in arms.values()
+    )
+    assert "No face crossing changed on any cube." in t
+    for c, arms in changed.items():
+        cells = []
+        for a in PAIR:
+            old, new = arms[a]
+            change = (
+                new["tol4"]["erl_merge_penalized"] / old["tol4"]["erl_merge_penalized"]
+                - 1
+            )
+            cells += [f"{old['tol4']['erl_merge_penalized']} → {new['tol4']['erl_merge_penalized']} "
+                      f"({100 * change:+.2f}%)".replace("-", "−"), f"{old['written']} → {new['written']}"]  # fmt: skip
+        g = [gain({a: arms[a][i] for a in PAIR}, "repaired", "main") for i in (0, 1)]
+        assert (
+            f"| `{c}` | " + " | ".join(cells) + f" | {pct(g[0])} → {pct(g[1])} |" in t
+        ), c
+
+
+def test_addendum_2_figure_table_is_both_records():
+    t, pairs = addendum2(), figure_pairs()
+    for label, old, new in pairs:
+        assert (
+            f"| {label} | {old} | {new} | {'same' if old == new else 'moved'} |" in t
+        ), label
+    moved = sum(old != new for _, old, new in pairs)
+    assert (
+        moved == 6
+        and f"Of the {len(pairs)} figures, {len(pairs) - moved} are the same" in t
+    )
+    # The prose on the six that moved, from the records.
+    f140, d = record()["cubes"], after()
+    zone140 = json.loads(ZONE.read_text())["rows"]
+    big = [c for c, r in d["cubes"]["confirm"].items() if r["size"] == 512]
+
+    def summed(s, f, cubes=None):
+        return {a: sum(f(d["cubes"][s][c]["rows"][a]) - f(f140[s][c]["rows"][a]) for c in (cubes or d["cubes"][s]))
+                for a in PAIR}  # fmt: skip
+
+    assert summed("scroll3", lambda r: r["written"]) == {"main": 1, "repaired": 1}
+    assert summed("confirm", lambda r: r["tol2"]["merges"], big) == {
+        "main": 1,
+        "repaired": 1,
+    }
+    assert summed("confirm", lambda r: r["tol2"]["merges"]) == {
+        "main": 1,
+        "repaired": 1,
+    }
+    assert all(
+        d["zone"][a]["zone"]["written"] - zone140[a]["zone"]["written"] == 4
+        for a in PAIR
+    )
+    for a in PAIR:
+        cov = [statistics.median(x["cubes"]["scroll3"][c]["rows"][a]["tol4"]["coverage"]
+                                 for c in d["cubes"]["scroll3"]) for x in ({"cubes": f140}, d)]  # fmt: skip
+        assert round(cov[1] - cov[0], 5) == 0.00025
+    assert "median coverage at τ = 4 rose by 0.00025 in each arm" in t
+    top = "s1_08994_02494_03494_512"
+    g = [
+        gain(x[top]["rows"], "repaired", "main")
+        for x in (f140["confirm"], d["cubes"]["confirm"])
+    ]
+    assert f"(`{top}`: {100 * g[0]:+.2f}% → {100 * g[1]:+.2f}%)" in t
+    shifts = [abs(gain(r["rows"], "repaired", "main") - gain(f140[s][c]["rows"], "repaired", "main"))
+              for s in d["cubes"] for c, r in d["cubes"][s].items()]  # fmt: skip
+    assert 0.0003 < max(shifts) < 0.0004
+    assert (
+        "moved by under 0.04 percentage points" in t
+        and "or by under 0.0004 in a share or a gain" in t
+    )
+
+
+def test_addendum_2_predictions_table_is_the_registration_applied_to_the_record():
+    reg, t, d = flat(REGISTRATION), addendum2(), after()
+    for claim in ("1. `GAIN_HOLDS_AFTER_2434`. Moderate to high confidence",
+                  "lies within 2 percentage points of finding 140's +9.0%",
+                  "by under 2% at the median over the eight Scroll-3 cubes",
+                  "the written-twice share with the repaired trim is at most 0.09"):  # fmt: skip
+        assert claim in reg, claim
+    s3, f140 = d["scroll3"], record()["scroll3"]
+    main_moves = [d["cubes"]["scroll3"][c]["rows"]["main"]["tol4"]["erl_merge_penalized"]
+                  / record()["cubes"]["scroll3"][c]["rows"]["main"]["tol4"]["erl_merge_penalized"] - 1
+                  for c in d["cubes"]["scroll3"]]  # fmt: skip
+    zone_dup = d["zone"]["repaired"]["zone"]["duplicated_share"]
+    rows = [
+        ("P1", f"`{d['verdict']}`", d["verdict"] == "GAIN_HOLDS_AFTER_2434"),
+        ("P2", f"{pct(s3['median_gain_tol4'])} (finding 140: {pct(f140['median_gain_tol4'])})",
+         abs(s3["median_gain_tol4"] - f140["median_gain_tol4"]) <= 0.02),
+        ("P3", f"{pct(s3['main_change_from_2434_tol4_median'])}; {sum(m == 0 for m in main_moves)} of 8 unchanged, "
+               f"the largest {100 * max(main_moves, key=abs):+.2f}%",
+         abs(s3["main_change_from_2434_tol4_median"]) < 0.02),
+        ("P4", f"{zone_dup:.3f}", zone_dup <= 0.09),
+    ]  # fmt: skip
+    for name, measured, held in rows:
+        assert f"| {name} " in t
+        assert f"| {measured} | {'yes' if held else 'no'} |" in t, name
+    assert all(held for *_, held in rows)
+
+
+def test_the_strategy_paragraph_states_addendum_2():
+    d = after()
+    t = (
+        flat(ROOT / "docs/RESEARCH_STRATEGY.md")
+        .split("[Finding 140]", 1)[1]
+        .split("- [Finding", 1)[0]
+    )
+    pairs = figure_pairs()
+    assert f"`{d['verdict']}`" in t
+    assert (
+        f"#2434 changed {len(changed_cubes())} of the eighteen cubes, none by more than 0.34%"
+        in t
+    )
+    assert (
+        f"{len(pairs) - sum(o != n for _, o, n in pairs)} of the {len(pairs)} figures"
+        in t
+    )
+    assert (
+        f"(written-twice share {d['zone']['repaired']['zone']['duplicated_share']:.3f} on the zone)"
+        in t
+    )

@@ -625,8 +625,11 @@ Not verified for this review: how PHerc. 306B was won, and the organizers' First
   and 0.57 of the trim's gain, and more same-family copies (written-twice share 0.176 on Scroll 3; P3's 0.15 failed).
   Addendum 1 (described) ran finding 107's 1024³ zone at the default block size. The cube's ERLpen at τ = 4 rose
   +10.2% (the trim: +16.0%), and the zone's written-twice share fell from 0.120 to 0.078 (the trim: 0.052). On a
-  multi-block zone, VC3D's live previews wait until a block's neighbours are fitted. Pushing the repair to #2711
-  and replying to the review are the owner's decisions.
+  multi-block zone, VC3D's live previews wait until a block's neighbours are fitted. The repair went to #2711 on
+  11-27. Addendum 2 (registered) ran main and the repair again with villa #2434 (joins at a shared end point) in both
+  arms: `GAIN_HOLDS_AFTER_2434`. #2434 changed 4 of the eighteen cubes, none by more than 0.34%, and 16 of the 22
+  figures #2711 quotes are the same (written-twice share 0.078 on the zone); the other six move by 1 to 4 in a count
+  or by under 0.0004. Taking #2711's "figures predate #2434" caveat off is the owner's decision.
 - [Finding 103](../reports/seed_heading_confirmation.md) (2026-11-03, registered) traced the queued seed-heading fix
   on the ten fiber-skeletons cubes that ScrollGT does not ship. None skipped 20% of its dots (the most, 0.167), so
   the coverage gain went untested and still rests on finding 100's two Scroll-5 cubes. The fix cost at most 0.013
